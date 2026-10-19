@@ -213,6 +213,22 @@ export async function scan(root, { activeMs = Infinity, nowMs = Date.now(), fs: 
 }
 
 /**
+ * One main transcript and its subagent files (replay mode, P3): FileRef[] ordered main, sub, wf, then by path.
+ * The sub/wf files live in `<dir>/<stem>/subagents/` next to the main file; a lone file is fine.
+ * Throws when the main file is missing or not a regular file.
+ */
+export async function sessionRefs(mainPath, { fs: fsApi = fsp } = {}) {
+  const full = path.resolve(mainPath);
+  const st = await fsApi.stat(full);
+  if (!st.isFile()) throw Object.assign(new Error('replay target is not a file'), { code: 'EISDIR' });
+  const projectDir = path.dirname(full);
+  const stem = path.basename(full, '.jsonl');
+  const main = makeRef(full, 'main', { stem, sessionId: stem, projectDir }, st);
+  const agents = await scanSessionDir(fsApi, projectDir, stem);
+  return [main, ...agents.sort((a, b) => (KIND_ORDER[a.kind] - KIND_ORDER[b.kind]) || (a.path < b.path ? -1 : 1))];
+}
+
+/**
  * agent-<id>.jsonl -> sibling agent-<id>.meta.json parsed as a plain object.
  * Missing (normal: the meta can appear seconds after the jsonl), partial, invalid or non-object -> null.
  */

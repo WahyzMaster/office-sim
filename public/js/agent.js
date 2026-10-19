@@ -286,7 +286,8 @@ export class Agent {
 
   finish(it) {
     if (it.kind === 'ask') {
-      this.bubble(it.denied ? 'denied' : 'info', it.denied ? '거절됨' : it.closed ? '질문 닫힘' : '답변 받음', 1.8);
+      if (it.error) this.panic(it.error, 'failed'); // 승인된 뒤 실행이 실패했다
+      else this.bubble(it.denied ? 'denied' : 'info', it.denied ? '거절됨' : it.closed ? '질문 닫힘' : it.approval ? '승인됨' : '답변 받음', 1.8);
       this.office.onAsk(this, false);
     }
     if (this.mode !== 'idle') this.mode = 'idle';
@@ -303,7 +304,8 @@ export class Agent {
     if (it.kind === 'ask') {
       it.answered = true;
       it.closed = ev.errorKind === 'abandoned';
-      it.denied = !ev.ok && !it.closed;
+      it.denied = !ev.ok && !it.closed && !(it.approval && ev.errorKind === 'failed');
+      if (it.approval && ev.errorKind === 'failed') it.error = ev.error || '도구 실행 실패';
       // 아직 줄에 서 있는 닫힌 질문은 보여 줄 필요가 없다.
       const q = it.closed ? this.queue.indexOf(it) : -1;
       if (q >= 0) this.queue.splice(q, 1);

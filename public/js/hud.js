@@ -10,6 +10,18 @@ const SOURCE = {
   down: '서버 없음 · 데모 재생',
 };
 
+// 재생 모드(--replay): 서버가 config 메시지에 싣는 replay { state, speed, loop, round, progress } 를 칩 문구로.
+function replayText(r) {
+  const x = `${r.speed}×`;
+  switch (r.state) {
+    case 'playing': return `재생 · ${x} · ${Math.floor((r.progress || 0) * 100)}%${r.loop && r.round > 1 ? ` · ${r.round}회째` : ''}`;
+    case 'done': return r.loop ? `재생 끝 · 곧 다시` : `재생 끝 · ${x}`;
+    case 'restart': return '재생 · 처음부터 다시';
+    case 'error': return '재생 · 기록을 읽지 못함';
+    default: return '재생 · 준비 중';
+  }
+}
+
 // 21:04:10 처럼 짧게(ko-KR 은 "21시 4분 10초"로 길어진다)
 const time = (d) => d.toLocaleTimeString('en-GB', { hour12: false });
 
@@ -114,18 +126,30 @@ export class Hud {
 
   // 서버가 알려 준 tail 간격을 입력칸과 부제에 반영한다(저장된 개인 설정보다 서버 값이 우선).
   applyConfig(cfg, msg) {
-    if (!Number.isFinite(msg?.intervalMs)) return;
-    cfg.intervalMs = msg.intervalMs;
-    this.el.interval.value = String(msg.intervalMs);
-    this.el.sub.textContent = `세션 기록을 ${msg.intervalMs}ms마다 따라 읽어요`;
+    if (Number.isFinite(msg?.intervalMs)) {
+      cfg.intervalMs = msg.intervalMs;
+      this.el.interval.value = String(msg.intervalMs);
+      this.el.sub.textContent = `세션 기록을 ${msg.intervalMs}ms마다 따라 읽어요`;
+    }
+    if (msg?.replay) this.setReplay(msg.replay);
+  }
+
+  // 재생 모드는 tail 간격이 의미 없으니 입력칸을 숨기고, 다시 연결돼도 '라이브'로 바뀌지 않게 기억해 둔다.
+  setReplay(r) {
+    this.replay = r;
+    this.el.interval.closest('label').hidden = true;
+    this.el.sub.textContent = `지난 세션 기록을 ${r.speed}배속으로 다시 보여 줘요`;
+    if (this.el.source.dataset.state !== 'retry') this.setSource('replay');
   }
 
   setSource(state) {
+    if (state === 'live' && this.replay) state = 'replay';
     this.el.source.dataset.state = state;
-    this.el.source.querySelector('span').textContent = SOURCE[state] || state;
+    this.el.source.querySelector('span').textContent = state === 'replay' ? replayText(this.replay) : SOURCE[state] || state;
     this.el.source.title = state === 'demo' || state === 'down'
       ? '예시 세션을 재생하고 있어요. 로컬 서버를 실행하면 실제 Claude Code 세션이 보여요.'
-      : '로컬 서버의 /events 스트림을 받고 있어요.';
+      : state === 'replay' ? '지난 세션 기록을 기록된 시간 간격대로 재생하고 있어요.'
+        : '로컬 서버의 /events 스트림을 받고 있어요.';
   }
 
   flashTail(n) {
@@ -181,7 +205,8 @@ export class Hud {
       if (!b) continue;
       const agents = [...f.agents];
       const asking = agents.filter((a) => a.mode === 'ask').length;
-      b.querySelector('.ct').textContent = asking ? `질문 ${asking}` : String(agents.length);
+      const approving = agents.filter((a) => a.mode === 'ask' && a.current?.approval).length;
+      b.querySelector('.ct').textContent = asking ? `${approving === asking ? '승인' : '질문'} ${asking}` : String(agents.length);
       b.classList.toggle('asking', asking > 0);
       const ping = this.pings.get(f);
       b.classList.toggle('ping', ping === 'activity');
@@ -220,7 +245,8 @@ export class Hud {
     box.hidden = false;
     box.querySelector('.dot').style.background = a.color;
     box.querySelector('h2').textContent = a.name;
-    const mode = a.path.length ? '이동 중' : MODE[a.panicT > 0 ? 'panic' : a.mode] || a.mode;
+    const mode = a.path.length ? '이동 중' : a.mode === 'ask' && a.current?.approval ? '승인 대기'
+      : MODE[a.panicT > 0 ? 'panic' : a.mode] || a.mode;
     const rows = [
       ['층', `${a.floor.number} · ${a.floor.label}`],
       ['브랜치', a.worktree ? `${a.branch || '-'} (워크트리 ${a.worktree})` : a.branch || '-'],

@@ -221,15 +221,20 @@ export class Office {
     const room = ev.room || classify(ev.tool);
     // 재연결 스냅샷이 아직 진행 중인 도구를 다시 보내도 한 번만 처리한다.
     if (room === 'ignore' || a.pending.has(ev.toolUseId)) return null;
-    if (room === 'desk') {
-      const question = ev.question || ev.summary || '확인이 필요해요';
-      const it = { kind: 'ask', room: 'desk', prefer: 0, question, options: ev.options || [], ids: [ev.toolUseId], open: 1, ts: ev.ts, activity: '질문하러 가는 중' };
-      a.pending.set(ev.toolUseId, it);
-      a.push(it);
-      return `질문 · ${question}`;
-    }
     const label = toolLabel(ev.tool);
     const summary = ev.summary || '';
+    // awaitsApproval: 사람이 권한 창에 답할 때까지 기다린 호출 (재생 모드만 미리 안다, CONTRACT 7). 내 자리에서 기다린다.
+    const approval = !!ev.awaitsApproval && room !== 'desk';
+    if (room === 'desk' || approval) {
+      const question = approval ? `승인 대기 · ${`${label} ${summary}`.trim()}` : ev.question || ev.summary || '확인이 필요해요';
+      const it = {
+        kind: 'ask', approval, room: 'desk', prefer: 0, question, options: approval ? ['허용', '거절'] : ev.options || [],
+        ids: [ev.toolUseId], open: 1, ts: ev.ts, activity: approval ? '승인 받으러 가는 중' : '질문하러 가는 중',
+      };
+      a.pending.set(ev.toolUseId, it);
+      a.push(it);
+      return approval ? question : `질문 · ${question}`;
+    }
     const it = { kind: 'tool', room, ids: [ev.toolUseId], open: 1, activity: `${label} ${summary}`.trim() };
     a.pending.set(ev.toolUseId, it);
     a.push(it);

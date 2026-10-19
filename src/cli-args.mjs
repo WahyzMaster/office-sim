@@ -11,6 +11,9 @@ export const USAGE = `Usage: claude-office [options]
   --rescan <ms>    rescan for new transcript files every N ms (default ${DEFAULTS.rescanMs})
   --root <dir>     projects root (default ~/.claude/projects)
   --auth           require a per-run token: open the printed URL once, the browser then keeps a cookie
+  --replay <file>  replay one past session (<uuid>.jsonl plus its subagents) instead of tailing --root
+  --speed <x>      replay speed factor, 0.1..1000 (default 1)
+  --loop           replay again from the start when it ends
   -h, --help       show this help
 `;
 
@@ -22,11 +25,14 @@ const SPEC = {
   rescan: { key: 'rescanMs', kind: 'int', min: 100, max: 3_600_000 },
   root: { key: 'root', kind: 'path' },
   auth: { key: 'auth', kind: 'flag' },
+  replay: { key: 'replay', kind: 'path' },
+  speed: { key: 'speed', kind: 'num', min: 0.1, max: 1000 },
+  loop: { key: 'loop', kind: 'flag' },
 };
 
 function convert(name, spec, raw) {
   if (spec.kind === 'path') {
-    if (!raw) throw new Error(`--${name} needs a directory`);
+    if (!raw) throw new Error(`--${name} needs ${name === 'replay' ? 'a file' : 'a directory'}`);
     return expandHome(raw);
   }
   if (spec.kind === 'host') {
@@ -65,5 +71,6 @@ export function parseArgs(argv) {
     raw = String(raw);
     out[spec.key] = convert(name, spec, raw);
   }
+  if ((out.speed !== undefined || out.loop) && !out.replay) throw new Error('--speed and --loop need --replay <file>');
   return out;
 }

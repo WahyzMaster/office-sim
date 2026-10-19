@@ -11,7 +11,7 @@ import { newToken } from './server-guard.mjs';
 
 export const DEFAULTS = Object.freeze({
   port: 4317, host: '127.0.0.1', intervalMs: 250, activeMinutes: 30, rescanMs: 3000,
-  idleMs: 1000, pingMs: 15000, ringSize: 1000, auth: false,
+  idleMs: 1000, pingMs: 15000, ringSize: 1000, auth: false, replay: null, speed: 1, loop: false,
   root: path.join(os.homedir(), '.claude', 'projects'),
   publicDir: fileURLToPath(new URL('../public/', import.meta.url)),
 });
@@ -54,12 +54,17 @@ function validate(o) {
   // 127.0.0.1 등 루프백에만 바인딩한다 (contract 0)
   if (!LOOPBACK_HOSTS.has(o.host)) throw new RangeError('host must be a loopback address (127.0.0.1, localhost, ::1)');
   if (typeof o.auth !== 'boolean') throw new RangeError('auth must be a boolean');
+  if (o.replay !== null && (typeof o.replay !== 'string' || o.replay === '')) throw new RangeError('replay must be a file path');
+  if (!(Number.isFinite(o.speed) && o.speed >= 0.1 && o.speed <= 1000)) throw new RangeError('speed must be 0.1..1000');
+  if (typeof o.loop !== 'boolean') throw new RangeError('loop must be a boolean');
 }
 
 /**
  * @param {object} options port, host, root, intervalMs, activeMinutes, rescanMs, publicDir,
  *   pingMs (SSE heartbeat, default 15000), idleMs (idle() loop, default 1000), ringSize, log, deps (test hook),
- *   auth (opt-in per-run token: every route then needs the cookie that GET /?t=<token> sets)
+ *   auth (opt-in per-run token: every route then needs the cookie that GET /?t=<token> sets),
+ *   replay (a main transcript path: replay it instead of tailing --root), speed (replay factor), loop (replay again),
+ *   replayTiming (test hook: { maxGapMs, holdMs, restartMs, statusMs })
  * @returns {Promise<{ url: string, token: string|null, port: number, store: Store, ready: Promise, close: () => Promise<void> }>}
  *   With auth, `url` is the one to open: http://<host>:<port>/?t=<token>.
  */
@@ -67,23 +72,32 @@ export async function start(options = {}) {
   const opts = pick(options);
   opts.root = path.resolve(expandHome(opts.root));
   opts.publicDir = path.resolve(expandHome(opts.publicDir));
+  if (typeof opts.replay === 'string' && opts.replay !== '') opts.replay = path.resolve(expandHome(opts.replay));
   validate(opts);
   const log = typeof opts.log === 'function' ? opts.log : () => {};
   const deps = await loadDeps(opts.deps);
   // seq 는 시각에서 시작한다: 서버를 다시 띄워도 예전 Last-Event-ID 가 새 링과 겹치지 않는다
   const store = new Store({ log, ringSize: opts.ringSize, seqStart: opts.seqStart ?? Date.now() });
-  const runner = new Runner({ opts, deps, store, log });
+  // 재생 모드(P3): tail 루프 대신 지난 세션 파일을 기록 시각대로 흘려보내는 Runner. 상태가 바뀌면 config 로 알린다.
+  let httpLayer = null;
+  const replay = opts.replay ? await import('./replay.mjs') : null;
+  const runner = replay
+    ? new replay.ReplayRunner({ opts, deps, store, log, onStatus: () => httpLayer?.broadcastConfig() })
+    : new Runner({ opts, deps, store, log });
+  const config = () => ({
+    intervalMs: opts.intervalMs, activeMinutes: opts.activeMinutes, ...(replay ? { replay: runner.replayStatus() } : {}),
+  });
   const token = opts.auth ? newToken() : null; // 프로세스 안에서만 만든다 (argv/env 는 다른 사용자에게 보인다)
   let port = opts.port;
-  const httpLayer = createHttp({
+  httpLayer = createHttp({
     store,
     publicDir: opts.publicDir,
     pingMs: opts.pingMs,
     getPort: () => port,
-    getConfig: () => ({ intervalMs: opts.intervalMs, activeMinutes: opts.activeMinutes }),
+    getConfig: config,
     setConfig: ({ intervalMs }) => {
       runner.setInterval(intervalMs);
-      return { intervalMs: opts.intervalMs, activeMinutes: opts.activeMinutes };
+      return config();
     },
     stats: () => ({ files: runner.files.size, sessions: store.sessionCount }),
     authToken: token,

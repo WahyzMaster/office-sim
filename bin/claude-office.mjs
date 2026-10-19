@@ -28,6 +28,7 @@ try {
 }
 
 process.stdout.write(`claude-office: ${app.url}\n`);
+if (args.replay) process.stdout.write(`claude-office: replay ${args.speed ?? 1}x${args.loop ? ', loop' : ''}\n`);
 
 let stopping = false;
 async function stop() {
