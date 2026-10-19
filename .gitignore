@@ -1,0 +1,7 @@
+node_modules/
+.DS_Store
+*.log
+
+# 로컬 도구 상태
+.serena/
+.playwright-mcp/
