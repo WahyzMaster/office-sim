@@ -434,7 +434,8 @@ test('full stack: subagent is linked, inherits the floor, and never leaks a prom
 
 test('bin prints the URL and exits cleanly on SIGINT', async () => {
   const root = await tmpRoot();
-  const child = spawn(process.execPath, [here('../bin/office-sim.mjs'), '--port', '0', '--root', root, '--rescan', '200'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  // HOME = the temp root: the bin's default roots (~/.grok since P5c) never reach the real folders
+  const child = spawn(process.execPath, [here('../bin/office-sim.mjs'), '--port', '0', '--root', root, '--rescan', '200'], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, HOME: root } });
   let out = '';
   child.stdout.on('data', (c) => { out += c; });
   const exited = new Promise((resolve) => child.on('exit', (code, signal) => resolve({ code, signal })));

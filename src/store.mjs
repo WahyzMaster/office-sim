@@ -2,8 +2,9 @@
 // SessionState 는 파일 하나만 보므로, 파일을 가로지르는 일(부모 찾기, 부모 쪽 신호로 끝내기, 부모 층 상속)은 여기서 한다.
 // Claude 서브에이전트 연결(4.5)은 store-claude.mjs 에 있고, entry 의 agent 가 'claude-code' 일 때만 부른다.
 // IO 는 하지 않는다: meta/journal 은 서버가 읽어서 넣어 준다.
-import { refIdentity, refAgent, refIdsOk, subTitle, newIndex, sameSession, parentFirst, ringSince } from './store-link.mjs';
+import { refIdentity, refAgent, refIdsOk, subTitle, newIndex, sameSession, parentFirst, ringSince, pickFloor } from './store-link.mjs';
 import { cleanLabel, publicSessionId, agentScopedId, CLAUDE_CODE_AGENT } from './session-identity.mjs';
+import { basename } from './session-util.mjs';
 import * as claude from './store-claude.mjs';
 
 const KIND_ORDER = { main: 0, sub: 1, wf: 2 };
@@ -34,6 +35,7 @@ export class Store {
     this.rejected = new Set(); // 거절한 ref 경로 (F2, G1): 경로마다 로그 한 줄, 1000 개까지, 지우지 않는다
     this.rejectedFull = false; // 1000 개가 찬 뒤 처음 거절할 때 한 번만 로그한다
     this.pendingEnds = new Map(); // `${agent}|${charId}` -> reason: 아직 알리지 않은 직원의 끝 힌트 (F4)
+    this.floorRules = new Map(); // agent -> project -> { key, names, badge } | null: D1 도구 전용 워크트리 (Claude 는 없다)
   }
 
   /**
@@ -206,9 +208,10 @@ export class Store {
     }
   }
 
+  // 서브가 물려받는 메인의 session 이벤트: 바깥으로 나가는 것과 같게 보정한 것 (D1 층)
   mainEvent(sid) {
     const main = this.byChar.get(sid);
-    return main && main.kind === 'main' && main.announced ? main.state.sessionEvent() : null;
+    return main && main.kind === 'main' && main.announced ? this.patch(main.state.sessionEvent(), main) : null;
   }
 
   // SessionState 가 setInfo 를 지원하면 같은 정보를 넣어 둔다 (그쪽 session 이벤트도 같은 값이 되도록).
@@ -229,9 +232,17 @@ export class Store {
     }
   }
 
-  // 서브 session 이벤트 보정: 부모, 제목, 층 상속, agentType. agent 는 이벤트에 없을 때 entry 의 agent.
+  // session 이벤트 보정. 메인은 D1 도구 전용 워크트리 층만 (규칙이 없는 어댑터, 곧 Claude 는 그대로). 서브는 부모, 제목,
+  // 층 상속, agentType 도. agent 는 이벤트에 없을 때 entry 의 agent.
   patch(ev, e) {
-    if (!ev || ev.type !== 'session' || !e || e.kind === 'main') return ev;
+    if (!ev || ev.type !== 'session' || !e) return ev;
+    if (e.kind === 'main') {
+      const floor = this.floorOf(e, ev.project);
+      return floor ? { ...ev, ...floor } : ev;
+    }
+    // 서브의 session 이벤트 project 는 이미 부모의 층이다: 워크트리 배지는 서브 자신의 첫 cwd 로 본다
+    const own = e.state?.firstCwd;
+    const floor = this.floorOf(e, typeof own === 'string' && own !== '' ? own : ev.project);
     const mainEv = this.mainEvent(e.sid);
     return {
       ...ev,
@@ -242,8 +253,61 @@ export class Store {
       agentType: cleanLabel(e.meta?.agentType) ?? ev.agentType ?? null, // section 5: scrub + cap, like buildSessionEvent
       // 4.3 Claude 서브 제목은 meta/journal 에서. 다른 어댑터는 세션이 낸 제목을 같은 규칙(scrub + 80)으로.
       title: isClaude(e) ? subTitle(e.meta, e.label, e.charId) : subTitle(null, ev.title, e.charId),
+      ...(floor ?? {}),
       ...(mainEv ? { project: mainEv.project, projectLabel: mainEv.projectLabel } : {}),
     };
+  }
+
+  // ---- floors (D1: tool-only worktrees) -------------------------------------------------------
+
+  /** D1: an adapter's rule for its own worktrees (Runner, from deps.worktreeFloor): project -> { key, names, badge } | null. */
+  setFloorRule(agent, fn) {
+    if (typeof agent === 'string' && typeof fn === 'function') this.floorRules.set(agent, fn);
+  }
+
+  worktreeOf(e, project) {
+    const rule = this.floorRules.get(e.agent);
+    if (!rule || typeof project !== 'string' || project === '') return null;
+    try {
+      const wt = rule(project);
+      return wt && typeof wt.key === 'string' && wt.key !== '' ? wt : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // D1: 도구 전용 워크트리 세션의 층 { project, projectLabel, worktree } 또는 null (바꾸지 않는다). 이미 있는 층 중 라벨이
+  // <repo>, 그다음 <name> 인 층에 들어가고, 없으면 자기 층 (그 워크트리 폴더). 배지는 늘 <name>. 그 project (첫 cwd) 를 처음
+  // 볼 때 한 번 정하고 옮기지 않는다 (4.4): 스냅숏과 라이브가 늘 같은 층을 본다.
+  floorOf(e, project) {
+    if (!this.floorRules.has(e.agent)) return null;
+    if (e.floorFor === project) return e.floor;
+    const wt = this.worktreeOf(e, project);
+    const target = wt ? pickFloor(wt.names, this.floorCandidates(e)) : null;
+    e.floorFor = project;
+    e.floor = wt ? {
+      project: target?.project ?? wt.key, projectLabel: target?.projectLabel ?? basename(wt.key), worktree: cleanLabel(wt.badge),
+    } : null;
+    return e.floor;
+  }
+
+  // 들어갈 수 있는 층: 끝나지 않은 다른 메인 (어느 어댑터든) 의 층. 아직 알리지 않은 메인은 그 상태의 이벤트로 본다 (서버
+  // 시작 때 다른 어댑터의 세션이 붙는 중일 수 있다). 도구 워크트리 세션의 층은 후보가 아니다.
+  floorCandidates(except) {
+    const out = [];
+    for (const e of this.byChar.values()) {
+      if (e === except || e.kind !== 'main' || e.ended || e.floor) continue;
+      let ev = e.lastSession;
+      try {
+        ev ??= e.state.sessionEvent();
+      } catch {
+        ev = null;
+      }
+      const project = ev?.project;
+      if (typeof project !== 'string' || project === '' || this.worktreeOf(e, project)) continue;
+      out.push({ project, projectLabel: typeof ev.projectLabel === 'string' ? ev.projectLabel : basename(project) });
+    }
+    return out;
   }
 
   // ---- cross-file signals ---------------------------------------------------------------------
@@ -367,7 +431,7 @@ export class Store {
       }
       if (e && !e.announced) e.announced = true;
       if (ev.type === 'session' && e?.kind === 'main') mainSession = true;
-      this.push(ev.type === 'session' && isSub ? this.patch(ev, e) : ev);
+      this.push(ev.type === 'session' && e ? this.patch(ev, e) : ev); // 메인은 D1 층만 (Claude 는 그대로)
     }
     if (mainSession && src) this.refreshSubs(src.sid);
     return this.lastSeq - before;

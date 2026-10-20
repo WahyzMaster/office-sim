@@ -2,6 +2,7 @@
 // 이전 tick 이 돌고 있으면 이번 tick 은 건너뛴다. 상태는 Store 와 SessionState 에 있고 여기서는 옮기기만 한다.
 import path from 'node:path';
 import { setImmediate as yieldToLoop } from 'node:timers/promises';
+import { SidecarWatcher } from './core/sidecar.mjs';
 
 function errText(err) {
   return err?.message ?? String(err);
@@ -35,6 +36,11 @@ export class Runner {
     this.badLines = 0;
     this.applyErrors = 0;
     this.scanErr = null; // 마지막 scan 실패 코드 (같은 오류는 한 번만 로그)
+    // ADAPTERS 3.3 메타 파일과 D1 도구 전용 워크트리 층: 어댑터의 deps 에 훅이 있을 때만 (Claude 는 없다)
+    this.sidecars = typeof deps.sidecars === 'function' ? new SidecarWatcher(deps.sidecars) : null;
+    this.floorRule = typeof deps.worktreeFloor === 'function' && typeof deps.agent === 'string';
+    if (this.floorRule) store.setFloorRule?.(deps.agent, (project) => deps.worktreeFloor(project, opts.root));
+    this.gate = null; // D1: RunnerGroup 이 거는 약속. 첫 탐색은 다른 어댑터의 첫 붙이기가 끝난 뒤에 층을 고른다
   }
 
   // 겹침 방지 + close 가 기다릴 수 있게 진행 중인 tick 을 기록한다.
@@ -159,6 +165,11 @@ export class Runner {
   }
 
   async rescanOnce() {
+    if (this.gate) {
+      await this.gate;
+      this.gate = null;
+    }
+    if (this.closed) return;
     const { scan } = this.deps;
     const nowMs = Date.now();
     let refs;
@@ -221,6 +232,22 @@ export class Runner {
       for (const f of this.publishOrder(prepared)) this.publish(f);
     }
     await this.retryMeta();
+    if (this.sidecars) for (const f of [...this.files.values()]) if (f.ready && !f.needsAttach) await this.syncSidecars(f, true);
+  }
+
+  // 3.3 메타 파일 (어댑터의 sidecars 훅): 바뀐 것만 다시 읽어 setInfo 로 넘기고, live 면 바뀐 session 이벤트를 낸다.
+  // Store 에서 이미 끝난 직원은 상태만 바꾼다: 메타 파일이 다시 쓰였다고 끝난 서브를 되살리지 않는다.
+  async syncSidecars(f, live) {
+    if (!this.sidecars || this.closed || typeof f.state?.setInfo !== 'function') return;
+    const info = await this.sidecars.check(f.ref);
+    if (!info || this.closed || this.files.get(f.ref.path) !== f) return;
+    let evs = null;
+    try {
+      evs = f.state.setInfo(info);
+    } catch (err) {
+      if (this.applyErrors++ < 20) this.log(`setInfo failed in ${path.basename(f.ref.path)}: ${errText(err)}`);
+    }
+    this.deliver(f, evs, live && !this.store.entry(f.ref.path)?.ended);
   }
 
   // main 먼저, 그다음 부모가 이미 나온 서브부터 (snapshot() 과 같은 순서), wf 는 마지막.
@@ -256,6 +283,7 @@ export class Runner {
       return false;
     }
     this.files.delete(from);
+    this.sidecars?.forget(from);
     f.ref = ref;
     if (f.state && 'file' in f.state) f.state.file = ref.path;
     this.files.set(ref.path, f);
@@ -297,6 +325,7 @@ export class Runner {
     if (!this.admit(ref) || !this.store.acceptsRef(ref)) return null;
     const id = this.store.identity(ref);
     this.tailer.forget(ref.path);
+    this.sidecars?.forget(ref.path); // 새 세션 객체: 메타 파일도 처음부터 다시 읽는다 (잘림 뒤 다시 붙일 때도)
     let meta = null;
     let label = null;
     // 서브 meta.json 과 workflow journal label 은 Claude 어댑터만 읽는다 (deps 에 읽는 함수가 있을 때만)
@@ -340,6 +369,8 @@ export class Runner {
     }
     this.attachErrors.delete(ref.path);
     this.replayUntil.delete(ref.path);
+    await this.syncSidecars(f, false); // 첫 읽기는 알리기 전에: 첫 session 이벤트에 제목과 cwd 가 있게 (3.3)
+    if (this.closed || this.files.get(ref.path) !== f) return null;
     return f;
   }
 
@@ -350,6 +381,7 @@ export class Runner {
     this.attachErrors.set(ref.path, code);
     if (f && !f.ready && this.files.get(ref.path) === f) this.files.delete(ref.path);
     this.tailer.forget(ref.path);
+    this.sidecars?.forget(ref.path);
     try {
       this.store.detachFile(ref.path);
     } catch (e) {
@@ -381,6 +413,7 @@ export class Runner {
     if (!f) return;
     this.files.delete(p);
     this.tailer.forget(p);
+    this.sidecars?.forget(p);
     if (reason && this.store.has(p)) {
       this.store.ingest(p, [{ type: 'session_end', sessionId: f.charId, ts: new Date().toISOString(), reason }]);
     }

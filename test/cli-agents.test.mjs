@@ -67,7 +67,9 @@ test('USAGE lists --agents and the three adapter roots', () => {
 // ---- bin ----------------------------------------------------------------------------------------------------
 
 async function runBin(args) {
-  const child = spawn(process.execPath, [BIN, '--port', '0', ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
+  // HOME is an empty temp dir: the bin's default roots (~/.grok since P5c) never reach the real folders
+  const env = { ...process.env, HOME: await tmp() };
+  const child = spawn(process.execPath, [BIN, '--port', '0', ...args], { stdio: ['ignore', 'pipe', 'pipe'], env });
   let out = '';
   let err = '';
   child.stdout.on('data', (c) => { out += c; });
@@ -96,9 +98,9 @@ test('bin prints "agents claude-code" right after the URL line', async () => {
 
 test('bin --agents: one "is not implemented yet" line per requested unimplemented id, "agents none" when nothing runs', async () => {
   const root = await tmp();
-  const mixed = await runBin(['--claude-root', root, '--agents', 'grok,claude-code,codex']);
-  let lines = await linesUntil(mixed, (ls) => ls.includes('office-sim: grok is not implemented yet'));
-  assert.deepEqual(lines.slice(1, 4), ['office-sim: agents claude-code', 'office-sim: codex is not implemented yet', 'office-sim: grok is not implemented yet']);
+  const mixed = await runBin(['--claude-root', root, '--agents', 'antigravity,claude-code,codex']);
+  let lines = await linesUntil(mixed, (ls) => ls.includes('office-sim: antigravity is not implemented yet'));
+  assert.deepEqual(lines.slice(1, 4), ['office-sim: agents claude-code', 'office-sim: codex is not implemented yet', 'office-sim: antigravity is not implemented yet']);
   const none = await runBin(['--claude-root', root, '--agents', 'antigravity', '--antigravity-root', path.join(root, 'nope')]);
   lines = await linesUntil(none, (ls) => ls.includes('office-sim: antigravity is not implemented yet'));
   assert.deepEqual(lines.slice(1, 3), ['office-sim: agents none', 'office-sim: antigravity is not implemented yet']);

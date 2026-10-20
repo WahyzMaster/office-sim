@@ -1,12 +1,12 @@
-# office-sim server contract (P1-P3, P5a, P5b)
+# office-sim server contract (P1-P3, P5a-P5c)
 
 The server tails Claude Code session transcripts under `~/.claude/projects`, turns records into UI events,
 and streams them to the 3D office page (`public/`) over SSE. This file is the single source of truth for
 module boundaries, the event schema and the parsing rules. The format rules come from a corpus study of
 5,016 local transcript files (Claude Code 2.1.181 to 2.1.299, entrypoint `claude-desktop`).
-Claude Code is the only adapter today; Codex, Grok and Antigravity are planned as separate adapters (see 4.0).
-The approved multi-agent design is `docs/ADAPTERS.md`; its shared groundwork (P5a) is in 4.0.1 and the shared session
-core for the new adapters (P5b) in 4.0.2.
+Since P5c two adapters are implemented: Claude Code and Grok (xAI Grok Build, 4.6); Codex and Antigravity are planned
+as separate adapters (see 4.0). The approved multi-agent design is `docs/ADAPTERS.md`; its shared groundwork (P5a) is in
+4.0.1, the shared session core for the new adapters (P5b) in 4.0.2 and the Grok adapter (P5c) in 4.6.
 
 ## 0. Ground rules
 
@@ -16,7 +16,7 @@ core for the new adapters (P5b) in 4.0.2.
 - Comments may be Korean or English; identifiers are English.
 - **Never read from or write to the real `~/.claude` in tests.** Tests build synthetic fixtures in a temp dir
   (`fs.mkdtemp(os.tmpdir() + '/office-sim-')`). Fixture text must be invented, never copied from real transcripts.
-  The same holds for the planned adapter roots `~/.codex`, `~/.grok` and `~/.gemini`: tests pass temp roots only.
+  The same holds for the other adapter roots `~/.grok`, `~/.codex` and `~/.gemini`: tests pass temp roots only.
 - The server binds `127.0.0.1` only and serves only to the local browser. It still sends **summaries, not content**
   (see section 5). Loopback is not per-user: without `--auth` any local process or other OS user can read `/state`
   and `/events`. `--auth` (section 6) closes that for other OS users and for web pages; it does not protect against
@@ -45,20 +45,29 @@ src/store-claude.mjs    Claude subagent linking (4.5, R28/R29, R36 forwarding), 
 src/store-link.mjs      Store helpers: file identity, link facts, per-session index, ring lookup (pure)
 src/adapters/index.mjs  adapter registry: KNOWN_AGENTS, AGENT_LABELS, ADAPTERS, enabled-adapter selection (4.0.1)
 src/adapters/claude-code.mjs the claude-code descriptor; points at the Claude modules where they are (D8)
+src/adapters/grok/      the Grok adapter (P5c, 4.6), every file under 500 lines: `discover.mjs` (allowlist discovery,
+                        subagent linkage), `records.mjs` (one record -> item pieces, pure), `session.mjs`
+                        (`GrokSession`: turn and tool state around SessionCore, the SessionLike API), and the
+                        descriptor `index.mjs` (id `grok`, default root `~/.grok`, `sidecars(ref)`, `worktreeFloor`)
 src/core/tool-summary.mjs normalized tool descriptor -> { tool, summary, room?, background? } (pure, 4.0.2)
 src/core/session-core.mjs SessionCore: normalized items -> UI events, the SessionLike API for the new adapters;
-                        used by no adapter yet (4.0.2)
+                        used by the Grok adapter (4.0.2, 4.6)
 src/core/session-items.mjs pure shaping of normalized items into event fields for SessionCore (caps, scrub, plan view)
+src/core/sidecar.mjs    SidecarWatcher (P5c, ADAPTERS 3.3): at each rescan stats the small metadata files an adapter
+                        declares (`sidecars(ref)`), re-reads one only when its mtime / size / inode changed (<= 1 MB,
+                        parse errors ignored) and passes the result to the session's setInfo (4.6)
 src/server.mjs          start(): wires Store, RunnerGroup (one Runner per enabled adapter, defined here) and the
                         HTTP layer
-src/server-runner.mjs   Runner: poll / rescan / idle loops, attach, relocation, backoff
+src/server-runner.mjs   Runner: poll / rescan / idle loops, attach, relocation, backoff; runs the SidecarWatcher at
+                        rescan only for an adapter that has the `sidecars(ref)` hook (Grok; Claude has none)
 src/server-http.mjs     http: /, /js/*, /events (SSE), /state, /config, /healthz
 src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
 src/replay.mjs          ReplayRunner (extends Runner): --replay playback of one session (section 6.1)
 src/replay-timeline.mjs replay timeline: line times, cross-file merge, speed + gap cap, approval look-ahead (pure)
 test/*.test.mjs         unit + integration tests, synthetic fixtures under test/fixtures/ or generated
 test/fixtures/conformance.mjs adapter conformance harness (ADAPTERS 10, 4.0.2), run by test/adapter-conformance.test.mjs
-                        against the test-only core-fixture adapter (test/fixtures/core-adapter.mjs)
+                        against the test-only core-fixture adapter (test/fixtures/core-adapter.mjs); the Grok adapter
+                        runs it too (4.6)
 public/                 the browser app; owned by the browser module (public/js/*), server work does not edit it.
                         P3: js/detail.js (per-floor detail: hidden floors skip draw, matrices, labels, animation;
                         unfocused floors cast no shadows; CSS labels only for the focused floor), js/bench.js (#bench)
@@ -84,10 +93,11 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 | `system` | `kind`: `api_error` \| `compact` \| `refusal`, `text` |
 
 `session.agent` names the tool whose transcript the character comes from, so every character (main sessions and
-subagents alike) carries an agent id. It is on every `session` event, live and in snapshots. Ids: `claude-code`
-(the only one today), and `codex`, `grok`, `antigravity` for the planned adapters. The page shows the labels
-`Claude Code`, `Codex`, `Grok`, `Antigravity`, and an unknown id as-is. The id flows from the file's `FileRef.agent`
-through its `SessionState` and its Store entry (4.0.1).
+subagents alike) carries an agent id. It is on every `session` event, live and in snapshots. Ids: `claude-code` and
+`grok` (implemented, `grok` since P5c, 4.6), and `codex`, `antigravity` for the planned adapters. The page shows the
+labels `Claude Code`, `Codex`, `Grok`, `Antigravity`, and an unknown id as-is. The id flows from the file's
+`FileRef.agent` through its session object (`SessionState`, or the Grok session around `SessionCore`) and its Store
+entry (4.0.1).
 
 Wire messages on `/events` (each SSE `data:` line is one JSON object, every message has an `id:` line = seq):
 - `{ "type": "snapshot", "events": [ ...events ] }` first message on every connection (or replay, see 6).
@@ -271,12 +281,12 @@ entries whose agent is `claude-code`.
 ## 4. Parsing rules (from the corpus study; R-numbers are referenced by tests)
 
 ### 4.0 Adapter scope
-- Everything in this section (4.1-4.5, R6-R36), together with the file layout in 3.5 and the record kinds in 3.3, is
-  the Claude Code adapter: how Claude Code transcripts are found and read. Its `session` events carry
-  `agent: 'claude-code'`.
-- A future adapter (Codex, Grok, Antigravity) brings its own log discovery and record mapping, but must emit the same
-  event schema (section 2) with its own `agent` id, and must send every free-text field through the shared
-  `cleanText` scrub and the privacy rules of section 5. The Store, the SSE wire format and the page stay shared.
+- Everything in 4.1-4.5 (R6-R36), together with the file layout in 3.5 and the record kinds in 3.3, is the Claude Code
+  adapter: how Claude Code transcripts are found and read. Its `session` events carry `agent: 'claude-code'`.
+- Every other adapter (Grok since P5c, 4.6; Codex and Antigravity planned) brings its own log discovery and record
+  mapping, but must emit the same event schema (section 2) with its own `agent` id, and must send every free-text field
+  through the shared `cleanText` scrub and the privacy rules of section 5. The Store, the SSE wire format and the page
+  stay shared.
 
 ### 4.0.1 Multi-agent groundwork (P5a)
 The multi-agent design (`docs/ADAPTERS.md`) was approved on 2026-10-20 with every decision D1-D12 at its recommended
@@ -312,15 +322,21 @@ Adapter registry (`src/adapters/index.mjs`):
 - `KNOWN_AGENTS = ['claude-code', 'codex', 'grok', 'antigravity']`: every id the CLI accepts.
 - `AGENT_LABELS`: display labels, the same as `AGENT_LABEL` in `public/js/hud.js` (`Claude Code`, `Codex`, `Grok`,
   `Antigravity`).
-- `ADAPTERS = { 'claude-code': claudeCode }`: the implemented adapters.
+- `ADAPTERS = { 'claude-code': claudeCode, grok }`: the implemented adapters (P5a registered `claude-code` only; P5c
+  added `grok`, 4.6).
 - Selection (D3): an implemented adapter whose root exists is enabled. A requested list (`--agents`) narrows the set.
   A requested id that is in `KNOWN_AGENTS` but not implemented is reported as `not implemented yet` and skipped; an id
   outside `KNOWN_AGENTS` is an error. Every list (enabled, off, not implemented) follows `KNOWN_AGENTS` order without
   duplicates, in live and replay mode alike. A root check that has not answered within 2 s (`PROBE_TIMEOUT_MS`, a
-  stalled network or FUSE mount) counts as unreadable with code `ETIMEDOUT`.
+  stalled network or FUSE mount) counts as unreadable with code `ETIMEDOUT`. Since P5c an implemented adapter other
+  than `claude-code` whose root is not given in `roots` is skipped: not probed, not enabled, not reported. Default
+  roots are the caller's choice: `defaultRoots()` (`src/adapters/index.mjs`) returns every non-Claude descriptor's
+  `defaultRoot` (`~` not expanded), and the bin passes it under the `--<id>-root` values (section 6).
 - Descriptor (`src/adapters/claude-code.mjs`): `id: 'claude-code'`, `defaultRoot: '~/.claude/projects'`, `deps()`
   returning the bundle the server injected before P5a (`SessionState`, `Tailer`, `scan`, `readSubMeta`,
-  `readJournalLabels`), and replay support (6.1, D12). It points at the existing modules in place (D8).
+  `readJournalLabels`), and replay support (6.1, D12). It points at the existing modules in place (D8). The Grok
+  descriptor (`src/adapters/grok/index.mjs`, P5c) has its own `deps()` and the optional `sidecars(ref)` hook, and no
+  replay support (4.6).
 
 Agent id flow:
 - `FileRef.agent` (string) is the adapter id. When a ref has none, the Runner sets `ref.agent = deps.agent`.
@@ -380,13 +396,12 @@ Review fixes (F1-F4):
   start; a character that was shown before gets its `session_end` with the hint's reason. Hints for already ended
   characters stay no-ops and are not kept.
 - Not in P5a: `SessionCore` and `tool-summary` (added in P5b, 4.0.2), `SidecarWatcher` (moved to P5c; its first
-  consumer is Grok) and any Codex, Grok or Antigravity parsing. Until those adapters land, 4.1-4.5 describe the only
-  adapter.
+  consumer is Grok, 4.6) and any Codex, Grok or Antigravity parsing (Grok: P5c, 4.6).
 
 ### 4.0.2 SessionCore (공통 세션 코어)
 P5b is the shared core of ADAPTERS 3.2 for the three new adapters: `src/core/tool-summary.mjs`,
-`src/core/session-core.mjs` and its pure helper `src/core/session-items.mjs`. **No adapter uses it yet.**
-`claude-code` is still the only registered adapter and keeps its `SessionState` (D9), so the events built from Claude
+`src/core/session-core.mjs` and its pure helper `src/core/session-items.mjs`. When P5b landed no adapter used it; since
+P5c the Grok adapter does (4.6). `claude-code` keeps its `SessionState` (D9), so the events built from Claude
 transcripts do not change. The Grok, Codex and Antigravity adapters (P5c-P5e) map their records to the normalized items
 below and feed them to `SessionCore`. Reuse instead of copies: `tool-summary` builds on `src/summarize.mjs` (`cleanText`,
 `truncate`, `hostOf`, `looksLikeUuid`, `ZERO_UUID`, and the newly exported `baseName`, `toolLabel`, `shellRoom`) and
@@ -438,7 +453,8 @@ export class SessionCore {
     agentType /* optional */, now })
   apply(item, { replay } = {}) // one normalized item -> events[] (+ hint items)
   idle(nowMs)                  // time rules -> events[]
-  setInfo(info)                // late meta: Store { parentProject, parentId, agentType } or sidecar { title, cwd, branch }
+  setInfo(info)                // late meta: Store { parentProject, parentId, agentType } or sidecar { title, cwd, branch,
+                               //   subagent? }
   sessionEvent()               // -> current `session` event
   snapshotEvents()             // -> session, current plan, open tool_starts
   get title(); get firstCwd(); get lastActivityMs(); get ended()
@@ -448,7 +464,7 @@ export class SessionCore {
 
 Normalized items (adapter -> `SessionCore`, ADAPTERS 3.2):
 ```js
-{ k: 'meta', cwd?, branch?, title?, model?, parentId?, agentType? }
+{ k: 'meta', cwd?, branch?, title?, model?, parentId?, agentType?, subagent? }
 { k: 'prompt', text }
 { k: 'tool_start', id, tool?, kind?, desc /* the tool descriptor above */, question?, options?, questions?, background?,
   items?, markdown?, source? /* the last three only on a kind 'plan' call */ }
@@ -467,7 +483,8 @@ fill gaps. `id` is a non-empty string (<= 256) or a finite number; ids are opaqu
 an adapter uses the agent's call id, never text. Order rule: **a turn's `turn_start` comes before that turn's
 `prompt`** (an adapter whose record carries both, such as Antigravity `USER_INPUT` or a new Grok `prompt_id`, sends
 `turn_start` first). A proposal that is shown while a question waits (R34, `exit_plan_mode`) is a `plan` item with
-`markdown`, sent before the ask's `tool_start`.
+`markdown`, sent before the ask's `tool_start` (Grok usually writes the plan text only when the question is answered;
+then its plan follows the ask, 4.6).
 - `tool_end` status `abandoned` lets an adapter close one tool mid-turn that will never get a result (Antigravity
   position pairing: the next planner line, input or checkpoint arrives first). It emits the R27 shape
   (`errorKind: 'abandoned'`, `error: 'no result'`, `errorLine` ignored) and does not end the turn.
@@ -486,7 +503,10 @@ Semantics (they mirror the Claude rules of 4.2):
 - Prompts (R17-R19, section 5): a prompt whose text starts with `<` is skipped, also when invisible or control
   characters (format, control, separator, combining and default-ignorable code points such as U+200B, U+00AD, U+FEFF,
   ANSI escapes) or a fullwidth `<` come first. The first emitted prompt is the title fallback. A sub's prompt is the
-  parent's task: never emitted, never a title.
+  parent's task: never emitted, never a title. A main that learns from `meta` / `setInfo` that it runs a parent's task
+  (`subagent: true`, e.g. a Grok child attached as a main before its parent named it, 4.6) is treated the same from
+  then on: no `prompt` is emitted, and the title fallback it already took is dropped (a corrected `session` event
+  follows when the title changes).
 - `tool_start` fields come from `tool-summary` on `desc`. `kind: 'plan'` gives no `tool_start` and no `tool_end`
   (R35); the plan it carries (`items` / `markdown`) shows only when it ends ok (see Plan). `kind: 'ask'` gives a
   `tool_start` with `question` / `options` (R33).
@@ -659,6 +679,232 @@ registry hook accepts. It is not registered in `src/adapters/`; each real adapte
 - Wf agent: parent = the main session of the enclosing `<sid>`; label from `journal.jsonl` `started` (`label`/`phase`).
 - Every record in a sub/wf file has `isSidechain: true`, `agentId` = file id, `sessionId` = parent session.
 
+### 4.6 Grok adapter (P5c)
+The Grok adapter reads xAI Grok Build (`grok`) session transcripts. Format facts come from the structure-only study
+`docs/research/grok-format.json` (105 transcripts, 127,645 lines, Grok Build 1.0.46-1.0.62, TUI sessions only); the
+design is ADAPTERS 5.2, 6.1 and 6.2, and where this section differs from those proposals, this section wins. Agent id
+`grok`, default root `~/.grok` (`--grok-root`, section 6). Code: `src/adapters/grok/` (the descriptor is
+`src/adapters/grok/index.mjs`, registered in `src/adapters/index.mjs`) and `src/core/sidecar.mjs`. A Grok session is
+`SessionCore` (4.0.2) behind a normalizer that maps each record to normalized items, so every cap, scrub, pairing, turn
+and plan rule of 4.0.2 applies. Claude behaviour does not change (4.1-4.5 and section 5 are untouched; a synthetic
+Claude SSE stream equals master's with `ts` stripped).
+
+Discovery (allowlist, ADAPTERS 7.1):
+- The only transcript path accepted is `<root>/sessions/<group>/<session>/updates.jsonl`. `<group>` is any directory
+  directly under `sessions/` (one per cwd, URL-encoded by Grok). Every group is walked, because a subagent child often
+  sits in another group than its parent (15/62, worktree cwds). Group names are never decoded (as 4.4; the cwd comes
+  from `summary.json`). `<session>` is the session folder, a UUIDv7 that equals `params.sessionId` on every line.
+- Read, and nothing else: directory listings (`sessions/`, the groups, the session folders, their `subagents/`),
+  `stat`, `updates.jsonl` (Tailer, 3.6) and `summary.json` (sidecar, below). Never opened: `prompt_history.jsonl` and
+  `chat_history.jsonl` (raw prompts, model input), `events.jsonl` (the live approval wait of D7 is a later stage,
+  ADAPTERS 9 P5g), `plan.json`, `plan_mode.json`, `plan.md`, `subagents/<child>/meta.json` and `output.json`, a group's
+  `.cwd` file, `*.lock`, `active_sessions.json`, `session_search.sqlite`, `worktrees.db`, auth, config and permission
+  files, `AGENTS.md`, `logs/`, `memory-v2/`, `memtrace/` and the spill folders (`terminal/`, `mcp/`, `compaction*/`,
+  `web_fetch/`, `images/`, ...).
+- Names: a group is any directory under `sessions/` whose name does not start with `.`; session and child folders must
+  have UUID names (so `grok-<uuid>` fits the D2 id rule). Symlinks are never followed: directory entries are taken by
+  type, a session folder's `subagents` entry is `lstat`ed and listed only when it is a real directory (a symlinked
+  `subagents` names no children), and the transcript is `lstat`ed and must be a regular file. When the same session uuid exists in two groups, the
+  copy with a transcript wins, then the newer mtime, then the larger size.
+- Tolerant: ENOENT, ENOTDIR, EACCES, EPERM, ELOOP and ENAMETOOLONG on a group, a session folder or a `subagents/`
+  folder skip that entry (folders appear, move and vanish live); a missing `sessions/` folder is an empty list. Only a
+  `sessions/` entry that exists but cannot be read as a folder, or a cap (below), fails the scan, and the Runner skips
+  that rescan (section 6, `scan failed`).
+- Work per rescan is capped by `SCAN_LIMITS` in `src/adapters/grok/discover.mjs`: 10,000 groups, 50,000 session
+  folders, 5,000 children per parent, a parent chain of depth 16 (a full walk of 5,000 folders takes about 0.15 s). A
+  walk that would pass one of the first three caps is never cut and never classified: the scan throws `SCAN_CAPPED`, the
+  Runner logs `scan failed: SCAN_CAPPED` once, keeps every attached session and skips that rescan until a whole walk
+  fits again. (A cut by name order would drop the newest UUIDv7 folders and turn a child whose parent was cut into a
+  main for good.)
+- Active window (as 3.5 and section 6): a session is returned when its transcript's mtime is inside `--active`, and so
+  is every ancestor of a returned sub, even outside the window (a parent waiting on its subagent writes nothing). Mains
+  come first, then subs by depth.
+
+Ids and subagent linkage (D2, 4.0.1 F2):
+- Main: `kind: 'main'`, `charId` = `sid` = `grok-<session>`.
+- Sub: a session whose folder name appears as a directory `subagents/<child>/` inside another session's folder (the
+  names only; the child's own files carry no parent, 61/62). When two parents name the same child, the first in sorted
+  order wins. `kind: 'sub'`, `charId` = `grok-<child>`, `parentId` = `grok-<parent>` (the immediate parent), `sid` =
+  `grok-<root main>` (the top of the parent chain). A cycle or a chain deeper than 16 is not trusted and the session
+  counts as a main. Through `sid` the sub inherits the root main's floor (4.4). The `subagent_spawned` record and
+  `meta.json` are not used for linkage (the folder name is the same fact: child folder == child session id, 62/62).
+- Every ref carries `agent: 'grok'` and passes the F2 guard (`stem` = `charId`, `sessionId` = the folder uuid).
+- A child waits for its parent: a sub is returned only when every ancestor has a transcript; the Runner publishes it
+  after its parent (`publishOrder`); and a child whose `subagent_finished` was read in the parent's file before the
+  child is announced starts ended and is never shown (4.0.1 F4).
+- Link grace (`LINK_GRACE_MS`, 1 s): a session folder that appears after the scanner's first scan and that no parent
+  names yet is held for 1 s before it is returned as a main, because its parent may create `subagents/<id>/` a moment
+  later; a main is never turned into a sub once attached. Folders that exist at the first scan are classified at once.
+  The scanner keeps this state, so each Runner gets its own (`createGrokScanner`). When the parent names a folder only
+  after that, the session stays a main, but its `summary.json` (`session_kind` `subagent`) marks it as running a
+  parent's task: its human text never becomes a `prompt` or its title (sidecar below, 4.0.2 Prompts).
+
+Sidecar (`SidecarWatcher`, `src/core/sidecar.mjs`, ADAPTERS 3.3):
+- An adapter declares small metadata files per session with the optional descriptor hook `sidecars(ref)` ->
+  `[{ path, parse }]`, which its `deps()` hands to the Runner. The Runner runs the watcher only for an adapter that has
+  the hook (Claude has none and is untouched).
+- The watcher `lstat`s the declared files of a session once when its transcript is attached, before the character is
+  announced (so the first `session` event already has the title and cwd when the file exists), and then at each rescan
+  for every attached session. Symlinks are not followed and only regular files count: the file is `lstat`ed, opened
+  with `O_NOFOLLOW`, and read only when the opened file is that same regular file (inode and device), so a file swapped
+  for a link or another file between the two is skipped until it changes again. It reads a file only when its inode,
+  size or mtime changed since the last check, so a file is read once and then again only after a change. A file over
+  1 MB (`SIDECAR_MAX_BYTES`) is not read; a file that fails to parse is not read again until it changes; a file that
+  disappears is read again when it comes back; the values already passed on stay. The merged values of the files read go
+  to the session's `setInfo()`, and the events it returns (a changed `session` event) are ingested as usual; for a
+  character the Store has already ended only the state changes (a rewritten metadata file never revives an ended sub).
+  The watcher never throws, and it forgets a file's signatures when the transcript is detached or moves.
+- Grok declares `<session folder>/summary.json` (rewritten in place by Grok). A file whose `info.id` is not this
+  session's folder uuid is ignored. It keeps string fields only: `title` = `generated_title`, `cwd` = `info.cwd` (an
+  absolute path only), `branch` = `head_branch`, and for a subagent session (`session_kind` `subagent` or
+  `subagent_resume`) `subagent: true` and `agentType` = `agent_name` (equal to the subagent type, 62/62; a main's
+  `agent_name` is the agent profile and is not used). `subagent: true` matters only for a session attached as a main
+  (its parent named it too late): from then on its prompts are not sent and its first human text is no longer the title
+  fallback (4.0.2 Prompts). No other field of that file is kept (`session_summary`, `last_recap`, `git_remotes`,
+  `git_root_dir`, `grok_home`, `parent_session_id`, ...).
+- Title: `generated_title`, else the first human prompt (4.0.2), else 8 chars of the id after `grok-`. Branch:
+  `head_branch` (`HEAD` -> `detached`, section 5 scrub, <= 60). `agentType`: section 5 scrub, <= 60. Cwd: `info.cwd`;
+  the first cwd fixes the floor (4.4, D1 below). A session whose `summary.json` does not exist yet has no cwd, so its
+  `session` event carries no project until the file appears (like a Claude file before its first record with a
+  `cwd`).
+
+Records (`src/adapters/grok/records.mjs` pure, `src/adapters/grok/session.mjs` `GrokSession` with the state):
+- Envelope `{ method, params: { sessionId, update: { sessionUpdate, ... }, _meta }, timestamp }`, with `method`
+  `session/update` (ACP kinds) or `_x.ai/session/update` (xAI kinds); both are read, anything else is skipped and
+  counted. `timestamp` is unix **seconds**, so an item's `ts` is `timestamp * 1000` (a value already in ms is kept,
+  `_meta.agentTimestampMs` is the fallback). File order wins (R12): `agentTimestampMs` steps backwards 1,075 times and
+  is never used for order. A record whose `params.sessionId` is not the session folder's uuid is skipped (as R10).
+  Every unknown `sessionUpdate` kind is ignored.
+- Turn id = the turn's `promptId`: `params._meta.promptId` on ACP records, `update.prompt_id` on `hook_execution` and
+  `turn_completed`. A `user_message_chunk` carries none. In most real turns the `user_prompt_submit` hook with the new
+  id comes first (hook first); otherwise the id first shows on the records after the message (message first). Both
+  orders give one turn per prompt (rows below; `src/adapters/grok/session.mjs` header).
+
+| Grok record | normalized items (4.0.2) |
+|---|---|
+| `user_message_chunk` | Stays in the open turn when that turn has no work yet (no thought, say or tool: typically the turn its `user_prompt_submit` hook just opened, so hook first and message first give one turn), when it is an `interjection`, when it has no `_meta.promptIndex` (a human message typed mid-turn), when it comes before the open turn's id is known, or when it is hidden or synthetic (an injection mid-turn). Otherwise it starts a new turn: `turn_start` without an id before its prompt (4.0.2 order rule; the core closes a still-open previous turn as `next_turn`), and the next new `promptId` is adopted as that turn's id (no second `turn_start`). Both orders occur: hook first (the `user_prompt_submit` hook with the new id comes before the message in 1,214/1,238 real turns, and every subagent file starts with it) and message first. Human text (`_meta` without `hideFromScrollback` and without `syntheticPrompt`; `interjection` counts as human) -> `prompt { text }`; a hidden or synthetic chunk (`<system-reminder>`, `<monitor-event>`) gives no `prompt` but still starts a turn when none is open |
+| a record with a new `promptId` while no turn waits for its id (the `user_prompt_submit` hook in the usual order) | `turn_start { id }` (prompt_id change; the core closes an open previous turn as `next_turn`) |
+| a message, thought or `tool_call` record of a turn that already ended, or of an older turn | dropped (late records, 7 in the corpus): it never reopens a turn. One exception: when a message started a new turn while the previous turn was still running (no `turn_completed` yet) and records with that previous turn's id go on before any new id, the open turn adopts the previous turn's id and keeps that work instead of dropping it; a `turn_completed` for the previous id only ends that re-adoption. A late `tool_call_update` of a closed tool is ignored too; a late `plan` record still updates the board |
+| `agent_thought_chunk` | its own `thinking { text, durationMs: null }` per record: each record is a whole reasoning-summary segment (never empty, 13,539 chunks in 13,534 runs), so back-to-back thoughts are separate events with their own first sentence, never joined or suppressed |
+| `agent_message_chunk` | `say { text }`, one per record: each line is a whole text segment of one model response, not a token delta, so a record is never joined to the one before it and each is scrubbed on its own (section 5). A Grok `say` is never `final`: every turn ends with its `turn_completed` (1,234/1,234), so the core's 20 s `end_turn` idle fallback stays off and a turn never ends while the agent is still working (writing a long tool input, or after a hidden `todo_write` and a `plan`); a main that dies mid-turn ends when its file leaves the active window |
+| `tool_call` | `tool_start` (Tools below); a `tool_call` that already carries a terminal status also ends at once. A second `tool_call` with an open id is read as an update (R9) |
+| `tool_call_update` with `status` `completed` or `failed` | `tool_end` (Tools below). Other statuses (`pending`, `in_progress`) and updates without `status` change nothing |
+| `plan` | `plan { items, source: 'update_plan' }` with every entry as `{ content, status }`: always the full list (D5). `priority` and `_meta` are dropped; an entry Grok stores as `completed` with `_meta.cancelled` stays `completed`, a `cancelled` status becomes `completed` |
+| `subagent_spawned` | the child is launched: the oldest open `spawn_subagent` call of the same turn (`parent_prompt_id`) ends ok (async launch, R28). The spawn's own completion may come before or after it (10/62); whichever comes first ends the call |
+| `subagent_finished` | `sub_end { childId: 'grok-<child_session_id>', reason: 'done' }` (`completed` and `cancelled` alike), the common end hint of 4.0.1 |
+| `turn_completed` (the current turn; a turn whose id was never learned adopts it; an older id is ignored) | `cancelled` -> `tool_end { status: 'interrupted' }` for every tool still open, then `turn_end { reason: 'interrupt' }`; `error` -> `system { kind: 'api_error', text: 'API error' }` unless a `retry_state` already gave one in this turn, then `turn_end { reason: 'api_error' }`; any other `stop_reason` (`end_turn`) -> `turn_end { reason: 'end_turn' }` |
+| `retry_state` | `system { kind: 'api_error' }`: `retrying` -> `API 재시도 <attempt>/<max_retries>` (as R31) plus ` (<error_type>)` when that is a short lowercase word; `failed` -> the first line of `message` (the core reduces it; fallback `API error`) |
+| `auto_compact_started` | `system { kind: 'compact' }` |
+| `hook_execution` | only its `prompt_id` (any hook that carries one), as a turn boundary: the `user_prompt_submit` hook's new `prompt_id` opens the turn (`turn_start { id }`) when no turn waits for an id (hook first), or becomes the id of the turn a message just started (message first); a hook with the current id changes nothing |
+| ignored | `task_backgrounded`, `task_completed`, `background_tasks`, `current_mode_update`, `session_recap`, `compaction_checkpoint`, `auto_compact_completed`, `auto_compact_failed`, `memory_dream_*`, `hook_annotation`, `rewind_marker`, every unknown kind |
+
+Tools:
+- Name: `update._meta['x.ai/tool'].name` (`[A-Za-z0-9_.:-]{1,64}`), never `title` (a display string that can carry paths
+  and commands). A `tool_call` without `x.ai/tool` whose `rawInput` has `backend` is the server-side web search: tool
+  `web_search`. Pairing by `toolCallId` (opaque, the item `id`, R16): the first terminal update ends the call and later
+  ones are ignored.
+- The descriptor (4.0.2) is built from the `rawInput` fields in the table only. Every other field (`description`,
+  `prompt`, `old_string`, `new_string`, `content`, `tool_input`, `todos`, `timeout`, option `description`s, `title`,
+  `locations`, ...) is never read. Rooms are the ADAPTERS 6.2 Grok column, through the core's hints (D4):
+
+| tool (`x.ai/tool.name`) | descriptor | room |
+|---|---|---|
+| `read_file` | `kind: 'read'`, `path: target_file` | archive |
+| `list_dir` | `kind: 'read'`, `path: target_directory` | archive |
+| `grep` | `kind: 'search'`, `query: pattern`, `path: path` | archive |
+| `search_replace`, `write` | `kind: 'edit'`, `path: file_path` | dev |
+| `run_terminal_command` | `kind: 'shell'`, `command` (a string, never argv), `background: rawInput.background` | program rule of 3.1 (archive / research / server) |
+| `monitor` | `kind: 'shell'`, `command`, `background: true` (a monitor is always a background task, 259/259) | program rule of 3.1 |
+| `get_command_or_subagent_output`, `kill_command_or_subagent` | `kind: 'shell'` without a command (task ids are not read); the summary is the tool name | server |
+| `web_fetch` | `kind: 'web'`, `url` (host only) | research |
+| `web_search` (server side, no `x.ai/tool`) | `kind: 'web'`; its query is known only at completion and is not read | research |
+| `use_tool` | `tool_name` `<server>__<tool>` split at the first `__` -> `mcpServer`, `mcpTool`, so `tool` is `mcp__<server>__<tool>` (a uuid-looking server -> ZERO_UUID, section 5); a name without `__` is the server segment alone, so `tool` is `mcp__<server>`. `tool_input`, `file` and `tool_input_file` are never read. Without a `tool_name` (the `{file}` form) -> `kind: 'web'` | MCP names: none, the page classifies them (D4); without a name: research |
+| `spawn_subagent` | `kind: 'agent'`, `description: subagent_type` (the agent type label; the model-written `description` and `prompt` are not read) | here |
+| `ask_user_question` | `kind: 'ask'`, `questions` (`question` and at most 4 option `label`s each) -> `question` / `options` (R33, `askFields`) | desk |
+| `exit_plan_mode` | `kind: 'ask'`, `question: '이 계획대로 진행할까요?'`, `options: ['승인', '수정 요청']` (R34) | desk |
+| `todo_write`, `enter_plan_mode` | hidden: no `tool_start`, no `tool_end`; the board comes from the `plan` record | - |
+| `search_tool` | hidden (tool lookup plumbing like Claude `ToolSearch`; provisional, ADAPTERS 6.2) | - |
+| any other name (`scheduler_list`, new tools) | `kind` from `x.ai/tool.kind` (`read`, `list` -> read; `search` -> search; `edit`, `write` -> edit; `execute` -> shell without a command; `fetch`, `web_fetch` -> web; else other), no input read; `tool` = the name (`tool` when there is none) | by kind |
+
+  ADAPTERS 6.2 puts `enter_plan_mode` in the meeting room. The core gives that room only to `kind: 'plan'` calls, which
+  show no `tool_start`, and the page does not change (D4), so it is hidden like `todo_write`.
+- End status (the terminal update). Error lines come only from structured fields or fixed phrases; result bodies
+  (`content` text beyond the denial check, `output`, `stdout`, `stderr`, diffs) never reach an event:
+  - `completed` -> ok, except: a `rawOutput` of type `Bash` whose `exit_code` is a non-zero integer -> `failed`, error
+    `Exit code <n>` (the corpus has 602 such results written as `completed`); `rawOutput.type` `BackgroundTaskStarted`
+    -> ok with `background` (R28; the task's later `task_completed` is ignored); `spawn_subagent` -> ok (async launch);
+    an `exit_plan_mode` completed without `rawOutput` (the user chose to revise or abandon the plan) -> `denied`, error
+    `User asked to revise the plan`, `User abandoned the plan` or `Plan not approved`.
+  - `failed` without `rawOutput`: a first text line that starts with a fixed denial phrase (80 in the corpus) ->
+    `denied` with a fixed error line, and the rest of the text (a hook's or classifier's reason) is dropped:
+    `Tool <x> was not executed: Auto mode blocked this action` / `... Denied by permission policy` -> `Tool <name> was
+    not executed: <that reason>` (any other reason -> `Tool <name> was not executed`; `<name>` is the call's own tool
+    name, never text from the line), `Hook denied:` -> `Hook denied`, `User rejected the execution` -> the same,
+    `Rejected: file edits are not allowed in plan` -> `Rejected: file edits are not allowed in plan mode`, any other
+    `Rejected:` -> `Rejected`. Without such a phrase -> `failed` with no error line (the core's fallback `failed`).
+  - `failed` with `rawOutput` -> `failed`, error from the first line of `error` or `message`, else `Exit code <n>`, else
+    the result's variant name (`FileNotFound`, `NoMatchesFound`, ...), else `MCP tool error` for an MCP `is_error`.
+  - The core reduces every error line (`sanitizeLine`, `cleanText`, <= 120).
+  - `exit_plan_mode` (R34, adapted): Grok writes the plan text only at completion (`rawInput` is `{}` in the corpus;
+    the text is `rawOutput` `PlanReady.plan_content`; `plan.md` is outside the allowlist). When the `tool_call` carries
+    a plan (`rawInput.plan` or `plan_content`) it is sent as `plan { markdown }` before the ask's `tool_start` (the R34
+    order). Otherwise the ask comes first, and at a completed update with `PlanReady` the adapter sends
+    `plan { markdown: plan_content }` (`exit_plan`, at most 6 items via `planFromMarkdown`; skipped when it equals the
+    plan already shown) and then `tool_end` ok. Revise or abandon gives `denied` and no plan.
+  - A call still open at `turn_completed` `cancelled` -> `interrupted` (above); one still open when the next turn
+    starts -> `abandoned` (core, R27).
+
+Floors (D1):
+- An ordinary cwd goes through the shared `projectKey` (4.4), the function the Claude adapter uses, so a Grok session
+  and a Claude session in the same folder share a floor. A project-local worktree (`.worktrees/<name>`,
+  `.claude/worktrees/<name>`; the form the corpus shows, 15/107) joins its repository's floor with a worktree badge, as
+  for Claude.
+- A Grok-managed worktree, project `<root>/worktrees/<repo>/<name>[/...]` with `<root>` the Grok root (documented by
+  Grok, none in the corpus): the session joins an existing floor whose `projectLabel` equals `<repo>`, else one whose
+  label equals `<name>`. Candidates are the floors of live (not ended) main sessions of any adapter, announced or still
+  attaching, except other tool-worktree floors. When none matches it gets its own floor keyed by the checkout
+  `<root>/worktrees/<repo>/<name>` (label `<name>`). `worktree` is `<name>` in every case (a heuristic, so the HUD shows
+  the badge). The floor is chosen once, the first time the Store sees that project (the first cwd), and does not move
+  afterwards (4.4), so snapshots and live events agree.
+- Startup order: the choice must not depend on which adapter happens to attach first. At the group's first rescan a
+  Runner that has a floor rule (Grok) waits until every other Runner (Claude) has finished its first attach pass
+  (scan, replay, announce) before it scans and announces (`RunnerGroup.rescan`, the Runner's `gate`); its own rescan
+  timer waits for the same promise, so a slow first Claude walk cannot be overtaken. The wait ends after
+  `FIRST_PASS_WAIT_MS` (10 s) at most, so a stalled first walk never keeps Grok off. Runners without a rule never wait,
+  later rescans run together, and an adapter switched on later (4.0.1 F1) does not wait either.
+- Mechanism: the descriptor's `worktreeFloor(project, root)` (passed in `deps`) returns `{ key, names: [repo, name],
+  badge }` or null; the Runner registers it with `store.setFloorRule(agent, fn)`, and the Store applies it when it
+  patches a `session` event of that agent (`pickFloor` in `store-link.mjs`). Adapters without a rule (Claude) are not
+  patched, so Claude events do not change.
+- Subs take the floor of their root main (`sid`), as patched.
+
+Descriptor and session end:
+- `src/adapters/grok/index.mjs`: `id: 'grok'`, `defaultRoot: '~/.grok'`, `sidecars(ref)` (the session's
+  `summary.json`), `worktreeFloor` (D1 above) and `deps()`: the Runner bundle `{ agent: 'grok', SessionState:
+  GrokSession, Tailer, scan: a fresh createGrokScanner(), sidecars, worktreeFloor }`. No `readSubMeta` /
+  `readJournalLabels` (Claude-only) and no replay support (D12). `GrokSession` (`session.mjs`) takes the Runner's
+  constructor options (`id`, `kind`, `parentId`, `agentType`, `now`; the Claude-only ones are ignored) and wraps
+  `SessionCore`.
+- A main never idles out by itself (4.0.2); it ends when its file leaves the active window (section 6). A sub ends at
+  its parent's `subagent_finished` (above) or by the core's idle rule (R29, `SUB_IDLE_MS`). `hook_execution`
+  `session_end` and `active_sessions.json` are not used.
+
+Tests: synthetic fixtures shaped from the research file (`test/fixtures/grok.mjs` record builder,
+`test/fixtures/grok-tree.mjs` folder trees), under temp roots only (never the real `~/.grok` or `~/.claude`); tests that
+spawn the bin set `HOME` to a temp folder, because the bin fills the default `~/.grok` root. The conformance harness
+(4.0.2) runs against the Grok adapter. `test/grok-discover.test.mjs` covers linkage across groups, the active window
+with ancestors, waiting children, the link grace, odd names, ENOENT, duplicates, cycles, caps and the allowlist (bait
+files next to the transcripts are never opened, listed or `stat`ed, checked with an fs spy on a real server);
+`test/sidecar.test.mjs` covers re-reading only on change, the size cap, parse errors, symlinks (also one swapped in
+between the `lstat` and the open), the Claude Runner without the hook, the first `session` event with the summary
+values and a child attached as a main that never sends its task (also `test/grok-task-runner.test.mjs`);
+`test/grok-floor.test.mjs` covers the D1 floors and
+the startup order; `test/grok-records.test.mjs` and the session tests cover every mapping row above (hidden prompts and
+turn order, one item per chunk with no idle fallback, late records, exit codes, denial lines, cancelled turns, plan
+records, `exit_plan_mode`, MCP names); `test/grok-discover.test.mjs` also covers a symlinked `subagents/` and the
+`SCAN_CAPPED` skip on a real server; `test/grok-docs.test.mjs` pins the 4.6 record rows and the package description. The only real-data
+use is a read-only check against `~/.grok` that prints counts only (events, unpaired tools, apply errors, privacy hits).
+
 ## 5. Privacy and rooms
 - Never put these into any event: Bash/Monitor `command`, terminal `command`/`cwd`, Write `content`, Edit
   `old_string`/`new_string`, Agent `prompt`, Workflow `script`/`args`, SendMessage `message`/`content`, ExitPlanMode raw
@@ -698,16 +944,22 @@ registry hook accepts. It is not registered in `src/adapters/`; each real adapte
   `--active` the minutes of mtime window for attaching files, `--host` must be a loopback address.
   `--claude-root <dir>` is the Claude Code transcripts root (default `~/.claude/projects`); `--root <dir>` is an alias
   that sets the same option. Both set the `start()` option `root`.
-- Adapters (P5a, 4.0.1): `--agents <id,id>` is a comma list of adapter ids, each validated against `KNOWN_AGENTS`
-  (an unknown id is a usage error, exit 2). It narrows the enabled set (D3); without it every implemented adapter
-  whose root exists is on. `--codex-root <dir>`, `--grok-root <dir>` and `--antigravity-root <dir>` are accepted,
-  `~`-expanded and stored in the `start()` option `roots`; they are reserved for the upcoming adapters and unused in
-  P5a. After the URL line the bin prints `office-sim: agents <ids>` (the enabled ids, comma-separated) or
-  `office-sim: agents none`, then one line `office-sim: <id> is not implemented yet` for each requested id that is
-  known but not implemented.
+- Adapters (P5a, 4.0.1): `--agents <id,id>` is a comma list of adapter ids, each validated against `KNOWN_AGENTS` (an
+  unknown id is a usage error, exit 2). It narrows the enabled set (D3); without it every implemented adapter whose root
+  exists is on. `--codex-root <dir>`, `--grok-root <dir>` and `--antigravity-root <dir>` are accepted, `~`-expanded and
+  stored in the `start()` option `roots`. `--grok-root` is live since P5c: it is the Grok root (default `~/.grok`, 4.6).
+  `--codex-root` and `--antigravity-root` are still reserved for the upcoming adapters and unused. The bin fills the
+  root of every implemented non-Claude adapter that has no flag with the descriptor's default
+  (`roots: { ...defaultRoots(), ...flags }`); `start()` itself never falls back to a default root, so a `start()` call
+  without `roots.grok` (every test that does not pass one) never checks or reads `~/.grok`. After the URL line the bin
+  prints `office-sim: agents <ids>` (the enabled ids, comma-separated, e.g. `office-sim: agents claude-code,grok` when
+  both roots exist) or `office-sim: agents none`, then one line `office-sim: <id> is not implemented yet` for each
+  requested id that is known but not implemented (`codex`, `antigravity`).
 - RunnerGroup: one Runner per enabled adapter, all sharing one Store and one HTTP layer. It forwards `startLoops`,
   `rescan`, `setInterval` (so `POST /config` reaches every Runner) and `close`, and sums `files.size`, `badLines`,
-  `skippedLines` and `applyErrors` over its Runners. A missing or unreadable adapter root disables that adapter with
+  `skippedLines` and `applyErrors` over its Runners. Its first `rescan` lets a Runner with a D1 floor rule (Grok) scan
+  only after the other Runners' first rescans are done, or after 10 s at most (4.6 Floors, startup order); the result
+  array keeps the Runner order. A missing or unreadable adapter root disables that adapter with
   one log line without the path (`<id>: root not found, adapter off` or `<id>: root not readable (<code>), adapter
   off`); the server still starts and serves an empty office. The root check runs before the server listens and gives
   up after 2 s (`ETIMEDOUT`), so a stalled root never keeps the server from starting. A disabled adapter that was
@@ -767,8 +1019,10 @@ registry hook accepts. It is not registered in `src/adapters/`; each real adapte
   up; `stats()` adds the Store's `rejectedRefs` to the Runner counters; `notImplemented`: requested ids that are
   known but not implemented, `KNOWN_AGENTS` order). Replay options: `replay` (path), `speed`, `loop`, and the test
   hook `replayTiming` (`{ maxGapMs, holdMs, restartMs, statusMs }`). Adapter test hooks: `deps` (claude-code deps
-  override), `adapters` (registry override), `probe` (replaces the root check) and `probeTimeoutMs`. With `auth: true`, `url` is `http://<host>:<port>/?t=<token>` (what the bin prints) and `token` is set;
-  without it `token` is null and `url` has no query.
+  override), `adapters` (registry override), `probe` (replaces the root check) and `probeTimeoutMs`. `roots` gives the
+  root of each non-Claude adapter (an adapter without one is not started, see above). With `auth: true`, `url` is
+  `http://<host>:<port>/?t=<token>` (what the bin prints) and `token` is set; without it `token` is null and `url` has
+  no query.
 
 ### 6.1 Replay mode (`--replay <file> --speed <x> [--loop]`, P3)
 - Input: one main transcript (`<uuid>.jsonl`) plus its `<uuid>/subagents/**` files (`sessionRefs`).

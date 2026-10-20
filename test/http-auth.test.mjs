@@ -94,7 +94,8 @@ test('parseArgs: --auth is a flag without a value', () => {
 test('bin --auth prints the token URL; the cookie it sets opens the API', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'office-sim-auth-'));
   tmpDirs.push(root);
-  const child = spawn(process.execPath, [here('../bin/office-sim.mjs'), '--port', '0', '--claude-root', root, '--auth'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  // HOME = the temp root: the bin's default roots (~/.grok since P5c) never reach the real folders
+  const child = spawn(process.execPath, [here('../bin/office-sim.mjs'), '--port', '0', '--claude-root', root, '--auth'], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, HOME: root } });
   let out = '';
   child.stdout.on('data', (c) => { out += c; });
   const exited = new Promise((resolve) => child.on('exit', (code) => resolve(code)));

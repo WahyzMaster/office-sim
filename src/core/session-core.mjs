@@ -5,7 +5,8 @@
 //
 // Items (adapter -> SessionCore, CONTRACT 4.0.2). Any item may carry `key` (dedupe: a repeated key yields nothing) and
 // `ts` (ISO or ms; in replay a ts-less item adds no growth).
-//   { k: 'meta', cwd?, branch?, title?, model?, parentId?, agentType? }   { k: 'prompt', text }
+//   { k: 'meta', cwd?, branch?, title?, model?, parentId?, agentType?, subagent? }   { k: 'prompt', text }
+//     (subagent: true = this session runs a parent's task, so its human text is never a prompt or a title)
 //   { k: 'tool_start', id, tool?, kind?, desc?, question?, options?, questions?, background?, items?, markdown?, source? }
 //     (items / markdown / source only on a kind 'plan' call: its plan shows at an ok tool_end, R35)
 //   { k: 'tool_end', id, status?: 'ok'|'failed'|'denied'|'interrupted', errorLine?, background? }
@@ -57,6 +58,7 @@ export class SessionCore {
 
     this._title = null;
     this._firstPrompt = null;
+    this._taskRunner = false; // 부모의 과제를 받아 일하는 세션 (메타가 알려 준다): 사람 입력을 prompt 와 제목으로 쓰지 않는다
     this._firstCwd = null;
     this._lastCwd = null;
     this._branch = null;
@@ -209,6 +211,10 @@ export class SessionCore {
     if (str(m.title)) this._title = m.title;
     if (str(m.agentType)) this.agentType = m.agentType;
     if (this.kind === 'sub' && agentScopedId(this.agent, m.parentId)) this.parentId = m.parentId;
+    if (m.subagent === true) { // 메인으로 붙은 자식 (부모가 늦게 불렀다): 이미 받은 과제도 제목 대안에서 지운다 (section 5)
+      this._taskRunner = true;
+      this._firstPrompt = null;
+    }
   }
 
   // 끝난 서브가 받아들인 새 일 (prompt, turn_start, tool_start; Claude R29): 다시 세우고 session 을 먼저 낸다
@@ -349,7 +355,7 @@ const HANDLERS = {
     this._endTurnArmed = false; // 사람 입력은 턴을 열지 않는다 (turn_start 가 연다, R30): 턴 끝 추정만 푼다
     const p = promptOf(item.text);
     // 서브의 사람 입력은 부모가 넘긴 과제다 (Agent prompt, section 5): 보내지 않고 제목에도 쓰지 않는다
-    if (!p || this.kind !== 'main') return true;
+    if (!p || this.kind !== 'main' || this._taskRunner) return true;
     if (this._firstPrompt === null) this._firstPrompt = p.raw;
     this._emit(this._ev('prompt', ts, { text: p.text }));
     return true;

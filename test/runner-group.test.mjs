@@ -149,10 +149,10 @@ test('server agents option: narrows the enabled set and reports requested ids th
   } finally {
     await both.close();
   }
-  const codexOnly = await start({ port: 0, root, publicDir: PUBLIC, agents: ['codex', 'grok'] });
+  const codexOnly = await start({ port: 0, root, publicDir: PUBLIC, agents: ['codex', 'antigravity'] });
   try {
     await codexOnly.ready;
-    assert.deepEqual([codexOnly.agents, codexOnly.notImplemented], [[], ['codex', 'grok']]);
+    assert.deepEqual([codexOnly.agents, codexOnly.notImplemented], [[], ['codex', 'antigravity']]);
     assert.deepEqual(JSON.parse((await request(codexOnly.port, { path: '/healthz' })).body).agents, []);
   } finally {
     await codexOnly.close();
@@ -197,7 +197,7 @@ test('replay reports notImplemented in KNOWN_AGENTS order, deduped, the same as 
   const dir = await tmp('office-sim-group-replay-');
   const { mainPath } = await writeReplayFixture(dir);
   const root = await tmp();
-  for (const [agents, want] of [[['grok', 'codex', 'grok'], ['codex', 'grok']], [['antigravity', 'codex'], ['codex', 'antigravity']]]) {
+  for (const [agents, want] of [[['antigravity', 'codex', 'antigravity'], ['codex', 'antigravity']], [['antigravity', 'codex'], ['codex', 'antigravity']]]) {
     const replay = await start({ port: 0, root, publicDir: PUBLIC, replay: mainPath, speed: 1000, intervalMs: 50, agents });
     try {
       assert.deepEqual(replay.notImplemented, want, `replay ${agents}`);
