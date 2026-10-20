@@ -13,12 +13,19 @@
 // prompt_id. When a message opened a turn while the previous one was still running and that previous turn's records go
 // on (no new id came), the open turn adopts the previous id instead of dropping its work as late.
 // Records of a turn that already ended (research: 7 late updates) and of older turns never reopen a turn.
+//
+// Approval wait (P5g): every tool_call with x.ai/tool and a new toolCallId is counted (approval.mjs, before the turn
+// check: hidden and late calls count too, the order events.jsonl numbers its tool_started in). GrokMeta's events.jsonl
+// facts arrive through setInfo({ approval }); the pairing turns them into tool_wait items for the open, visible, non-ask
+// tool they belong to. A request read before its call is held and comes out in the apply() of that call, right after
+// its tool_start.
 import { SessionCore } from '../../core/session-core.mjs';
-import { itemId } from '../../core/session-items.mjs';
+import { isObj, itemId } from '../../core/session-items.mjs';
 import {
   GROK_AGENT, TERMINAL_STATUSES, parseRecord, contentText, userMessageOf, toolNameOf, xaiKindOf, toolStartOf, toolEndOf,
   planItemsOf, turnReasonOf, retrySystem, childIdOf,
 } from './records.mjs';
+import { ApprovalPairing } from './approval.mjs';
 
 const MAX_SEEN = 4096; // 기억하는 지난 턴 id 수 (오래된 것부터 잊는다)
 const MAX_TOOLS = 4096; // 열린 도구 표 상한
@@ -45,7 +52,8 @@ export class GrokSession {
     this._prevOpen = null; // 메시지가 새 턴을 열 때 끝나지 않고 닫힌 앞 턴의 id (그 턴의 기록이 이어지면 다시 받는다)
     this._apiError = false; // 이 턴에 system api_error 를 이미 냈다
     this._seen = new Set(); // 지난 턴 id
-    this._tools = new Map(); // toolCallId -> { name, promptId, plan }: 열린 (보이는) 도구
+    this._tools = new Map(); // toolCallId -> { name, promptId, plan, ask }: 열린 (보이는) 도구
+    this._approval = new ApprovalPairing({ toolOf: (tid) => this._tools.get(tid) ?? null }); // P5g 승인 대기 짝짓기
   }
 
   // ------------------------------------------------------------------------------- SessionLike API
@@ -60,13 +68,26 @@ export class GrokSession {
       return [];
     }
     const out = [];
-    for (const it of items) for (const ev of this.core.apply(it, { replay })) out.push(ev);
+    // 들고 있던 승인 요청의 호출이 이 기록이면 그 tool_wait 은 tool_start 바로 뒤에 (같은 결과 안에)
+    for (const it of [...items, ...this._approval.take()]) for (const ev of this.core.apply(it, { replay })) out.push(ev);
     return out;
   }
 
   idle(nowMs) { return this.core.idle(nowMs); }
-  /** Late info: the Store ({ parentProject, parentId, agentType }) or the summary.json sidecar ({ title, cwd, branch }). */
-  setInfo(info) { return this.core.setInfo(info); }
+
+  /**
+   * Late info: the Store ({ parentProject, parentId, agentType }), the summary.json sidecar ({ title, cwd, branch }) and
+   * GrokMeta's events.jsonl result ({ approval: { facts, seenAt, reset, caughtUp } }, P5g). `approval` never reaches the
+   * core as info; only the tool_wait items made from it in this call are applied.
+   */
+  setInfo(info) {
+    if (!isObj(info) || !Object.hasOwn(info, 'approval')) return this.core.setInfo(info);
+    const { approval, ...rest } = info;
+    const out = this.core.setInfo(rest);
+    for (const it of this._approval.onFact(approval)) for (const ev of this.core.apply(it)) out.push(ev);
+    return out;
+  }
+
   sessionEvent() { return this.core.sessionEvent(); }
   snapshotEvents() { return this.core.snapshotEvents(); }
   get title() { return this.core.title; }
@@ -82,6 +103,7 @@ export class GrokSession {
       grok: {
         turnId: this._turnId, turnOpen: this._turnOpen, awaiting: this._awaiting, fresh: this._fresh, started: this._started,
         tools: [...this._tools.keys()], seen: this._seen.size, late: this._late, skipped: this._skipped,
+        approval: this._approval.debugState(),
       },
     };
   }
@@ -133,6 +155,7 @@ export class GrokSession {
     this._started = true;
     this._apiError = false;
     this._tools.clear(); // 결과 없는 도구는 SessionCore 가 abandoned 로 닫았다
+    this._approval.onTurnBoundary();
   }
 
   _remember(pid) {
@@ -186,7 +209,8 @@ export class GrokSession {
     const { markdown, ...fields } = start;
     if (markdown) push({ k: 'plan', markdown }); // R34: 질문을 기다리는 동안 보일 계획 제안은 질문보다 먼저
     push({ k: 'tool_start', id, ...fields });
-    this._tools.set(id, { name, promptId: r.promptId ?? this._turnId, plan: markdown ?? null });
+    // ask: 질문 도구 (ask_user_question, exit_plan_mode) 에는 승인 대기를 붙이지 않는다
+    this._tools.set(id, { name, promptId: r.promptId ?? this._turnId, plan: markdown ?? null, ask: fields.desc?.kind === 'ask' });
     if (this._tools.size > MAX_TOOLS) this._tools.delete(this._tools.keys().next().value);
     if (TERMINAL_STATUSES.has(u.status)) this._toolUpdate(r, push);
   }
@@ -200,6 +224,7 @@ export class GrokSession {
       return;
     }
     const t = this._tools.get(id);
+    if (t) this._approval.markUpdated(id); // 갱신이 온 호출은 승인 대기 짝 다시 맞추기의 후보가 아니다
     const end = t ? toolEndOf(t.name, u) : null;
     if (!end) return; // 모르는 id, 숨긴 도구, 이미 닫힌 도구 (늦은 갱신), 아직 끝나지 않음
     this._tools.delete(id);
@@ -240,6 +265,7 @@ export class GrokSession {
     if (reason === 'api_error' && !this._apiError) push({ k: 'system', kind: 'api_error', text: 'API error' });
     push({ k: 'turn_end', reason });
     this._tools.clear();
+    this._approval.onTurnBoundary();
     this._turnOpen = false;
     this._awaiting = false;
     this._prevOpen = null;
@@ -260,8 +286,10 @@ const RECORDS = {
     else this._dropLate();
   },
   tool_call(r, push) {
+    this._approval.noteCall(r.update, r.meta); // 턴을 보기 전에 센다 (늦은 호출, 숨긴 도구도 events.jsonl 에는 있다)
     if (this._enter(r.promptId, push)) this._toolCall(r, push);
     else this._dropLate();
+    this._approval.onCall(); // 들고 있던 요청: 그 tool_start 뒤에 (take)
   },
   tool_call_update(r, push) { this._toolUpdate(r, push); },
   plan(r, push) {

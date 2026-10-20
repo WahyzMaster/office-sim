@@ -5,6 +5,7 @@ import { Agent } from './agent.js';
 import { ROOMS, classify, toolLabel } from './rooms.js';
 import { Inbox } from './office-inbox.js';
 import { floorDetail, labelRootIndex } from './detail.js';
+import { waitStart, waitEnd, reconcileWaits, snapshotWaits, liveAskStays, textKey, rememberText, forgetText, forgetTexts } from './approval.js';
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 // 이 이벤트가 오면 tool_end 를 못 받은 채 열려 있는 질문은 이미 끝난 것이다(새 요청, 새 메시지, 턴 끝).
@@ -25,6 +26,7 @@ export class Office {
     this.selected = null;
     this.follow = false;
     this.inbox = new Inbox();
+    this.toolTexts = new Map(); // sessionId|toolUseId -> 도구 문구, 라이브 승인 대기 질문에 쓴다(approval.js)
     this.raycaster = new THREE.Raycaster();
     this.tmp = new THREE.Vector3();
     stage.setViewFn((aspect) => this.viewHalf(aspect));
@@ -83,11 +85,18 @@ export class Office {
         break;
       case 'tool_end':
         a.toolEnd(ev);
+        forgetText(this.toolTexts, a.id, ev.toolUseId);
         if (!ev.ok && ev.errorKind !== 'abandoned') {
           const soft = ev.errorKind === 'denied' || ev.errorKind === 'interrupted';
           line = `${{ denied: '거절', interrupted: '중단' }[ev.errorKind] || '실패'} · ${ev.error || ''}`;
           kind = soft ? 'denied' : 'error';
         }
+        break;
+      case 'tool_wait':
+        // 라이브 권한 대기(Grok): 열리면 내 자리에서 승인을 기다리고, 허용되면 도구 방으로 돌아간다. 거절은 tool_end denied 로 온다.
+        if (ev.waiting === true) line = waitStart(a, ev, this.toolTexts.get(textKey(a.id, ev.toolUseId)))?.question ?? null;
+        else if (ev.waiting === false) waitEnd(a, ev.toolUseId);
+        kind = 'tool';
         break;
       case 'thinking':
         a.push({ kind: 'think', text: ev.text || null, ttl: clamp((ev.durationMs || 2000) / 1000, 1.8, 6) });
@@ -110,6 +119,7 @@ export class Office {
       case 'session_end':
         // 끝난 세션의 열린 도구/질문은 더 이상 답이 오지 않는다. 남겨 두면 질문이 퇴근을 영원히 막는다.
         a.abandonPending();
+        forgetTexts(this.toolTexts, a.id);
         a.leave();
         line = a.isSub ? '보고 끝, 복귀' : '퇴근';
         kind = 'muted';
@@ -151,12 +161,13 @@ export class Office {
   }
 
   // 같은 직원의 새 작업이 왔는데 질문이 아직 열려 있으면 tool_end 를 놓친 것: 질문을 닫고 다음 일로 간다.
+  // 라이브 승인 대기(live)는 권한 창이 열린 동안 생각, 말, 형제 도구가 와도 닫지 않는다. 새 요청과 턴 끝만 닫는다.
   closeStaleAsks(a, ev) {
     const always = ASK_OVER.has(ev.type);
     if (!always && !ASK_OVER_LATER.has(ev.type)) return;
     if (ev.type === 'tool_start' && a.pending.has(ev.toolUseId)) return;
     const t = Date.parse(ev.ts ?? '');
-    a.releaseAsks((it) => always || t - Date.parse(it.ts ?? '') >= ASK_SIBLING_MS);
+    a.releaseAsks((it) => !liveAskStays(it, ev.type) && (always || t - Date.parse(it.ts ?? '') >= ASK_SIBLING_MS));
   }
 
   // session 이벤트 -> 직원 생성/갱신. 놓을 층을 모르면(project 없음, 부모도 모름) null.
@@ -239,6 +250,7 @@ export class Office {
     }
     const it = { kind: 'tool', room, ids: [ev.toolUseId], open: 1, activity: `${label} ${summary}`.trim() };
     a.pending.set(ev.toolUseId, it);
+    rememberText(this.toolTexts, a.id, ev.toolUseId, it.activity);
     a.push(it);
     const where = room === 'here' ? '' : ` -> ${ROOMS[room].label}`;
     return `${label} ${summary}${where}`;
@@ -261,6 +273,7 @@ export class Office {
   // 서버 스냅샷: 그대로 재생한 뒤, 스냅샷이 말하는 "지금 열린 도구"와 맞춘다.
   // - 스냅샷에 있는 직원: 스냅샷에 없는 열린 도구/질문은 끊긴 사이에 끝난 것이라 닫는다.
   // - 스냅샷에 없는 직원: 열린 것을 모두 닫고 퇴근. 단 서버가 아직 파일을 붙이는 중(partial)이면 그대로 둔다.
+  // - 라이브 승인 대기: 도구는 열려 있는데 tool_wait 가 없으면 끊긴 사이에 허용된 것이라 도구 방으로 돌려보낸다.
   applySnapshot(events, meta = {}) {
     const live = new Set();
     const open = new Map();
@@ -271,11 +284,17 @@ export class Office {
         open.get(e.sessionId).add(e.toolUseId);
       }
     }
+    const waits = snapshotWaits(events);
     for (const ev of events) this.onEvent({ ...ev, replay: true });
     for (const a of [...this.agents.values()]) {
-      if (live.has(a.id)) a.abandonPending(open.get(a.id) || new Set());
-      else if (!meta.partial) {
+      if (live.has(a.id)) {
+        const ids = open.get(a.id) || new Set();
+        reconcileWaits(a, ids, waits.get(a.id) || new Set());
+        a.abandonPending(ids);
+        forgetTexts(this.toolTexts, a.id, ids);
+      } else if (!meta.partial) {
         a.abandonPending();
+        forgetTexts(this.toolTexts, a.id);
         a.leave();
       }
     }

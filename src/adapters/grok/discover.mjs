@@ -2,7 +2,8 @@
 //   <root>/sessions/<cwd 그룹>/<세션 uuid>/updates.jsonl            기록 (이것만 FileRef 로 낸다)
 //   <root>/sessions/<cwd 그룹>/<부모 uuid>/subagents/<자식 uuid>/    서브에이전트 연결 (디렉터리 이름만 본다)
 // 그 밖의 파일(prompt_history.jsonl, chat_history.jsonl, events.jsonl, plan.*, meta.json, summary.json, 인증/설정 파일)은
-// 열지도 stat 하지도 않는다. summary.json 은 붙은 뒤에 SidecarWatcher 가 읽는다 (src/core/sidecar.mjs).
+// 탐색이 열지도 stat 하지도 않는다. 붙은 뒤에 GrokMeta (meta.mjs) 가 summary.json 을 (SidecarWatcher, src/core/sidecar.mjs)
+// 읽고, 승인 대기(P5g)를 위해 같은 폴더의 events.jsonl 하나를 이어 읽는다 (events.mjs). 다른 파일은 붙은 뒤에도 열지 않는다.
 // 자식의 기록에는 부모가 없으므로 (61/62) 모든 cwd 그룹을 먼저 다 모은 뒤에 종류를 정한다 (자식 15/62 가 다른 그룹에 있다).
 import fsp from 'node:fs/promises';
 import path from 'node:path';

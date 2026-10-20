@@ -1,4 +1,4 @@
-# office-sim server contract (P1-P3, P5a-P5e)
+# office-sim server contract (P1-P3, P5a-P5e, P5g)
 
 The server tails Claude Code session transcripts under `~/.claude/projects`, turns records into UI events,
 and streams them to the 3D office page (`public/`) over SSE. This file is the single source of truth for
@@ -53,8 +53,11 @@ src/adapters/index.mjs  adapter registry: KNOWN_AGENTS, AGENT_LABELS, ADAPTERS, 
 src/adapters/claude-code.mjs the claude-code descriptor; points at the Claude modules where they are (D8)
 src/adapters/grok/      the Grok adapter (P5c, 4.6), every file under 500 lines: `discover.mjs` (allowlist discovery,
                         subagent linkage), `records.mjs` (one record -> item pieces, pure), `session.mjs`
-                        (`GrokSession`: turn and tool state around SessionCore, the SessionLike API), and the
-                        descriptor `index.mjs` (id `grok`, default root `~/.grok`, `sidecars(ref)`, `worktreeFloor`)
+                        (`GrokSession`: turn and tool state around SessionCore, the SessionLike API), the approval
+                        wait of P5g: `events.mjs` (`EventsTail`, the incremental `events.jsonl` reader, and its pure
+                        reducer), `approval.mjs` (`ApprovalPairing`, request -> call pairing, pure) and `meta.mjs`
+                        (`GrokMeta`, the metadata watcher: summary.json plus the events facts), and the descriptor
+                        `index.mjs` (id `grok`, default root `~/.grok`, `sidecars(ref)`, `worktreeFloor`)
 src/adapters/codex/     the Codex adapter (P5d, 4.7), every file under 500 lines: `discover.mjs` (allowlist discovery,
                         date-folder walk, continuation pieces, guardian hiding, parent chain), `line0.mjs` (line-0
                         facts and their cache), `titles.mjs` (`CodexTitles`, the incremental `session_index.jsonl`
@@ -77,14 +80,14 @@ src/core/sidecar.mjs    SidecarWatcher (P5c, ADAPTERS 3.3): at each rescan stats
                         declares (`sidecars(ref)`), re-reads one only when its mtime / size / inode changed (<= 1 MB,
                         parse errors ignored) and passes the result to the session's setInfo (4.6). The Codex title
                         index is not read by it (an incremental reader of its own, 4.7); the Antigravity metadata
-                        watcher is built on two of them (4.8)
+                        watcher is built on two of them (4.8); the Grok `GrokMeta` extends it (P5g, 4.6)
 src/server.mjs          start(): wires Store, RunnerGroup (one Runner per enabled adapter, defined here) and the
                         HTTP layer
 src/server-runner.mjs   Runner: poll / rescan / idle loops, attach, relocation, backoff; runs the SidecarWatcher at
-                        rescan only for an adapter that has the `sidecars(ref)` hook (Grok; Claude has none), or in its
-                        place an adapter's own watcher `deps.sidecarWatcher` (`check(ref)` / `forget(path)`: the Codex
-                        titles, 4.7, and the Antigravity metadata, 4.8); passes a ref's scan-time `facts` to the session
-                        constructor (Codex, Antigravity)
+                        rescan only for an adapter that has the `sidecars(ref)` hook (Claude has none), or in its
+                        place an adapter's own watcher `deps.sidecarWatcher` (`check(ref)` / `forget(path)`: the Grok
+                        `GrokMeta`, 4.6 P5g, the Codex titles, 4.7, and the Antigravity metadata, 4.8); passes a ref's
+                        scan-time `facts` to the session constructor (Codex, Antigravity)
 src/server-http.mjs     http: /, /js/*, /events (SSE), /state, /config, /healthz
 src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
 src/replay.mjs          ReplayRunner (extends Runner): --replay playback of one session (section 6.1)
@@ -95,7 +98,8 @@ test/fixtures/conformance.mjs adapter conformance harness (ADAPTERS 10, 4.0.2), 
                         Codex and Antigravity adapters run it too (4.6, 4.7, 4.8)
 public/                 the browser app; owned by the browser module (public/js/*), server work does not edit it.
                         P3: js/detail.js (per-floor detail: hidden floors skip draw, matrices, labels, animation;
-                        unfocused floors cast no shadows; CSS labels only for the focused floor), js/bench.js (#bench)
+                        unfocused floors cast no shadows; CSS labels only for the focused floor), js/bench.js (#bench).
+                        P5g: js/approval.js (live `tool_wait` -> the character's desk visit and back, pure; section 7)
 ```
 
 ## 2. Event schema (server -> browser)
@@ -111,6 +115,7 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 | `prompt` | `text` (human prompt, <= 80 code points) |
 | `tool_start` | `toolUseId`, `tool` (raw name, except a connector-uuid mcp server segment, see 5), `summary`, `room` (optional hint, see 5), `question`, `options` (ask tools only), `background` (bool, optional), `awaitsApproval` (`true` only in replay mode, when the call waited for a human answer to a permission prompt, see 7) |
 | `tool_end` | `toolUseId`, `ok` (bool), `errorKind`: `failed` \| `denied` \| `interrupted` \| `abandoned` (absent when ok), `error` (<= 120 code points, absent when ok) |
+| `tool_wait` | `toolUseId`, `waiting` (bool), exactly these two. Live Grok only (P5g, 4.6 Approval wait, section 7): `waiting: true` when a read finds a permission prompt for that open, visible, non-ask tool open 1 s or more (`ts` = the time the prompt opened), `waiting: false` when that prompt was allowed (`ts` = the answer's time), or when a caught-up read no longer lists a prompt that was shown and its answer was not seen (the events tail was rebuilt, 4.6; `ts` = that read's time). A deny sends no `false`: the tool's `tool_end` with `errorKind: 'denied'` closes the wait (only a deny whose answer was lost with a rebuilt tail gets the settle `false` first, before its `tool_end` `denied`). At most one `true` per `toolUseId` per announce (a re-announce of the character, after a same-path re-attach or a move to a new inode, repeats the open `tool_start` and its `tool_wait` copy), `false` only after it, both only between the tool's `tool_start` and its `tool_end` |
 | `thinking` | `text` (first sentence <= 100 code points, or `null` when the block is signature-only), `durationMs` (number or null) |
 | `say` | `text` (<= 100 code points) |
 | `plan` | `items`: `[{ content, status }]` with status `pending` \| `in_progress` \| `completed`, `source`: `update_plan` \| `tasks` \| `exit_plan`. Every `content` is scrubbed (section 5) and capped at 80 code points. `exit_plan` carries at most 6 items (`planFromMarkdown`, each raw line cut at 1000 chars before parsing); `update_plan` and `tasks` carry the whole list (no count cap) |
@@ -123,6 +128,12 @@ subagents alike) carries an agent id. It is on every `session` event, live and i
 P5e, 4.8). The page shows the labels `Claude Code`, `Codex`, `Grok`, `Antigravity`, and an unknown id as-is. The id flows
 from the file's `FileRef.agent` through its session object (`SessionState`, or the Grok, Codex or Antigravity session
 around `SessionCore`) and its Store entry (4.0.1).
+
+`tool_wait` order (P5g): in a snapshot and in `/state`, the `tool_wait { waiting: true }` of a tool that still waits
+comes right after that tool's `tool_start`, as a JSON-identical copy of the live event; a wait that was allowed (or a
+tool that ended) leaves no `tool_wait` there. The Store, `/state` and the ring keep `tool_wait` like any other event,
+and a page that does not know the type ignores it. `awaitsApproval` stays replay-only (Claude, section 7); Claude,
+Codex and Antigravity never send `tool_wait`.
 
 Wire messages on `/events` (each SSE `data:` line is one JSON object, every message has an `id:` line = seq):
 - `{ "type": "snapshot", "events": [ ...events ] }` first message on every connection (or replay, see 6).
@@ -339,7 +350,8 @@ Approved decisions (reasons and the alternatives not taken: ADAPTERS section 11)
 - D6 Antigravity scope: the CLI (`agy`) and old IDE transcripts only; the desktop app is out of scope (its
   conversation files look encrypted).
 - D7 Grok live approval wait (`events.jsonl`): a separate, optional stage after the base Grok adapter; the contract
-  change it needs is decided then.
+  change it needs is decided then. Done in P5g: a new event `tool_wait { toolUseId, waiting }` (section 2), not a
+  field on `tool_start`; `awaitsApproval` stays replay-only (4.6 Approval wait, section 7).
 - D8 No file moves: the Claude modules stay where they are; new code goes to `src/adapters/` (and later `src/core/`).
 - D9 Claude keeps its `SessionState`; whether it moves onto the shared `SessionCore` is decided after P5.
 - D10 Codex: guardian (auto-approval review) threads are hidden; code-mode `exec` shows a short visit per inner item;
@@ -450,7 +462,7 @@ otherwise untouched). The newly exported helpers keep their behaviour, and the C
 Exports: `tool-summary.mjs`: `toolSummary`, `shellProgram`, `patchFiles`, `mcpToolName`, `TOOL_KINDS`.
 `session-core.mjs`: `SessionCore`, `END_TURN_IDLE_MS`, `SUB_IDLE_MS`. `session-items.mjs` (pure shaping, used by the
 core): `CAPS`, `TOOL_STATUSES`, `TURN_END_REASONS`, `SYSTEM_KINDS`, `isObj`, `isFlag`, `itemTs`, `itemId`, `itemKey`,
-`promptOf`, `sayText`, `thinkingFields`, `errorText`, `endFields`, `askOf`, `startFields`, `planViewOf`, `planFields`,
+`promptOf`, `sayText`, `thinkingFields`, `errorText`, `endFields`, `waitFields` (P5g), `askOf`, `startFields`, `planViewOf`, `planFields`,
 `systemFields`.
 
 Tool descriptor (`tool-summary`):
@@ -492,7 +504,7 @@ export class SessionCore {
   setInfo(info)                // late meta: Store { parentProject, parentId, agentType } or sidecar { title, cwd, branch,
                                //   subagent? }
   sessionEvent()               // -> current `session` event
-  snapshotEvents()             // -> session, current plan, open tool_starts
+  snapshotEvents()             // -> session, current plan, open tool_starts, each waiting one followed by its tool_wait
   get title(); get firstCwd(); get lastActivityMs(); get ended()
   skipped                      // count of malformed items; debugState() for tests
 }
@@ -505,6 +517,7 @@ Normalized items (adapter -> `SessionCore`, ADAPTERS 3.2):
 { k: 'tool_start', id, tool?, kind?, desc /* the tool descriptor above */, question?, options?, questions?, background?,
   items?, markdown?, source? /* the last three only on a kind 'plan' call */ }
 { k: 'tool_end', id, status?: 'ok'|'failed'|'denied'|'interrupted'|'abandoned', errorLine?, background? }
+{ k: 'tool_wait', id, waiting /* boolean */ }   /* P5g: an open tool waits on a permission prompt (Grok) */
 { k: 'thinking', text /* string or null */, durationMs? }
 { k: 'say', text, final? }
 { k: 'plan', items?: [{ content /* or step */, status }], markdown?, source?: 'update_plan'|'tasks' }
@@ -587,7 +600,18 @@ Semantics (they mirror the Claude rules of 4.2):
   attach; a replayed file without any timestamps counts from the first `idle()`; a sub with no items never idles out.
 - Replay mode (`apply(item, { replay: true })`) builds the same state and returns only hint items.
 - `snapshotEvents()`: the `session` event, the current plan, and the `tool_start` of every open tool (asks with
-  `question` / `options`); nothing that already ended (an ended sub gives `[]`).
+  `question` / `options`), each tool that waits on a permission prompt followed by a copy of its `tool_wait`
+  (P5g, below); nothing that already ended (an ended sub gives `[]`).
+- `tool_wait` (P5g; only the Grok adapter sends it, 4.6 Approval wait): `{ k: 'tool_wait', id, waiting }` ->
+  `tool_wait { toolUseId, waiting }` (`waitFields`; a non-boolean `waiting` is malformed and counted in `skipped`). It
+  is ignored, like R16, for an unknown or closed id, a kind `plan` call (no `tool_start`) and an ask (a `tool_start`
+  with `question`). A latch per id: at most one `waiting: true` ever, `waiting: false` only after it while the tool is
+  open (a second `true`, a `false` first, or a `true` after the `false` give nothing). It is not growth (no
+  `lastActivityMs`, no last `ts`, no untimed-replay mark), does no turn work (never disarms the `end_turn` fallback or
+  reopens a turn) and never wakes an ended sub; nothing is sent after the core ended. While the tool waits,
+  `snapshotEvents()` puts a JSON-identical copy of the sent `waiting: true` event right after its `tool_start` (the
+  `tool_start` copy itself is unchanged); `debugState().waiting` lists those ids. In replay mode the item builds the
+  same state and returns nothing.
 - It never throws on a malformed item: the item is counted in `skipped` and changes nothing.
 
 Review fixes (P5b review, each with a regression test that failed first; the API changes for adapters are marked):
@@ -735,9 +759,11 @@ Discovery (allowlist, ADAPTERS 7.1):
   sits in another group than its parent (15/62, worktree cwds). Group names are never decoded (as 4.4; the cwd comes
   from `summary.json`). `<session>` is the session folder, a UUIDv7 that equals `params.sessionId` on every line.
 - Read, and nothing else: directory listings (`sessions/`, the groups, the session folders, their `subagents/`),
-  `stat`, `updates.jsonl` (Tailer, 3.6) and `summary.json` (sidecar, below). Never opened: `prompt_history.jsonl` and
-  `chat_history.jsonl` (raw prompts, model input), `events.jsonl` (the live approval wait of D7 is a later stage,
-  ADAPTERS 9 P5g), `plan.json`, `plan_mode.json`, `plan.md`, `subagents/<child>/meta.json` and `output.json`, a group's
+  `stat`, `updates.jsonl` (Tailer, 3.6), `summary.json` (sidecar, below) and, after attach, the session folder's
+  `events.jsonl` (`GrokMeta`, P5g: only `lstat` and an `O_NOFOLLOW` open, never listed by the scan or read by the
+  Tailer; exactly four fields: `type`, `ts`, `tool_name` and `decision`, see Approval wait below). Never opened:
+  `prompt_history.jsonl` and `chat_history.jsonl` (raw prompts, model input), `plan.json`, `plan_mode.json`,
+  `plan.md`, `subagents/<child>/meta.json` and `output.json`, a group's
   `.cwd` file, `*.lock`, `active_sessions.json`, `session_search.sqlite`, `worktrees.db`, auth, config and permission
   files, `AGENTS.md`, `logs/`, `memory-v2/`, `memtrace/` and the spill folders (`terminal/`, `mcp/`, `compaction*/`,
   `web_fetch/`, `images/`, ...).
@@ -919,10 +945,81 @@ Floors (D1):
   patched, so Claude events do not change.
 - Subs take the floor of their root main (`sid`), as patched.
 
+Approval wait (P5g, `src/adapters/grok/events.mjs`, `approval.mjs`, `meta.mjs`; ADAPTERS 5.2, D7):
+- Source: Grok Build writes every permission prompt to the session folder's `events.jsonl` (append-only runtime
+  events) as `tool_started X` -> `phase_changed permission_prompt` -> `permission_requested X`, and later
+  `permission_resolved X { decision }`. The records carry the tool name but no call id. Auto-approved prompts resolve
+  at once (allow `wait_ms` p90 13 ms); 2,916 of the 28,977 real prompts stayed open 1 s or more. An open prompt means
+  a permission prompt is open; the decider may be Grok's automatic review rather than a person (no field names it).
+- File: only `dirname(<the updates.jsonl ref>)/events.jsonl` (`eventsPathOf`), opened after an `lstat` shows a
+  regular file, with `O_NOFOLLOW`, `O_NONBLOCK` (a FIFO swapped in after the `lstat` opens at once and is rejected as not
+  a regular file, so a read never blocks) and an inode/device check against that `lstat`; read by byte offset (appended bytes
+  only, a partial last line waits, a line over 64 KB is skipped whole, at most 8 MB per check in 1 MB chunks with
+  yields); a replaced (inode/device) or shrunk file starts over from byte 0 and voids every earlier fact. It never
+  throws and is never logged. Before `JSON.parse` a line is dropped when it contains `"phase_changed"` (85% of the
+  lines) or none of the quoted types `"tool_started"`, `"permission_requested"`, `"permission_resolved"`,
+  `"turn_started"`, `"turn_ended"`; the type is then checked exactly.
+- Fields read, exactly four: `type`, `ts`, `tool_name` (the `x.ai/tool` name rule of Tools above, used only for
+  equality with the call's name, never on the wire) and `decision` (`permission_resolved` only). Never read:
+  `session_id`, `model_id`, `cancellation_context`, `wait_ms`, the `mcp_*` strings, `tool_completed` and every other
+  field or record type.
+- Reducer (one per file, from byte 0): every `tool_started` counts (ordinal `e`, from 1). A `permission_requested`
+  opens a request for `e` only when the last kept record is a `tool_started` of the same name (28,977/28,977 real
+  prompts); any other request is never reported. `permission_resolved` closes the oldest open request of that name:
+  `deny` for decision `deny`, else allow (an unknown decision clears the wait like an allow). `turn_started` and
+  `turn_ended` close every open request as gone (a prompt cancelled with its turn). An unparsable or over-cap line
+  breaks adjacency (fail closed). Facts are reported only by a read that caught up (every byte on disk at its
+  bounding stat consumed, a trailing partial line excepted): every still-open request at every such read, and the
+  closing of a request once, and only when an earlier read reported it open. A request opened and closed between two
+  reads is never reported.
+- Pairing (`ApprovalPairing`, pure): the session counts every `tool_call` record with `x.ai/tool` and a `toolCallId`
+  not counted before (ordinal `u`, from 1), before the turn check, so hidden and late calls count; the `web_search`
+  fallback (no `x.ai/tool`) and repeated ids do not. A request pairs with call `u = e + offset` (offset starts at 0)
+  when the names are equal and `|agentTimestampMs - tool_started ts| <= 50 ms` (`PAIR_MS`). Otherwise it resyncs to
+  the only open, visible call of that name within 50 ms that has no `tool_call_update` yet and comes after the last
+  paired call (`offset = u' - e`); a tie or no candidate stays silent and counts as a miss. A request whose call is
+  not counted yet is held (at most 64) and decided when that call arrives; its `tool_wait` then comes right after
+  that call's `tool_start` in the same `apply()` output. When a later read still finds a held request open and its
+  call has not come, the resync rule runs over the counted calls (a `tool_call` line that was never counted puts `e`
+  ahead of `u`); with no unique candidate it stays held, neither decided nor a miss (`stats.dropped` counts a held
+  request that closes before its call came). Each request is decided once, at the first read that finds it open. A
+  turn boundary of the session drops held and shown requests. An `events.jsonl` reset voids the ordinals, decisions
+  and the last paired call (the counted calls stay) but remembers the calls already shown: a still-open request that
+  pairs with the same call again stays shown (the core latch drops the repeated `true`, so its allow still sends
+  `false`); any other is closed at the next caught-up read.
+- Settle: a caught-up read lists every open request. A shown request that it does not list has closed without this
+  reader seeing the answer (the tail was rebuilt: the Runner forgets it on a same-inode move, a replaced file restarts
+  it): it sends `tool_wait { waiting: false }` like an unknown decision (`ts` = the read's time; a deny still ends the
+  tool `denied`), and a held or pending request that it does not list is dropped. In an unbroken tail every closing
+  is reported first, so this never fires there.
+- Showing: a paired request shows when a read finds it open `APPROVAL_SHOW_MS` (1000 ms) or more after its request
+  time: `tool_wait { waiting: true }` with `ts` = the `permission_requested` ts (the time of the first read that found
+  it open when that ts is missing or more than 5 s past the read). Only for an open, visible tool that is not
+  `ask_user_question` / `exit_plan_mode`; hidden tools never reach the core, and the core checks again (4.0.2). An
+  allow sends `tool_wait { waiting: false }` (`ts` = the `permission_resolved` ts) at the next read. A deny sends
+  nothing: the transcript's failed update ends the tool `denied` with its fixed line. A cancelled turn ends the tool
+  `interrupted`, the next turn `abandoned`; neither sends `false`. Subagent sessions are treated exactly like mains.
+- Timing: `GrokMeta` is the Runner's `deps.sidecarWatcher` (`SidecarWatcher` for `summary.json`, plus one
+  `EventsTail` per transcript; `forget(path)` drops it). Its result carries `approval: { facts, seenAt, reset,
+  caughtUp }` when the read has facts, is a reset, or is the first caught-up read of its tail (even with no facts, so
+  the settle rule runs for a rebuilt tail); otherwise no `approval` (null when the summary did not change either). It
+  checks once after the attach replay (its events are
+  dropped but the state stays, so the announce snapshot already carries a wait that is open) and then at every
+  rescan (`--rescan`, 3 s). No new timer; the poll and idle loops are unchanged, and for a character the Store already
+  ended only the state changes (the Store-ended guard of `syncSidecars`). A wait shows 1-4 s after the prompt opens
+  and clears up to one rescan after an allow; a deny or the tool's end come with the 250 ms transcript poll.
+- Cost per attached Grok session and rescan: one extra `lstat`, then only the appended bytes; `JSON.parse` runs on
+  about 8% of the lines. The largest real `events.jsonl` is about 10 MB, so its attach read needs two checks (the first
+  rescan after attach catches up).
+- Real data (read-only recount with these modules over the local `~/.grok`, counts only, 12 random rescan phases;
+  ADAPTERS 5.2): 0 wrong pairings in every run; of the 2,238 order-verified waits of 1 s or more, 99.7% paired right
+  and about 2,222 shown; no path or `events.jsonl` text on the wire.
+
 Descriptor and session end:
 - `src/adapters/grok/index.mjs`: `id: 'grok'`, `defaultRoot: '~/.grok'`, `sidecars(ref)` (the session's
   `summary.json`), `worktreeFloor` (D1 above) and `deps()`: the Runner bundle `{ agent: 'grok', SessionState:
-  GrokSession, Tailer, scan: a fresh createGrokScanner(), sidecars, worktreeFloor }`. No `readSubMeta` /
+  GrokSession, Tailer, scan: a fresh createGrokScanner(), sidecars, sidecarWatcher: a fresh GrokMeta(sidecars),
+  worktreeFloor }` (the scanner and the watcher are per Runner; `GrokMeta` is loaded on first use). No `readSubMeta` /
   `readJournalLabels` (Claude-only) and no replay support (D12). `GrokSession` (`session.mjs`) takes the Runner's
   constructor options (`id`, `kind`, `parentId`, `agentType`, `now`; the Claude-only ones are ignored) and wraps
   `SessionCore`.
@@ -935,7 +1032,8 @@ Tests: synthetic fixtures shaped from the research file (`test/fixtures/grok.mjs
 spawn the bin set `HOME` to a temp folder, because the bin fills the default `~/.grok` root. The conformance harness
 (4.0.2) runs against the Grok adapter. `test/grok-discover.test.mjs` covers linkage across groups, the active window
 with ancestors, waiting children, the link grace, odd names, ENOENT, duplicates, cycles, caps and the allowlist (bait
-files next to the transcripts are never opened, listed or `stat`ed, checked with an fs spy on a real server);
+files next to the transcripts are never opened, listed or `stat`ed, checked with an fs spy on a real server; since
+P5g each session's `events.jsonl` is in the read set and is only `lstat`ed and opened, never listed);
 `test/sidecar.test.mjs` covers re-reading only on change, the size cap, parse errors, symlinks (also one swapped in
 between the `lstat` and the open), the Claude Runner without the hook, the first `session` event with the summary
 values and a child attached as a main that never sends its task (also `test/grok-task-runner.test.mjs`);
@@ -943,8 +1041,20 @@ values and a child attached as a main that never sends its task (also `test/grok
 the startup order; `test/grok-records.test.mjs` and the session tests cover every mapping row above (hidden prompts and
 turn order, one item per chunk with no idle fallback, late records, exit codes, denial lines, cancelled turns, plan
 records, `exit_plan_mode`, MCP names); `test/grok-discover.test.mjs` also covers a symlinked `subagents/` and the
-`SCAN_CAPPED` skip on a real server; `test/grok-docs.test.mjs` pins the 4.6 record rows and the package description. The only real-data
-use is a read-only check against `~/.grok` that prints counts only (events, unpaired tools, apply errors, privacy hits).
+`SCAN_CAPPED` skip on a real server; `test/grok-docs.test.mjs` pins the 4.6 record rows, the P5g doc rows and the package description.
+P5g: `test/grok-events.test.mjs` (the reader and reducer: prefilter, fields read, adjacency, caught-up facts, caps,
+resets, symlinks and the `lstat`/open swap, `seenAt`), `test/grok-approval.test.mjs` (pairing at the session level:
+auto-approval, the 1 s rule, allow, deny, held requests, ordinals, resync and ties, asks and hidden tools, cancelled
+turns, attach parity), `test/grok-meta.test.mjs` (`GrokMeta`, and a real server: a wait open at attach in the first
+snapshot and `/state`, `Last-Event-ID`, 100 auto-approved prompts, the Store-ended guard past the Store's own 5 s grace,
+an allow right before a same-inode move), `test/core-tool-wait.test.mjs` (the core item and the shared harness, which
+also rejects a `tool_wait` from any other agent), `test/page-approval.test.mjs` and `test/page-approval-office.test.mjs`
+(the page), `test/fifo-swap.test.mjs` (a FIFO swapped in between `lstat` and open: the events, sidecar, Codex and
+Antigravity readers settle at once), `test/fake-grok-append.test.mjs` (the dev helper's real-root guard and `--cancel`)
+and the conformance run (a live
+wait on a main, a wait open at attach on a grandchild, `BAIT_EV_` text in every never-read field). The only real-data
+use is a read-only check against `~/.grok` that prints counts only (events, unpaired tools, apply errors, privacy hits;
+for P5g the approval recount of ADAPTERS 5.2).
 
 ### 4.7 Codex adapter (P5d)
 The Codex adapter reads OpenAI Codex rollouts. Every Codex client writes the same files, in the same folder and format:
@@ -1771,11 +1881,13 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   `<id> is not implemented yet` line per requested unimplemented id), then `replay <speed>x[, loop]`; replay log lines
   carry error codes and basenames.
 
-## 7. Permission-approval wait (P3 finding)
+## 7. Permission-approval wait (P3 finding, Grok live in P5g)
 
 Question: can the page show "waiting for the user's permission" while a tool call waits for an approval prompt?
-Answer for live mode: **no certain signal exists, so live mode shows nothing.** Evidence, from a structure-only count
-over the local corpus (5,107 files, 929,610 lines, 225,155 paired tool_use/tool_result; counts in
+Answer for live Claude Code: **no certain signal exists, so live Claude mode shows nothing** (unchanged by P5g).
+Codex and Antigravity write nothing while a prompt is open either, so they show nothing live. Live Grok does show it
+(P5g, below), because Grok Build writes a record when the prompt opens. Evidence for Claude, from a structure-only
+count over the local corpus (5,107 files, 929,610 lines, 225,155 paired tool_use/tool_result; counts in
 `docs/research/permission-decision.json`):
 
 - Nothing is written while a prompt is open. `permissionDecision {decision, source, reasonType}` exists only on the
@@ -1802,4 +1914,36 @@ AskUserQuestion / ExitPlanMode. `user_permanent`, `config` and `hook` decisions 
 character to 내 자리 with a `승인 대기 · <tool> <summary>` bubble (`허용` / `거절` chips) until the tool_end, then shows
 `승인됨`, `거절됨` (denied / interrupted) or the failure. The wait shown covers the prompt and the run of the tool,
 because the transcript does not record when the click happened.
+
+### 7.1 Grok live (P5g)
+
+Grok Build writes `permission_requested` to the session's `events.jsonl` when a permission prompt opens and
+`permission_resolved` when it is answered (4.6 Approval wait). The event means only that a permission prompt is open;
+the decider may be Grok's automatic review rather than a person (no field names the decider, most long waits last
+5-30 s, and 52 of the 56 long real denials came from auto mode), so the page wording stays neutral.
+- Server: when a read finds a prompt for an open, visible, non-ask tool open 1 s or more, it sends `tool_wait
+  { toolUseId, waiting: true }` (`ts` = the time the prompt opened); an allow sends `waiting: false`, a deny sends
+  nothing (the tool's `tool_end` `denied` closes it). The reads run at attach and at every rescan, so a wait shows
+  1-4 s after the prompt opens and clears up to 3 s after an allow (`--rescan` scales both). Auto-approved prompts
+  (about 0 ms) and prompts answered before a read finds them 1 s old never show.
+- Page (`public/js/approval.js`): the same picture as replay. The character takes the tool out of its work (only that
+  id when several tools were merged into one visit, also when a merged sibling failed) and goes to 내 자리 with a
+  `승인 대기 · <tool> <summary>` bubble and `허용` / `거절` chips. On `waiting: false` it goes back to the tool's room:
+  when the desk visit is still queued, the visit is swapped for the tool work in place, so the character goes straight
+  back to work; when it is already at the desk it shows `승인됨` from the allow, stays 1.2 s and then walks back to the
+  tool's room until the `tool_end`; when it is still walking there it shows `승인됨` on arrival (never the open
+  question) and does the same. The page keeps no latch of its own: the server sends one `true` per id and core, so a
+  `true` after an allow comes from a new core (a restarted server whose first snapshot did not carry the wait yet)
+  and sends the character back to the desk. A deny arrives as the
+  `tool_end` `denied` and shows `거절됨` (an `interrupted` end too). A live wait stays open through thinking, say and
+  sibling `tool_start`s (the 5 s stale-ask rule does not apply to it); a new prompt or the turn end still close it.
+- Reconnect: the snapshot carries a still-open wait right after its `tool_start`, so a new page goes to the desk at
+  once; a live wait whose tool is open in the snapshot without a `tool_wait` was allowed while the page was away and
+  goes back to work. A page that does not know `tool_wait` ignores it.
+- Same-path re-attach (the limitation of 4.5, re-announce): when a Grok `updates.jsonl` is replaced at its path while
+  a wait shows, the re-announce repeats the open `tool_start` and, if the prompt is still open, its `tool_wait` copy
+  (the page ignores both). If the allow lands while the file re-attaches, the new session has no wait and no `false`
+  is sent: `/state` and new pages are right, but an open page keeps the desk visit until the `tool_end` (or a reload).
+- `awaitsApproval` stays replay-only (Claude). Claude, Codex and Antigravity never send `tool_wait`, and their wire
+  output is unchanged.
 

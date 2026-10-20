@@ -94,6 +94,14 @@ export function endFields(id, item) {
   return { toolUseId: id, ok: false, errorKind: status, error: errorText(item.errorLine, status) };
 }
 
+/**
+ * tool_wait fields (P5g, CONTRACT 2): exactly { toolUseId, waiting }, or null when `waiting` is not a boolean (malformed).
+ * 필드 순서가 곧 선 위의 모양이다: snapshot 의 사본이 보낸 이벤트와 JSON 으로 같아야 한다.
+ */
+export function waitFields(id, item) {
+  return typeof item.waiting === 'boolean' ? { toolUseId: id, waiting: item.waiting } : null;
+}
+
 /** R33-like ask fields: `questions` (Codex/Grok shape) via askFields, else `question` (<= 160) and `options` (<= 4 x 30). */
 export function askOf(item) {
   if (Array.isArray(item.questions)) return askFields({ questions: item.questions });

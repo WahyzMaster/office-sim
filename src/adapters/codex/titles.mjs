@@ -81,7 +81,7 @@ export class SessionIndex {
     if (st.size === this.offset) return false;
     let fh = null;
     try {
-      fh = await fsp.open(this.file, FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0));
+      fh = await fsp.open(this.file, FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) | (FS.O_NONBLOCK ?? 0));
       const now = await fh.stat();
       if (!now.isFile() || now.ino !== st.ino || now.dev !== st.dev) return false;
       const len = Math.min(now.size, this.offset + this.maxRead) - this.offset;

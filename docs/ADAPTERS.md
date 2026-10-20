@@ -4,8 +4,8 @@
   P5b(`SessionCore`, `tool-summary`), P5c(Grok 어댑터, `SidecarWatcher`), P5d(Codex 어댑터)는 끝나 master 에 병합됐고,
   P5e(Antigravity CLI 어댑터)와 P5f(문서)도 끝났다. 승인된 결정과 P5a 범위는 `docs/CONTRACT.md` 4.0.1절에, P5b 의 정규화
   항목과 의미는 4.0.2절에, Grok 어댑터의 탐색, id, 매핑은 4.6절에, Codex 어댑터는 4.7절에, Antigravity 어댑터는 4.8절에
-  옮겼다. 이로써 P5 의 필수 단계는 모두 끝났고, 남은 것은 선택 단계 P5g(Grok 라이브 승인 대기)와 9절에 적은 실제 세션
-  확인이다.
+  옮겼다. 이로써 P5 의 필수 단계는 모두 끝났다. 선택 단계 P5g(Grok 라이브 승인 대기)도 끝났다(2026-10-21, 기준은
+  `docs/CONTRACT.md` 4.6절의 Approval wait 와 7.1절, 결과는 5.2절 끝과 11절 D7). 남은 것은 9절에 적은 실제 세션 확인이다.
 - 작성일: 2026-10-20
 - 기준 문서: `docs/CONTRACT.md` 2절(이벤트 스키마), 4.0절(어댑터 범위), 5절(개인정보)
 - 조사 근거: `docs/research/codex-format.json`, `docs/research/grok-format.json`, `docs/research/antigravity-format.json`
@@ -369,9 +369,18 @@ flowchart LR
   Claude 의 비동기 실행(R28)처럼 다룬다. 부모의 `subagents/<child>/meta.json` 은 부모 파일을 아직 못 읽었을 때의 대안이다.
 - 살아 있는 세션: `~/.grok/active_sessions.json`(TUI 에서 열린 세션 목록, 조사 때는 빈 목록) + 파일 증가. `.lock` 파일은
   세션이 끝나도 남으므로 신호가 아니다.
-- 승인 대기: `events.jsonl` 의 `permission_requested` 뒤에 `permission_resolved` 가 아직 없으면 사람의 답을 기다리는 중이다.
-  Claude 라이브 모드에는 없는 확실한 신호다(CONTRACT 7절). 다만 이 레코드에는 도구 호출 id 가 없어 순서로 짝지어야 하고
-  (105개 중 102개 세션에서 순서가 맞았다), `events.jsonl` 은 `updates.jsonl` 보다 줄이 약 8배 많다. 결정 D7.
+- 승인 대기: `events.jsonl` 의 `permission_requested` 뒤에 `permission_resolved` 가 아직 없으면 권한 창이 열려 있다
+  (답하는 쪽은 사람일 수도, Grok 의 자동 검토일 수도 있다. 누가 답하는지 적는 필드는 없다). Claude 라이브 모드에는 없는
+  확실한 신호다(CONTRACT 7절). 다만 이 레코드에는 도구 호출 id 가 없어 순서로 짝지어야 하고(105개 중 102개 세션에서
+  순서가 맞았다), `events.jsonl` 은 `updates.jsonl` 보다 줄이 약 8배 많다. 결정 D7, P5g 에서 구현했다(이 절 끝).
+  쓰는 시각 정정(P5g 게이트, 1초 넘게 기다렸고 순서로 확인된 2,238건): 조사 때 적은 "첫 갱신이 사람의 답보다 먼저
+  써진다(중앙값 18.9초)" 는 쓰는 순서가 아니라 에이전트 시계였다. `updates.jsonl` 의 `timestamp` 는 정수 초라 한 초 안의
+  순서를 가릴 수 없다. tool_call 은 `permission_requested` 와 같은 초에 2,215건(한 초 뒤 22, 한 초 앞 1) 적혔고,
+  `params._meta.agentTimestampMs` 로는 2,238/2,238건이 요청과 같거나 앞선다(중앙값 83 ms). 첫 `tool_call_update` 의
+  `agentTimestampMs` 는 결정보다 중앙값 18.8초 앞서지만(2,238/2,238건), 그 줄의 `timestamp` 는 2,218/2,238건이 결정과
+  같은 초이거나 뒤다(뒤 1,170, 같은 초 1,048, 확실히 앞 20). 그래서 권한 창이 열린 동안 `updates.jsonl` 에는 보통 그
+  도구의 tool_call 만 있고, `updates.jsonl` 만으로는 여전히 "승인 대기" 와 "실행 중" 을 가를 수 없다
+  (`docs/research/grok-format.json` 도 고쳤다).
 - 미확인(조사 때 실행 중인 세션이 없었다): 실행 중 덧붙이는 단위, `active_sessions.json` 행 모양, 수동 `/compact` 의
   표현, headless(`grok -p`)와 ACP 세션의 파일 차이, 바이너리에만 있는 레코드 종류의 키, 255바이트를 넘는 cwd 그룹 이름
   (slug + hash + `.cwd` 파일), 세션 중 cwd 변경과 `/fork` 의 표현.
@@ -392,6 +401,34 @@ flowchart LR
   P5c 에서 새로 생긴 미확인: 자식의 세션 폴더와 부모의 `subagents/<자식>/` 폴더 중 어느 쪽이 먼저 생기는지(어댑터는
   첫 탐색 뒤에 새로 보인 폴더를 부모가 부를 때까지 1초 기다린다. 그보다 늦으면 자식이 메인으로 보인다), Grok 이 직접
   만드는 워크트리(`~/.grok/worktrees/<repo>/<name>`, 이 Mac 에는 없음)의 실제 cwd 모양.
+
+- P5g 구현 뒤 상태(2026-10-21, 기준은 `docs/CONTRACT.md` 4.6절 Approval wait 와 7.1절). 세션 폴더의 `events.jsonl` 을
+  `GrokMeta`(`deps.sidecarWatcher`)가 붙은 뒤와 rescan 마다 바이트 위치로 이어 읽고(lstat 한 일반 파일, `O_NOFOLLOW`,
+  `O_NONBLOCK`, 같은 inode/장치, 64 KB 줄 상한, 한 번에 8 MB), 네 필드(`type`, `ts`, `tool_name`, `decision`)만 읽는다. 요청은 바로 앞의 같은
+  이름 `tool_started` 순번으로 가리키고, 세션 쪽은 `x.ai/tool` 이 있는 새 `toolCallId` 의 순번으로 센다. 순번 + 이름 +
+  50 ms 확인, 안 맞으면 하나뿐인 후보로 다시 맞추고, 아니면 보이지 않는다(잘못 짝짓느니 놓친다). 1초 넘게 열린 요청만
+  `tool_wait` 로 보낸다. P5g 리뷰 뒤: 읽는 꼬리를 다시 만든 경우(같은 inode 옮김 뒤의 forget, 교체되거나 줄어든 파일의
+  reset)에도 보인 대기가 남지 않는다. 따라잡은 읽기는 열린 요청을 모두 담으므로 거기 없는 보인 요청은 `waiting: false` 로
+  닫고, reset 뒤에도 아직 열린 요청은 같은 호출과 다시 짝지어 보인 채로 둔다. 호출 줄 하나를 세지 못해 순번이 앞선 요청은
+  다음 읽기에도 열려 있으면 센 호출 중 하나뿐인 후보로 다시 맞춘다(CONTRACT 4.6절 Pairing, Settle).
+  실제 기록 재집계(2026-10-21, 읽기 전용, 개수만, 실제 모듈 `EventsTail`, `GrokMeta`, `GrokSession`, `ApprovalPairing`,
+  `SessionCore` 로, 3초 rescan 의 위상과 250 ms poll 의 위상을 무작위로 12번, `updates.jsonl` 의 쓰는 시각은
+  `max(agentTimestampMs, timestamp*1000)` 의 누적 최댓값, `events.jsonl` 은 `ts` 의 누적 최댓값까지 덧붙인 임시 사본을
+  읽음): 세션 107개(서브 62), 센 호출 29,163, 요청 28,977(모두 바로 앞 `tool_started` 와 이어짐, 짝 없는 요청 0), 해석한 줄
+  89,545/1,068,562(8.4%, 해석 오류 0, 상한을 넘는 줄 0). 열린 채 읽혀 정한 요청은 실행마다 평균 2,917.5, 그중 보인 대기
+  (`waiting: true`)는 2,883~2,894(평균 2,889.6), 허용으로 지운 것(`waiting: false`) 평균 2,631.3. **틀린 짝은 12번 모두 0**
+  (보인 것, 정한 것 모두, 순서 확인 정답 A+D 와 시각 정답 T 모두). 1초 넘게 기다렸고 순서로 확인된 2,238건: 맞게 짝지음
+  2,230~2,234(평균 2,232.1, 99.7%), 그중 보임 평균 2,222.5, 맞게 짝지었지만 보이지 않음 9.6(그때 도구가 닫혔거나 숨긴
+  도구), 짝 없음 3.2, 읽기가 열린 채 보지 못함 2.7(1~4초의 짧은 대기). 호출보다 먼저 읽혀 들고 있던 요청 평균 99.2건은 모두
+  맞게 짝지었다(짝 없음 0.1). 다시 맞춤 실행마다 3, 놓침 5.4. 보인 대기의 `ts` 는 모두 요청 시각이다. 누출 0: 내보낸 모든
+  이벤트가 CONTRACT 2절의 키만 가지고, `tool_wait.toolUseId` 는 모두 그 세션 `updates.jsonl` 의 호출 id 이며, 경로와
+  `events.jsonl` 의 글자는 0건이다. 같은 세션을 `events.jsonl` 없이 돌린 흐름과 `tool_wait` 를 뺀 흐름이 107개 x 12번 모두
+  같다. P5g 게이트의 규칙 모형(보임 2,888, 맞음 2,231.8, 짝 없음 3.2)과 같은 결과다.
+  남은 미확인: 실행 중인 세션에서 권한 창이 열린 동안 `events.jsonl` 이 어떤 단위로 언제 디스크에 써지는지(조사와 재집계는
+  `ts` 를 쓰는 시각으로 가정했다), 누가 답하는지(5~30초 구간의 긴 허용 대부분과 자동 모드 거절 52건이 여기에 있다), 서브에이전트의
+  권한 창이 부모 TUI 에서 사람에게 보이는지, Grok Build 1.0.62 뒤의 판에서도 `tool_started` -> `permission_prompt` ->
+  `permission_requested` 가 이어지는지(바뀌면 보이지 않을 뿐이고 놓침 수만 는다). 측정해서 풀린 것: 가장 큰 `events.jsonl` 은
+  약 10.0 MB 라 붙을 때 한 번에 다 읽지 못하고(8 MB 상한) 다음 rescan 에서 따라잡는다.
 
 ### 5.3 Antigravity (`docs/research/antigravity-format.json`)
 
@@ -496,7 +533,7 @@ Antigravity 칸의 "세션 끝"에 적은 요약 proto 의 상태는 P5e 에서 
 | `turn_end` | stop hook, end_turn + 20 s 등 | `task_complete` (`end_turn`), `error` 면 `api_error`, `turn_aborted` (`interrupt`) | `turn_completed`: `end_turn` / `cancelled` -> `interrupt` / `error` -> `api_error` | 도구 없는 `PLANNER_RESPONSE` + 조용한 시간 (`end_turn`), 다음 입력 (`next_turn`), 닫는 답 없이 요약 상태 idle + 60초 (`end_turn`) |
 | `system compact` | `compact_boundary` | `compacted` 레코드 | `auto_compact_started` | `CHECKPOINT` |
 | `system api_error` | `api_error` | `task_complete.error` | `retry_state` | `ERROR_MESSAGE` (턴은 안 끝남) |
-| 승인 대기 | 재생 모드만 (7절) | 없음 (저장 안 됨) | `events.jsonl` 의 `permission_requested` (D7) | 없음 |
+| 승인 대기 | 재생 모드만 (7절) | 없음 (저장 안 됨) | `events.jsonl` 의 `permission_requested` -> 라이브 `tool_wait` (D7, P5g 완료, CONTRACT 4.6, 7.1) | 없음 |
 | 세션 끝 | 무활동, 부모 결과 | 무활동, 부모의 `SubAgentActivity` | 무활동, 부모의 `subagent_finished`, `active_sessions.json` 에서 빠짐 | 무활동, 요약 proto 의 상태 |
 
 ### 6.2 도구 -> 방
@@ -622,7 +659,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 | P5d Codex (완료) | 5.1절, 6.3절. guardian 숨김, code-mode, 서브에이전트 문맥 건너뛰기, `session_index.jsonl` 제목 | P5c 와 같음. 추가로 0.142 이전(`exec_command`, `update_plan`)과 이후(code-mode) 픽스처 둘 다 |
 | P5e Antigravity CLI (완료) | 5.3절. 위치 짝짓기, `USER_REQUEST` 꺼내기, 요약 proto varint 해석(결정 D6 범위 안에서). 정확한 모양은 CONTRACT 4.8절 | P5c 와 같음. 옛 도구 이름과 새 도구 이름 픽스처 둘 다 |
 | P5f 문서 (완료) | `CONTRACT.md` 에 어댑터별 절, `README.md` 지원 표와 옵션, `PLAN.md` 진행 기록 | 문서와 `--help` 출력이 맞음 |
-| (선택) P5g Grok 승인 대기 | `events.jsonl` 을 함께 읽어 라이브 승인 대기(결정 D7) | CONTRACT 7절 갱신 + 순서 짝짓기 회귀 테스트 |
+| (선택) P5g Grok 승인 대기 (완료, 2026-10-21) | `events.jsonl` 을 함께 읽어 라이브 승인 대기(결정 D7). 새 이벤트 `tool_wait`, `GrokMeta`(`deps.sidecarWatcher`)가 rescan 마다 이어 읽음, 순번 + 시각 확인 짝짓기(`ApprovalPairing`). 정확한 모양은 CONTRACT 4.6절 Approval wait 와 7.1절 | CONTRACT 2절, 4.0.2, 4.6, 7절 갱신 + 순서 짝짓기 회귀 테스트(`test/grok-events.test.mjs`, `grok-approval`, `grok-meta`, `core-tool-wait`, `page-approval`, `page-approval-office`, `fifo-swap`, `fake-grok-append`, 적합성 하네스의 라이브 대기). 실제 기록 재집계(읽기 전용, 개수만, 5.2절 끝)에서 틀린 짝 0 |
 
 - `SidecarWatcher`(3.3절)는 P5a 에서 P5c 로 옮겼다(2026-10-20). 처음 쓰는 곳이 Grok 의 `summary.json` 이고, P5a 에는
   등록된 어댑터가 `claude-code` 하나뿐이라 다시 읽을 메타 파일이 없다.
@@ -865,7 +902,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 | D4 | 다른 도구의 도구 이름을 방으로 나누는 곳 | 서버가 모든 새 어댑터 `tool_start` 에 `room` 힌트를 붙이고, MCP 는 `tool` 을 `mcp__<server>__<tool>` 로 맞춘다. 화면은 그대로 | `public/js/rooms.js` 의 `ROOM_RULES` 에 도구별 이름을 더한다 |
 | D5 | `plan.source` 값 | 새 값을 만들지 않는다. 전체 목록(Codex `update_plan`, Grok `plan`)은 `update_plan`, 마크다운 계획 제안은 `exit_plan`, Antigravity `task.md` 는 `tasks`. 화면은 이 값을 쓰지 않는다(확인함) | `codex_plan` 같은 새 값을 더한다(CONTRACT 2절 변경) |
 | D6 | Antigravity 범위 | CLI(`agy`)와 예전 IDE 의 transcript 만. 데스크톱 앱은 이번 범위에서 뺀다 | (b) 앱 대화를 요약 proto 의 상태(일하는 중/쉬는 중)와 `task.md` 계획판만 있는 거친 직원으로 보여 준다. (c) Antigravity 전체를 보류한다 |
-| D7 | Grok 의 승인 대기를 라이브로 보여 줄 것인가 (`events.jsonl` 을 함께 읽음) | 기본 Grok 어댑터 다음의 별도 단계로 한다. 그때 CONTRACT 변경을 정한다(지금 `awaitsApproval` 은 `tool_start` 에만 붙고 재생 전용이다. 라이브는 시작 뒤에 오는 신호라, 같은 `toolUseId` 의 갱신을 허용하거나 새 필드가 필요하다) | 하지 않는다 / 첫 판에 넣는다 |
+| D7 | Grok 의 승인 대기를 라이브로 보여 줄 것인가 (`events.jsonl` 을 함께 읽음) | 기본 Grok 어댑터 다음의 별도 단계로 한다. 그때 CONTRACT 변경을 정한다(지금 `awaitsApproval` 은 `tool_start` 에만 붙고 재생 전용이다. 라이브는 시작 뒤에 오는 신호라, 같은 `toolUseId` 의 갱신을 허용하거나 새 필드가 필요하다) 결과(P5g, 2026-10-21, 네 가지 모두 추천안으로 승인): (1) 선 위의 모양: 새 이벤트 `tool_wait { toolUseId, waiting }`. `true` 의 시각은 권한 창이 열린 시각, `false` 는 허용일 때만 보내고 거절은 기존 `tool_end` `denied` 가 닫는다. 스냅숏에서는 그 `tool_start` 바로 뒤에 오고, `awaitsApproval` 은 재생 전용 그대로다. (2) 보이는 때: `GrokMeta` 가 붙은 뒤와 rescan(3초)마다 `events.jsonl` 을 바이트 위치로 이어 읽고, 1초 넘게 열린 요청만 보인다(창이 열린 뒤 1~4초 늦게 보이고, 허용 뒤 3초 안에 사라짐). (3) 허용되면: 도구 방으로 돌아간다. 줄에 선 질문이면 그 자리에서 도구 일로 바뀌고, 이미 내 자리로 갔으면 `승인됨` 을 1.2초 보인 뒤 돌아가 `tool_end` 까지 일한다. (4) 표시: 재생과 같은 내 자리 방문, `승인 대기 · <도구> <요약>` 과 `허용`/`거절` 칩, 중립 문구(권한 창이 열려 있다는 뜻이고 답하는 쪽은 Grok 의 자동 검토일 수도 있다). 서브에이전트 세션은 메인과 똑같이 다룬다 | 하지 않는다 / 첫 판에 넣는다 |
 | D8 | `src/` 파일을 어댑터별 폴더로 옮길 것인가 | 옮기지 않는다. Claude 모듈은 제자리, 새 것만 `src/adapters/`, `src/core/` | 모두 옮긴다(테스트 import 30여 곳 수정, 다른 작업과 충돌) |
 | D9 | Claude 의 `SessionState` 도 `SessionCore` 로 옮길 것인가 | P5 에서는 옮기지 않는다. 새 어댑터 셋이 안정된 뒤 따로 정한다 | P5a 에서 함께 옮긴다(위험 큼) |
 | D10 | Codex 특수 처리: (a) 자동 승인 검토(guardian) 스레드, (b) code-mode `exec`, (c) 스크립트 안의 `update_plan`, (d) `/review` 스레드 | (a) 숨긴다. (b) 6.3절의 짧은 방문. (c) 첫 판에서는 보여 주지 않는다. (d) 보통 서브에이전트로 보여 준다 | (a) 작은 직원으로 보여 준다. (b) `exec` 하나만 보여 준다 |

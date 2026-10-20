@@ -27,17 +27,26 @@ export function summaryJson({ id, cwd = null, title = null, branch = null, extra
 
 /**
  * Write one session folder. items: JSONL lines (objects); summary: summary.json fields ({ cwd, title, branch, extra })
- * or null for none; children: child ids named under subagents/ (directories only); mtimeMs: set the transcript mtime.
+ * or null for none; children: child ids named under subagents/ (directories only); mtimeMs: set the transcript mtime;
+ * events: events.jsonl lines (objects, or strings written as they are plus a newline) or one raw string written as is
+ * (partial or garbage lines), or null for no events.jsonl.
  */
-export async function writeSession(root, { group, id, items = [], summary = null, children = [], mtimeMs = null }) {
+export async function writeSession(root, { group, id, items = [], summary = null, children = [], mtimeMs = null, events = null }) {
   const dir = sessionDir(root, group, id);
   await fsp.mkdir(dir, { recursive: true });
   const file = path.join(dir, 'updates.jsonl');
   await fsp.writeFile(file, items.map((it) => `${JSON.stringify(it)}\n`).join(''));
   if (summary) await fsp.writeFile(path.join(dir, 'summary.json'), summaryJson({ id, ...summary }));
+  if (events !== null && events !== undefined) await fsp.writeFile(path.join(dir, 'events.jsonl'), eventsJsonl(events));
   for (const child of children) await fsp.mkdir(path.join(dir, 'subagents', child), { recursive: true });
   if (mtimeMs !== null) await fsp.utimes(file, mtimeMs / 1000, mtimeMs / 1000);
   return file;
+}
+
+/** events.jsonl text: an array of lines (objects are JSON-encoded, strings kept) or one raw string. */
+export function eventsJsonl(events) {
+  if (typeof events === 'string') return events;
+  return events.map((it) => `${typeof it === 'string' ? it : JSON.stringify(it)}\n`).join('');
 }
 
 export async function appendLines(file, items) {

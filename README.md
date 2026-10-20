@@ -20,7 +20,7 @@ AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 직�
 | 에이전트 | 에이전트 id | 상태 |
 |---|---|---|
 | Claude Code | `claude-code` | 지원 |
-| Grok (xAI Grok Build) | `grok` | 지원 (P5c) |
+| Grok (xAI Grok Build) | `grok` | 지원 (P5c). 라이브 승인 대기도 보임 (P5g, 권한 창이 열린 뒤 1~4초 늦게, 답하는 쪽은 Grok 의 자동 검토일 수도 있음) |
 | Codex (데스크톱 앱, CLI, IDE 확장 모두) | `codex` | 지원 (P5d) |
 | Antigravity CLI (`agy`)와 예전 Antigravity IDE | `antigravity` | 지원 (P5e) |
 | Antigravity 데스크톱 앱 (Antigravity.app 2.x) | 없음 | 범위 밖(결정 D6). 대화 파일(`~/.gemini/antigravity/conversations/*.pb`)이 암호화된 것으로 보이고 통째로 다시 쓰이며, 대화 폴더에 단계 기록(`logs/`)이 없어 도구 이벤트를 읽을 수 없습니다. 그래서 `~/.gemini/antigravity/` 는 열지 않습니다 |
@@ -31,7 +31,7 @@ AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 직�
 
 모든 직원(캐릭터)은 어느 도구의 세션인지 나타내는 에이전트 id를 가집니다. 서버가 보내는 `session` 이벤트의 `agent` 필드이고, `claude-code`, `codex`, `grok`, `antigravity` 중 하나입니다(Codex 직원의 id 는 `codex-`, Grok 직원의 id 는 `grok-`, Antigravity 직원의 id 는 `antigravity-` 로 시작합니다). 화면에는 `Claude Code`, `Codex`, `Grok`, `Antigravity` 로 보이고, 모르는 id는 그대로 보입니다.
 
-에이전트마다 기록이 남는 방식이 달라서 직원이 보이는 모습도 조금씩 다릅니다. Claude Code 직원은 도구 호출과 서브에이전트(모자 쓴 작은 직원)가 가장 자세히 보입니다. Grok 직원은 서브에이전트도 따로 보이고, 턴은 Grok 이 적는 턴 끝 기록으로 끝납니다. Codex 직원은 데스크톱 앱, CLI, IDE 확장 어느 쪽에서 시작했든 같은 모습이고, 자동 승인 검토(guardian) 스레드는 보이지 않으며, code-mode 스크립트 하나 안의 명령, 파일 수정, MCP 호출은 끝날 때마다 그 방에 잠깐 들르는 모습으로 보입니다. Antigravity 직원은 한 단계가 끝나야 기록 줄이 쓰이므로 반응이 한 박자(모델이 생각하는 6~35초) 늦고, 서브에이전트 없이 모두 메인 직원이며, 도구 없이 답만 한 뒤 20초 동안 조용하면(요약 파일의 상태가 쉬는 중으로 바뀌면 그때 바로) 턴이 끝난 것으로 봅니다. 예전 IDE 대화는 `task.md` 체크리스트가 있으면 회의실 화이트보드에 보입니다.
+에이전트마다 기록이 남는 방식이 달라서 직원이 보이는 모습도 조금씩 다릅니다. Claude Code 직원은 도구 호출과 서브에이전트(모자 쓴 작은 직원)가 가장 자세히 보입니다. Grok 직원은 서브에이전트도 따로 보이고, 턴은 Grok 이 적는 턴 끝 기록으로 끝납니다. 또 Grok 은 권한 창이 열릴 때 기록(`events.jsonl`)을 남기므로, 권한 창이 1초 넘게 열려 있으면 라이브에서도 직원이 '내 자리'로 와서 `승인 대기` 말풍선을 띄웁니다. 창이 열린 뒤 1~4초 늦게 보이고(rescan 간격), 허용되면 3초 안에 도구 방으로 돌아가며, 거절되면 `거절됨` 을 보입니다. 이 표시는 권한 창이 열려 있다는 뜻일 뿐이고, 답하는 쪽은 사람일 수도 Grok 의 자동 검토일 수도 있습니다. Codex 직원은 데스크톱 앱, CLI, IDE 확장 어느 쪽에서 시작했든 같은 모습이고, 자동 승인 검토(guardian) 스레드는 보이지 않으며, code-mode 스크립트 하나 안의 명령, 파일 수정, MCP 호출은 끝날 때마다 그 방에 잠깐 들르는 모습으로 보입니다. Antigravity 직원은 한 단계가 끝나야 기록 줄이 쓰이므로 반응이 한 박자(모델이 생각하는 6~35초) 늦고, 서브에이전트 없이 모두 메인 직원이며, 도구 없이 답만 한 뒤 20초 동안 조용하면(요약 파일의 상태가 쉬는 중으로 바뀌면 그때 바로) 턴이 끝난 것으로 봅니다. 예전 IDE 대화는 `task.md` 체크리스트가 있으면 회의실 화이트보드에 보입니다.
 
 ## 실행
 
@@ -55,7 +55,7 @@ node bin/office-sim.mjs --claude-root ~/.claude/projects --active 60
 | `--claude-root` | `~/.claude/projects` | Claude Code 세션 기록 위치. `--root` 는 같은 옵션의 별칭입니다 |
 | `--agents` | 구현된 어댑터 중 기록 폴더가 있는 것 모두 | 켤 에이전트 id 를 쉼표로 고릅니다(예: `--agents claude-code`, `--agents codex,grok,antigravity`). `claude-code`, `codex`, `grok`, `antigravity` 만 받고(네 개 모두 구현됨), 그 밖의 id 는 오류(종료 코드 2)입니다 |
 | `--codex-root` | `~/.codex` | Codex 기록 위치(데스크톱 앱, CLI, IDE 확장 모두). 그 아래 `sessions/<YYYY>/<MM>/<DD>/` 의 `rollout-*.jsonl`(되돌리기 뒤의 이어쓰기 조각 포함)과 제목 색인 `session_index.jsonl`(스레드 id 와 이름만)만 읽습니다. 자동 승인 검토(guardian) 스레드는 숨깁니다. 옵션을 주지 않으면 실행 파일(`bin/office-sim.mjs`)이 기본값을 채웁니다(서버의 `start()` 는 받은 루트만 씁니다) |
-| `--grok-root` | `~/.grok` | Grok(xAI Grok Build) 기록 위치. 그 아래 `sessions/<작업 폴더>/<세션>/` 의 `updates.jsonl` 과 `summary.json`(제목, 작업 폴더, branch, 서브에이전트 종류)만 읽고, 서브에이전트는 `subagents/` 아래 폴더 이름으로만 연결합니다. 옵션을 주지 않으면 실행 파일(`bin/office-sim.mjs`)이 기본값을 채웁니다(서버의 `start()` 는 받은 루트만 씁니다) |
+| `--grok-root` | `~/.grok` | Grok(xAI Grok Build) 기록 위치. 그 아래 `sessions/<작업 폴더>/<세션>/` 의 `updates.jsonl`, `summary.json`(제목, 작업 폴더, branch, 서브에이전트 종류)과 승인 대기를 위한 `events.jsonl`(종류, 시각, 도구 이름, 허용/거절 네 필드만)만 읽고, 서브에이전트는 `subagents/` 아래 폴더 이름으로만 연결합니다. 옵션을 주지 않으면 실행 파일(`bin/office-sim.mjs`)이 기본값을 채웁니다(서버의 `start()` 는 받은 루트만 씁니다) |
 | `--antigravity-root` | `~/.gemini` | Antigravity CLI(`agy`)와 예전 IDE 의 기록 위치. 그 아래 `antigravity-cli/` 와 `antigravity-ide/` 두 폴더에만 들어가서, `brain/<대화>/.system_generated/logs/` 의 `transcript_full.jsonl`(없거나 더 짧으면 `transcript.jsonl`)과 메타 파일 셋(요약 protobuf 의 제목, 작업 폴더, branch, `annotations/<대화>.pbtxt` 의 제목, `brain/<대화>/task.md` 체크리스트)만 읽습니다. 데스크톱 앱 폴더 `antigravity/` 는 열지 않습니다. 옵션을 주지 않으면 실행 파일(`bin/office-sim.mjs`)이 기본값을 채웁니다(서버의 `start()` 는 받은 루트만 씁니다) |
 | `--replay` | 없음 | 지난 세션 하나(`<uuid>.jsonl` 과 그 서브에이전트 파일)를 기록된 시간 간격대로 다시 보여 줍니다. 이때 `--claude-root`(`--root`), `--active`, `--rescan` 은 쓰지 않습니다. 재생은 Claude Code 세션만 됩니다 |
 | `--speed` | 1 | 재생 배속(0.1~1000). 줄 사이 공백은 배속으로 나누고, 한 공백은 최대 5초로 줄입니다 |
@@ -95,7 +95,7 @@ npm run skill:uninstall                # 우리 링크일 때만 지움
 node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-444455556666.jsonl --speed 4 --loop
 ```
 
-화면 위쪽 칩에 `재생 · 4× · 37%` 가 보입니다. 재생에서는 결과 줄을 미리 읽을 수 있어서, 사람이 권한 창에서 허용하거나 거절한 도구 호출은 직원이 '내 자리'로 와서 `승인 대기` 말풍선을 띄웁니다. 라이브 모드는 승인 창이 열려 있는 동안 기록에 아무것도 쓰이지 않아 이 표시를 하지 않습니다(`docs/CONTRACT.md` 7절).
+화면 위쪽 칩에 `재생 · 4× · 37%` 가 보입니다. 재생에서는 결과 줄을 미리 읽을 수 있어서, 사람이 권한 창에서 허용하거나 거절한 도구 호출은 직원이 '내 자리'로 와서 `승인 대기` 말풍선을 띄웁니다. Claude Code 라이브 모드는 승인 창이 열려 있는 동안 기록에 아무것도 쓰이지 않아 이 표시를 하지 않습니다(Codex, Antigravity 도 같습니다). Grok 은 권한 창이 열릴 때 `events.jsonl` 에 기록이 남아 라이브에서도 같은 말풍선을 보입니다(`docs/CONTRACT.md` 7절).
 
 ## 성능 측정
 
@@ -122,7 +122,7 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 - 서버는 127.0.0.1에만 열리고, 다른 Host 헤더로 온 요청과 다른 사이트에서 온 요청(Origin, Sec-Fetch-Site)은 거절합니다.
 - 루프백 주소는 사용자별로 나뉘지 않습니다. 같은 컴퓨터의 다른 OS 사용자나 웹 페이지까지 막으려면 `--auth`를 켜세요. 같은 사용자의 프로세스는 세션 기록 파일을 직접 읽을 수 있으므로 토큰으로 막는 대상이 아닙니다. 다른 사용자의 프로세스 인자가 보이는 공유 Linux 컴퓨터에서는 `--auth --open` 이 이 보호를 약하게 합니다(토큰 주소가 새로 뜬 브라우저의 인자에 남음). 그런 곳에서는 `--open` 없이 출력된 주소를 이미 떠 있는 브라우저에 직접 붙여 넣으세요.
 - 브라우저로는 요약만 보냅니다. 명령 원문, 파일 내용, 수정 내용, 전체 경로(파일 이름만), 전체 URL(호스트만), 이메일, 커넥터 계정 uuid는 보내지 않습니다. 층 구분 키(`project`)만 작업 폴더 경로 전체를 담습니다.
-- Grok 기록 폴더에서는 정해진 파일(`updates.jsonl`, `summary.json`)만 엽니다. 원문 프롬프트 기록(`prompt_history.jsonl`, `chat_history.jsonl`), 런타임 이벤트(`events.jsonl`), 계획 파일, 인증과 설정 파일은 열지 않습니다(`docs/CONTRACT.md` 4.6절).
+- Grok 기록 폴더에서는 정해진 파일(`updates.jsonl`, `summary.json`, 승인 대기를 위한 `events.jsonl`)만 엽니다. `events.jsonl` 에서는 네 필드(기록 종류, 시각, 같은지 비교에만 쓰는 도구 이름, 허용/거절)만 읽고, MCP 오류 문구, 모델 id, 취소 사유 같은 나머지 필드는 읽지도 보내지도 않습니다. 원문 프롬프트 기록(`prompt_history.jsonl`, `chat_history.jsonl`), 계획 파일, 인증과 설정 파일은 열지 않습니다(`docs/CONTRACT.md` 4.6절).
 - Codex 기록 폴더에서는 정해진 파일(`sessions/` 아래 날짜 폴더의 `rollout-*.jsonl`, `session_index.jsonl`)만 엽니다. 압축된 기록(`.jsonl.zst`), `archived_sessions/`, 원문 프롬프트 기록(`history.jsonl`), 인증과 설정 파일, SQLite 파일, 로그, `worktrees/` 안은 열지 않고, 심볼릭 링크인 폴더는 따라가지 않습니다. 세션 첫 줄의 계정 id 는 보내지 않고, 데스크톱 앱과 IDE 확장이 요청 앞에 붙이는 문맥(열린 파일, 탭, 언급한 파일)은 프롬프트로 보내지 않으며, code-mode 스크립트는 처음 부르는 `tools.<이름>` 의 이름만 봅니다(문자열, 정규식, 주석 안은 읽지 않음, `docs/CONTRACT.md` 4.7절).
 - Antigravity 기록 폴더(`~/.gemini`)는 Gemini CLI 와 같이 쓰는 폴더라 인증 파일과 원문 입력 기록이 함께 있습니다. 그래서 `antigravity-cli/` 와 `antigravity-ide/` 아래의 정해진 파일(대화 기록 `transcript_full.jsonl` / `transcript.jsonl`, 요약 protobuf, `annotations/<대화>.pbtxt`, `task.md`)만 열고, 인증과 설정 파일(`oauth_creds.json`, `google_accounts.json`, `settings*.json` 등), 원문 입력 기록(`history.jsonl`, `history`), SQLite 대화 저장소, 암호화된 `.pb`, 백그라운드 알림(`messages/`), 도구 출력 파일, 데스크톱 앱 폴더 `antigravity/` 는 열지 않으며, 심볼릭 링크는 따라가지 않습니다. 모델이 도구 호출마다 붙이는 짧은 설명(`toolAction`, `toolSummary`)과 프롬프트 앞뒤의 환경 정보 블록(`ADDITIONAL_METADATA` 등)은 그 안에 적힌 내용까지 보내지 않고, 요약 protobuf 의 저장소 주소도 읽지 않습니다(`docs/CONTRACT.md` 4.8절).
 

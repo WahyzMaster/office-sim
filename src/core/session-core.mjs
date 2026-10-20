@@ -10,6 +10,8 @@
 //   { k: 'tool_start', id, tool?, kind?, desc?, question?, options?, questions?, background?, items?, markdown?, source? }
 //     (items / markdown / source only on a kind 'plan' call: its plan shows at an ok tool_end, R35)
 //   { k: 'tool_end', id, status?: 'ok'|'failed'|'denied'|'interrupted', errorLine?, background? }
+//   { k: 'tool_wait', id, waiting: boolean }  (P5g: an open, visible, non-ask tool waits on a permission prompt; a latch,
+//     at most one true per id and false only after it while the tool is open; no growth, no turn work; Grok only)
 //   { k: 'thinking', text|null, durationMs? }   { k: 'say', text, final? }
 //   { k: 'plan', items?: [{ content, status }], markdown?, source?: 'update_plan'|'tasks' }  (markdown -> exit_plan)
 //   { k: 'turn_start', id? }   { k: 'turn_end', reason }   { k: 'system', kind: 'api_error'|'compact'|'refusal', text }
@@ -19,8 +21,8 @@ import { iso } from '../session-util.mjs';
 import { buildSessionEvent, agentScopedId } from '../session-identity.mjs';
 import { END_TURN_IDLE_MS, SUB_IDLE_MS } from '../session.mjs';
 import {
-  isObj, itemTs, itemId, itemKey, promptOf, sayText, thinkingFields, endFields, startFields, planViewOf, planFields,
-  systemFields, TURN_END_REASONS,
+  isObj, itemTs, itemId, itemKey, promptOf, sayText, thinkingFields, endFields, startFields, waitFields, planViewOf,
+  planFields, systemFields, TURN_END_REASONS,
 } from './session-items.mjs';
 
 export { END_TURN_IDLE_MS, SUB_IDLE_MS };
@@ -47,7 +49,7 @@ export class SessionCore {
 
     this._keys = new Set(); // dedupe keys
     this._opened = new Set(); // R9: never open the same tool id twice
-    this._open = new Map(); // tool id -> { id, ignored, startEv, plan }, insertion order = start order
+    this._open = new Map(); // tool id -> { id, ignored, startEv, plan, wait, waited }, insertion order = start order
     this._planEv = null;
     this._planKey = null;
     this._turnId = null; // R30
@@ -125,7 +127,10 @@ export class SessionCore {
     });
   }
 
-  /** Events that recreate the current state: session, current plan, still-open tool_starts (asks with their fields). */
+  /**
+   * Events that recreate the current state: session, current plan, still-open tool_starts (asks with their fields), each
+   * waiting one followed by a copy of its tool_wait (P5g).
+   */
   snapshotEvents() {
     if (this._ended) return [];
     const out = [this.sessionEvent()];
@@ -137,6 +142,7 @@ export class SessionCore {
       const ev = { ...e.startEv };
       if (Array.isArray(ev.options)) ev.options = [...ev.options];
       out.push(ev);
+      if (e.wait) out.push({ ...e.wait }); // 보낸 waiting:true 와 JSON 으로 같은 사본, 그 tool_start 바로 뒤
     }
     return out;
   }
@@ -150,6 +156,7 @@ export class SessionCore {
   debugState() {
     return {
       open: [...this._open.values()].map((e) => ({ id: e.id, ignored: e.ignored })),
+      waiting: [...this._open.values()].filter((e) => e.wait).map((e) => e.id),
       turnId: this._turnId, turnOpen: this._turnOpen, endTurnArmed: this._endTurnArmed, ended: this._ended,
       plan: this._planEv ? { source: this._planEv.source, items: this._planEv.items } : null, skipped: this.skipped,
     };
@@ -183,7 +190,8 @@ export class SessionCore {
       this._keys.add(key);
     }
     const ts = itemTs(item.ts);
-    this._touch(ts, replay);
+    // tool_wait 은 열린 도구의 상태일 뿐 성장이 아니다 (P5g): 마지막 시각도, 성장도, 시각 없는 리플레이 표시도 바꾸지 않는다
+    if (item.k !== 'tool_wait') this._touch(ts, replay);
     // 끝난 서브는 받아들인 일 항목(handler 안의 _wake)에서만 다시 선다: 잘못된 항목은 세고 건너뛸 뿐이다
     if (item.k !== 'meta') this._checkSession(); // 첫 항목: session 이벤트가 다른 이벤트보다 먼저 (meta 는 바꾼 뒤 한 번)
     if (handler.call(this, item, ts) === false) this.skipped += 1;
@@ -243,7 +251,8 @@ export class SessionCore {
     this._opened.add(id);
     this._work();
     const s = startFields(id, item);
-    const entry = { id, ignored: s.ignore, startEv: null, plan: null };
+    // wait: 지금 보낸 waiting:true 이벤트 (snapshot 이 그 사본을 낸다), waited: 한 번이라도 true 였다 (빗장, R9 처럼)
+    const entry = { id, ignored: s.ignore, startEv: null, plan: null, wait: null, waited: false };
     this._open.set(id, entry);
     if (s.ignore) { // kind 'plan': tool_start 없이, 성공한 tool_end 에서 plan 이벤트만 (R35)
       entry.plan = planViewOf(item);
@@ -264,6 +273,27 @@ export class SessionCore {
     const fields = endFields(id, item);
     if (!entry.ignored) this._emit(this._ev('tool_end', ts, fields));
     else if (fields.ok && entry.plan) this._emitPlan(entry.plan, ts); // R35: 성공한 호출만 판을 바꾼다
+    return true;
+  }
+
+  // P5g: 열린 도구의 승인 대기. 모르는 id, 닫힌 도구, plan 도구, ask 도구(startEv 에 question)는 조용히 무시한다 (R16 처럼).
+  // true 는 id 마다 한 번뿐이고, false 는 true 뒤에 도구가 열려 있을 때만 (거절은 tool_end denied 가 닫는다). startEv 는
+  // 그대로 두고, _wake / _work 를 부르지 않는다: 끝난 서브를 다시 세우지도, 턴 끝 추정을 풀지도 않는다
+  _waitTool(item, ts) {
+    const id = itemId(item.id);
+    const fields = id === null ? null : waitFields(id, item);
+    if (fields === null) return false;
+    const entry = this._open.get(id);
+    if (!entry || !entry.startEv || Object.hasOwn(entry.startEv, 'question')) return true;
+    if (fields.waiting) {
+      if (entry.waited) return true;
+      entry.waited = true;
+      entry.wait = this._ev('tool_wait', ts, fields);
+      this._emit({ ...entry.wait });
+    } else if (entry.wait) {
+      entry.wait = null;
+      this._emit(this._ev('tool_wait', ts, fields));
+    }
     return true;
   }
 
@@ -362,6 +392,7 @@ const HANDLERS = {
   },
   tool_start(item, ts) { return this._startTool(item, ts); },
   tool_end(item, ts) { return this._endTool(item, ts); },
+  tool_wait(item, ts) { return this._waitTool(item, ts); },
   thinking(item, ts) {
     this._work();
     this._emit(this._ev('thinking', ts, thinkingFields(item)));

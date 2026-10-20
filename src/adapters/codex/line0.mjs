@@ -27,7 +27,7 @@ const uuidOf = (v) => (isUuid(v) ? v.toLowerCase() : null);
 export async function readLine0(file, st, max = LINE0_MAX_BYTES) {
   let fh = null;
   try {
-    fh = await fsp.open(file, FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0));
+    fh = await fsp.open(file, FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) | (FS.O_NONBLOCK ?? 0));
     const now = await fh.stat();
     if (!now.isFile() || (st && (now.ino !== st.ino || now.dev !== st.dev))) return null;
     const parts = [];

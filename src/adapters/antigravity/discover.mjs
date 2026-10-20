@@ -127,7 +127,7 @@ export function createLineCounter() {
     let fh = null;
     let used = 0;
     try {
-      fh = await fsp.open(p, FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0));
+      fh = await fsp.open(p, FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) | (FS.O_NONBLOCK ?? 0));
       const now = await fh.stat();
       if (!now.isFile() || now.ino !== st.ino || now.dev !== st.dev) return { lines: null, used };
       const buf = Buffer.alloc(Math.min(COUNT_CHUNK, Math.max(1, budget)));
