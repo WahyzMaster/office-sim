@@ -1,11 +1,12 @@
-# office-sim server contract (P1-P3, P5a)
+# office-sim server contract (P1-P3, P5a, P5b)
 
 The server tails Claude Code session transcripts under `~/.claude/projects`, turns records into UI events,
 and streams them to the 3D office page (`public/`) over SSE. This file is the single source of truth for
 module boundaries, the event schema and the parsing rules. The format rules come from a corpus study of
 5,016 local transcript files (Claude Code 2.1.181 to 2.1.299, entrypoint `claude-desktop`).
 Claude Code is the only adapter today; Codex, Grok and Antigravity are planned as separate adapters (see 4.0).
-The approved multi-agent design is `docs/ADAPTERS.md`; its shared groundwork (P5a) is in 4.0.1.
+The approved multi-agent design is `docs/ADAPTERS.md`; its shared groundwork (P5a) is in 4.0.1 and the shared session
+core for the new adapters (P5b) in 4.0.2.
 
 ## 0. Ground rules
 
@@ -44,6 +45,10 @@ src/store-claude.mjs    Claude subagent linking (4.5, R28/R29, R36 forwarding), 
 src/store-link.mjs      Store helpers: file identity, link facts, per-session index, ring lookup (pure)
 src/adapters/index.mjs  adapter registry: KNOWN_AGENTS, AGENT_LABELS, ADAPTERS, enabled-adapter selection (4.0.1)
 src/adapters/claude-code.mjs the claude-code descriptor; points at the Claude modules where they are (D8)
+src/core/tool-summary.mjs normalized tool descriptor -> { tool, summary, room?, background? } (pure, 4.0.2)
+src/core/session-core.mjs SessionCore: normalized items -> UI events, the SessionLike API for the new adapters;
+                        used by no adapter yet (4.0.2)
+src/core/session-items.mjs pure shaping of normalized items into event fields for SessionCore (caps, scrub, plan view)
 src/server.mjs          start(): wires Store, RunnerGroup (one Runner per enabled adapter, defined here) and the
                         HTTP layer
 src/server-runner.mjs   Runner: poll / rescan / idle loops, attach, relocation, backoff
@@ -52,6 +57,8 @@ src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
 src/replay.mjs          ReplayRunner (extends Runner): --replay playback of one session (section 6.1)
 src/replay-timeline.mjs replay timeline: line times, cross-file merge, speed + gap cap, approval look-ahead (pure)
 test/*.test.mjs         unit + integration tests, synthetic fixtures under test/fixtures/ or generated
+test/fixtures/conformance.mjs adapter conformance harness (ADAPTERS 10, 4.0.2), run by test/adapter-conformance.test.mjs
+                        against the test-only core-fixture adapter (test/fixtures/core-adapter.mjs)
 public/                 the browser app; owned by the browser module (public/js/*), server work does not edit it.
                         P3: js/detail.js (per-floor detail: hidden floors skip draw, matrices, labels, animation;
                         unfocused floors cast no shadows; CSS labels only for the focused floor), js/bench.js (#bench)
@@ -363,8 +370,185 @@ Review fixes (F1-F4):
   grace of R29) and is never shown, so a child that already finished in its parent's file does not appear at server
   start; a character that was shown before gets its `session_end` with the hint's reason. Hints for already ended
   characters stay no-ops and are not kept.
-- Not in P5a: `SessionCore`, `tool-summary`, `SidecarWatcher` (moved to P5c; its first consumer is Grok) and any Codex,
-  Grok or Antigravity parsing. Until those stages land, 4.1-4.5 describe the only adapter.
+- Not in P5a: `SessionCore` and `tool-summary` (added in P5b, 4.0.2), `SidecarWatcher` (moved to P5c; its first
+  consumer is Grok) and any Codex, Grok or Antigravity parsing. Until those adapters land, 4.1-4.5 describe the only
+  adapter.
+
+### 4.0.2 SessionCore (공통 세션 코어)
+P5b is the shared core of ADAPTERS 3.2 for the three new adapters: `src/core/tool-summary.mjs`,
+`src/core/session-core.mjs` and its pure helper `src/core/session-items.mjs`. **No adapter uses it yet.**
+`claude-code` is still the only registered adapter and keeps its `SessionState` (D9), so the events built from Claude
+transcripts do not change. The Grok, Codex and Antigravity adapters (P5c-P5e) map their records to the normalized items
+below and feed them to `SessionCore`. Reuse instead of copies: `tool-summary` builds on `src/summarize.mjs` (`cleanText`,
+`truncate`, `hostOf`, `looksLikeUuid`, `ZERO_UUID`, and the newly exported `baseName`, `toolLabel`, `shellRoom`) and
+`src/summarize-shell.mjs` (`programOf`, and the newly exported `lex`). `session-items` uses `firstSentence`, `firstLine`,
+`sanitizeLine`, `askFields` (`session-util.mjs`) and `applyUpdatePlan`, `emptyPlan`, `planFromMarkdown` (`plan.mjs`).
+`SessionCore` uses `buildSessionEvent` / `agentScopedId` (`session-identity.mjs`, which applies `projectKey` and the
+worktree rules) and imports the idle constants `END_TURN_IDLE_MS` and `SUB_IDLE_MS` from `session.mjs` (which is
+otherwise untouched). The newly exported helpers keep their behaviour, and the Claude modules keep theirs.
+
+Exports: `tool-summary.mjs`: `toolSummary`, `shellProgram`, `patchFiles`, `mcpToolName`, `TOOL_KINDS`.
+`session-core.mjs`: `SessionCore`, `END_TURN_IDLE_MS`, `SUB_IDLE_MS`. `session-items.mjs` (pure shaping, used by the
+core): `CAPS`, `TOOL_STATUSES`, `TURN_END_REASONS`, `SYSTEM_KINDS`, `isObj`, `isFlag`, `itemTs`, `itemId`, `itemKey`,
+`promptOf`, `sayText`, `thinkingFields`, `errorText`, `endFields`, `askOf`, `startFields`, `planViewOf`, `planFields`,
+`systemFields`.
+
+Tool descriptor (`tool-summary`):
+- Input: a normalized, already-minimal descriptor that the adapter builds from the tool call, **never the raw tool
+  input**: `{ tool, kind, path?, paths?, command?, argv?, url?, query?, mcpServer?, mcpTool?, patch?, description?,
+  background? }` with `kind`: `read` | `edit` | `shell` | `web` | `search` | `plan` | `ask` | `agent` | `other` (an
+  unknown kind is `other`). `command` is a shell string (an array is read as `argv`), `argv` an array. `patch` is patch
+  text of which only the file names in its headers are used (`*** Update|Add|Delete File: x`, `*** Move to: x`,
+  `diff --git a/x b/x`, `--- a/x` + `+++ b/x`); the body is discarded.
+- Output: `{ tool, summary, room?, background? }`, the `tool_start` fields (`summary` <= 80).
+- `tool` is the public tool name. MCP calls are normalized to `mcp__<server>__<tool>` (both segments to
+  `[A-Za-z0-9_-]`); a server that looks like a uuid, or a uuid token inside it, is replaced by the existing ZERO_UUID
+  rule (section 5, as for Claude `tool_start.tool`).
+- `summary` follows the same privacy rules as `src/summarize.mjs` (3.1, section 5): files -> basename (`paths` -> the
+  first + `(+N)`); shell -> program name (+ allow-listed subcommand) via `programOf`; an `argv` -> the basename of
+  `argv[0]`; `bash|sh|zsh -lc "<string>"` is unwrapped to `programOf(<string>)` (at most twice); URLs -> host; `query`
+  <= 60 (search: `query` <= 40 `·` basename, like Claude Grep); `description` <= 60 (it wins for shell, agent, ask and
+  other); every piece goes through `cleanText`. Command arguments, file contents, full paths, full URLs and patch
+  bodies never reach it.
+- Shell rules stricter than Claude Bash (core only; `programOf` and Claude summaries are unchanged): a subcommand that
+  follows a bare option (`-n`, `--project`, no `=`) is dropped, because it may be that option's value (`kubectl -n
+  prod-ns get` -> `kubectl`, `gcloud --project p run` -> `gcloud`, also `git --no-pager log` -> `git`); `argv[0]` must be
+  a program (a non-empty string without whitespace, a program-like basename, not a shell keyword), otherwise there is no
+  program and the summary falls back to `description`, then the tool label, so an argument never takes its place; a
+  one-element `argv` that holds a whole command line is read as a command string.
+- `room` hint by `kind`: `read` / `search` -> `archive`, `edit` -> `dev`, `web` -> `research`, `ask` -> `desk`, `agent`
+  -> `here`, `other` -> `here`. `shell` uses the program-name rule of Claude Bash (3.1): `grep`, `cat`, ... ->
+  `archive`, `curl`, `wget`, `http` -> `research`, anything else -> `server`. MCP calls carry no room hint (the page
+  classifies `mcp__<server>__<tool>`, ADAPTERS 6.2).
+
+`SessionCore` (`src/core/session-core.mjs`) implements the SessionLike API that the Runner and Store use (ADAPTERS 3.2):
+```js
+export class SessionCore {
+  constructor({ id /* charId, D2 */, agent, kind /* 'main'|'sub' */, parentId /* optional, same agent */,
+    agentType /* optional */, now })
+  apply(item, { replay } = {}) // one normalized item -> events[] (+ hint items)
+  idle(nowMs)                  // time rules -> events[]
+  setInfo(info)                // late meta: Store { parentProject, parentId, agentType } or sidecar { title, cwd, branch }
+  sessionEvent()               // -> current `session` event
+  snapshotEvents()             // -> session, current plan, open tool_starts
+  get title(); get firstCwd(); get lastActivityMs(); get ended()
+  skipped                      // count of malformed items; debugState() for tests
+}
+```
+
+Normalized items (adapter -> `SessionCore`, ADAPTERS 3.2):
+```js
+{ k: 'meta', cwd?, branch?, title?, model?, parentId?, agentType? }
+{ k: 'prompt', text }
+{ k: 'tool_start', id, tool?, kind?, desc /* the tool descriptor above */, question?, options?, questions?, background?,
+  items?, markdown?, source? /* the last three only on a kind 'plan' call */ }
+{ k: 'tool_end', id, status?: 'ok'|'failed'|'denied'|'interrupted'|'abandoned', errorLine?, background? }
+{ k: 'thinking', text /* string or null */, durationMs? }
+{ k: 'say', text, final? }
+{ k: 'plan', items?: [{ content /* or step */, status }], markdown?, source?: 'update_plan'|'tasks' }
+{ k: 'turn_start', id? }
+{ k: 'turn_end', reason }
+{ k: 'system', kind: 'api_error'|'compact'|'refusal', text }
+{ k: 'sub_end', childId, reason?: 'done'|'idle' }
+```
+Any item may carry an optional dedupe key `key` (an item whose key was seen before yields nothing, R9) and `ts` (ISO
+string or epoch ms; a junk ts never reaches an event). The `desc` fields win over the item's own `tool` / `kind`, which
+fill gaps. `id` is a non-empty string (<= 256) or a finite number; ids are opaque and go on the wire as `toolUseId`, so
+an adapter uses the agent's call id, never text. Order rule: **a turn's `turn_start` comes before that turn's
+`prompt`** (an adapter whose record carries both, such as Antigravity `USER_INPUT` or a new Grok `prompt_id`, sends
+`turn_start` first). A proposal that is shown while a question waits (R34, `exit_plan_mode`) is a `plan` item with
+`markdown`, sent before the ask's `tool_start`.
+- `tool_end` status `abandoned` lets an adapter close one tool mid-turn that will never get a result (Antigravity
+  position pairing: the next planner line, input or checkpoint arrives first). It emits the R27 shape
+  (`errorKind: 'abandoned'`, `error: 'no result'`, `errorLine` ignored) and does not end the turn.
+- `meta.parentId` only feeds the core's own session event. For non-Claude refs the parent is a scan-time fact on the
+  FileRef (`ref.kind`, `ref.parentId` = the immediate parent, `ref.sid` = the root main used for floor inheritance),
+  and the Store's `parentSessionId` wins. An adapter that learns the parent from a log line (Codex `parent_thread_id`)
+  reads that line during scan (ADAPTERS 3.4).
+
+Semantics (they mirror the Claude rules of 4.2):
+- Text: every free-text field goes through `cleanText` with the section 2 caps: `prompt.text` 80, `say.text` 100,
+  `thinking.text` the first sentence <= 100 or `null` (R14), `question` 160, `options` at most 4 of <= 30 each (R33,
+  `questions` -> `askFields` with ` (+N)`), plan item `content` 80. The `tool_end.error` (from `errorLine`) and the
+  `system.text` are the first non-empty line, reduced by `sanitizeLine` (a structured payload is cut, uuid tokens are
+  masked), <= 120, with a fallback (the status; `API error`, `Conversation compacted`, `응답 거절`). For `system` this is
+  stricter than Claude R31, which keeps the first line only.
+- Prompts (R17-R19, section 5): a prompt whose text starts with `<` is skipped, also when invisible or control
+  characters (format, control, separator, combining and default-ignorable code points such as U+200B, U+00AD, U+FEFF,
+  ANSI escapes) or a fullwidth `<` come first. The first emitted prompt is the title fallback. A sub's prompt is the
+  parent's task: never emitted, never a title.
+- `tool_start` fields come from `tool-summary` on `desc`. `kind: 'plan'` gives no `tool_start` and no `tool_end`
+  (R35); the plan it carries (`items` / `markdown`) shows only when it ends ok (see Plan). `kind: 'ask'` gives a
+  `tool_start` with `question` / `options` (R33).
+- Pairing (R16/R24, R9): a `tool_end` pairs with the open `tool_start` of the same `id`; unknown ids are ignored, and a
+  second `tool_start` for an id that was ever opened is ignored. A missing `status` is `ok`, an unknown one `failed`;
+  `ok` gives `ok: true`, the other statuses give `ok: false` with `errorKind` = the status (section 2).
+- Background tools (R28): a background call ends with `tool_end` ok (no status, or `ok`); the `background` flag shows
+  on its `tool_start`, never on the `tool_end`, and it never overrides an explicit `failed` / `denied` / `interrupted`.
+- Turns (R30, R27): `turn_start` opens a turn. It first closes the previous turn when it is still open: its open tools
+  get `tool_end` `abandoned`, then `turn_end` reason `next_turn` (a `turn_start` with the current turn id is the same
+  turn and reopens it). `turn_end` closes the open tools as `abandoned` first, then emits `turn_end` with its reason (an
+  unknown reason is `end_turn`; a closed turn emits nothing). A `prompt` never opens or reopens a turn. Work items
+  (`thinking`, `say`, `tool_start`) reopen a closed turn only after a `turn_start` was seen (Claude: only when a
+  promptId is known); work before the first `turn_start` opens no turn, so no `turn_end` is emitted for a turn that was
+  never started, and a file without `turn_start` emits no turn events. A `say` with `final: true` arms the `end_turn`
+  idle fallback (`END_TURN_IDLE_MS` from `src/session.mjs`), which `idle()` fires once; a later prompt or work item
+  disarms it. Turn events are for mains only.
+- Plan (R35, R36, D5): the source follows the shape, not the item's word for it. `markdown` goes through
+  `planFromMarkdown` (<= 6 pending items) and is always `exit_plan` (a markdown plan proposal). An `items` list replaces
+  the board with every item (`step` is accepted for `content`, an unknown status is `pending`) and is `tasks` when the
+  item says `source: 'tasks'`, else `update_plan`, never `exit_plan`. A checklist such as Antigravity `task.md` is
+  parsed by the adapter into `items` with statuses (`[ ]` pending, `[/]` in_progress, `[x]` completed) and source
+  `tasks`, never sent as markdown. Every `update_plan` / `exit_plan` view is emitted, also when it equals the board
+  (R34/R35); an identical `tasks` snapshot emits nothing (as `PlanBoard`). A `kind: 'plan'` call emits its view at a
+  `tool_end` that resolves ok; a failed, denied, interrupted or abandoned call leaves the board as it was, and a pending
+  call is not in the snapshot.
+- `meta` updates title, cwd, branch, agentType and the sub's parent (an id of the same agent only, D2) through the
+  existing `projectKey` / worktree rules (4.4; the floor stays on the first cwd) and re-emits the `session` event only
+  when it changed. `model` is not a field.
+- Session events go through the existing `buildSessionEvent` (3.4) with the core's `agent`, and keep the D2 ids
+  (`<agent>-` prefix, 4.0.1 F2); the fallback title is 8 chars of the id after the prefix. The first item of a file
+  emits the `session` event before any other event.
+- `sub_end` returns the item `{ hint: 'end', charId: childId, reason? }` (the common end hint of 4.0.1; never an
+  event); a child id of another agent or the core's own id is malformed.
+- Subagents (`kind: 'sub'`) idle out like Claude (R29): `SUB_IDLE_MS` (`src/session.mjs`) with no growth and no open
+  tools -> `session_end` reason `idle`; a main never idles out by itself. An ended sub comes back (re-announced, the
+  `session` event first) only on accepted work: a `prompt` with string text, a `turn_start`, or a `tool_start` with a
+  valid id. A malformed item is counted and skipped and never revives it.
+- Growth: live items count at the server clock; replayed items at their `ts`. A replayed item without `ts` adds no
+  growth (like Claude), so an old file with one untimed line still ends or closes its turn at the first `idle()` after
+  attach; a replayed file without any timestamps counts from the first `idle()`; a sub with no items never idles out.
+- Replay mode (`apply(item, { replay: true })`) builds the same state and returns only hint items.
+- `snapshotEvents()`: the `session` event, the current plan, and the `tool_start` of every open tool (asks with
+  `question` / `options`); nothing that already ended (an ended sub gives `[]`).
+- It never throws on a malformed item: the item is counted in `skipped` and changes nothing.
+
+Review fixes (P5b review, each with a regression test that failed first; the API changes for adapters are marked):
+- R30 turns: work before the first `turn_start` no longer opens a phantom turn, and a `prompt` no longer reopens one
+  (API: `turn_start` precedes its `prompt`).
+- R31 `system.text` is the first line, `sanitizeLine`d (a multi-line error or a JSON tail no longer reaches the wire).
+- D5 plan source from the shape (API: markdown is always `exit_plan`; checklists come as `items` + `source: 'tasks'`).
+- R35 a `kind: 'plan'` call changes the board only at an ok `tool_end`; identical boards are deduped for `tasks` only.
+- R29 replay: an untimed item adds no growth; a malformed work item no longer revives an ended sub.
+- R28 `background` no longer turns an explicit failed / denied / interrupted `tool_end` into ok.
+- Section 5: injected prompts behind invisible characters are skipped; shell option values and arguments behind a
+  non-program `argv[0]` no longer become the summary (core-only rules above; the same option-value gap in Claude Bash
+  `programOf` is a follow-up in PLAN.md 9, because fixing it there changes Claude summaries).
+
+Tests: `test/core-tool-summary.test.mjs` and `test/core-session.test.mjs` hold one unit test per rule above, named after
+the rule; `test/core-session-fixes.test.mjs` holds the regression tests of the P5b review (turn order R30, system first
+line R31, plan source D5, plan calls R35/R36, replay growth and revive R29, background R28, invisible-prefix prompts),
+and the shell review tests are in `core-tool-summary.test.mjs` (option values, argv[0]). The conformance harness of
+ADAPTERS 10 is `test/fixtures/conformance.mjs`: given an adapter descriptor and a fixture root it starts the real server
+(`start()` with that adapter registered through the `adapters` test hook of section 6), collects SSE and `/state`, and
+asserts the section 2 event types and per-type fields, the length caps, `session.agent` = the adapter id, `sessionId` /
+`parentSessionId` that pass `publicSessionId` and carry the D2 prefix, an earlier `tool_start` for every `tool_end`, the
+open tools in the snapshot, and that no privacy bait (fake home paths, fake emails, URLs with query strings, `rm -rf`
+commands, shell option values, patch bodies, result bodies, multi-line system text, injected-instruction sentences
+also behind invisible characters, uuid MCP server names, failed plan calls) appears anywhere in the concatenated JSON.
+`test/adapter-conformance.test.mjs` runs it against a test-only `core-fixture` adapter (`test/fixtures/core-adapter.mjs`)
+whose files are JSONL of normalized items read through `SessionCore`, with ids prefixed per D2 under a test agent id the
+registry hook accepts. It is not registered in `src/adapters/`; each real adapter (P5c-P5e) runs the same harness.
 
 ### 4.1 Framing and dedupe
 - R6 Read by byte offset, split on `\n`, buffer a trailing partial line, JSON.parse each line, skip blank or

@@ -95,7 +95,7 @@ function skipHeredocBodies(cmd, nl, pending) {
  * 따옴표 안의 구분자는 무시한다. $( ... ) 와 `...` 안은 통째로 현재 토큰에 남고(구분자로 나누지 않는다),
  * heredoc 본문 줄은 버린다. 정확한 셸 파서가 아니라 첫 프로그램 이름을 찾기 위한 근사치.
  */
-function lex(cmd) {
+export function lex(cmd) {
   const segments = [];
   let tokens = [];
   let tok = '';

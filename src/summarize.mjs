@@ -150,7 +150,7 @@ export function cleanText(value, max) {
   return clean(value, max);
 }
 
-function baseName(p) {
+export function baseName(p) {
   if (typeof p !== 'string') return '';
   const parts = p.split(/[\\/]+/).filter(Boolean);
   return parts.length ? parts[parts.length - 1] : '';
@@ -180,7 +180,7 @@ function splitMcp(name) {
 }
 
 /** Display label for a tool name; never shows an mcp server segment. */
-function toolLabel(name) {
+export function toolLabel(name) {
   const mcp = splitMcp(name);
   if (mcp) {
     const label = clean(mcp.suffix.replace(/_/g, ' '), 40);
@@ -231,7 +231,8 @@ const FIXED_ROOMS = new Map([
   ['ScheduleWakeup', 'lounge'],
 ]);
 
-function shellRoom(parsed) {
+/** Claude Bash/Monitor room rule (CONTRACT 3.1): programOf result -> archive | research | server. */
+export function shellRoom(parsed) {
   const p = parsed ? parsed.program.toLowerCase() : '';
   if (ARCHIVE_PROGRAMS.has(p)) return 'archive';
   if (RESEARCH_PROGRAMS.has(p)) return 'research';

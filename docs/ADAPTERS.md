@@ -1,7 +1,8 @@
 # 멀티 에이전트 어댑터 설계안 (P5)
 
-- 상태: 승인됨(2026-10-20). 11절의 결정 D1~D12 를 모두 추천안대로 승인했다. 구현은 9절 순서로 하고, 지금은
-  P5a(공통 분리)를 진행 중이다. 승인된 결정과 P5a 범위는 `docs/CONTRACT.md` 4.0.1절에 옮겼다.
+- 상태: 승인됨(2026-10-20). 11절의 결정 D1~D12 를 모두 추천안대로 승인했다. 구현은 9절 순서로 한다. P5a(공통 분리)는
+  끝나 master 에 병합됐고, P5b(`SessionCore`, `tool-summary`)도 끝났다. 승인된 결정과 P5a 범위는 `docs/CONTRACT.md`
+  4.0.1절에, P5b 의 정규화 항목과 의미는 4.0.2절에 옮겼다.
 - 작성일: 2026-10-20
 - 기준 문서: `docs/CONTRACT.md` 2절(이벤트 스키마), 4.0절(어댑터 범위), 5절(개인정보)
 - 조사 근거: `docs/research/codex-format.json`, `docs/research/grok-format.json`, `docs/research/antigravity-format.json`
@@ -145,6 +146,29 @@ takeTaskDeltas?(), applyExternalTask?()  // 선택 (Claude 서브의 작업 목�
 Claude 어댑터는 지금의 `SessionState` 를 그대로 쓴다(P3 기준 테스트 394개가 지키는 상태 기계를 옮기지 않는다).
 `SessionCore` 는 새 어댑터용이고, Claude 를 여기로 옮길지는 P5 이후에 따로 정한다(결정 D9).
 
+P5b 에서 만든 `SessionCore` 와 `tool-summary` 의 정확한 모양(정규화 항목, 도구 설명자, 의미)은 `docs/CONTRACT.md`
+4.0.2절이 기준이다. 위의 표와 항목 목록은 그 전의 제안이고, 달라진 점은 이렇다.
+
+- `tool_start` 항목은 원래 도구 입력(`input`)을 받지 않는다. 어댑터가 허용된 조각만 꺼내 만든 설명자 `desc`
+  (`{ tool, kind, path?, paths?, command?, argv?, url?, query?, mcpServer?, mcpTool?, patch?, description?, background? }`)
+  를 넘기고, 질문 도구는 `question?`, `options?` 를 함께 넘긴다. 명령 원문, 파일 내용, patch 본문 같은 원재료가 공통
+  코어까지 오지 않게 하려는 것이다(7절 2번). patch 는 헤더의 파일 이름만 쓰고 본문은 버린다.
+- `say` 에 `final?`(턴 끝 추정 `end_turn` 을 켠다), `plan` 에 `source?` 와 `markdown?`, `system` 의 `kind`
+  값(`api_error`, `compact`, `refusal`), 모든 항목에 선택 dedupe 키 `key` 가 더해졌다. `sub_end` 는
+  `{ hint: 'end', charId: childId }` 항목이 된다(CONTRACT 4.0.1 의 공통 종료 힌트).
+- `core/session-event.mjs` 는 따로 만들지 않았다. P5a 에서 `session-identity.mjs` 의 `buildSessionEvent` 가 `s.agent` 를
+  받게 됐고, `SessionCore` 는 그 함수를 그대로 쓴다.
+- `core/tool-summary.mjs` 는 설명자 하나를 받아 `tool_start` 필드 `{ tool, summary, room?, background? }` 를 돌려준다.
+  MCP 호출은 `mcp__<server>__<tool>` 로 맞추고, uuid 모양 서버 이름은 지금의 ZERO_UUID 규칙으로 가린다. 셸은 Claude
+  Bash 보다 엄격하다: 값을 받을 수 있는 옵션 뒤의 하위 명령은 버리고(`kubectl -n ns get` -> `kubectl`), 프로그램이 아닌
+  `argv[0]`(빈 값, `VAR=val`, 셸 키워드, 공백)이면 프로그램 없이 도구 이름을 쓴다.
+- 리뷰에서 정한 어댑터 쪽 규칙(CONTRACT 4.0.2): 한 턴의 `turn_start` 를 그 턴의 `prompt` 보다 먼저 보낸다(Antigravity
+  `USER_INPUT`, Grok 의 새 `prompt_id` 처럼 한 기록에 둘이 있어도). `plan` 의 `source` 는 모양으로 정해진다: `markdown`
+  은 늘 `exit_plan`, `items` 는 `tasks` 라고 할 때만 `tasks`, 아니면 `update_plan`. 그래서 Antigravity `task.md`
+  체크리스트는 어댑터가 `[ ]`, `[/]`, `[x]` 를 상태로 읽어 `items` 로 보낸다. `kind: 'plan'` 도구에 실은 계획은 ok 로
+  끝날 때만 판을 바꾼다. 질문을 기다리는 동안 보일 계획 제안(`exit_plan_mode`)은 질문 `tool_start` 앞에 `markdown`
+  `plan` 항목으로 보낸다. 도구 `id` 는 그대로 `toolUseId` 로 나가므로 에이전트의 호출 id 를 쓴다.
+
 ### 3.3 읽기 방식: 기록은 Tailer, 메타 파일은 다시 읽기
 
 - 기록: 세 도구의 기록이 모두 덧붙여 쓰는 JSONL 이다(Codex 는 소스 코드에 "절대 잘라 쓰거나 제자리에서 다시 쓰지
@@ -164,7 +188,9 @@ Claude 의 연결 규칙(R28/R29, 4.5절: Agent tool_use id, 결과 꼬리표, t
 훅을 가진 경우에만 부른다. 다른 어댑터는 부모를 자기 방법으로 안다.
 
 - Codex: 자식 파일의 첫 줄(`session_meta.source.subagent.thread_spawn.parent_thread_id`)에 부모가 있다(1,948/1,948).
-  세션 객체가 첫 줄을 읽으면 `parentSessionId` 를 안다. 부모 파일의 `SubAgentActivity`(`completed`/`interrupted`)가
+  탐색(scan)이 각 rollout 파일의 첫 줄을 크기 상한 안에서 읽어 `ref.kind`, `ref.parentId`(바로 위 부모),
+  `ref.sid`(부모를 거슬러 올라간 최상위 메인)를 채운다. Store 는 비Claude 부모를 FileRef 에서만 받으므로
+  (CONTRACT 4.0.2) 세션 객체가 첫 줄을 읽는 것으로는 부족하다. 같은 읽기로 D10(a) 자동 승인 검토 스레드도 가린다. 부모 파일의 `SubAgentActivity`(`completed`/`interrupted`)가
   자식의 끝이다. 이 끝 신호는 부모 파일에 있으므로 Store 의 공통 규칙 하나가 필요하다: "어댑터가 낸 `ends: <charId>`
   힌트를 받으면 그 직원에게 `session_end` 를 낸다".
 - Grok: 자식 파일에는 부모가 없고(61/62), 부모 폴더의 `subagents/<자식 id>/` 디렉터리 이름이 자식 id 다. 탐색이 이
@@ -217,7 +243,7 @@ flowchart LR
 | 선행 | `server-runner.mjs` | `prepare()` 의 meta/label 읽기를 `deps.readMeta` 가 있을 때만, `onLine` 은 그대로, rescan 끝에 `SidecarWatcher` 확인(3.3절, P5c 로 옮김, 9절), 어댑터가 낸 서브 종료 힌트를 Store 로 넘김(3.4절) |
 | 선행 | `server.mjs`, `cli-args.mjs` | 어댑터 등록표, `RunnerGroup`, `--codex-root`, `--grok-root`, `--antigravity-root`, `--agents <id,...>`. `--root`/`--claude-root` 는 그대로 |
 | 새 파일 | `src/adapters/index.mjs`, `src/adapters/claude-code.mjs` | 등록표와 Claude 설명자 |
-| 새 파일 | `src/core/session-core.mjs`, `src/core/tool-summary.mjs`, `src/core/sidecar.mjs` | 3.2, 3.3절 |
+| 새 파일 | `src/core/session-core.mjs`, `src/core/tool-summary.mjs`, `src/core/sidecar.mjs` | 3.2, 3.3절. 앞의 둘은 P5b 에서 만들었다(CONTRACT 4.0.2절). `sidecar.mjs` 는 P5c |
 | 새 파일 | `src/adapters/codex/{discover,records}.mjs` 등 | 도구마다 탐색 + 정규화 (각 파일 500줄 이하) |
 | 문서 | `docs/CONTRACT.md` | 1절 배치, 4.0절 아래에 어댑터별 절(4.6 Codex ...), 6절 CLI. `README.md` 지원 표 |
 | 화면 | `public/js/*` | 원칙적으로 없음. 방은 서버가 `room` 힌트로 보낸다(결정 D4) |
@@ -485,8 +511,8 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 
 | 단계 | 내용 | 끝 조건 (검증) |
 |---|---|---|
-| P5a 공통 분리 (진행 중) | 4절 "선행" 줄 전부(`SidecarWatcher` 는 빼고 P5c 로). `store.mjs` 에서 Claude 연결을 빼고, agent id 를 ref -> entry -> session 이벤트로 흐르게 하고, `RunnerGroup` 과 어댑터 등록표를 넣되 등록된 어댑터는 `claude-code` 하나. CLI 옵션은 받기만 한다 | 기존 `npm test` 전부 그대로 통과(테스트 수정 0개가 목표, 경로 import 가 바뀌는 곳만 예외). 새 테스트: agent id 흐름, 등록표, 루트가 없는 어댑터는 조용히 꺼짐. 실제 서버를 띄워 화면이 이전과 같은지 앱 브라우저로 확인 |
-| P5b `SessionCore` | `src/core/session-core.mjs`, `src/core/tool-summary.mjs` 와 그 단위 테스트(정규화 항목 -> 이벤트). 아직 어떤 어댑터도 쓰지 않는다 | 정규화 항목만으로 만든 합성 입력에서 스키마, dedupe, 도구 짝, 턴, 계획, 개인정보 테스트 통과 |
+| P5a 공통 분리 (완료) | 4절 "선행" 줄 전부(`SidecarWatcher` 는 빼고 P5c 로). `store.mjs` 에서 Claude 연결을 빼고, agent id 를 ref -> entry -> session 이벤트로 흐르게 하고, `RunnerGroup` 과 어댑터 등록표를 넣되 등록된 어댑터는 `claude-code` 하나. CLI 옵션은 받기만 한다 | 기존 `npm test` 전부 그대로 통과(테스트 수정 0개가 목표, 경로 import 가 바뀌는 곳만 예외). 새 테스트: agent id 흐름, 등록표, 루트가 없는 어댑터는 조용히 꺼짐. 실제 서버를 띄워 화면이 이전과 같은지 앱 브라우저로 확인 |
+| P5b `SessionCore` (완료) | `src/core/session-core.mjs`, `src/core/tool-summary.mjs` 와 그 단위 테스트(정규화 항목 -> 이벤트, `test/core-session.test.mjs`, `test/core-tool-summary.test.mjs`, 리뷰 회귀 테스트 `test/core-session-fixes.test.mjs`), 10절의 공통 적합성 하네스(`test/fixtures/conformance.mjs`)와 그것을 시험용 `core-fixture` 어댑터로 돌리는 `test/adapter-conformance.test.mjs`. 아직 어떤 어댑터도 쓰지 않는다. 정확한 모양은 CONTRACT 4.0.2절 | 정규화 항목만으로 만든 합성 입력에서 스키마, dedupe, 도구 짝, 턴, 계획, 개인정보 테스트 통과 |
 | P5c Grok | 5.2절. 탐색(모든 cwd 그룹, `subagents/` 연결) + 정규화 + `summary.json` 메타 + 설명자 등록. `SidecarWatcher`(`src/core/sidecar.mjs`, 3.3절)도 이 단계에서 만든다 | 10절의 공통 적합성 테스트 + Grok 전용 테스트. 지어낸 픽스처를 시간차로 덧붙이는 스크립트로 라이브 화면 확인(Claude 와 Grok 직원이 같은 층에 섞여 보임). 실제 Grok 세션 하나를 띄워 덧붙이는 단위 확인(8.1절 11번) |
 | P5d Codex | 5.1절, 6.3절. guardian 숨김, code-mode, 서브에이전트 문맥 건너뛰기, `session_index.jsonl` 제목 | P5c 와 같음. 추가로 0.142 이전(`exec_command`, `update_plan`)과 이후(code-mode) 픽스처 둘 다 |
 | P5e Antigravity CLI | 5.3절. 위치 짝짓기, `USER_REQUEST` 꺼내기, 요약 proto varint 해석(결정 D6 범위 안에서) | P5c 와 같음. 옛 도구 이름과 새 도구 이름 픽스처 둘 다 |
@@ -497,6 +523,10 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
   등록된 어댑터가 `claude-code` 하나뿐이라 다시 읽을 메타 파일이 없다.
 - P5a 의 정확한 범위(등록표, 설명자, agent id 흐름, `Store.endCharacter`, `{ hint: 'end', charId }` 항목, CLI 옵션과
   출력)는 `docs/CONTRACT.md` 4.0.1절과 6절이 기준이다. 3.1절의 설명자 모양과 3.4절의 종료 힌트 모양은 그 전의 제안이다.
+- P5b 완료(2026-10-20): `SessionCore` 와 `tool-summary` 를 만들었다. 정규화 항목, 도구 설명자, 의미는
+  `docs/CONTRACT.md` 4.0.2절이 기준이고, 3.2절의 항목 목록은 그 전의 제안이다. 시험용 `core-fixture` 어댑터
+  (`test/fixtures/core-adapter.mjs`)는 테스트에서만 등록표 훅으로 붙이고 `src/adapters/` 에는 넣지 않았다. 등록된
+  어댑터는 여전히 `claude-code` 하나라 Claude 동작은 바뀌지 않는다. 다음은 P5c Grok 이다.
 
 ## 10. 테스트 전략
 
@@ -504,6 +534,8 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
   `~/.grok`, `~/.gemini`)로 넓힌다. 테스트는 언제나 임시 폴더 루트를 명시해서 넘기고, 픽스처 내용은 지어낸다.
   기본 루트를 쓰는 `start()` 호출이 테스트에 없음을 확인하는 검사를 하나 둔다.
 - 공통 적합성 테스트(`test/adapter-conformance.test.mjs`): `(adapter, fixtureRoot)` 쌍마다 같은 검사를 돈다.
+  P5b 에서 하네스(`test/fixtures/conformance.mjs`)를 만들어 시험용 `core-fixture` 어댑터로 돌린다(CONTRACT 4.0.2절).
+  아래 탐색 허용 목록 검사는 이 하네스에 아직 없다.
   - 스키마: 이벤트 type 이 CONTRACT 2절 표 안에 있고, type 마다 허용된 필드만 있고, 길이 상한(80/100/120/160)을 지킨다.
   - `session.agent` 가 그 어댑터 id 이고, `sessionId` 와 `parentSessionId` 가 `publicSessionId` 규칙을 지킨다.
   - 도구 짝: 모든 `tool_end` 의 `toolUseId` 는 앞선 `tool_start` 가 있고, 끝나지 않은 도구는 `snapshot()` 에 남는다.
