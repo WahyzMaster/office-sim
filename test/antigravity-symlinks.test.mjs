@@ -148,8 +148,10 @@ test('finding 5: a noFollow Tailer refuses a transcript replaced by a link after
 
 test('finding 5: a noFollow Tailer refuses a different regular file at the path (ino differs from the scan ref)', async () => {
   const { full, ino } = await linkedTranscript();
-  await fsp.rm(full);
+  // 옛 파일을 옮겨 살려 둔다: 지우면 리눅스(ext4)가 같은 inode 번호를 바로 다시 쓸 수 있어 '다른 파일'이 되지 않는다
+  await fsp.rename(full, `${full}.old`);
   await fsp.writeFile(full, '{"k":"say","text":"BAIT_REPLACED"}\n');
+  assert.notEqual((await fsp.lstat(full)).ino, ino, 'precondition: the replacement has another inode');
   const lines = [];
   const t = new Tailer({ noFollow: true });
   assert.equal((await t.readAll({ path: full, ino }, (l) => lines.push(l))).gone, true);

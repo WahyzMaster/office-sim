@@ -123,7 +123,8 @@ test('line counter: reads only appended bytes, starts over after an inode change
   assert.deepEqual(await counter.count(f, await st(), 1e6), { lines: 4, used: 0 });
   await fsp.writeFile(f, 'x\n'); // shrink
   assert.deepEqual(await counter.count(f, await st(), 1e6), { lines: 1, used: 2 });
-  await fsp.rm(f);
+  // 옛 파일을 지우지 않고 옮겨 둔다: 지우면 리눅스(ext4)가 같은 inode 번호를 바로 다시 쓸 수 있다
+  await fsp.rename(f, path.join(dir, 'old-transcript.jsonl'));
   await fsp.writeFile(f, 'p\nq\nr\ns\n'); // a new inode
   const r = await counter.count(f, await st(), 3);
   assert.deepEqual(r, { lines: null, used: 3 }, 'budget ran out');
