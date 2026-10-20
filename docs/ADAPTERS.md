@@ -1,9 +1,9 @@
 # 멀티 에이전트 어댑터 설계안 (P5)
 
 - 상태: 승인됨(2026-10-20). 11절의 결정 D1~D12 를 모두 추천안대로 승인했다. 구현은 9절 순서로 한다. P5a(공통 분리)와
-  P5b(`SessionCore`, `tool-summary`)는 끝나 master 에 병합됐고, P5c(Grok 어댑터, `SidecarWatcher`)도 끝났다. 승인된
-  결정과 P5a 범위는 `docs/CONTRACT.md` 4.0.1절에, P5b 의 정규화 항목과 의미는 4.0.2절에, Grok 어댑터의 탐색, id, 매핑은
-  4.6절에 옮겼다. 다음은 P5d Codex 다.
+  P5b(`SessionCore`, `tool-summary`)는 끝나 master 에 병합됐고, P5c(Grok 어댑터, `SidecarWatcher`)와 P5d(Codex 어댑터)도
+  끝났다. 승인된 결정과 P5a 범위는 `docs/CONTRACT.md` 4.0.1절에, P5b 의 정규화 항목과 의미는 4.0.2절에, Grok 어댑터의
+  탐색, id, 매핑은 4.6절에, Codex 어댑터의 탐색, id, 매핑은 4.7절에 옮겼다. 다음은 P5e Antigravity CLI 다.
 - 작성일: 2026-10-20
 - 기준 문서: `docs/CONTRACT.md` 2절(이벤트 스키마), 4.0절(어댑터 범위), 5절(개인정보)
 - 조사 근거: `docs/research/codex-format.json`, `docs/research/grok-format.json`, `docs/research/antigravity-format.json`
@@ -181,7 +181,9 @@ P5b 에서 만든 `SessionCore` 와 `tool-summary` 의 정확한 모양(정규�
   mtime/크기/inode 가 바뀌면 크기 상한(예: 1 MB) 안에서 다시 읽어 `setInfo()` 로 넘긴다. 처음 읽을 때 한 번,
   그 뒤로는 바뀔 때만 읽는다. 이 장치는 새 파일 하나(`src/core/sidecar.mjs`, 100줄 안쪽)다. P5c 에서 만들었고, 어댑터
   설명자의 선택 훅 `sidecars(ref)` 가 있는 어댑터에만 Runner 가 돌린다(지금은 Grok 의 `summary.json` 하나, Claude 는 훅이
-  없어 그대로). 정확한 규칙은 `docs/CONTRACT.md` 4.6절.
+  없어 그대로). 정확한 규칙은 `docs/CONTRACT.md` 4.6절. Codex 의 `session_index.jsonl` 은 P5d 에서 이 장치로 읽지 않기로
+  했다. 모든 스레드가 같이 쓰는 덧붙이기 색인이라 커질 수 있으므로, 기억해 둔 위치 뒤에 덧붙은 부분만 상한 안에서 읽는
+  따로 된 읽기를 쓴다(CONTRACT 4.7절, 9절).
 - 파일 안의 기록 자체를 통째로 다시 쓰는 도구가 생기면 그때 `document` 읽기 방식을 더한다. 지금은 필요 없다.
 
 ### 3.4 서브에이전트 연결
@@ -247,7 +249,7 @@ flowchart LR
 | 선행 | `server.mjs`, `cli-args.mjs` | 어댑터 등록표, `RunnerGroup`, `--codex-root`, `--grok-root`, `--antigravity-root`, `--agents <id,...>`. `--root`/`--claude-root` 는 그대로 |
 | 새 파일 | `src/adapters/index.mjs`, `src/adapters/claude-code.mjs` | 등록표와 Claude 설명자 |
 | 새 파일 | `src/core/session-core.mjs`, `src/core/tool-summary.mjs`, `src/core/sidecar.mjs` | 3.2, 3.3절. 앞의 둘은 P5b 에서 만들었다(CONTRACT 4.0.2절). `sidecar.mjs` 는 P5c 에서 만들었다(CONTRACT 4.6절) |
-| 새 파일 | `src/adapters/grok/` (P5c 에서 만듦), `src/adapters/codex/{discover,records}.mjs` 등 | 도구마다 탐색 + 정규화 (각 파일 500줄 이하) |
+| 새 파일 | `src/adapters/grok/` (P5c 에서 만듦), `src/adapters/codex/` (P5d 에서 만듦) 등 | 도구마다 탐색 + 정규화 (각 파일 500줄 이하) |
 | 문서 | `docs/CONTRACT.md` | 1절 배치, 4.0절 아래에 어댑터별 절(4.6 Codex ...), 6절 CLI. `README.md` 지원 표 |
 | 화면 | `public/js/*` | 원칙적으로 없음. 방은 서버가 `room` 힌트로 보낸다(결정 D4) |
 
@@ -292,7 +294,7 @@ flowchart LR
 - 질문: `request_user_input {questions:[{id, header, question, options[{label, description}]}]}` 는 AskUserQuestion 과 같은 모양.
 - 서브에이전트: 따로 된 파일이고, 첫 줄에 부모 id 가 있다. 깊이 3까지. `subagent_history_start_ordinal` 앞의 줄은
   부모 문맥을 복사한 것이라 건너뛴다(예전에 옮겨 쓴 파일은 이 값이 파일 길이와 같으므로, 건너뛰면 아무것도 남지 않을 때는
-  첫 줄 뒤를 모두 읽는다).
+  첫 줄 뒤를 모두 읽는다. 구현은 0.154 보다 오래된 파일에만 이 대체 규칙을 쓴다, 9절).
 - 자동 승인 검토(guardian) 스레드: `source.subagent.other == 'guardian'` 인 파일이 2,171개로 전체의 41% 다. 사람이 시킨
   일이 아니라 승인 검토기이므로 숨기는 것을 제안한다(결정 D10). `/review` 스레드는 77개.
 - 제목: `~/.codex/session_index.jsonl` 의 `thread_name`(같은 id 는 마지막 줄이 이김). 없으면 첫 사람 입력(<= 40).
@@ -305,6 +307,29 @@ flowchart LR
 - 미확인: 백그라운드 명령이 턴 끝까지 살아 있을 때의 끝 표시, guardian 거절이 부모에 남는 모양, writer lock 파일이
   "지금 열림" 신호인지, 예전 파일을 새 형식으로 옮겨 쓴 일이 꼬리 읽는 중에도 일어날 수 있는지, 새 스레드 파일이 첫
   레코드보다 얼마나 늦게 생기는지.
+- P5d 구현 뒤 상태(2026-10-20, 기준은 `docs/CONTRACT.md` 4.7절). 위 목록과 8.2절의 Codex 항목, 조사 파일의
+  `unverified` 목록은 조사 때 그대로 두고 항목마다 상태만 적는다. 실행 중인 Codex 세션을 아직 보지 못했으므로 확인으로
+  풀린 항목은 없다. 항목마다 어댑터가 무엇을 가정하는지를 정했다.
+
+  | 미확인 항목 | 상태 | P5d 의 가정과 처리 |
+  |---|---|---|
+  | 백그라운드 명령이 턴 끝까지 살아 있을 때의 끝 표시 | 미확인 그대로 | `Process running with session ID` 출력은 ok + `background` 로 닫는다(R28). 그 명령의 끝을 알리는 나중의 `write_stdin` 출력은 배관이라 보지 않으므로, 턴이 끝난 뒤에도 살아 있는 명령은 따로 보이지 않는다 |
+  | guardian 거절이 부모에 남는 모양 | 미확인 그대로 | guardian 스레드는 숨긴다(D10a). 부모 쪽 거절은 도구 출력 앞부분의 고정 문구(`rejected by user`, `sandbox denied`, `approval required by policy`)로만 가린다. 다른 모양으로 남는 거절은 종료 코드에 따라 실패나 ok 로 보인다 |
+  | writer lock 파일이 "지금 열림" 신호인지 | 미확인 그대로, 동작 영향 없음 | `thread-writer-locks/` 는 열지 않는다(허용 목록 밖). 메인은 활동 창을 벗어나면, 서브는 부모의 `SubAgentActivity` 나 무활동으로 끝난다 |
+  | 예전 파일을 새 형식으로 옮겨 쓴 일이 꼬리 읽는 중에도 일어나는지 | 미확인 그대로 | 옮겨 쓰면 inode 가 바뀌거나 파일이 짧아진다고 보고, 지금의 잘림/inode 변경 처리(다시 붙여 처음부터 읽기)와 `ordinal` dedupe 로 흡수한다. 첫 줄 사실도 새 inode 나 짧아진 파일이면 다시 읽는다 |
+  | 새 스레드 파일이 첫 레코드보다 얼마나 늦게 생기는지 | 미확인 그대로, 동작 영향 작음 | 파일이 생기면 다음 rescan 에 붙고 처음부터 읽으므로 놓치는 레코드는 없다. 화면이 그만큼 늦을 뿐이다 |
+  | `~/.codex/worktrees` 세션의 가장 좋은 층 키(8.2절) | 미확인 그대로 | D1 어림 규칙: 이름(`<name>`)과 라벨이 같은 살아 있는 층이 있으면 그 층, 없으면 자기 층(워크트리 배지). 저장소 URL 이나 SQLite 는 쓰지 않는다 |
+  | `codex_work_desktop` originator 의 뜻 | 미확인 그대로, 동작 영향 없음 | originator 는 읽지 않는다. 모든 클라이언트가 `codex` 하나다 |
+  | `forked_from_ordinal_exclusive`, `history_base` | 미확인 그대로, 동작 영향 없음 | 읽지 않는다. 물려받은 문맥은 `subagent_history_start_ordinal` 로만 가린다 |
+  | `TurnAbortReason` 의 `replaced`, `review_ended`, `budget_limited` 와 `thread_rolled_back` 레코드 | 미확인 그대로 | `turn_aborted` 는 이유와 상관없이 `interrupt` 다. 모르는 레코드 종류는 무시하고, 되돌리기는 이어쓰기 조각으로 따라간다 |
+  | 새 스레드가 기록되기 전에 `pending_items` 로 얼마나 머무는지 | 미확인 그대로, 동작 영향 작음 | 위의 "새 스레드 파일" 항목과 같다 |
+  | 두 `state_5.sqlite` 중 어느 쪽이 기준인지 | 미확인 그대로, 동작 영향 없음 | SQLite 는 열지 않는다(Node 20 에서 읽지 못하기도 한다). 제목은 `session_index.jsonl` 에서만 온다 |
+
+  P5d 에서 새로 생긴 미확인: `/review` 스레드가 부모를 `payload.parent_thread_id` 로 적는지(조사는 이 값을 thread_spawn
+  과 guardian 파일에서만 셌다. 없으면 그 스레드는 메인으로 보인다), code-mode 스크립트 안에서 MCP 도구를 부르는
+  `tools.<이름>` 의 실제 모양(조사는 개수만 셌다. 바깥 `exec` 의 요약은 첫 식별자 이름만 쓴다), 이어 받아 옛 날짜
+  폴더에 다시 풀린 `.jsonl` 이 느린 전체 탐색 주기 안에 붙는 동안 화면이 늦는 정도, 실행 중인 Codex 세션의 덧붙이는
+  단위(8.1절 11번).
 
 ### 5.2 Grok (`docs/research/grok-format.json`)
 
@@ -407,8 +432,8 @@ flowchart LR
 
 ### 6.1 신호 -> 이벤트
 
-Claude Code 칸은 지금 동작(CONTRACT 4절)이고, Grok 칸은 P5c 에서 구현했다(기준은 CONTRACT 4.6절, 이 표와 달라진 점은
-9절). 나머지는 제안이다. "없음" 은 기록에 그 신호가 없다는 뜻이다.
+Claude Code 칸은 지금 동작(CONTRACT 4절)이고, Grok 칸은 P5c 에서, Codex 칸은 P5d 에서 구현했다(기준은 CONTRACT 4.6절과
+4.7절, 이 표와 달라진 점은 9절). 나머지는 제안이다. "없음" 은 기록에 그 신호가 없다는 뜻이다.
 
 | 신호 | Claude Code (지금) | Codex | Grok | Antigravity CLI |
 |---|---|---|---|---|
@@ -460,6 +485,11 @@ Claude Code 칸은 지금 동작(CONTRACT 4절)이고, Grok 칸은 P5c 에서 �
 Grok 칸은 P5c 에서 이대로 구현했다(CONTRACT 4.6절). 다만 `enter_plan_mode` 는 화면을 바꾸지 않고는(D4) 회의실 힌트를
 줄 수 없어 `todo_write` 처럼 숨기고, `search_tool` 은 배관으로 숨긴다(도구 검색으로 보이는 것은 여전히 미확인).
 
+Codex 칸은 P5d 에서 이대로 구현했다(CONTRACT 4.7절). `clock.sleep` 은 종류로 정하는 방 힌트에 라운지가 없어서
+`CodexSession` 이 그 `tool_start` 에 라운지 힌트를 직접 붙인다(화면은 그대로, D4). `request_user_input_async` 도 내 자리,
+`collaboration.*` 의 `send_message`, `followup_task`, `list_agents`, `interrupt_agent` 도 제자리이고, 배관에는
+`list_mcp_resource_templates` 를 더했다. 이름표에 없는 도구는 `other`(제자리)다.
+
 ### 6.3 Codex code-mode `exec`
 
 0.142.5 이후 Codex 는 거의 모든 일을 `exec` 하나로 한다. 이 호출 하나만 보여 주면 직원이 한 방에 서서 끝날 때까지
@@ -472,6 +502,12 @@ Grok 칸은 P5c 에서 이대로 구현했다(CONTRACT 4.6절). 다만 `enter_pl
 3. `exec` 출력 줄 -> 바깥 `tool_end`.
 4. 스크립트 안의 `tools.update_plan(...)` 은 처음에는 보여 주지 않는다. 인자를 꺼내려면 모델이 쓴 JS 객체 글자를
    해석해야 해서, 첫 판에서는 빼고 나중에 따로 정한다.
+
+P5d 에서 이 제안대로 구현했다(CONTRACT 4.7절 Code mode). 더 정한 것: 안쪽 항목은 `exec` 호출이 열려 있을 때만 짧은
+방문이 되고, 열린 `exec` 가 없을 때의 같은 항목(code-mode 전 버전에서 `exec_command`, `apply_patch`, MCP 호출 줄과 함께
+쓰인 것)은 무시한다(같은 일이 두 번 보이지 않게). 방문의 끝은 항목 상태로 정한다(`completed` ok, `failed` 실패,
+`declined` 거절. 명령 실행은 0 이 아닌 종료 코드도 실패). 바깥 `exec` 의 요약은 첫 `tools.<이름>` 의 이름이고(문자열과
+주석 밖의 식별자만 읽고, `update_plan` 과 배관 이름은 건너뛴다), 방은 그 이름의 종류로 정한다(MCP 이름은 정보검색실).
 
 ## 7. 개인정보
 
@@ -513,7 +549,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 | 14 | 도구 이름이 버전마다 바뀌고 `transcript_full.jsonl` 이 더 짧은 경우가 있다 | Antigravity | 방 분류가 틀리거나 앞부분을 놓친다 | 이름 표에 옛 이름과 새 이름. 줄 수를 비교해 짧으면 `transcript.jsonl` |
 | 15 | 요약 proto 의 필드 번호가 추정이다 | Antigravity | 제목, 폴더, branch 가 틀릴 수 있다 | 제목은 annotations, 폴더는 `run_command` 의 `Cwd` 로 대체. 틀리면 비워 둔다 |
 | 16 | 기록 폴더 옆에 인증 파일, 원문 프롬프트 파일이 있다 | 모두 | 잘못 열면 비밀이 화면으로 간다 | 허용 목록 탐색 + 미끼 테스트(10절) |
-| 17 | 탐색할 루트가 셋 늘어난다 | 모두 | rescan(3초)마다 Codex 날짜 폴더 수백 개를 훑는다 | Codex 는 오늘과 어제 폴더만 3초마다, 나머지(이어 쓰기로 다시 풀린 파일)는 30초마다 |
+| 17 | 탐색할 루트가 셋 늘어난다 | 모두 | rescan(3초)마다 Codex 날짜 폴더 수백 개를 훑는다 | Codex 는 오늘과 어제 폴더만 3초마다, 나머지(이어 쓰기로 다시 풀린 파일)는 30초마다. P5d 구현: 활동 창이 닿는 날짜 폴더와 최근 이틀은 rescan 마다, 모든 날짜 폴더는 첫 탐색과 30초마다(창 안의 옛 폴더 파일은 매번 lstat, CONTRACT 4.7절) |
 | 18 | 조사 중 SQLite 를 읽기 전용으로 열었더니 `-wal`/`-shm` 보조 파일이 생기거나 갱신됐다 | Codex, Grok, Antigravity | 데이터 변화는 없지만 "읽기 전용" 조사의 흔적이 남았다 | 어댑터는 SQLite 를 열지 않는다(Node 20 에서 못 읽기도 한다). 앞으로 조사할 때는 `?mode=ro&immutable=1` |
 
 ### 8.2 미확인 (근거가 없는 것)
@@ -523,7 +559,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 - 공통: 세 도구 모두 조사 동안 기록이 늘어나는 것을 직접 본 것은 Antigravity CLI 뿐이다. Codex(가장 새 파일 약
   20시간 전)와 Grok(약 66시간 전)은 파일 시각과 문서, 소스 코드로 추정했다.
 - Codex: 백그라운드 명령이 턴 끝까지 살아 있을 때의 끝 표시, guardian 거절의 모양, writer lock 의 뜻, 기록 형식
-  옮겨 쓰기가 꼬리 읽기 중에 일어나는지, `~/.codex/worktrees` 세션의 가장 좋은 층 키.
+  옮겨 쓰기가 꼬리 읽기 중에 일어나는지, `~/.codex/worktrees` 세션의 가장 좋은 층 키. P5d 뒤의 상태는 5.1절 끝의 표에 있다.
 - Grok: 실행 중 덧붙이는 단위, `active_sessions.json` 행 모양, 수동 `/compact`, headless/ACP 세션, 바이너리에만 있는
   레코드 종류, 긴 cwd 그룹 이름, `/fork`, `ask_user_question` 거절. P5c 뒤의 상태는 5.2절 끝의 표에 있다.
 - Antigravity: 2.x 데스크톱 앱이 `brain/<id>/.system_generated/logs/` 를 쓰는지, `.pb` 암호화 방식, 요약 proto 필드
@@ -538,7 +574,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 | P5a 공통 분리 (완료) | 4절 "선행" 줄 전부(`SidecarWatcher` 는 빼고 P5c 로). `store.mjs` 에서 Claude 연결을 빼고, agent id 를 ref -> entry -> session 이벤트로 흐르게 하고, `RunnerGroup` 과 어댑터 등록표를 넣되 등록된 어댑터는 `claude-code` 하나. CLI 옵션은 받기만 한다 | 기존 `npm test` 전부 그대로 통과(테스트 수정 0개가 목표, 경로 import 가 바뀌는 곳만 예외). 새 테스트: agent id 흐름, 등록표, 루트가 없는 어댑터는 조용히 꺼짐. 실제 서버를 띄워 화면이 이전과 같은지 앱 브라우저로 확인 |
 | P5b `SessionCore` (완료) | `src/core/session-core.mjs`, `src/core/tool-summary.mjs` 와 그 단위 테스트(정규화 항목 -> 이벤트, `test/core-session.test.mjs`, `test/core-tool-summary.test.mjs`, 리뷰 회귀 테스트 `test/core-session-fixes.test.mjs`), 10절의 공통 적합성 하네스(`test/fixtures/conformance.mjs`)와 그것을 시험용 `core-fixture` 어댑터로 돌리는 `test/adapter-conformance.test.mjs`. 아직 어떤 어댑터도 쓰지 않는다. 정확한 모양은 CONTRACT 4.0.2절 | 정규화 항목만으로 만든 합성 입력에서 스키마, dedupe, 도구 짝, 턴, 계획, 개인정보 테스트 통과 |
 | P5c Grok (완료) | 5.2절. 탐색(모든 cwd 그룹, `subagents/` 연결) + 정규화 + `summary.json` 메타 + 설명자 등록. `SidecarWatcher`(`src/core/sidecar.mjs`, 3.3절)도 이 단계에서 만든다. 정확한 모양은 CONTRACT 4.6절 | 10절의 공통 적합성 테스트 + Grok 전용 테스트. 지어낸 픽스처를 시간차로 덧붙이는 스크립트로 라이브 화면 확인(Claude 와 Grok 직원이 같은 층에 섞여 보임). 실제 Grok 세션 하나를 띄워 덧붙이는 단위 확인(8.1절 11번) |
-| P5d Codex | 5.1절, 6.3절. guardian 숨김, code-mode, 서브에이전트 문맥 건너뛰기, `session_index.jsonl` 제목 | P5c 와 같음. 추가로 0.142 이전(`exec_command`, `update_plan`)과 이후(code-mode) 픽스처 둘 다 |
+| P5d Codex (완료) | 5.1절, 6.3절. guardian 숨김, code-mode, 서브에이전트 문맥 건너뛰기, `session_index.jsonl` 제목 | P5c 와 같음. 추가로 0.142 이전(`exec_command`, `update_plan`)과 이후(code-mode) 픽스처 둘 다 |
 | P5e Antigravity CLI | 5.3절. 위치 짝짓기, `USER_REQUEST` 꺼내기, 요약 proto varint 해석(결정 D6 범위 안에서) | P5c 와 같음. 옛 도구 이름과 새 도구 이름 픽스처 둘 다 |
 | P5f 문서 | `CONTRACT.md` 에 어댑터별 절, `README.md` 지원 표와 옵션, `PLAN.md` 진행 기록 | 문서와 `--help` 출력이 맞음 |
 | (선택) P5g Grok 승인 대기 | `events.jsonl` 을 함께 읽어 라이브 승인 대기(결정 D7) | CONTRACT 7절 갱신 + 순서 짝짓기 회귀 테스트 |
@@ -590,6 +626,86 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
     Claude 층을 찾는다.
   - 5.2절 미확인 항목의 상태는 5.2절 끝의 표에 적었다. 끝 조건 중 실행 중인 실제 Grok 세션으로 덧붙이는 단위를 보는
     확인(8.1절 11번)과 실제 기록으로 개수만 세는 확인의 결과는 통합 단계가 `PLAN.md` 8.2절에 적는다. 다음은 P5d Codex 다.
+- P5d 완료(2026-10-20): Codex 어댑터(`src/adapters/codex/`, 설명자 `src/adapters/codex/index.mjs`, 등록표에 `codex`)를
+  만들었다. 데스크톱 앱, CLI, IDE 확장이 같은 폴더에 같은 형식으로 쓰므로 모두 `codex` 하나다. 기준은
+  `docs/CONTRACT.md` 4.7절이다(허용 목록 탐색과 날짜 폴더 훑기, 첫 줄 사실과 캐시, 이어쓰기 조각, guardian 숨김, `/review`,
+  `session_index.jsonl` 제목, 레코드 -> 항목 표, code-mode `exec` 방문, 실패/거절/중단/백그라운드 규칙, D1 워크트리 층).
+  5.1절과 6.1~6.3절의 Codex 칸은 그 전의 제안이고, 달라진 점과 더 정한 점은 이렇다.
+  - 탐색(8.1절 17번): rescan 마다 보는 날짜 폴더는 활동 창 안에 만든 파일이 있을 수 있는 날짜(앞뒤로 하루 여유)와 최근
+    이틀뿐이다. 모든 날짜 폴더는 첫 탐색과 그 뒤 30초(`FULL_WALK_MS`)마다 이름만 훑고, 필요한 부모가 지난 전체 탐색에
+    없을 때 한 번 일찍 훑는다. 그 밖의 폴더 파일은 지난 lstat 을 쓰되 활동 창 안의 파일은 매번 다시 lstat 한다. 그래서
+    전날 시작해 아직 쓰이는 스레드는 계속 붙어 있고, 이어 받아 옛 날짜 폴더에 다시 풀린 `.jsonl` 은 30초 안에 붙는다.
+    탐색 상한(날짜 폴더 20,000, 한 번의 탐색에서 받는 이름 200,000)을 넘으면 Grok 처럼 `SCAN_CAPPED` 로 그 rescan 을
+    건너뛴다. `.zst`, `archived_sessions/`, `history.jsonl`, 인증과 설정 파일, SQLite, 로그, `worktrees/` 안은 열지 않고,
+    심볼릭 링크는 따라가지 않는다: 전체 탐색은 항목 종류로, 매번 보는 최근 폴더와 창 안의 옛 폴더는 경로의 모든 폴더
+    (`sessions/`, 연, 월, 일)가 실제 폴더인지 lstat 으로 확인한 뒤에만 읽는다. 링크인 `sessions/` 는 없는 것과 같다.
+    돌려주는 순서는 깊이(메인 먼저) 다음에 Codex 워크트리(`<root>/worktrees/` 안)에서 일하는 스레드를 뒤로, 그다음
+    uuid 다. 그래서 같은 rescan 의 워크트리 메인은 보통 메인이 붙은 뒤에 붙어 그 층을 찾는다(uuid 순서와 무관).
+  - 파일마다 첫 줄(`session_meta`)만 256 KB 안에서 읽고(`O_NOFOLLOW`, lstat 한 그 파일일 때만) 경로로 캐시한다. inode 가
+    같고 파일이 첫 줄보다 짧아지지 않으면 다시 읽지 않는다. 남기는 사실은 스레드 id, guardian 표시, `/review` 표시, 바로
+    위 부모, cwd, `git.branch`, `cli_version`, `subagent_history_start_ordinal`, 서브의 역할(`agent_role`), 첫 줄의
+    ordinal 이다. 세션은 서브 제목의 대안으로 `agent_nickname` 과 `agent_path` 의 끝 조각을 더 읽는다. 계정 id 와 그 밖의
+    신원 필드는 버린다.
+  - 부모 연결은 3.4절대로 자식 첫 줄의 `thread_spawn.parent_thread_id`(없으면 `payload.parent_thread_id`)다. 최상위
+    메인(`sid`)은 부모 사슬을 첫 줄로 거슬러 올라가 찾고, 활동 창 밖의 조상은 파일 이름의 uuid 로만 찾는다(다른 파일은
+    열지 않는다). 평문 기록이 없는(`.zst` 만 남은) 조상에서 사슬이 멈추면 거기까지 간 조상이 최상위 메인이고, 바로 위
+    부모에 닿지 못하는 스레드는 메인이다. 그런 메인도 첫 줄이 부모의 과제를 맡았다고 하면(`thread_spawn`, `/review`) 사람
+    입력을 프롬프트와 제목으로 쓰지 않는다. 서브의 조상은 창 밖이어도 함께 돌려준다(Grok 과 같다). guardian 의 자손도
+    숨긴다. `/review` 스레드(D10d)는 첫 줄이 가리키는 부모의 서브이고 `agentType` 은 `review` 다.
+  - 이어쓰기 조각은 같은 직원이다. 탐색은 스레드마다 한 조각만 돌려준다: 가장 새 mtime, 그다음 첫 줄 ordinal 이 큰
+    것, 이어쓰기 조각, 이름 순(첫 줄이 아직 덜 쓰인 조각은 쓸 수 있는 옛 조각에 양보한다). Runner 는 그 직원을 새
+    조각으로 옮긴다(다른 inode 로 옮긴 파일처럼 새 조각을 처음부터 다시 읽는다). 5.1절의 "조각 번호가 큰 쪽" 대신 이
+    순서로 고른다.
+  - 제목 색인 `session_index.jsonl` 은 `SidecarWatcher`(세션마다 파일 전체를 1 MB 안에서 다시 읽음)로 읽지 않는다(3.3절
+    제안과 다르다). 모든 스레드가 같이 쓰는 덧붙이기 파일이라 `CodexTitles` 가 기억한 위치 뒤에 덧붙은 부분만 한 번에
+    1 MB 까지 읽는다. 설명자가 이것을 `deps.sidecarWatcher` 로 넘기고, Runner 는 `SidecarWatcher` 자리에서 같은 때(붙일
+    때와 rescan 마다) 부른다. `id` 와 `thread_name` 만 쓰고, 같은 id 는 마지막 줄이 이긴다. 없으면 메인은 첫 사람 입력
+    (40자), 서브는 `agent_nickname`, 그다음 `agent_path` 의 끝 조각, 마지막으로 id 앞 8자다.
+  - 서브의 `agentType` 은 `agent_role`(`explorer`, `worker`, `default`, 사용자가 정한 역할)이다.
+  - 생각과 말은 두 곳에 적히므로 파일의 `cli_version` 으로 한쪽만 고른다: 0.142.5 부터(code-mode 시대)는 `item_completed`
+    의 `AgentMessage` / `Reasoning`(시작과 끝 시각이 있어 생각 시간이 나온다), 그 전이나 버전을 모르면 `response_item`.
+    요약이 빈 추론은 `thinking` 의 글이 `null` 이다(화면은 "생각 중…"). `phase` 가 `final_answer` 인 말은 `final` 이라,
+    `task_complete` 가 오지 않은 턴은 20초 뒤 `end_turn` 으로 닫힌다.
+  - 사람 프롬프트는 `UserMessage` 항목만이다. `role: user` / `developer` 메시지는 주입된 문맥이고, 서브의 과제
+    (`agent_message`)도 프롬프트가 아니다. 데스크톱과 IDE 클라이언트는 요청 앞에 문맥 묶음(`# Context from my IDE
+    setup:`, `# Files mentioned by the user:` ...)을 붙이고 요청에 `## My request:`(예전과 TUI 는 `## My request for
+    Codex:`) 표시를 단다. 이 표시가 있으면 마지막 표시 뒤의 글만 프롬프트와 제목 대안으로 쓰고, 그 뒤가 비면 프롬프트가
+    아니다(7절 3번: 주입 문맥은 프롬프트가 아니다).
+  - 서브 파일의 물려받은 문맥(`subagent_history_start_ordinal` 앞)은 붙일 때의 replay 동안 임시로 적용해 두었다가, 그
+    값 이상의 기록이 오면 버리고 처음부터 다시 만든다. replay 가 끝날 때까지 그런 기록이 없으면, 0.154 보다 오래된
+    파일(버전을 모르는 파일 포함, 예전에 옮겨 쓴 파일)만 임시 상태를 그 파일의 것으로 쓴다(5.1절의 대체 규칙). 0.154
+    부터의 파일은 임시 상태를 버리고 자기 기록을 기다린다: 갈라져 나온 자식은 태어날 때 첫 줄과 물려받은 묶음을 한꺼번에
+    쓰므로, 그 사이에 붙으면 부모의 진행 중인 호출이 자식의 열린 도구로 보이기 때문이다(조사: 그 값 뒤에 기록이 없는
+    spawn 파일은 모두 0.154 전).
+  - 부모 파일의 `SubAgentActivity` 는 붙일 때의 replay 동안 자식마다 마지막 종류(`started`, `interacted`, `completed`,
+    `interrupted`)만 기억하고, replay 가 끝날 때 마지막이 `completed` / `interrupted` 인 자식에게만 끝 힌트를 준다(알리기
+    전이라 끝난 자식은 끝난 채로 시작한다, F4). v2 다중 에이전트는 끝난 자식에게 일을 다시 맡기며 `started` 없이
+    `interacted` 만 쓰기도 하므로, 그런 자식은 끝내지 않는다. replay 뒤에는 `completed` / `interrupted` 가 오면 바로 끝낸다.
+  - 기록의 `ordinal` dedupe 는 적어도 마지막 65,536 개를 기억하고, 131,072 개를 넘으면 한 번에 다시 만든다(한 줄에
+    O(1), 아주 긴 기록도 replay 가 느려지지 않는다).
+  - 도구 끝은 출력의 종료 코드와 첫 줄의 고정 문구로만 정하고, 오류 줄도 그것으로만 만든다(출력 본문은 버린다). 종료
+    코드(`metadata.exit_code`, `Exit code: <n>`, `Process exited with code <n>`)를 먼저 보고, `Process running with
+    session ID` 는 ok + 백그라운드다. 그 밖에는 첫 줄의 문구로: `aborted by user` 중단, `rejected by user` /
+    `exec command rejected` / `patch rejected` / `approval required by policy` / `sandbox denied` / `failed in sandbox`
+    거절, `command timed out` / `Script failed` / `Script error` / `<이름> failed` 실패(오류 줄의 이름은 그 호출 자신의
+    이름). `turn_aborted` 때 열린 도구는 중단, `task_complete` 나 다음 `task_started` 때 열린 도구는 `abandoned` 다.
+  - `request_user_input_async` 도 질문으로 보이고 `{ accepted }` 출력에서 끝난다. `spawn_agent` 의 요약은 에이전트 종류
+    (`agent_type`)다. 0.142.5 전의 `web_search_call` 은 출력 줄이 없어 짧은 방문(시작과 끝을 한 번에)으로 보인다.
+    `turn_context` 의 cwd 는 `session_meta` 에 cwd 가 없을 때만 쓴다.
+  - code-mode(6.3절): 바깥 `exec` 의 요약은 스크립트에서 처음 부르는 `tools.<이름>`(문자열, 템플릿 글, 정규식, 주석 밖의
+    식별자만이고 템플릿의 `${...}` 안은 코드다. 끝나지 않은 문자열, 정규식, 템플릿, 주석으로 끝나거나 문자열이나 정규식
+    안에서 줄이 바뀌는 스크립트는 이름 없이 그냥 `exec` 다. `update_plan`, `write_stdin`, `wait` 같은 배관 이름은
+    건너뜀)이고, 방은 그 이름의 종류로 정한다(MCP 이름은 정보검색실). 안쪽 항목은 `exec` 가 열려 있을 때만 짧은 방문이 되고, 열린 `exec` 가 없을 때의 같은 항목은
+    무시한다(code-mode 전 버전에서 호출 줄과 함께 쓰인 것이라 두 번 보이지 않게). 방문의 끝은 항목 상태로 정한다.
+    스크립트 안의 `tools.update_plan` 은 보이지 않는다(D10c).
+  - `clock.sleep` 은 6.2절대로 라운지다. 종류로 정하는 방 힌트에는 라운지가 없어서 `CodexSession` 이 그 `tool_start` 에
+    라운지 힌트를 직접 붙인다(화면은 그대로, D4).
+  - D1 층은 Grok 과 같은 장치(설명자의 `worktreeFloor`, `store.setFloorRule`)로 정한다. `~/.codex/worktrees/<id>/<name>`
+    세션은 라벨이 `<name>` 인 살아 있는 층이 있으면 그 층, 없으면 자기 층(워크트리 배지)이다. 첫 rescan 에서 Codex
+    Runner 도 층 규칙이 없는 Runner(Claude)의 첫 붙이기를 기다린다. Grok 과 Codex 는 서로 기다리지 않는다.
+  - 5.1절 미확인 항목의 상태는 5.1절 끝의 표에 적었다. 끝 조건 중 실행 중인 실제 Codex 세션으로 덧붙이는 단위를 보는
+    확인(8.1절 11번)과 실제 기록으로 개수만 세는 확인의 결과는 통합 단계가 `PLAN.md` 8.2절에 적는다. 다음은 P5e
+    Antigravity CLI 다.
 
 ## 10. 테스트 전략
 
@@ -598,7 +714,8 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
   기본 루트를 쓰는 `start()` 호출이 테스트에 없음을 확인하는 검사를 하나 둔다.
 - 공통 적합성 테스트(`test/adapter-conformance.test.mjs`): `(adapter, fixtureRoot)` 쌍마다 같은 검사를 돈다.
   P5b 에서 하네스(`test/fixtures/conformance.mjs`)를 만들어 시험용 `core-fixture` 어댑터로 돌린다(CONTRACT 4.0.2절).
-  아래 탐색 허용 목록 검사는 이 하네스에 아직 없다. Grok 은 P5c 의 Grok 전용 테스트가 확인한다(CONTRACT 4.6절).
+  아래 탐색 허용 목록 검사는 이 하네스에 아직 없다. Grok 은 P5c 의 Grok 전용 테스트가, Codex 는 P5d 의 Codex 전용
+  테스트가 확인한다(CONTRACT 4.6절, 4.7절).
   - 스키마: 이벤트 type 이 CONTRACT 2절 표 안에 있고, type 마다 허용된 필드만 있고, 길이 상한(80/100/120/160)을 지킨다.
   - `session.agent` 가 그 어댑터 id 이고, `sessionId` 와 `parentSessionId` 가 `publicSessionId` 규칙을 지킨다.
   - 도구 짝: 모든 `tool_end` 의 `toolUseId` 는 앞선 `tool_start` 가 있고, 끝나지 않은 도구는 `snapshot()` 에 남는다.

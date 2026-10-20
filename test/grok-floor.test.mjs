@@ -222,7 +222,7 @@ test('Claude session events are the same with or without the Grok adapter runnin
 });
 
 test('roots: start() never probes a default adapter root; defaultRoots() is what the bin passes', async () => {
-  assert.deepEqual(defaultRoots(), { grok: '~/.grok' });
+  assert.deepEqual(defaultRoots(), { codex: '~/.codex', grok: '~/.grok' });
   const probed = [];
   const probe = async (root, id) => { probed.push([id, root]); return 'ENOENT'; };
   const logs = [];

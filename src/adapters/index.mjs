@@ -2,6 +2,7 @@
 // 루트 확인은 주입할 수 있는 probe 로 한다 (테스트는 임시 폴더나 가짜 probe 만 쓴다).
 import fsp from 'node:fs/promises';
 import { claudeCode } from './claude-code.mjs';
+import { codex } from './codex/index.mjs';
 import { grok } from './grok/index.mjs';
 
 /** Every adapter id the CLI accepts; the `agent` of a `session` event is one of these. */
@@ -12,8 +13,8 @@ export const AGENT_LABELS = Object.freeze({
   'claude-code': 'Claude Code', codex: 'Codex', grok: 'Grok', antigravity: 'Antigravity',
 });
 
-/** Implemented adapters by id: claude-code (P5a) and grok (P5c). Codex and Antigravity come in P5d-P5e (D11). */
-export const ADAPTERS = Object.freeze({ 'claude-code': claudeCode, grok });
+/** Implemented adapters by id, in KNOWN_AGENTS order: claude-code (P5a), codex (P5d), grok (P5c). Antigravity: P5e (D11). */
+export const ADAPTERS = Object.freeze({ 'claude-code': claudeCode, codex, grok });
 
 const CLAUDE = 'claude-code';
 

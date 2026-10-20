@@ -1,6 +1,6 @@
 # Office Sim
 
-AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 직원들이 3D 사무실을 오가며 일하는 모습으로 보여 주는 로컬 서버입니다. 지금은 Claude Code 세션 기록(`~/.claude/projects/**/*.jsonl`)과 Grok(xAI Grok Build) 세션 기록(`~/.grok/sessions/<작업 폴더>/<세션>/updates.jsonl`)을 읽습니다.
+AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 직원들이 3D 사무실을 오가며 일하는 모습으로 보여 주는 로컬 서버입니다. 지금은 Claude Code 세션 기록(`~/.claude/projects/**/*.jsonl`), Grok(xAI Grok Build) 세션 기록(`~/.grok/sessions/<작업 폴더>/<세션>/updates.jsonl`), Codex 세션 기록(`~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl`)을 읽습니다.
 
 | 방 | 하는 일 |
 |---|---|
@@ -21,15 +21,15 @@ AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 직�
 |---|---|---|
 | Claude Code | `claude-code` | 지원 |
 | Grok (xAI Grok Build) | `grok` | 지원 (P5c) |
-| Codex | `codex` | 예정 (다음) |
-| Antigravity CLI (`agy`, 예전 IDE 포함) | `antigravity` | 예정 (그다음) |
+| Codex (데스크톱 앱, CLI, IDE 확장 모두) | `codex` | 지원 (P5d) |
+| Antigravity CLI (`agy`, 예전 IDE 포함) | `antigravity` | 예정 (다음) |
 | Antigravity 데스크톱 앱 | 없음 | 범위 밖. 대화 파일이 암호화된 것으로 보여 도구 이벤트를 읽을 수 없습니다 |
 
-도구마다 그 도구의 세션 기록을 읽는 어댑터가 있습니다. 어댑터마다 기록을 찾고 읽는 방법은 다르지만, 브라우저로 보내는 이벤트 형식과 개인정보 규칙은 모두 같습니다(`docs/CONTRACT.md` 2절, 4.0절, 5절). Grok 어댑터의 규칙은 `docs/CONTRACT.md` 4.6절에 있습니다. 같은 작업 폴더의 Claude Code 세션과 Grok 세션은 같은 층에서 일합니다. 설계와 구현 순서(Grok, Codex, Antigravity CLI)는 `docs/ADAPTERS.md` 에 있고, 2026-10-20 에 승인됐습니다.
+도구마다 그 도구의 세션 기록을 읽는 어댑터가 있습니다. 어댑터마다 기록을 찾고 읽는 방법은 다르지만, 브라우저로 보내는 이벤트 형식과 개인정보 규칙은 모두 같습니다(`docs/CONTRACT.md` 2절, 4.0절, 5절). Grok 어댑터의 규칙은 `docs/CONTRACT.md` 4.6절에, Codex 어댑터의 규칙은 4.7절에 있습니다. 같은 작업 폴더의 Claude Code 세션과 Grok 세션은 같은 층에서 일하고, Codex 세션도 같은 층에 모입니다. 설계와 구현 순서(Grok, Codex, Antigravity CLI)는 `docs/ADAPTERS.md` 에 있고, 2026-10-20 에 승인됐습니다.
 
-서버는 구현된 어댑터 중 기록 폴더가 있는 것을 모두 켜고, 시작할 때 주소 다음 줄에 켜진 에이전트를 출력합니다. 두 기록 폴더(`~/.claude/projects`, `~/.grok`)가 모두 있으면 `office-sim: agents claude-code,grok`, 하나만 있으면 `office-sim: agents claude-code` 처럼 나오고, 켜진 것이 없으면 `office-sim: agents none` 입니다. `--agents` 로 고른 id 중 아직 구현되지 않은 것은 `office-sim: codex is not implemented yet` 처럼 한 줄씩 알리고 건너뜁니다. 기록 폴더가 없거나 읽을 수 없는 어댑터는 로그 한 줄을 남기고 꺼지며(2초 안에 열리지 않는 폴더도 읽을 수 없는 것으로 봅니다), 서버는 빈 사무실로 계속 돕니다. 꺼진 어댑터의 기록 폴더는 rescan 주기마다 다시 확인해서, 나중에 폴더가 생기거나 읽을 수 있게 되면 `<id>: root found, adapter on` 로그 한 줄과 함께 그때 켭니다(`/healthz` 의 `agents` 에도 그때부터 보입니다. 시작할 때 출력한 `office-sim: agents` 줄은 바뀌지 않습니다).
+서버는 구현된 어댑터 중 기록 폴더가 있는 것을 모두 켜고, 시작할 때 주소 다음 줄에 켜진 에이전트를 출력합니다. 세 기록 폴더(`~/.claude/projects`, `~/.codex`, `~/.grok`)가 모두 있으면 `office-sim: agents claude-code,codex,grok`, Claude Code 폴더만 있으면 `office-sim: agents claude-code` 처럼 나오고(순서는 늘 `claude-code`, `codex`, `grok`, `antigravity`), 켜진 것이 없으면 `office-sim: agents none` 입니다. `--agents` 로 고른 id 중 아직 구현되지 않은 것은 `office-sim: antigravity is not implemented yet` 처럼 한 줄씩 알리고 건너뜁니다. 기록 폴더가 없거나 읽을 수 없는 어댑터는 로그 한 줄을 남기고 꺼지며(2초 안에 열리지 않는 폴더도 읽을 수 없는 것으로 봅니다), 서버는 빈 사무실로 계속 돕니다. 꺼진 어댑터의 기록 폴더는 rescan 주기마다 다시 확인해서, 나중에 폴더가 생기거나 읽을 수 있게 되면 `<id>: root found, adapter on` 로그 한 줄과 함께 그때 켭니다(`/healthz` 의 `agents` 에도 그때부터 보입니다. 시작할 때 출력한 `office-sim: agents` 줄은 바뀌지 않습니다).
 
-모든 직원(캐릭터)은 어느 도구의 세션인지 나타내는 에이전트 id를 가집니다. 서버가 보내는 `session` 이벤트의 `agent` 필드이고, 지금은 `claude-code` 나 `grok` 입니다(Grok 직원의 id 는 `grok-` 로 시작합니다). 화면에는 `Claude Code`, `Codex`, `Grok`, `Antigravity` 로 보이고, 모르는 id는 그대로 보입니다.
+모든 직원(캐릭터)은 어느 도구의 세션인지 나타내는 에이전트 id를 가집니다. 서버가 보내는 `session` 이벤트의 `agent` 필드이고, 지금은 `claude-code`, `codex`, `grok` 중 하나입니다(Codex 직원의 id 는 `codex-`, Grok 직원의 id 는 `grok-` 로 시작합니다). 화면에는 `Claude Code`, `Codex`, `Grok`, `Antigravity` 로 보이고, 모르는 id는 그대로 보입니다.
 
 ## 실행
 
@@ -51,8 +51,8 @@ node bin/office-sim.mjs --claude-root ~/.claude/projects --active 60
 | `--active` | 30 | 최근 N분 안에 수정된 세션만 따라감 |
 | `--rescan` | 3000 | 새 세션 파일을 찾는 간격(ms) |
 | `--claude-root` | `~/.claude/projects` | Claude Code 세션 기록 위치. `--root` 는 같은 옵션의 별칭입니다 |
-| `--agents` | 구현된 어댑터 중 기록 폴더가 있는 것 모두 | 켤 에이전트 id 를 쉼표로 고릅니다(예: `--agents claude-code`, `--agents grok`). `claude-code`, `codex`, `grok`, `antigravity` 만 받고, 그 밖의 id 는 오류(종료 코드 2)입니다. 아직 구현되지 않은 id(`codex`, `antigravity`)는 알리고 건너뜁니다 |
-| `--codex-root` | `~/.codex` | 예약: 다음 Codex 어댑터의 기록 위치. 지금은 받기만 하고 쓰지 않습니다 |
+| `--agents` | 구현된 어댑터 중 기록 폴더가 있는 것 모두 | 켤 에이전트 id 를 쉼표로 고릅니다(예: `--agents claude-code`, `--agents codex,grok`). `claude-code`, `codex`, `grok`, `antigravity` 만 받고, 그 밖의 id 는 오류(종료 코드 2)입니다. 아직 구현되지 않은 id(`antigravity`)는 알리고 건너뜁니다 |
+| `--codex-root` | `~/.codex` | Codex 기록 위치(데스크톱 앱, CLI, IDE 확장 모두). 그 아래 `sessions/<YYYY>/<MM>/<DD>/` 의 `rollout-*.jsonl`(되돌리기 뒤의 이어쓰기 조각 포함)과 제목 색인 `session_index.jsonl`(스레드 id 와 이름만)만 읽습니다. 자동 승인 검토(guardian) 스레드는 숨깁니다. 옵션을 주지 않으면 실행 파일(`bin/office-sim.mjs`)이 기본값을 채웁니다(서버의 `start()` 는 받은 루트만 씁니다) |
 | `--grok-root` | `~/.grok` | Grok(xAI Grok Build) 기록 위치. 그 아래 `sessions/<작업 폴더>/<세션>/` 의 `updates.jsonl` 과 `summary.json`(제목, 작업 폴더, branch, 서브에이전트 종류)만 읽고, 서브에이전트는 `subagents/` 아래 폴더 이름으로만 연결합니다. 옵션을 주지 않으면 실행 파일(`bin/office-sim.mjs`)이 기본값을 채웁니다(서버의 `start()` 는 받은 루트만 씁니다) |
 | `--antigravity-root` | `~/.gemini` | 예약: 다음 Antigravity CLI 어댑터의 기록 위치. 지금은 받기만 하고 쓰지 않습니다 |
 | `--replay` | 없음 | 지난 세션 하나(`<uuid>.jsonl` 과 그 서브에이전트 파일)를 기록된 시간 간격대로 다시 보여 줍니다. 이때 `--claude-root`(`--root`), `--active`, `--rescan` 은 쓰지 않습니다. 재생은 Claude Code 세션만 됩니다 |
@@ -78,11 +78,12 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 - `src/store-claude.mjs`: Claude Code 서브에이전트 연결(저장소에서 Claude 전용 부분을 떼어 낸 것)
 - `src/adapters/`: 어댑터 등록표(`index.mjs`)와 Claude Code 설명자(`claude-code.mjs`). Claude 모듈은 제자리에 두고 설명자가 가리킵니다
 - `src/adapters/grok/`: Grok 어댑터(탐색, 레코드 정규화, 설명자 `index.mjs`)
+- `src/adapters/codex/`: Codex 어댑터(날짜 폴더 탐색과 첫 줄 사실, 제목 색인 읽기, 레코드 정규화와 code-mode `exec` 방문, 설명자 `index.mjs`)
 - `src/core/`: 새 어댑터가 같이 쓰는 부품. 세션 코어(`session-core.mjs`, `session-items.mjs`), 도구 요약(`tool-summary.mjs`), 바뀔 때만 다시 읽는 메타 파일 감시(`sidecar.mjs`)
 - `public/`: three.js 사무실 화면. localhost에서 열면 라이브, 그 밖에서는 데모 데이터로 동작합니다(`#demo`로 강제 가능).
 - `docs/CONTRACT.md`: 모듈 경계, 이벤트 형식, 파싱 규칙
 - `docs/ADAPTERS.md`: 멀티 에이전트 어댑터 설계(승인됨)와 단계별 구현 순서
-- `docs/research/jsonl-format.json`: Claude Code 세션 기록 형식 조사 결과(구조만, 실제 내용 없음). Grok 은 `grok-format.json`, 나머지 도구는 `codex-format.json`, `antigravity-format.json`
+- `docs/research/jsonl-format.json`: Claude Code 세션 기록 형식 조사 결과(구조만, 실제 내용 없음). Grok 은 `grok-format.json`, Codex 는 `codex-format.json`, Antigravity 는 `antigravity-format.json`
 - 방 배정 규칙은 `public/js/rooms.js`의 `ROOM_RULES` 한 곳에서 바꿉니다.
 
 ## 개인정보
@@ -91,6 +92,7 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 - 루프백 주소는 사용자별로 나뉘지 않습니다. 같은 컴퓨터의 다른 OS 사용자나 웹 페이지까지 막으려면 `--auth`를 켜세요. 같은 사용자의 프로세스는 세션 기록 파일을 직접 읽을 수 있으므로 토큰으로 막는 대상이 아닙니다.
 - 브라우저로는 요약만 보냅니다. 명령 원문, 파일 내용, 수정 내용, 전체 경로(파일 이름만), 전체 URL(호스트만), 이메일, 커넥터 계정 uuid는 보내지 않습니다. 층 구분 키(`project`)만 작업 폴더 경로 전체를 담습니다.
 - Grok 기록 폴더에서는 정해진 파일(`updates.jsonl`, `summary.json`)만 엽니다. 원문 프롬프트 기록(`prompt_history.jsonl`, `chat_history.jsonl`), 런타임 이벤트(`events.jsonl`), 계획 파일, 인증과 설정 파일은 열지 않습니다(`docs/CONTRACT.md` 4.6절).
+- Codex 기록 폴더에서는 정해진 파일(`sessions/` 아래 날짜 폴더의 `rollout-*.jsonl`, `session_index.jsonl`)만 엽니다. 압축된 기록(`.jsonl.zst`), `archived_sessions/`, 원문 프롬프트 기록(`history.jsonl`), 인증과 설정 파일, SQLite 파일, 로그, `worktrees/` 안은 열지 않고, 심볼릭 링크인 폴더는 따라가지 않습니다. 세션 첫 줄의 계정 id 는 보내지 않고, 데스크톱 앱과 IDE 확장이 요청 앞에 붙이는 문맥(열린 파일, 탭, 언급한 파일)은 프롬프트로 보내지 않으며, code-mode 스크립트는 처음 부르는 `tools.<이름>` 의 이름만 봅니다(문자열, 정규식, 주석 안은 읽지 않음, `docs/CONTRACT.md` 4.7절).
 
 ## 테스트
 
@@ -98,4 +100,4 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 npm test
 ```
 
-모든 테스트는 임시 폴더의 합성 데이터만 사용하고, 실제 `~/.claude`는 읽지 않습니다. 다른 어댑터의 기록 폴더(`~/.grok`, `~/.codex`, `~/.gemini`)도 마찬가지입니다. 실행 파일을 띄우는 테스트는 기본 루트 `~/.grok` 가 실제 폴더에 닿지 않도록 `HOME` 을 임시 폴더로 바꿉니다.
+모든 테스트는 임시 폴더의 합성 데이터만 사용하고, 실제 `~/.claude`는 읽지 않습니다. 다른 어댑터의 기록 폴더(`~/.grok`, `~/.codex`, `~/.gemini`)도 마찬가지입니다. 실행 파일을 띄우는 테스트는 기본 루트 `~/.grok`, `~/.codex` 가 실제 폴더에 닿지 않도록 `HOME` 을 임시 폴더로 바꿉니다.
