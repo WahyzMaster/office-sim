@@ -61,6 +61,33 @@ node bin/office-sim.mjs --claude-root ~/.claude/projects --active 60
 | `--speed` | 1 | 재생 배속(0.1~1000). 줄 사이 공백은 배속으로 나누고, 한 공백은 최대 5초로 줄입니다 |
 | `--loop` | 꺼짐 | 재생이 끝나면 모두 퇴근시킨 뒤 처음부터 다시 합니다 |
 | `--auth` | 꺼짐 | 실행마다 새 토큰을 만들고 `http://127.0.0.1:<port>/?t=<토큰>` 주소를 출력합니다. 그 주소를 한 번 열면 브라우저가 쿠키를 받고, 쿠키 없는 요청은 모두 401로 거절합니다(값을 받지 않는 스위치) |
+| `--open` | 꺼짐 | 서버가 뜨면 출력한 주소를 기본 브라우저로 엽니다(`--auth` 와 같이 쓰면 토큰 주소). macOS 는 `open`, Windows 는 `cmd /c start ""`, 그 밖은 `xdg-open` 을 쓰고, 열지 못하면 로그 한 줄만 남기고 서버는 계속 돕니다(값을 받지 않는 스위치). `--auth` 와 같이 쓰면 토큰 주소가 여는 명령과 그 명령이 띄운 브라우저의 프로세스 인자에 들어갑니다. Linux 에서 브라우저가 아직 떠 있지 않았다면 새로 뜬 브라우저가 끝날 때까지 그 인자에 남아, 같은 컴퓨터의 다른 사용자가 `ps` 로 토큰을 볼 수 있습니다(macOS 의 `open` 은 주소를 브라우저 인자로 넘기지 않습니다) |
+
+## /office 스킬
+
+Claude Code 에서 `/office` 한 번으로 서버를 띄우고 사무실 화면을 엽니다. 스킬은 이 저장소의 `skills/office/SKILL.md` 이고, 설치는 `~/.claude/skills/office` 를 그 폴더로 가리키는 심볼릭 링크 하나를 만드는 것입니다(Windows 는 junction).
+
+```bash
+npm run skill:install                  # ~/.claude/skills/office -> <저장소>/skills/office
+npm run skill:install -- --dry-run     # 무엇을 할지만 출력
+npm run skill:uninstall                # 우리 링크일 때만 지움
+```
+
+- 이미 맞는 링크가 있으면 아무것도 하지 않습니다. 저장소를 `~/.claude/skills/office` 에 바로 받았다면 `--force` 를 주어도 저장소를 옮기지 않고 멈추니, 다른 곳으로 옮긴 뒤 거기서 설치하세요. 같은 이름의 폴더, 파일, 다른 곳을 가리키는 링크가 있으면 손대지 않고 멈춥니다. `--force` 를 주면 그것을 지우지 않고 옆의 `office.bak-<시각>` 으로 옮긴 뒤 링크를 만듭니다(Claude Code 는 `skills/` 아래 폴더를 모두 읽으므로, 필요 없어지면 백업 폴더를 지우세요).
+- `~/.claude` 안에서는 `skills/office` 하나만 만들고 옮기고 지웁니다(`skills/` 폴더가 없으면 만듭니다). `--skills-dir <dir>` 이나 `--home <dir>` 로 다른 곳에 설치할 수 있습니다.
+- 저장소를 옮기면 링크가 끊어집니다. 새 자리에서 `npm run skill:install -- --force` 를 다시 실행하세요.
+
+새 Claude Code 세션에서:
+
+| 입력 | 하는 일 |
+|---|---|
+| `/office` (또는 `/office start`) | 4317 포트에 office-sim 이 떠 있으면 그대로 쓰고, 없으면 백그라운드로 띄운 뒤 화면을 엽니다. 4317 을 다른 프로그램이 쓰고 있으면 빈 포트에 띄웁니다 |
+| `/office demo` | 같은 방식으로 띄우고 데모 화면(`#demo`)을 엽니다 |
+| `/office auth` | `--auth` 로 띄우고 토큰 주소를 엽니다. Linux 에서 앱 안의 브라우저가 없으면 토큰이 브라우저 프로세스 인자에 남지 않도록 열지 않고 주소만 알려 줍니다 |
+| `/office status` | `/healthz` 로 실행 여부, 켜진 에이전트, 세션 수, 접속 수를 알려 줍니다 |
+| `/office stop` | 이 저장소의 `bin/office-sim.mjs` 를 절대 경로로 실행한 서버만 멈춥니다(`npm start` 로 터미널에서 띄운 서버는 그대로 둡니다) |
+
+"사무실 열어 줘", "에이전트들 뭐 하는지 보여 줘" 처럼 말로 해도 됩니다. 앱 안의 브라우저가 있으면 그곳에서, 없으면 OS 의 여는 명령(`open`, `xdg-open`, `cmd /c start`)을 직접 실행해 기본 브라우저로 열고, 열지 못하면 그렇다고 말하고 직접 열 주소를 알려 줍니다. 이미 4317 에 떠 있던 서버를 다시 쓸 때는 그 서버가 이 저장소에서 `/office` 로 띄운 것인지 확인해, 아니면(`npm start` 로 터미널에서 띄운 서버, 다른 체크아웃) 띄운 곳에서 Ctrl-C 로 멈추라고 알려 줍니다. 스킬은 `/healthz` 응답과 서버가 출력한 `office-sim:` 줄만 읽고, 세션 기록은 열지 않습니다.
 
 ## 재생 모드
 
@@ -83,6 +110,7 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 - `src/adapters/codex/`: Codex 어댑터(날짜 폴더 탐색과 첫 줄 사실, 제목 색인 읽기, 레코드 정규화와 code-mode `exec` 방문, 설명자 `index.mjs`)
 - `src/adapters/antigravity/`: Antigravity 어댑터(두 앱 폴더의 허용 목록 탐색과 파일 고르기, 요약 protobuf 해석기 `proto.mjs`, 메타 파일, 단계 정규화와 위치 짝짓기, 설명자 `index.mjs`)
 - `src/core/`: 새 어댑터가 같이 쓰는 부품. 세션 코어(`session-core.mjs`, `session-items.mjs`), 도구 요약(`tool-summary.mjs`), 바뀔 때만 다시 읽는 메타 파일 감시(`sidecar.mjs`)
+- `skills/office/`: `/office` Claude Code 스킬. `scripts/install-skill.mjs` 가 설치하고, `src/open-url.mjs` 는 `--open` 의 브라우저 열기입니다
 - `public/`: three.js 사무실 화면. localhost에서 열면 라이브, 그 밖에서는 데모 데이터로 동작합니다(`#demo`로 강제 가능).
 - `docs/CONTRACT.md`: 모듈 경계, 이벤트 형식, 파싱 규칙
 - `docs/ADAPTERS.md`: 멀티 에이전트 어댑터 설계(승인됨)와 단계별 구현 순서
@@ -92,7 +120,7 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 ## 개인정보
 
 - 서버는 127.0.0.1에만 열리고, 다른 Host 헤더로 온 요청과 다른 사이트에서 온 요청(Origin, Sec-Fetch-Site)은 거절합니다.
-- 루프백 주소는 사용자별로 나뉘지 않습니다. 같은 컴퓨터의 다른 OS 사용자나 웹 페이지까지 막으려면 `--auth`를 켜세요. 같은 사용자의 프로세스는 세션 기록 파일을 직접 읽을 수 있으므로 토큰으로 막는 대상이 아닙니다.
+- 루프백 주소는 사용자별로 나뉘지 않습니다. 같은 컴퓨터의 다른 OS 사용자나 웹 페이지까지 막으려면 `--auth`를 켜세요. 같은 사용자의 프로세스는 세션 기록 파일을 직접 읽을 수 있으므로 토큰으로 막는 대상이 아닙니다. 다른 사용자의 프로세스 인자가 보이는 공유 Linux 컴퓨터에서는 `--auth --open` 이 이 보호를 약하게 합니다(토큰 주소가 새로 뜬 브라우저의 인자에 남음). 그런 곳에서는 `--open` 없이 출력된 주소를 이미 떠 있는 브라우저에 직접 붙여 넣으세요.
 - 브라우저로는 요약만 보냅니다. 명령 원문, 파일 내용, 수정 내용, 전체 경로(파일 이름만), 전체 URL(호스트만), 이메일, 커넥터 계정 uuid는 보내지 않습니다. 층 구분 키(`project`)만 작업 폴더 경로 전체를 담습니다.
 - Grok 기록 폴더에서는 정해진 파일(`updates.jsonl`, `summary.json`)만 엽니다. 원문 프롬프트 기록(`prompt_history.jsonl`, `chat_history.jsonl`), 런타임 이벤트(`events.jsonl`), 계획 파일, 인증과 설정 파일은 열지 않습니다(`docs/CONTRACT.md` 4.6절).
 - Codex 기록 폴더에서는 정해진 파일(`sessions/` 아래 날짜 폴더의 `rollout-*.jsonl`, `session_index.jsonl`)만 엽니다. 압축된 기록(`.jsonl.zst`), `archived_sessions/`, 원문 프롬프트 기록(`history.jsonl`), 인증과 설정 파일, SQLite 파일, 로그, `worktrees/` 안은 열지 않고, 심볼릭 링크인 폴더는 따라가지 않습니다. 세션 첫 줄의 계정 id 는 보내지 않고, 데스크톱 앱과 IDE 확장이 요청 앞에 붙이는 문맥(열린 파일, 탭, 언급한 파일)은 프롬프트로 보내지 않으며, code-mode 스크립트는 처음 부르는 `tools.<이름>` 의 이름만 봅니다(문자열, 정규식, 주석 안은 읽지 않음, `docs/CONTRACT.md` 4.7절).
@@ -104,4 +132,4 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 npm test
 ```
 
-모든 테스트는 임시 폴더의 합성 데이터만 사용하고, 실제 `~/.claude`는 읽지 않습니다. 다른 어댑터의 기록 폴더(`~/.grok`, `~/.codex`, `~/.gemini`)도 마찬가지입니다. 실행 파일을 띄우는 테스트는 기본 루트 `~/.grok`, `~/.codex`, `~/.gemini` 가 실제 폴더에 닿지 않도록 `HOME` 을 임시 폴더로 바꿉니다.
+모든 테스트는 임시 폴더의 합성 데이터만 사용하고, 실제 `~/.claude`는 읽지 않습니다. 스킬 설치 테스트는 임시 HOME 에만 링크를 만들고, `--open` 테스트는 `PATH` 에 가짜 `open`/`xdg-open` 만 두어 진짜 브라우저를 열지 않습니다. `test/skill-commands.test.mjs` 는 `SKILL.md` 의 명령을 적힌 그대로(자리표시자만 바꿔) 실행해 봅니다. 다른 어댑터의 기록 폴더(`~/.grok`, `~/.codex`, `~/.gemini`)도 마찬가지입니다. 실행 파일을 띄우는 테스트는 기본 루트 `~/.grok`, `~/.codex`, `~/.gemini` 가 실제 폴더에 닿지 않도록 `HOME` 을 임시 폴더로 바꿉니다.
