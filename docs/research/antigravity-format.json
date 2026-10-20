@@ -1,0 +1,210 @@
+{
+  "about": "Antigravity transcript study (2026-10-20). Structure-only: key names, field numbers, value types, counts and fixed-vocabulary enum values were read from local files by small scripts; no conversation text, paths, titles, ids or other values are reproduced. Paths use placeholders (<uuid>, <n>, <workspace>). Counts move while agents run (two CLI conversations were live during the study).",
+  "tool": "antigravity",
+  "versionsSeen": {
+    "agyCli": "1.4.2 (agy --version)",
+    "cliLanguageServerStartsInLogs": { "1.3.5": 8, "1.3.6": 2, "1.4.0": 5, "1.4.2": 4 },
+    "desktopApp": "Antigravity.app 2.23.1 (CFBundleShortVersionString, bundle id com.google.antigravity)",
+    "notes": "Tool vocabulary drifts between CLI language-server versions: older CLI transcripts use view_file/write_to_file with toolAction/toolSummary args; the live 1.4.x conversations observed during the study emitted read_file/write_file calls (args Path/StartLine/EndLine, Content/Overwrite, no toolAction/toolSummary)."
+  },
+  "corpus": {
+    "cliRoot": "~/.gemini/antigravity-cli: 38 brain dirs, 34 with .system_generated/logs/transcript.jsonl + transcript_full.jsonl (~16.8k lines total, growing), 36 conversations/<uuid>.db + 1 legacy <uuid>.pb, conversation_summaries.db (102 rows), jetbox_summaries_proto.pb (35-37 entries), annotations 16, history.jsonl 307 lines, 19 cli logs, 7 running agy processes",
+    "ideRoot": "~/.gemini/antigravity: 64 conversations/<uuid>.pb, 64 brain dirs (0 with logs/), 22 implicit/<uuid>.pb, conversation_summaries.db (64 rows + FTS), agyhub_summaries_proto.pb (64 entries), annotations 18, daemon/ls_<hex>.log 1. Summaries date all 64 conversations 2025-11..2026-04 (no conversation from the 2.x app found on this Mac).",
+    "legacyIdeRoot": "~/.gemini/antigravity-ide: 2 conversations/<uuid>.pb, 2 brain dirs both with .system_generated/logs/transcript.jsonl (1,715 lines), browser_recordings 195,635 jpg (~20 GB), 2 implicit .pb",
+    "appSupport": "~/Library/Application Support/Antigravity: VS Code fork data; globalStorage/state.vscdb ItemTable 464 keys; 12 workspaceStorage/*/state.vscdb",
+    "notAntigravity": "~/.gemini/tmp (579 files, 38 dirs: 536 .txt, 22 .jsonl, 18 .md, 1 shell_history) and ~/.gemini/history (1 file) belong to Gemini CLI, not Antigravity"
+  },
+  "locations": [
+    { "pattern": "~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript_full.jsonl", "role": "CLI per-conversation transcript, one JSON object per step, full (untruncated) values, tool args as native JSON types", "count": 34, "format": "JSONL, append-only", "notes": "Best source. Present in 34/38 CLI brain dirs. One conversation had 118 lines in transcript.jsonl but 44 in transcript_full.jsonl (starts at step 220), so fall back to transcript.jsonl when full is shorter or missing." },
+    { "pattern": "~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript.jsonl", "role": "same steps, truncated: long content/tool_calls/thinking cut and listed in truncated_fields; tool args are JSON-encoded strings", "count": 34, "format": "JSONL, append-only", "notes": "truncated_fields values: content 3060, tool_calls 622, thinking 45. Also written by the legacy IDE (~/.gemini/antigravity-ide, 2 files)." },
+    { "pattern": "~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/logs/chunks/{transcript,transcript_full}/<8-digit n>.jsonl", "role": "rolling chunk copies of the transcripts (step ranges per chunk, newer CLI only)", "count": "19 convs: 268 transcript chunks, 506 transcript_full chunks", "format": "JSONL", "notes": "Chunk boundaries skip one step (e.g. 0-38 then 40-76); sum of chunk lines is slightly below the main file. Not needed when the main file exists." },
+    { "pattern": "~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/steps/<step_index>/output.txt", "role": "full tool output of a result step", "count": "~4.1k files in 17-18 convs (grew during the study)", "format": "text", "notes": "4,156 checked files map to a transcript step_index (4,152 GENERIC, 4 MCP_TOOL). Not needed for events." },
+    { "pattern": "~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/messages/<uuid>.json (+ read.json)", "role": "messages delivered to the agent, mostly background-command completion notices", "count": "612 message files in 26 convs; read.json 26 (map message id -> bool)", "format": "JSON", "notes": "See finding 'Background messages'." },
+    { "pattern": "~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/tasks/task-<n>.log", "role": "background task (shell) logs", "count": "613 in 24 convs", "format": "text", "notes": "Content not read." },
+    { "pattern": "~/.gemini/antigravity-cli/brain/<uuid>/{walkthrough.md,implementation_plan.md,<name>.md}(+.metadata.json), scratch/, .git/", "role": "CLI artifacts", "count": "walkthrough.md 12, implementation_plan.md 2, other .md 31, .metadata.json 45; .git/ in 3 dirs", "format": "Markdown + JSON {summary, updatedAt, userFacing, requestFeedback}", "notes": "No task.md and no checkboxes in any CLI artifact." },
+    { "pattern": "~/.gemini/antigravity-cli/conversations/<uuid>.db (+ -wal, -shm)", "role": "CLI authoritative conversation store (trajectory steps as protobuf blobs)", "count": 36, "format": "SQLite (WAL), protobuf blobs, not encrypted", "notes": "Node 20 has no built-in SQLite (node:sqlite needs 22.5+), so not usable by a zero-dependency Node 20 adapter. Official changelog: 'Added SQLite (.db) conversation support and will be CLI's conversation format'." },
+    { "pattern": "~/.gemini/antigravity-cli/jetbox_summaries_proto.pb", "role": "CLI conversation summary index (title, status, workspace, branch, step count, times)", "count": "1 file, 35-37 entries", "format": "plain protobuf (magic 0x0a, entropy ~6.1), no schema needed for the fields mapped below", "notes": "Replaced as a whole on change (inode changed 2x and size shrank once in 240 s)." },
+    { "pattern": "~/.gemini/antigravity/agyhub_summaries_proto.pb", "role": "IDE conversation summary index, same message layout as the CLI file", "count": "1 file, 64 entries", "format": "plain protobuf", "notes": "Same data also stored base64-encoded in state.vscdb key antigravityUnifiedStateSync.trajectorySummaries (197,172 bytes decoded, 64 entries)." },
+    { "pattern": "~/.gemini/antigravity{,-cli}/conversation_summaries.db", "role": "summary table conversation_summaries (+ FTS tables in the IDE copy)", "count": "CLI 102 rows (37 CLI + 65 IDE by app_data_dir), IDE 64 rows", "format": "SQLite", "notes": "Columns: conversation_id, title, preview, step_count, last_modified_time, workspace_uris (JSON list of file:// URIs), status (CASCADE_RUN_STATUS_IDLE | CASCADE_RUN_STATUS_RUNNING | empty), source, project_id, agent_name, parent_conversation_id, nesting_depth, battle_id, winning_conversation_id, not_fully_idle, killed, last_user_input_time, last_user_input_step_index, app_data_dir, raw_summary (protobuf blob), group_id." },
+    { "pattern": "~/.gemini/antigravity-cli/annotations/<uuid>.pbtxt", "role": "CLI conversation title", "count": 16, "format": "text protobuf, one field: title", "notes": "IDE annotations (18) hold only last_user_view_time." },
+    { "pattern": "~/.gemini/antigravity-cli/history.jsonl", "role": "CLI input history", "count": "307 lines", "format": "JSONL {conversationId (262), display, timestamp (int), type (slash_command 101 | shell 6, else absent), workspace (absolute path, 307)}", "notes": "display is raw user input: never surface." },
+    { "pattern": "~/.gemini/antigravity-cli/cache/last_conversations.json", "role": "map workspace absolute path -> last conversation uuid", "count": "5 entries", "format": "JSON", "notes": "Rewritten at CLI start. cache/conversation_metadata.json is a stale (last written 07-12) map of 67 summaries {ID, Title (all empty), Preview, NumSteps, WorkspaceURIs, ProjectID, AppDataDir, UpdatedAt, AgentName, Loaded} + is_internal." },
+    { "pattern": "~/.gemini/antigravity/conversations/<uuid>.pb, ~/.gemini/antigravity{,-ide}/implicit/<uuid>.pb, ~/.gemini/antigravity-ide/conversations/<uuid>.pb", "role": "IDE trajectories (and implicit context)", "count": "64 + 22 + 2 + 2", "format": "opaque binary, looks encrypted", "notes": "See finding 'IDE .pb files'. Not readable without a key/schema." },
+    { "pattern": "~/.gemini/antigravity/brain/<uuid>/{task.md,implementation_plan.md,walkthrough.md}(+.metadata.json, .resolved, .resolved.<n>)", "role": "IDE agent artifacts incl. the task checklist", "count": "64 dirs: task.md 34, implementation_plan.md 32, walkthrough.md 25, task.md.resolved.<n> 411", "format": "Markdown + JSON {artifactType, summary, updatedAt, version, requestFeedback}", "notes": "No .system_generated/logs in any of the 64 IDE brain dirs." },
+    { "pattern": "~/.gemini/antigravity/daemon/ls_<hex>.log, ~/.gemini/antigravity-cli/log/cli-<date>_<time>.log", "role": "language-server logs", "count": "1 + 19", "format": "glog-style text", "notes": "Show a local language server per process; see finding 'Local language server'." },
+    { "pattern": "~/Library/Application Support/Antigravity/User/{globalStorage,workspaceStorage/<hex>}/state.vscdb", "role": "VS Code-fork UI state", "count": "1 global + 12 workspace", "format": "SQLite ItemTable(key,value)", "notes": "Agent keys: antigravityUnifiedStateSync.* (trajectorySummaries, agentPreferences, artifactReview, sidebarWorkspaces, ...), jetskiStateSync.agentManagerInitState, antigravity.notification.<id>; no transcript content keys found." },
+    { "pattern": "~/.gemini/antigravity{,-cli}/presence/<uuid>.lock", "role": "per-process presence locks", "count": "10 IDE, 20 CLI", "format": "empty files", "notes": "Each running agy holds one open (lsof)." }
+  ],
+  "findings": [
+    {
+      "topic": "Three data roots, three answers",
+      "example": "~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript_full.jsonl (readable) | ~/.gemini/antigravity/conversations/<uuid>.pb (opaque) | ~/.gemini/antigravity-ide/brain/<uuid>/.system_generated/logs/transcript.jsonl (readable)",
+      "count": "CLI 34 readable transcripts; IDE root 0 readable transcripts of 64 conversations; legacy IDE root 2 readable transcripts",
+      "notes": "traces.com lists ~/.gemini/antigravity/brain as the 'Antigravity 2.0' root with transcripts and ~/.gemini/antigravity-ide as the legacy IDE. Locally the ~/.gemini/antigravity data predates 2.x (summaries dated 2025-11..2026-04) and has no logs/ dirs, while ~/.gemini/antigravity-ide (2026-06) does. Whether the 2.x app writes transcript.jsonl into ~/.gemini/antigravity/brain is unverified here (no 2.x conversation on this Mac)."
+    },
+    {
+      "topic": "CLI transcript record shape",
+      "example": "{\"step_index\":<int>,\"type\":\"PLANNER_RESPONSE\",\"source\":\"MODEL\",\"status\":\"DONE\",\"created_at\":\"<iso>\",\"content\":\"<text>\",\"thinking\":\"<text>\",\"tool_calls\":[{\"name\":\"run_command\",\"args\":{\"CommandLine\":\"<cmd>\",\"Cwd\":\"<path>\",\"WaitMsBeforeAsync\":<int>,\"BypassSandbox\":<bool>,\"toolAction\":\"<label>\",\"toolSummary\":\"<label>\"}}],\"input_tokens\":<int>,\"output_tokens\":<int>,\"cache_read_tokens\":<int>}",
+      "count": "16,834-16,839 lines in 34 files; keys: step_index/type/source/status/created_at always; content 10,513; thinking 3,416; tool_calls 6,436 lines (8,993 calls); error 161; exit_code 540; token counts 4,552; media 39; truncated_fields 3,657 (transcript.jsonl only)",
+      "notes": "Every record is one step. No message id, no turn id, no tool-call id, no cwd, no session metadata in the records. In transcript.jsonl every tool arg value is a JSON-encoded string (34,465 quoted strings, e.g. paths start with a quote); in transcript_full.jsonl args are native (AbsolutePath/Cwd are plain absolute paths, StartLine/WaitMsBeforeAsync ints, BypassSandbox bool, call_mcp_tool Arguments an object, ReplacementChunks a list)."
+    },
+    {
+      "topic": "Enums in records",
+      "example": "source: MODEL | SYSTEM | USER_EXPLICIT; status: DONE | RUNNING | ERROR | INVALID",
+      "count": "source MODEL 15,904, SYSTEM 731, USER_EXPLICIT 199; status DONE 16,082, RUNNING 602, ERROR 149, INVALID 1",
+      "notes": "type (CLI): GENERIC 7,337, PLANNER_RESPONSE 6,954, RUN_COMMAND 718, SYSTEM_MESSAGE 601, VIEW_FILE 403, CODE_ACTION 235, USER_INPUT 199, GREP_SEARCH 153, CHECKPOINT 94, LIST_DIRECTORY 75, CONVERSATION_HISTORY 25, MCP_TOOL 14, ERROR_MESSAGE 11, ASK_QUESTION 10, SEARCH_WEB 6, GENERATE_IMAGE 2, READ_URL_CONTENT 1. Legacy IDE adds BROWSER_SUBAGENT 24 and KNOWLEDGE_ARTIFACTS 9. Unknown future types must be tolerated (changelog v1.2.0 fixed 'unknown step type' errors)."
+    },
+    {
+      "topic": "Tool vocabulary and arg keys (summary inputs)",
+      "example": "view_file{AbsolutePath,StartLine,EndLine,ContentOffset,IsSkillFile} run_command{CommandLine,Cwd,WaitMsBeforeAsync,BypassSandbox,IsDaemon} write_to_file{TargetFile,CodeContent,Overwrite,Description,ArtifactMetadata{Summary,UserFacing,RequestFeedback}} replace_file_content{TargetFile,TargetContent,ReplacementContent,StartLine,EndLine,AllowMultiple,Instruction,Description} multi_replace_file_content{TargetFile,ReplacementChunks[],Instruction,Description} grep_search{Query,SearchPath,Includes,IsRegex,CaseInsensitive,MatchPerLine} find_by_name{Pattern,SearchDirectory,MaxDepth} list_dir{DirectoryPath} call_mcp_tool{ServerName,ToolName,Arguments} search_web{query,domain} read_url_content{Url} ask_question{questions[{question,options[],is_multi_select}]} manage_task{Action,TaskId} schedule{DurationSeconds,TimerCondition,Prompt} command_status{CommandId,WaitDurationSeconds,OutputCharacterCount} manage_subagents{Action} generate_image{Prompt,ImageName,AspectRatio} list_permissions{} read_file{Path,StartLine,EndLine} write_file{Path,Content,Overwrite}",
+      "count": "CLI calls: view_file 3,355, run_command 3,083, write_to_file 809, call_mcp_tool 519, replace_file_content 483, grep_search 191, manage_task 139, schedule 128, list_dir 108, search_web 40, find_by_name 38, read_file 29+, read_url_content 27, ask_question 17, multi_replace_file_content 10, command_status 8, write_file 4+, manage_subagents 2, generate_image 2, list_permissions 1. Legacy IDE adds browser_subagent 24 {Task,TaskName,TaskSummary,RecordingName,ReusedSubagentId,MediaPaths}",
+      "notes": "Almost every call (8,874/8,993) also carries toolAction and toolSummary: short model-written labels (free text, must go through cleanText). manage_task Action values: status 98, kill 24, list 14 (background task control, NOT a todo list). manage_subagents Action: list 2. task_boundary and notify_user: 0 occurrences in any local transcript."
+    },
+    {
+      "topic": "Tool call -> result pairing is positional",
+      "example": "line k: PLANNER_RESPONSE tool_calls=[A,B]; line k+1: result of A; line k+2: result of B",
+      "count": "CLI (by tool -> type of the next step): view_file -> GENERIC 2,940 / VIEW_FILE 403; run_command -> GENERIC 2,364 / RUN_COMMAND 714; write_to_file -> GENERIC 707 / CODE_ACTION 97; call_mcp_tool -> GENERIC 500 / MCP_TOOL 14; replace_file_content -> GENERIC 355 / CODE_ACTION 128; grep_search -> GREP_SEARCH 153 / GENERIC 31; list_dir -> LIST_DIRECTORY 72 / GENERIC 32; ask_question -> ASK_QUESTION 10 / GENERIC 6. At least 51 of ~8,990 calls (<1%) land on a non-result step (PLANNER_RESPONSE, CHECKPOINT, ERROR_MESSAGE, USER_INPUT, SYSTEM_MESSAGE). Legacy IDE: every call matched its typed result except view_file -> ERROR_MESSAGE 2.",
+      "notes": "JSONL has no call id (traces.com: 'Antigravity records carry no call id, so Traces pairs each result to the most recent preceding call by step order'). The SQLite db does have one: steps.metadata field 4 = {1: call id like 'xxxx_xxxxxxx', 2: tool name, 3: args JSON} on 7,462 result steps. Result step type is GENERIC for most tools in newer CLI versions; typed results (RUN_COMMAND with exit_code, CODE_ACTION, VIEW_FILE...) in older ones."
+    },
+    {
+      "topic": "Write timing (live tail, 150 s, 2 concurrent CLI conversations, 51 lines)",
+      "example": "t=8.37 PLANNER_RESPONSE/DONE tools=[run_command] lag_vs_created_at=6.1s; t=9.90 GENERIC/DONE lag=2.6s",
+      "count": "PLANNER_RESPONSE lines arrived 6-35 s after their created_at; result lines 0.25-2 s after the planner line (or in the same write for batched read_file calls); one GENERIC result arrived 43.6 s after its created_at (long tool)",
+      "notes": "A step line is appended when the step completes; created_at is the step start. So: model output and thinking are not streamed (nothing appears while the model generates), tool_start is visible as soon as the planner line lands, tool_end when the result line lands. File order is the clock; created_at is not monotonic with write order."
+    },
+    {
+      "topic": "Append-only files and partial lines",
+      "example": "transcript.jsonl size grows; first N bytes unchanged; inode unchanged",
+      "count": "240 s watch: 35 change events each on transcript.jsonl and transcript_full.jsonl, 33/33 prefix-hash checks unchanged, no shrink, no inode change; transcript.jsonl ended with a newline at all 35 samples; chunks/transcript_full had a partial last line 3/34 times; one earlier read of a transcript.jsonl hit an unterminated last line",
+      "notes": "Same tail strategy as Claude Code R6: read by byte offset, buffer a trailing partial line. jetbox_summaries_proto.pb is replaced whole (inode changed 2x, shrank once), conversation_summaries.db changed 3x (+WAL), the live conversation .db-wal changed 85x."
+    },
+    {
+      "topic": "RUNNING lines are never updated",
+      "example": "{\"type\":\"RUN_COMMAND\",\"status\":\"RUNNING\"} with no later line for that step",
+      "count": "602 RUNNING lines (GENERIC 452, RUN_COMMAND 151); RUN_COMMAND: exit_code present 540 (DONE), absent 151 (RUNNING) + 27 (DONE); 540 of the RUNNING lines are status DONE in the SQLite db by now",
+      "notes": "The status is a snapshot taken when the line was written. A RUNNING result means the tool went to the background (run_command with WaitMsBeforeAsync, schedule timers). Completion reaches the agent later as a messages/<uuid>.json notice (sourceMetadata.tool.stepIndex points back to the run_command step) or via command_status / manage_task status calls."
+    },
+    {
+      "topic": "step_index is not unique and not monotonic",
+      "example": "two different lines with the same step_index",
+      "count": "43 step indexes appear twice: 0 byte-identical, 0 same created_at, 42 different type (PLANNER_RESPONSE<->GENERIC 39); 19 backward jumps (11 within 3 lines of a CHECKPOINT, 6 within 3 lines of CONVERSATION_HISTORY); 73 forward gaps",
+      "notes": "Indexes are renumbered around compaction/history reload, so a repeated index is a NEW step. Never dedupe by step_index; key lines by byte offset (or step_index + created_at)."
+    },
+    {
+      "topic": "Turn boundaries",
+      "example": "USER_INPUT -> PLANNER_RESPONSE(tool_calls) -> results ... -> PLANNER_RESPONSE(content, no tool_calls) -> [SYSTEM_MESSAGE] -> USER_INPUT",
+      "count": "first record USER_INPUT in 33/34 files; step before USER_INPUT: PLANNER_RESPONSE with text 158 of 166; after a PLANNER_RESPONSE without tool_calls: SYSTEM_MESSAGE 324, USER_INPUT 160, ERROR_MESSAGE 2, CHECKPOINT 2; last record of a file: PLANNER_RESPONSE with text 28/34",
+      "notes": "No explicit turn-end record. End of turn = PLANNER_RESPONSE with content and no tool_calls, confirmed by summary status idle (proto field 1.2.5 = 1, db CASCADE_RUN_STATUS_IDLE). planner shapes (content?, thinking?, n tools): (n,n,1) 2,784, (n,y,1) 2,226, (n,y,2) 540, (y,n,0) 404, (n,y,3) 211, (y,y,0) 109, (y,n,1) 131."
+    },
+    {
+      "topic": "User prompt wrapper",
+      "example": "USER_INPUT.content = \"<USER_REQUEST>...</USER_REQUEST><ADDITIONAL_METADATA>...</ADDITIONAL_METADATA>\"",
+      "count": "201/201 USER_INPUT contents start with '<'; tags: USER_REQUEST 201, ADDITIONAL_METADATA 201, USER_SETTINGS_CHANGE 33, PLAN 26",
+      "notes": "The human prompt is the inner text of USER_REQUEST. ADDITIONAL_METADATA is environment context and must never be shown. The Claude Code rule 'skip text starting with <' would drop every Antigravity prompt."
+    },
+    {
+      "topic": "System, compaction and error steps",
+      "example": "SYSTEM_MESSAGE content \"The following is a <...> system message ...\"; CHECKPOINT content \"... from a compaction ...\"",
+      "count": "SYSTEM_MESSAGE 603, all one boilerplate template (287 are >= 2,000 chars); CHECKPOINT 94 (64 'compaction' template, 30 'parts of this conversation have been ...' template, 78 >= 2,000 chars); CONVERSATION_HISTORY 25 (always empty content, 16 right after USER_INPUT); ERROR_MESSAGE 11 (10 followed by another PLANNER_RESPONSE)",
+      "notes": "traces.com also surfaces CHECKPOINT as a compaction event. ERROR_MESSAGE looks like a retried model/tool error, not a turn end. Templates derived from dictionary words only."
+    },
+    {
+      "topic": "Errors, denials, interrupts",
+      "example": "{\"type\":\"GENERIC\",\"status\":\"ERROR\",\"error\":\"<text>\"}",
+      "count": "error field on 161 lines (GENERIC ERROR 149); 96 of them share one internal template about converting a view_file call; keyword windows: 'permission check ... for read' 5; 'interrupt' 1 (ERROR_MESSAGE); exit_code 0: 376, non-zero: 164",
+      "notes": "No user-denial wording was found. The SQLite steps.permissions blob (1,612 steps; kinds write_file 961, command 502, mcp 77, read_file 65, read_url 8) has its decision field = 1 in all 1,612, i.e. no recorded denial. Changelog v1.2.4 says terminal ERROR steps were once missing from transcript.jsonl, so older files may lack them."
+    },
+    {
+      "topic": "Background messages",
+      "example": "{\"id\":\"<uuid>\",\"sender\":\"<label>\",\"recipient\":\"<own conversation uuid>\",\"priority\":\"MESSAGE_PRIORITY_HIGH\",\"timestamp\":\"<iso>\",\"content\":\"<text>\",\"renderDetails\":{\"messageTitle\":\"<text>\"},\"sourceMetadata\":{\"tool\":{\"conversationId\":\"<own uuid>\",\"stepIndex\":<int>,\"toolCall\":{\"id\":\"<id>\",\"name\":\"run_command\",\"argumentsJson\":\"<json>\",\"thinkingSignature\":\"<b64>\"}}},\"hideFromUser\":<bool>}",
+      "count": "612 files; recipient == own conversation 612/612; sourceMetadata.tool 483 (toolCall.name run_command 483); sender 'system' 8; priority HIGH 585 / LOW 27",
+      "notes": "One JSON file per message (new file, not appended). Usable as the late tool_end for a backgrounded run_command (stepIndex + toolCall.id)."
+    },
+    {
+      "topic": "Summary proto (jetbox_summaries_proto.pb / agyhub_summaries_proto.pb)",
+      "example": "1 (repeated map entry) {1: <conversation uuid>, 2: {1: title, 2: step count, 3: {1: secs, 2: nanos}, 4: <uuid>, 5: status, 7: created {secs,nanos}, 9: {1: workspace file URI, 2: git root file URI, 3: {1: owner/repo, 2: remote URL}, 4: branch}, 10: modified {secs,nanos}, 15: <text or msg>, 16: <int>, 17: {1: same as 9 + 3: <multiline text>, 3: <uuid>, 6: <conversation uuid>, 7: workspace file URI, 18: project id}, 22: 4, 28: <small int>}}",
+      "count": "IDE 64 entries, CLI 35. Field 2 == db step_count 64/64 and 31/31; 9.1 == db workspace_uris[0] 48/48 and 34/34; 9.4 == current git branch of 9.2 in 35/41 and 26/29 checkable repos (0 look like a sha); 9.1 == 9.2 in 42/42 and 29/29; 5 = 1 with db IDLE (98), 5 = 2 with db RUNNING (1); field 1 == db preview 61/64 and 32/35 but == first prompt 0/30 (a generated title); 17.18 values: outside-of-project 26 / uuid 38 (IDE), default-cli-project 34 / uuid 1 (CLI)",
+      "notes": "Plain protobuf, decodable with a ~40-line varint walker and these field numbers (inferred from cross-checks, no official schema). 7 <= 10 in all entries (created <= modified). Remote URL and owner/repo fields must never be shown."
+    },
+    {
+      "topic": "Per-conversation SQLite (CLI)",
+      "example": "steps(idx, step_type INT, status INT, has_subtrajectory, metadata BLOB, error_details BLOB, permissions BLOB, task_details BLOB, render_info BLOB, step_payload BLOB, step_format INT); trajectory_meta(trajectory_id, cascade_id, trajectory_type, source); trajectory_metadata_blob; parent_references; executor_metadata; gen_metadata; battle_mode_infos",
+      "count": "36 dbs, 16,939 step rows; all blobs parse as plain protobuf (step_payload entropy median 6.34); trajectory_meta (type 4, source 17) in 36/36; parent_references 1 row total; has_subtrajectory 0 in all rows",
+      "notes": "step_type int -> jsonl type (joined on idx): 132 GENERIC, 15 PLANNER_RESPONSE, 21 RUN_COMMAND, 101 SYSTEM_MESSAGE, 8 VIEW_FILE, 5 CODE_ACTION, 14 USER_INPUT, 7 GREP_SEARCH, 23 CHECKPOINT, 9 LIST_DIRECTORY, 98 CONVERSATION_HISTORY, 38 MCP_TOOL, 17 ERROR_MESSAGE, 138 ASK_QUESTION, 33 SEARCH_WEB, 91 GENERATE_IMAGE, 31 READ_URL_CONTENT, 28 (16 rows, never in jsonl). status int vs jsonl: 3 DONE, 7 ERROR, 2 RUNNING, 4 INVALID; 5 (2,990 rows, jsonl said DONE 2,912) and 6 (21) unknown. Opening these WAL dbs read-only without immutable=1 creates -wal/-shm files (observed during this study)."
+    },
+    {
+      "topic": "Titles",
+      "example": "annotations/<uuid>.pbtxt: title: \"<text>\"",
+      "count": "CLI annotations 16 (title == summary field 1 in 10/13); summary field 1 present 61/64 IDE, 32/35 CLI; db title column empty in 86/102 rows; cache/conversation_metadata.json Title empty 67/67",
+      "notes": "Order: annotation title, summary proto field 1.2.1, first USER_REQUEST text, id prefix."
+    },
+    {
+      "topic": "Workspace / cwd",
+      "example": "summary 1.2.9.1 = \"file://<workspace>\"; history.jsonl {conversationId, workspace: \"<workspace>\"}",
+      "count": "workspace URI in 34/35 CLI and 48/64 IDE summaries; history.jsonl has conversationId on 262/307 lines, workspace on 307; run_command args.Cwd on 3,056 calls",
+      "notes": "Official CLI docs: 'Antigravity CLI scopes conversation histories directly to your current working directory.' No cwd field inside transcript records."
+    },
+    {
+      "topic": "IDE .pb files",
+      "example": "first 4 bytes: distinct per file; entropy 8.0 bits/byte",
+      "count": "~/.gemini/antigravity/conversations 64 files: 64 distinct magics, entropy min 7.64 / median 8.0, 0/64 parse as protobuf from offset 0, no gzip/zlib/zstd magic; implicit 22 files entropy 7.23-8.0, 0/22 parse; legacy IDE 2 and CLI 1 .pb behave the same; all 64 IDE .pb have mtime within one minute of the 2.23.1 app start (inferred from matching app Cache and .updaterId mtimes) although their summaries end 2026-04",
+      "notes": "Consistent with per-file encryption (random nonce prefix), not plain or compressed protobuf. Rewritten whole (bulk rewrite at app start), so not tailable even if decrypted. Community reports call them encrypted; no official format or key documentation found."
+    },
+    {
+      "topic": "IDE task checklist (plan source)",
+      "example": "brain/<uuid>/task.md with '- [ ]', '- [x]', '- [/]' items under # / ## / ### headings; task.md.metadata.json {artifactType: ARTIFACT_TYPE_TASK, summary, updatedAt, version}",
+      "count": "task.md 34 files: checkboxes [x] 469, [/] 10, [ ] 68 (246 indented); headings h1 33, h2 34, h3 12; versions task.md.resolved.<n> 411; artifactType TASK 35, IMPLEMENTATION_PLAN 36, WALKTHROUGH 26, OTHER 18; legacy IDE task.md 1 file with 20 '[ ]'",
+      "notes": "[/] = in progress. CLI brains have no task.md and no checkboxes; implementation_plan.md (h1-h4, 14 checkboxes in 32 IDE files) and walkthrough.md are documents, not task lists. Official docs: the agent shows a task list, an implementation plan before work and a walkthrough at the end."
+    },
+    {
+      "topic": "Subagents",
+      "example": "summary db parent_conversation_id / nesting_depth; legacy step BROWSER_SUBAGENT",
+      "count": "parent_conversation_id null 166/166, nesting_depth 0 166/166, has_subtrajectory 0 in 16,939 steps, parent_references 1 row, manage_subagents 2 calls (list), browser_subagent 24 calls (legacy IDE)",
+      "notes": "No local subagent conversation to study. traces.com mentions an INVOKE_SUBAGENT record that carries conversationId links to child sessions; app changelog 2.16-2.23 and CLI changelog 1.3.x mention subagents."
+    },
+    {
+      "topic": "Local language server",
+      "example": "log: 'Language server listening on random port at <n> for HTTPS' / '... for HTTP'; 'Connecting to extension server at port <n>'",
+      "count": "19 CLI logs each record a language-server start (version, pid, localhost, HTTPS + HTTP ports); 7 running agy processes each with >= 2 localhost listeners (one with many more); IDE daemon log: RPC names exa.language_server_pb.LanguageServerService/SendActionToChatPanel 572, /RefreshMcpServers 1",
+      "notes": "A per-process local API exists on random ports. Not called. No discovery file with port/token found; ports only in logs. CLI logs say 'Creating trajectory store manager with proto' (19)."
+    }
+  ],
+  "mappingHints": {
+    "session": "id = brain dir uuid (== conversations/<uuid>.db stem == summary key; 37/37). agent: 'antigravity'. Discover ~/.gemini/antigravity-cli/brain/*/.system_generated/logs/transcript_full.jsonl (fallback transcript.jsonl, also when full is shorter), plus the same glob under ~/.gemini/antigravity-ide and ~/.gemini/antigravity in case a version writes logs there. Ignore conversations/*.pb.",
+    "cwdAndProject": "Summary proto 1.2.9.1 (file URI -> decode -> path), else history.jsonl latest workspace for that conversationId, else first run_command args.Cwd. Then the shared projectKey() rules (worktree paths). Re-read the proto on mtime change (it is replaced whole).",
+    "title": "annotations/<uuid>.pbtxt title -> summary 1.2.1 -> inner USER_REQUEST of the first USER_INPUT (<= 40) -> id prefix. Scrub + cap 80.",
+    "branch": "Summary 1.2.9.4 (matched the repo's current branch in 61/70 checkable cases); null when the workspace is not a git repo (field absent in 22/64 IDE, 6/35 CLI).",
+    "prompt": "USER_INPUT (source USER_EXPLICIT): text = inner of <USER_REQUEST>...</USER_REQUEST>; never emit ADDITIONAL_METADATA / USER_SETTINGS_CHANGE / PLAN blocks.",
+    "toolStart": "For each tool_calls[i] of a PLANNER_RESPONSE line: toolUseId = '<conv>:<byteOffset>:<i>' (no call id in jsonl; step_index collides). tool = name. summary from args: view_file/read_file AbsolutePath|Path basename; write_to_file/replace_file_content/multi_replace_file_content TargetFile basename; write_file Path basename; run_command program of CommandLine; grep_search Query; find_by_name Pattern; list_dir DirectoryPath basename; read_url_content Url host; search_web query; call_mcp_tool ServerName + ToolName; schedule DurationSeconds; manage_task Action. In transcript.jsonl JSON.parse each arg string first. toolSummary/toolAction are optional cleaned labels. background: run_command with WaitMsBeforeAsync whose result is RUNNING.",
+    "toolEnd": "Pair positionally: the next N non-PLANNER lines after the planner line, in file order, are the results of its N calls. ok = status DONE and no error and (RUN_COMMAND exit_code absent or 0); failed = status ERROR or error field or non-zero exit_code; RUNNING result = background launch -> tool_end ok (like R28) and optionally close the background job on a messages/<uuid>.json with matching stepIndex. abandoned = calls still unpaired when a PLANNER_RESPONSE, USER_INPUT, CHECKPOINT or ERROR_MESSAGE line arrives (>= 51 such cases in the corpus).",
+    "thinking": "PLANNER_RESPONSE.thinking (3,416 lines; truncated in transcript.jsonl, full in transcript_full.jsonl). No duration field; durationMs = null. Optionally show a 'thinking' state between the last result line and the next planner line, since generation is not streamed.",
+    "say": "PLANNER_RESPONSE.content (660 lines with content).",
+    "plan": "CLI: no task-list source found (manage_task is background-job control, not a plan). IDE: parse brain/<uuid>/task.md checkboxes ([ ] pending, [/] in_progress, [x] completed) on mtime change, source 'tasks'-like; implementation_plan.md could feed an exit_plan-style board via planFromMarkdown.",
+    "question": "ask_question: question = questions[0].question (+N), options = questions[0].options (<= 4). Ended by its ASK_QUESTION/GENERIC result line (17 calls).",
+    "turnEnd": "PLANNER_RESPONSE with content and no tool_calls -> end_turn after a quiet period; next USER_INPUT -> next_turn if not ended; summary status 1.2.5 = 1 (idle) can confirm. ERROR_MESSAGE -> system api_error (agent retries), not turn_end.",
+    "subagents": "None observable locally (all depth 0, no parent ids). Leave isSubagent=false; revisit if INVOKE_SUBAGENT / BROWSER_SUBAGENT lines or parent_conversation_id appear.",
+    "errorsDenialsInterrupts": "failed from status ERROR / error / exit_code; error text: first line, scrubbed, <= 120. denied: no evidence in jsonl (permission decisions only in SQLite, all granted). interrupted: 1 ERROR_MESSAGE mentions an interrupt; no structural marker. CHECKPOINT -> system kind compact.",
+    "liveTailing": "Poll every 250 ms by byte offset; buffer partial lines; append-only (no rewrite seen). On attach, scan the whole file in replay mode (R7-like) and key lines by byte offset, never by step_index. A line appears only when its step completes, so tool_start latency = model generation time. Summary proto and annotations are small whole-file rewrites: re-read on mtime/size/inode change."
+  },
+  "feasibility": "CLI (agy) and the legacy IDE: yes. A zero-dependency Node 20 adapter can follow brain/<uuid>/.system_generated/logs/transcript_full.jsonl (fallback transcript.jsonl) with the same offset tailer as Claude Code, and get title/workspace/branch/status from the plain-protobuf summary file (tiny varint walker, field numbers above) plus annotations pbtxt and history.jsonl. What it needs: positional tool pairing, synthetic tool ids, USER_REQUEST extraction, RUNNING-as-background handling, and tolerance for step_index collisions and new step types. Antigravity 2.x desktop app (~/.gemini/antigravity): not from files today. Its conversations/*.pb look encrypted and are rewritten whole; reading them would need the key and the trajectory schema (neither available). Only brain artifacts (task.md checklist, plans, walkthroughs) and the summary proto (title, workspace, branch, idle/running, step count) are readable, which supports a coarse 'working / idle + plan board' character but no tool events. Alternatives: the per-process local language server (exa.language_server_pb.LanguageServerService on random localhost HTTP/HTTPS ports, ports only in logs, auth unknown) could serve trajectories but is an undocumented API; the CLI SQLite dbs hold the same steps with real tool-call ids but need SQLite (Node >= 22.5 or a dependency).",
+  "unverified": [
+    "미확인: whether the Antigravity 2.x desktop app writes brain/<uuid>/.system_generated/logs/transcript*.jsonl under ~/.gemini/antigravity (traces.com says its root is ~/.gemini/antigravity/brain; no 2.x conversation exists on this Mac).",
+    "미확인: the .pb encryption scheme, key location and protobuf schema (only entropy/magic evidence).",
+    "미확인: meaning of SQLite step status 5 (2,990 rows) and 6 (21 rows) and step_type 28.",
+    "미확인: summary proto field numbers are inferred from cross-checks, not from a published schema; fields 1.2.3, 1.2.15, 1.2.16, 1.2.22, 1.2.28 and 1.2.17.1.3 are not identified.",
+    "미확인: how a user denial or a user interrupt (Esc/stop) appears in transcript.jsonl (none found).",
+    "미확인: subagent records (INVOKE_SUBAGENT per traces.com) and how child conversations link to parents in files.",
+    "미확인: whether a CLI task/todo list tool exists in other versions (changelog v1.3.1 mentions /tasks for background tasks only).",
+    "미확인: authentication and endpoints of the local language server API (not called by design).",
+    "미확인: whether transcript_full.jsonl is ever shorter than transcript.jsonl for reasons other than late creation (seen once: starts at step 220)."
+  ],
+  "sources": [
+    "Local measurements on this Mac, 2026-10-20 (scripts printed only structure and counts).",
+    "Antigravity CLI docs, Managing conversations: https://antigravity.google/docs/cli/conversations/",
+    "Antigravity changelog (CLI 1.1.24-1.3.6 entries on SQLite, transcript.jsonl ERROR steps, subagents, annotations; app 2.x entries on subagents and internal checkpoints): https://antigravity.google/docs/changelog",
+    "Antigravity docs, artifacts: https://antigravity.google/docs/implementation-plan/ and https://antigravity.google/docs/walkthrough/",
+    "Traces, Antigravity storage roots, transcript_full vs transcript, positional pairing, CHECKPOINT, INVOKE_SUBAGENT: https://traces.com/blog/gemini-cli",
+    "Google AI developers forum, users report IDE .pb conversations look encrypted: https://discuss.ai.google.dev/t/how-can-we-read-conversations-that-we-ve-had-with-our-antigravity-assistants-from-other-programs/134342",
+    "SpecStory Antigravity CLI integration (reads ~/.gemini/antigravity-cli/): https://docs.specstory.com/integrations/antigravity-cli"
+  ]
+}
