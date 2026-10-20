@@ -1,6 +1,6 @@
-# Claude 오피스
+# Office Sim
 
-Claude Code 세션 기록(`~/.claude/projects/**/*.jsonl`)을 0.25초마다 따라 읽어서, 직원들이 3D 사무실을 오가며 일하는 모습으로 보여 주는 로컬 서버입니다.
+AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 직원들이 3D 사무실을 오가며 일하는 모습으로 보여 주는 로컬 서버입니다. 지금은 Claude Code 세션 기록(`~/.claude/projects/**/*.jsonl`)을 읽습니다.
 
 | 방 | 하는 일 |
 |---|---|
@@ -15,12 +15,27 @@ Claude Code 세션 기록(`~/.claude/projects/**/*.jsonl`)을 0.25초마다 따�
 - 생각 중에는 구름 말풍선이 뜨고, 도구가 실패하면 식은땀과 빨간 말풍선, 거절되거나 중단되면 회색 말풍선이 뜹니다.
 - 서브에이전트는 모자 쓴 작은 직원으로 나타났다가 일을 마치면 엘리베이터로 퇴장합니다.
 
+## 지원하는 에이전트
+
+| 에이전트 | 에이전트 id | 상태 |
+|---|---|---|
+| Claude Code | `claude-code` | 지원 |
+| Codex | `codex` | 예정 |
+| Grok | `grok` | 예정 |
+| Antigravity | `antigravity` | 예정 |
+
+예정인 도구는 각 도구의 세션 기록을 읽는 어댑터로 추가합니다. 어댑터마다 기록을 찾고 읽는 방법은 다르지만, 브라우저로 보내는 이벤트 형식과 개인정보 규칙은 모두 같습니다(`docs/CONTRACT.md` 2절, 4.0절, 5절).
+
+모든 직원(캐릭터)은 어느 도구의 세션인지 나타내는 에이전트 id를 가집니다. 서버가 보내는 `session` 이벤트의 `agent` 필드이고, 지금은 항상 `claude-code` 입니다. 화면에는 `Claude Code`, `Codex`, `Grok`, `Antigravity` 로 보이고, 모르는 id는 그대로 보입니다.
+
 ## 실행
 
 Node 20 이상이 필요하고, 설치할 의존성은 없습니다.
 
 ```bash
 npm start
+# 옵션을 줄 때는 직접 실행합니다(--root 는 --claude-root 의 별칭)
+node bin/office-sim.mjs --claude-root ~/.claude/projects --active 60
 ```
 
 브라우저에서 `http://127.0.0.1:4317`을 엽니다.
@@ -32,8 +47,8 @@ npm start
 | `--interval` | 250 | tail 간격(ms, 50~5000). 화면 위쪽 입력칸에서도 바꿀 수 있습니다 |
 | `--active` | 30 | 최근 N분 안에 수정된 세션만 따라감 |
 | `--rescan` | 3000 | 새 세션 파일을 찾는 간격(ms) |
-| `--root` | `~/.claude/projects` | 세션 기록 위치 |
-| `--replay` | 없음 | 지난 세션 하나(`<uuid>.jsonl` 과 그 서브에이전트 파일)를 기록된 시간 간격대로 다시 보여 줍니다. 이때 `--root`, `--active`, `--rescan` 은 쓰지 않습니다 |
+| `--claude-root` | `~/.claude/projects` | Claude Code 세션 기록 위치. `--root` 는 같은 옵션의 별칭입니다 |
+| `--replay` | 없음 | 지난 세션 하나(`<uuid>.jsonl` 과 그 서브에이전트 파일)를 기록된 시간 간격대로 다시 보여 줍니다. 이때 `--claude-root`(`--root`), `--active`, `--rescan` 은 쓰지 않습니다 |
 | `--speed` | 1 | 재생 배속(0.1~1000). 줄 사이 공백은 배속으로 나누고, 한 공백은 최대 5초로 줄입니다 |
 | `--loop` | 꺼짐 | 재생이 끝나면 모두 퇴근시킨 뒤 처음부터 다시 합니다 |
 | `--auth` | 꺼짐 | 실행마다 새 토큰을 만들고 `http://127.0.0.1:<port>/?t=<토큰>` 주소를 출력합니다. 그 주소를 한 번 열면 브라우저가 쿠키를 받고, 쿠키 없는 요청은 모두 401로 거절합니다(값을 받지 않는 스위치) |
@@ -41,7 +56,7 @@ npm start
 ## 재생 모드
 
 ```bash
-node bin/claude-office.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-444455556666.jsonl --speed 4 --loop
+node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-444455556666.jsonl --speed 4 --loop
 ```
 
 화면 위쪽 칩에 `재생 · 4× · 37%` 가 보입니다. 재생에서는 결과 줄을 미리 읽을 수 있어서, 사람이 권한 창에서 허용하거나 거절한 도구 호출은 직원이 '내 자리'로 와서 `승인 대기` 말풍선을 띄웁니다. 라이브 모드는 승인 창이 열려 있는 동안 기록에 아무것도 쓰이지 않아 이 표시를 하지 않습니다(`docs/CONTRACT.md` 7절).
@@ -55,7 +70,7 @@ node bin/claude-office.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333
 - `src/`: 탐색(discover), tail(tailer), 레코드 분류(records), 세션 상태(session), 계획 복원(plan), 요약(summarize), 저장소와 SSE 서버(store, server), 재생 모드(replay, replay-timeline)
 - `public/`: three.js 사무실 화면. localhost에서 열면 라이브, 그 밖에서는 데모 데이터로 동작합니다(`#demo`로 강제 가능).
 - `docs/CONTRACT.md`: 모듈 경계, 이벤트 형식, 파싱 규칙
-- `docs/research/jsonl-format.json`: 세션 기록 형식 조사 결과(구조만, 실제 내용 없음)
+- `docs/research/jsonl-format.json`: Claude Code 세션 기록 형식 조사 결과(구조만, 실제 내용 없음)
 - 방 배정 규칙은 `public/js/rooms.js`의 `ROOM_RULES` 한 곳에서 바꿉니다.
 
 ## 개인정보

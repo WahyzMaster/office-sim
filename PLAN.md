@@ -1,6 +1,6 @@
-# Claude 오피스 구현 계획
+# Office Sim 구현 계획
 
-Claude Code 세션 기록(jsonl)을 0.25초 간격으로 tail 해서, 3D 사무실의 직원들이 도구 사용에 맞춰 방을 오가게 만든다.
+AI 코딩 에이전트의 세션 기록을 0.25초 간격으로 tail 해서, 3D 사무실의 직원들이 도구 사용에 맞춰 방을 오가게 만든다. 지금은 Claude Code 세션 기록(jsonl)을 읽고, Codex, Grok, Antigravity 는 P5 에서 어댑터로 붙인다.
 
 - 프로토타입(데모 데이터): https://claude.ai/artifact/WEDBFM36VSMpZWMZ4UWPGA
 - 작성일: 2026-10-19
@@ -101,9 +101,9 @@ flowchart LR
 ## 6. 로컬 서버 설계
 
 ```
-claude-office/
-  package.json          type: module, bin: claude-office
-  bin/claude-office.mjs  CLI 인자 처리 후 시작
+office-sim/
+  package.json          type: module, bin: office-sim
+  bin/office-sim.mjs    CLI 인자 처리 후 시작
   src/discover.mjs       프로젝트 디렉터리와 subagents/ 탐색
   src/tailer.mjs         파일별 offset, 잘린 줄 버퍼, 잘림(truncate) 감지
   src/parse.mjs          레코드 -> 이벤트, 도구별 요약
@@ -113,7 +113,7 @@ claude-office/
   test/*.test.mjs        node:test + 합성 jsonl 픽스처
 ```
 
-- CLI: `--port 4317 --interval 250 --active 30 --root ~/.claude/projects`. `--active` 는 최근 N분 안에 수정된 파일만 따라가는 창이다.
+- CLI: `--port 4317 --interval 250 --active 30 --claude-root ~/.claude/projects`(`--root` 는 같은 옵션의 별칭). `--active` 는 최근 N분 안에 수정된 파일만 따라가는 창이다.
 - tail: 간격마다 `fs.stat` -> 커지면 `[offset, size)` 만 읽고, 마지막 줄이 잘렸으면 다음 회차로 넘긴다. 작아지면 처음부터 다시 읽는다.
 - 처음 발견한 파일은 끝부분 256KB만 읽어서 제목, 계획, 아직 안 끝난 도구를 상태에 채운다(애니메이션 없이 스냅샷으로).
 - SSE: 이벤트마다 `id:` 를 붙이고 최근 500개를 보관한다. 재접속 시 `Last-Event-ID` 로 이어 보내고, 너무 오래됐으면 스냅샷을 보낸다. 15초마다 하트비트 주석.
@@ -130,6 +130,16 @@ claude-office/
 | P2 (완료) | SSE, /state, /config, 라이브 모드 연결, 보안 헤더, `--auth` | 이 세션을 실제로 띄워 앱 브라우저에서 확인(밝은/어두운 테마, 데모 모드) |
 | P3 (완료, 소리 제외) | 재생 모드(`--replay 파일 --speed 4 --loop`), 권한 승인 대기 표시(재생 모드만, 라이브는 신호 없음), 층이 많을 때 성능. 소리는 하지 않았다 | `node --test` 394개 통과. 합성 세션으로 재생 모드를 앱 브라우저에서 확인(재생 칩, 반복, 서브에이전트, 승인 대기 말풍선, 콘솔 오류 없음). `#bench` 층 10개·직원 60명 측정 |
 | P4 | 스킬/플러그인 포장: `/office` 로 서버 시작과 브라우저 열기 | 새 세션에서 `/office` 실행 |
+| P5 | 멀티 에이전트 어댑터 (Codex, Grok, Antigravity). 도구마다 어댑터 하나를 더하고, Store, SSE, 화면은 그대로 같이 쓴다 | 어댑터마다 합성 픽스처로 `node --test`: 같은 이벤트 스키마(`docs/CONTRACT.md` 2절), 맞는 `agent` id, 개인정보 규칙(5절) 노출 0건 |
+
+P5 어댑터가 각각 갖춰야 할 것:
+
+- 기록 위치 탐색: 그 도구가 세션 기록을 어디에 어떤 파일로 남기는지 찾고, 새 파일과 늘어난 줄을 따라간다(Claude Code 의 `~/.claude/projects` 탐색과 tail 에 해당).
+- 레코드 -> 이벤트 매핑: 그 도구의 레코드를 `docs/CONTRACT.md` 2절의 이벤트(`session`, `tool_start`, `tool_end`, `thinking`, `say`, `plan`, `turn_end` 등)로 바꾼다. 새 이벤트 형식을 만들지 않는다.
+- 에이전트 id: 모든 `session` 이벤트에 `agent` 를 붙인다(`codex`, `grok`, `antigravity`). 지금 Claude Code 어댑터는 `claude-code` 를 보낸다.
+- 개인정보: 모든 자유 텍스트를 공용 `cleanText`(`src/summarize.mjs`)로 거르고, 5절의 "보내지 않는 것" 규칙을 그대로 따른다.
+
+주의: Codex, Grok, Antigravity 의 기록 위치와 형식은 아직 조사하지 않았다. Claude Code 형식 조사(`docs/research/jsonl-format.json`)처럼, 구현 전에 각 도구의 기록 위치와 형식을 구조만 조사하는 단계가 먼저 필요하다.
 
 ## 8. 진행 기록 (2026-10-19)
 
@@ -145,7 +155,7 @@ claude-office/
 
 ## 8.1 P3 진행 기록 (2026-10-20)
 
-- 재생 모드: `node bin/claude-office.mjs --replay <세션>.jsonl --speed 4 [--loop]`. 메인과 서브에이전트 파일의 줄을 기록 시각 순서로 합쳐, 공백을 배속으로 나눠(한 공백은 최대 5초) 라이브와 같은 Store/SSE 로 흘려보낸다. 서브에이전트는 자기 파일의 첫 줄 시각에 출근한다. `--loop` 는 마지막 장면을 3초 보여 준 뒤 모두 퇴근시키고 2초 뒤 처음부터 다시 한다. 화면 위쪽 칩에 `재생 · 4× · 37%`(반복이면 `N회째`), 끝나면 `재생 끝`이 보인다. 앱 브라우저 확인용 합성 세션: `test/fixtures/replay/`, launch 설정 `claude-office-replay`(포트 4318). 실제 세션 1건(2.5 MB, 워크플로 에이전트 94명)으로 구조만 확인: 200배속으로 끝까지 재생, 이벤트 16,644건(도구 시작 6,051 = 끝 6,051), 서브에이전트 94명 모두 출근과 퇴근, 적용 오류 0, 깨진 줄 0.
+- 재생 모드: `node bin/office-sim.mjs --replay <세션>.jsonl --speed 4 [--loop]`. 메인과 서브에이전트 파일의 줄을 기록 시각 순서로 합쳐, 공백을 배속으로 나눠(한 공백은 최대 5초) 라이브와 같은 Store/SSE 로 흘려보낸다. 서브에이전트는 자기 파일의 첫 줄 시각에 출근한다. `--loop` 는 마지막 장면을 3초 보여 준 뒤 모두 퇴근시키고 2초 뒤 처음부터 다시 한다. 화면 위쪽 칩에 `재생 · 4× · 37%`(반복이면 `N회째`), 끝나면 `재생 끝`이 보인다. 앱 브라우저 확인용 합성 세션: `test/fixtures/replay/`, launch 설정 `office-sim-replay`(포트 4318). 실제 세션 1건(2.5 MB, 워크플로 에이전트 94명)으로 구조만 확인: 200배속으로 끝까지 재생, 이벤트 16,644건(도구 시작 6,051 = 끝 6,051), 서브에이전트 94명 모두 출근과 퇴근, 적용 오류 0, 깨진 줄 0.
 - 권한 승인 대기: 라이브 모드에는 확실한 신호가 없어 표시하지 않는다. 승인 창이 열려 있는 동안 기록에 아무것도 쓰이지 않고, `permissionDecision` 은 결과 줄에만 붙는다(결과 225,155개 중 32,065개). `user_permanent`(316)는 저장된 허용 규칙이라 기다림이 없고(Read p50 0.3초), 실제 클릭인 `user_temporary`(94)는 대부분 이미 '내 자리'로 가는 질문 도구다(89). 자동 승인 도구도 오래 걸려(Bash p99 68.6초) 시간 기준은 추측이 된다. 근거: `docs/CONTRACT.md` 7절, `docs/research/permission-decision.json`. 재생 모드는 결과 줄을 미리 읽을 수 있어 사람이 답한 호출에만 `awaitsApproval` 을 붙이고, 직원이 '내 자리'에서 `승인 대기` 말풍선(허용/거절)을 띄운다.
 - 성능: `#bench`(층 10개, 직원 60명 중 서브에이전트 20명) 합성 부하, 1024x768, dpr 1. 프레임당 CPU 시간 p50(괄호는 1픽셀 readPixels 로 GPU 완료까지 기다린 값):
 
@@ -163,3 +173,4 @@ claude-office/
 2. P3 에서 하지 않은 것: 소리. 라이브 모드의 권한 승인 대기는 기록에 신호가 생기기 전까지 보류(예: 사용자가 PermissionRequest/Notification 훅으로 옆 파일에 남기는 방식)
 3. 전체 보기에서 층이 많을 때: 가구 상자를 층마다 합치거나 인스턴싱하면 그리기 호출을 크게 줄일 수 있다(P3 범위 밖)
 4. P4: `/office` 스킬로 포장
+5. P5: Codex, Grok, Antigravity 어댑터. 먼저 각 도구의 기록 위치와 형식을 조사해야 한다

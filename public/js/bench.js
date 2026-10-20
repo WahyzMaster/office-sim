@@ -36,7 +36,7 @@ export class BenchSource {
 
   start() {
     for (const a of this.agents) {
-      const base = { type: 'session', sessionId: a.id, project: a.project, projectLabel: a.project.split('/').pop() };
+      const base = { type: 'session', sessionId: a.id, agent: 'claude-code', project: a.project, projectLabel: a.project.split('/').pop() };
       this.emit(a.sub
         ? { ...base, title: `조사 ${a.id.slice(-2)}`, isSubagent: true, parentSessionId: a.parent, agentType: 'Explore' }
         : { ...base, title: `작업 ${a.id.slice(6)}`, branch: 'bench' });

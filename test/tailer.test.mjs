@@ -10,7 +10,7 @@ let tmp;
 let seq = 0;
 
 before(async () => {
-  tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'claude-office-'));
+  tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'office-sim-'));
 });
 
 after(async () => {

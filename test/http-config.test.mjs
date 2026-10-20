@@ -13,7 +13,7 @@ const DEPS = { Tailer: NullTailer, scan: async () => [], readSubMeta: async () =
 const post = (port, headers, body = JSON.stringify({ intervalMs: 300 })) => request(port, { method: 'POST', path: '/config', headers, body });
 
 test('POST /config: Origin host must equal the Host header; content-type must be application/json', async () => {
-  const app = await start({ port: 0, root: '/nonexistent-claude-office-root', publicDir: PUBLIC, deps: DEPS });
+  const app = await start({ port: 0, root: '/nonexistent-office-sim-root', publicDir: PUBLIC, deps: DEPS });
   try {
     await app.ready;
     const { port } = app;

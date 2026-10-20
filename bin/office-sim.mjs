@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// claude-office: Claude Code 세션 기록을 3D 사무실로 보여 주는 로컬 서버를 띄운다.
+// office-sim: AI 코딩 에이전트 세션 기록을 3D 사무실로 보여 주는 로컬 서버를 띄운다 (지금은 Claude Code 기록을 읽는다).
 import { parseArgs, USAGE } from '../src/cli-args.mjs';
 import { start } from '../src/server.mjs';
 
@@ -7,7 +7,7 @@ let args;
 try {
   args = parseArgs(process.argv.slice(2));
 } catch (err) {
-  process.stderr.write(`claude-office: ${err.message}\n\n${USAGE}`);
+  process.stderr.write(`office-sim: ${err.message}\n\n${USAGE}`);
   process.exit(2);
 }
 if (args.help) {
@@ -16,25 +16,25 @@ if (args.help) {
 }
 delete args.help;
 
-const log = (msg) => process.stderr.write(`[claude-office] ${msg}\n`);
+const log = (msg) => process.stderr.write(`[office-sim] ${msg}\n`);
 
 let app;
 try {
   app = await start({ ...args, log });
 } catch (err) {
   const hint = err?.code === 'EADDRINUSE' ? ' (port in use: try --port 0 or another port)' : '';
-  process.stderr.write(`claude-office: ${err?.message ?? err}${hint}\n`);
+  process.stderr.write(`office-sim: ${err?.message ?? err}${hint}\n`);
   process.exit(1);
 }
 
-process.stdout.write(`claude-office: ${app.url}\n`);
-if (args.replay) process.stdout.write(`claude-office: replay ${args.speed ?? 1}x${args.loop ? ', loop' : ''}\n`);
+process.stdout.write(`office-sim: ${app.url}\n`);
+if (args.replay) process.stdout.write(`office-sim: replay ${args.speed ?? 1}x${args.loop ? ', loop' : ''}\n`);
 
 let stopping = false;
 async function stop() {
   if (stopping) process.exit(130); // 두 번째 Ctrl-C 는 바로 끝낸다
   stopping = true;
-  process.stdout.write('claude-office: stopping\n');
+  process.stdout.write('office-sim: stopping\n');
   const force = setTimeout(() => process.exit(1), 3000);
   force.unref();
   try {

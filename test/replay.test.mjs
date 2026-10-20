@@ -19,14 +19,14 @@ after(async () => {
 });
 
 async function fixture() {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-office-replay-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'office-sim-replay-'));
   tmpDirs.push(dir);
   return writeReplayFixture(dir);
 }
 
 // root 는 비어 있는 임시 폴더: 재생 모드는 root 를 보지 않는다
 async function launch(mainPath, extra = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-office-replay-root-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'office-sim-replay-root-'));
   tmpDirs.push(root);
   const app = await start({
     port: 0, root, publicDir: PUBLIC, replay: mainPath, speed: 20, intervalMs: 50, idleMs: 50,
@@ -65,6 +65,8 @@ test('replay: events follow the recorded order, the subagent joins when its file
   assert.equal(subSession.ev.parentSessionId, REPLAY_SID);
   assert.equal(subSession.ev.project, REPLAY_CWD);
   assert.equal(subEnd.ev.reason, 'done');
+  // 재생도 라이브와 같은 session 이벤트: 메인과 서브 모두 agent 가 붙는다
+  for (const g of got.filter((x) => x.ev.type === 'session')) assert.equal(g.ev.agent, 'claude-code', JSON.stringify(g.ev));
   assert.ok(startOf(got, IDS.subRead) && got.indexOf(startOf(got, IDS.subRead)) < got.indexOf(subEnd));
 
   // 기록 간격 19 s (Read 4 s -> 승인 대기 Bash 23 s) / 20배속 = 약 950 ms (poll 50 ms 단위라 넓게 본다)
@@ -124,7 +126,7 @@ test('replay --loop: everyone leaves, then the session starts again from the fir
 });
 
 test('replay: a missing transcript reports state error and the server keeps serving', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-office-replay-missing-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'office-sim-replay-missing-'));
   tmpDirs.push(dir);
   const logs = [];
   const { app } = await launch(path.join(dir, 'nope.jsonl'), { log: (m) => logs.push(m) });

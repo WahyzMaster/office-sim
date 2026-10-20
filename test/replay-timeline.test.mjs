@@ -85,7 +85,7 @@ test('approvalIdsOf: only a human answer to a permission prompt counts', () => {
 });
 
 test('sessionRefs: main first, then its subagents; a lone file works; a missing file throws', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-office-replay-refs-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'office-sim-replay-refs-'));
   tmpDirs.push(dir);
   const { mainPath, subPath } = await writeReplayFixture(dir);
   await fs.writeFile(path.join(path.dirname(subPath), `agent-${REPLAY_AGENT}.meta.json.bak`), '{}'); // 무시되는 파일

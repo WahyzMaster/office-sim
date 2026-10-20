@@ -10,8 +10,8 @@ const AGENT = 'a00000000000019aa';
 function harness({ kind = 'main', startMs } = {}) {
   const clock = { t: Date.UTC(2026, 0, 1, 1, 0, 0) };
   const sub = kind !== 'main';
-  const b = createRecordBuilder({ sessionId: SID, cwd: '/tmp/co-fixture/repo', agentId: sub ? AGENT : null, startMs: startMs ?? clock.t });
-  const s = new SessionState({ id: sub ? AGENT : SID, file: '/tmp/co-fixture/x.jsonl', kind, stem: sub ? AGENT : SID, parentId: sub ? SID : null, now: () => clock.t });
+  const b = createRecordBuilder({ sessionId: SID, cwd: '/tmp/office-sim-fixture/repo', agentId: sub ? AGENT : null, startMs: startMs ?? clock.t });
+  const s = new SessionState({ id: sub ? AGENT : SID, file: '/tmp/office-sim-fixture/x.jsonl', kind, stem: sub ? AGENT : SID, parentId: sub ? SID : null, now: () => clock.t });
   const feed = (recs, opt) => recs.flatMap((r) => s.apply(r, opt));
   return { s, b, clock, feed };
 }

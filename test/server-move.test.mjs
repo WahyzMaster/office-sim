@@ -18,7 +18,7 @@ const tmpDirs = [];
 after(async () => { for (const d of tmpDirs) await fs.rm(d, { recursive: true, force: true }); });
 
 async function mkRoot() {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-office-move-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'office-sim-move-'));
   tmpDirs.push(root);
   return root;
 }

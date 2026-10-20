@@ -5,7 +5,7 @@ import {
   refIdentity, linkFacts, isAgentTool, looksLikeAgentId, trailerAgentId, subTitle, END_STATUSES, parentFirst,
   newIndex, isAsyncLaunchText, sameSession, resumedAgentIdOf, rememberStopped, takeStopped, ringSince,
 } from './store-link.mjs';
-import { cleanLabel, publicSessionId } from './session-identity.mjs';
+import { cleanLabel, publicSessionId, CLAUDE_CODE_AGENT } from './session-identity.mjs';
 
 const KIND_ORDER = { main: 0, sub: 1, wf: 2 };
 // 부모 쪽 신호로 끝낸 직후 같은 서브 파일에서 늦게 읽힌 꼬리 이벤트는 되살리지 않고 버린다.
@@ -223,6 +223,7 @@ export class Store {
     return {
       ...ev,
       sessionId: e.charId,
+      agent: ev.agent ?? CLAUDE_CODE_AGENT, // 서브는 부모와 같은 에이전트다 (지금은 Claude Code 하나뿐)
       isSubagent: true,
       parentSessionId: publicSessionId(e.parent ?? e.sid) ?? publicSessionId(e.sid),
       agentType: cleanLabel(e.meta?.agentType) ?? ev.agentType ?? null, // section 5: scrub + cap, like buildSessionEvent

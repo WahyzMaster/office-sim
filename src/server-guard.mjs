@@ -75,7 +75,7 @@ export function createAuth(token, getPort) {
     const got = Buffer.from(given, 'utf8');
     return got.length === want.length && crypto.timingSafeEqual(got, want);
   };
-  const name = () => `co_${getPort()}`;
+  const name = () => `osim_${getPort()}`;
   return {
     matches,
     setCookie: () => `${name()}=${token}; HttpOnly; SameSite=Strict; Path=/`,

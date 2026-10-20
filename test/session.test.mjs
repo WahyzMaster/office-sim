@@ -9,8 +9,8 @@ const AGENT = 'a00000000000000aa';
 function harness({ kind = 'main', ...o } = {}) {
   const clock = { t: Date.UTC(2026, 0, 1, 1, 0, 0) };
   const sub = kind !== 'main';
-  const b = createRecordBuilder({ sessionId: SID, cwd: '/tmp/co-fixture/repo', agentId: sub ? AGENT : null });
-  const s = new SessionState({ id: sub ? AGENT : SID, file: '/tmp/co-fixture/x.jsonl', kind, stem: sub ? AGENT : SID, parentId: sub ? SID : null, now: () => clock.t, ...o });
+  const b = createRecordBuilder({ sessionId: SID, cwd: '/tmp/office-sim-fixture/repo', agentId: sub ? AGENT : null });
+  const s = new SessionState({ id: sub ? AGENT : SID, file: '/tmp/office-sim-fixture/x.jsonl', kind, stem: sub ? AGENT : SID, parentId: sub ? SID : null, now: () => clock.t, ...o });
   const feed = (recs, opt) => recs.flatMap((r) => s.apply(r, opt));
   return { s, b, clock, feed };
 }
@@ -40,7 +40,7 @@ test('R9 resume re-append run of old uuids yields zero events', () => {
     b.assistantText({ msgId: 'msg_2', text: 'done', stopReason: 'end_turn' }), b.stopHookSummary()];
   assert.ok(feed(recs).length > 0);
   const reappend = [b.lastPrompt('first'), b.customTitle('Demo'), b.worktreeState(null), b.modeRecord(),
-    ...recs.filter((r) => r.uuid).map((r) => clone(r, { cwd: '/tmp/co-fixture/other', gitBranch: 'other', promptId: 'P-new' }))];
+    ...recs.filter((r) => r.uuid).map((r) => clone(r, { cwd: '/tmp/office-sim-fixture/other', gitBranch: 'other', promptId: 'P-new' }))];
   assert.deepEqual(feed(reappend), []);
 });
 
@@ -86,8 +86,8 @@ test('R13 lines of one msgId stay one message across interleaved results', () =>
 
 test('R14 say, thinking and tool_start come from assistant blocks', () => {
   const { b, feed } = harness();
-  const use = b.assistantToolUse({ msgId: 'msg_1', id: 'toolu_r', name: 'Read', input: { file_path: '/tmp/co-fixture/deep/notes.md' } });
-  use.wireToolInputs = { toolu_r: { file_path: '/tmp/co-fixture/WIRE.md' } };
+  const use = b.assistantToolUse({ msgId: 'msg_1', id: 'toolu_r', name: 'Read', input: { file_path: '/tmp/office-sim-fixture/deep/notes.md' } });
+  use.wireToolInputs = { toolu_r: { file_path: '/tmp/office-sim-fixture/WIRE.md' } };
   const evs = feed([b.humanPrompt(),
     b.assistantThinking({ msgId: 'msg_1', text: '', durationMs: 1200 }),
     b.assistantThinking({ msgId: 'msg_1', text: 'Look at the config first. Then edit.', durationMs: 50 }),
@@ -153,9 +153,9 @@ test('R25 parallel user rejections followed by one marker are all interrupted', 
 test('R25 denied by generated text prefix, with paths, urls and commands hidden', () => {
   const { b, feed } = harness();
   const cases = [
-    ['Permission to use Bash with command rm -rf /tmp/co-fixture/secret has been denied.', 'Permission to use Bash has been denied.'],
+    ['Permission to use Bash with command rm -rf /tmp/office-sim-fixture/secret has been denied.', 'Permission to use Bash has been denied.'],
     ['Permission for this action was denied by the Claude Code auto mode classifier.', null],
-    ['PreToolUse:Bash hook error: [/tmp/co-fixture/hooks/guard.sh]: blocked https://example.invalid/a?token=1', 'PreToolUse:Bash hook error: [guard.sh]: blocked example.invalid'],
+    ['PreToolUse:Bash hook error: [/tmp/office-sim-fixture/hooks/guard.sh]: blocked https://example.invalid/a?token=1', 'PreToolUse:Bash hook error: [guard.sh]: blocked example.invalid'],
     ['<tool_use_error>Blocked: invented policy</tool_use_error>', 'Blocked: invented policy'],
   ];
   feed([b.humanPrompt()]);
@@ -369,10 +369,10 @@ test('prompt events: truncated to 80, tags skipped, queued prompts stay in the t
 
 test('summaries come from summarize.mjs and never carry raw input', () => {
   const { b, feed } = harness();
-  const evs = feed([b.humanPrompt(), b.bashUse({ msgId: 'm', id: 't1', command: 'cd /tmp/co-fixture && SECRET=1 curl https://example.invalid/x', description: undefined })]);
+  const evs = feed([b.humanPrompt(), b.bashUse({ msgId: 'm', id: 't1', command: 'cd /tmp/office-sim-fixture && SECRET=1 curl https://example.invalid/x', description: undefined })]);
   const st = of(evs, 'tool_start')[0];
   assert.ok(!JSON.stringify(st).includes('SECRET'));
-  assert.ok(!JSON.stringify(st).includes('/tmp/co-fixture'));
+  assert.ok(!JSON.stringify(st).includes('/tmp/office-sim-fixture'));
   assert.equal(st.tool, 'Bash');
 });
 

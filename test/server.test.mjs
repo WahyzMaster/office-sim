@@ -19,7 +19,7 @@ const BASE = { port: 0, intervalMs: 50, rescanMs: 100, activeMinutes: 30, public
 
 const tmpDirs = [];
 async function tmpRoot() {
-  const d = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-office-'));
+  const d = await fs.mkdtemp(path.join(os.tmpdir(), 'office-sim-'));
   tmpDirs.push(d);
   return d;
 }
@@ -434,7 +434,7 @@ test('full stack: subagent is linked, inherits the floor, and never leaks a prom
 
 test('bin prints the URL and exits cleanly on SIGINT', async () => {
   const root = await tmpRoot();
-  const child = spawn(process.execPath, [here('../bin/claude-office.mjs'), '--port', '0', '--root', root, '--rescan', '200'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [here('../bin/office-sim.mjs'), '--port', '0', '--root', root, '--rescan', '200'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let out = '';
   child.stdout.on('data', (c) => { out += c; });
   const exited = new Promise((resolve) => child.on('exit', (code, signal) => resolve({ code, signal })));

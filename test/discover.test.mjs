@@ -20,7 +20,7 @@ const LINE = '{"type":"user","uuid":"u-1","message":{"role":"user","content":"in
 let tmp;
 
 before(async () => {
-  tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'claude-office-'));
+  tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'office-sim-'));
 });
 
 after(async () => {

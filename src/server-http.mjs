@@ -215,7 +215,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
         return send(res, 302, '', undefined, { location: '/', 'set-cookie': auth.setCookie(), 'cache-control': 'no-store' });
       }
       if (!auth.allowed(req)) {
-        return send(res, 401, 'unauthorized: open the URL printed by claude-office\n', undefined, { 'cache-control': 'no-store' });
+        return send(res, 401, 'unauthorized: open the URL printed by office-sim\n', undefined, { 'cache-control': 'no-store' });
       }
     }
     if (DATA_ROUTES.has(rawPath) && crossSiteFetch(req)) return send(res, 403, 'cross-site request');

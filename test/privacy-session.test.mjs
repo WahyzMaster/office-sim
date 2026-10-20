@@ -100,8 +100,8 @@ test('finding 9: tool_end.error drops MCP JSON payloads and auto mode classifier
     ['Permission for this action was denied by the Claude Code auto mode classifier. Reason: Blocked by classifier XREASON',
       'Permission for this action was denied by the Claude Code auto mode classifier.'],
     // unchanged shapes
-    ['PreToolUse:Bash hook error: [/tmp/co-fixture/hooks/guard.sh]: blocked https://example.invalid/a?token=1', 'PreToolUse:Bash hook error: [guard.sh]: blocked example.invalid'],
-    ['Permission to use Bash with command rm -rf {"x":1} /tmp/co-fixture/secret has been denied.', 'Permission to use Bash has been denied.'],
+    ['PreToolUse:Bash hook error: [/tmp/office-sim-fixture/hooks/guard.sh]: blocked https://example.invalid/a?token=1', 'PreToolUse:Bash hook error: [guard.sh]: blocked example.invalid'],
+    ['Permission to use Bash with command rm -rf {"x":1} /tmp/office-sim-fixture/secret has been denied.', 'Permission to use Bash has been denied.'],
     ['Exit code 1', 'Exit code 1'],
     ['String to replace not found in file.', 'String to replace not found in file.'],
     ['[Request interrupted by user for tool use]', null],

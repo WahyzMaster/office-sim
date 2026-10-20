@@ -93,7 +93,7 @@ export class MockSource {
     this.onBatch = null;
     this.scn = SCENARIOS.map((s) => ({ ...s, next: s.start + 0.8 }));
     for (const s of this.scn) {
-      this.timeline.push([s.start, { type: 'session', sessionId: s.sessionId, project: s.project, title: s.title, branch: s.branch }]);
+      this.timeline.push([s.start, { type: 'session', sessionId: s.sessionId, agent: 'claude-code', project: s.project, title: s.title, branch: s.branch }]);
     }
     this.timeline.sort((a, b) => a[0] - b[0]);
   }
@@ -136,7 +136,7 @@ export class MockSource {
         const id = this.id();
         const subId = `${sid}-sub-${id.slice(-4)}`;
         out.push([t, { type: 'tool_start', sessionId: sid, toolUseId: id, tool: 'Agent', summary: `${step[1]} · ${step[2]}` }]);
-        out.push([t + 0.4, { type: 'session', sessionId: subId, project, title: step[2], agentType: step[1], isSubagent: true, parentSessionId: sid }]);
+        out.push([t + 0.4, { type: 'session', sessionId: subId, agent: 'claude-code', project, title: step[2], agentType: step[1], isSubagent: true, parentSessionId: sid }]);
         const sub = this.compile(step[3], subId, project, t + 1.4);
         out.push(...sub.events);
         out.push([sub.end + 0.2, { type: 'session_end', sessionId: subId }]);

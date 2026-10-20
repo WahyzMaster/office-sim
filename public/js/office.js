@@ -194,6 +194,7 @@ export class Office {
       isSubagent: has('isSubagent') ? !!info.isSubagent : old.isSub,
       parentSessionId: has('parentSessionId') ? info.parentSessionId : old.parentId,
       agentType: info.agentType || old.agentType,
+      agent: info.agent || old.agent,
     };
     const carry = old.current && old.current.kind !== 'leave' ? [old.current] : [];
     for (const it of carry) {
