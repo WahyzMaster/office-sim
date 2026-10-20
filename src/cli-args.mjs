@@ -13,10 +13,11 @@ export const USAGE = `Usage: office-sim [options]
   --claude-root <dir>  Claude Code transcripts root (default ~/.claude/projects)
   --root <dir>         alias of --claude-root
   --agents <id,id>     run only these adapters (${KNOWN_AGENTS.join(', ')}); default: every implemented
-                       adapter whose root exists. Implemented today: claude-code, codex, grok
+                       adapter whose root exists. Implemented today: claude-code, codex, grok, antigravity
   --codex-root <dir>   Codex root: desktop app, CLI and IDE threads (default ~/.codex)
   --grok-root <dir>    Grok (xAI Grok Build) root (default ~/.grok)
-  --antigravity-root <dir>  Antigravity root (default ~/.gemini), for the upcoming Antigravity adapter
+  --antigravity-root <dir>  Antigravity CLI and legacy IDE root (default ~/.gemini; only its antigravity-cli/ and
+                       antigravity-ide/ folders are read, never the desktop app's antigravity/)
   --auth               require a per-run token: open the printed URL once, the browser then keeps a cookie
   --replay <file>      replay one past session (<uuid>.jsonl plus its subagents) instead of tailing --claude-root
   --speed <x>          replay speed factor, 0.1..1000 (default 1)
@@ -33,8 +34,8 @@ const SPEC = {
   // Claude Code 기록 루트. --root 는 예전 이름이라 같은 옵션(root)으로 남겨 둔다.
   'claude-root': { key: 'root', kind: 'path' },
   root: { key: 'root', kind: 'path' },
-  // 어댑터 (contract 4.0.1): --agents 로 좁히고, 다른 도구의 루트는 roots.<agent id> 에 받는다 (grok 은 P5c, codex 는 P5d
-  // 부터 쓴다. 주지 않은 루트의 기본값은 bin 이 defaultRoots() 로 채운다)
+  // 어댑터 (contract 4.0.1): --agents 로 좁히고, 다른 도구의 루트는 roots.<agent id> 에 받는다 (grok 은 P5c, codex 는 P5d,
+  // antigravity 는 P5e 부터 쓴다. 주지 않은 루트의 기본값은 bin 이 defaultRoots() 로 채운다)
   agents: { key: 'agents', kind: 'agents' },
   'codex-root': { key: 'roots', agent: 'codex', kind: 'path' },
   'grok-root': { key: 'roots', agent: 'grok', kind: 'path' },

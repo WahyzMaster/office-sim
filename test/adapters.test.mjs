@@ -26,11 +26,11 @@ async function tmp() {
   return d;
 }
 
-test('KNOWN_AGENTS, AGENT_LABELS (same as the page) and ADAPTERS (claude-code, codex since P5d, grok since P5c)', () => {
+test('KNOWN_AGENTS, AGENT_LABELS (same as the page) and ADAPTERS (claude-code, codex since P5d, grok since P5c, antigravity since P5e)', () => {
   assert.deepEqual([...KNOWN_AGENTS], ['claude-code', 'codex', 'grok', 'antigravity']);
   assert.deepEqual(Object.keys(AGENT_LABELS), [...KNOWN_AGENTS]);
   for (const id of KNOWN_AGENTS) assert.equal(AGENT_LABELS[id], agentLabel(id), `label of ${id} matches public/js/hud.js`);
-  assert.deepEqual(Object.keys(ADAPTERS), ['claude-code', 'codex', 'grok']);
+  assert.deepEqual(Object.keys(ADAPTERS), ['claude-code', 'codex', 'grok', 'antigravity']);
   assert.equal(ADAPTERS['claude-code'], claudeCode);
   assert.ok(Object.isFrozen(KNOWN_AGENTS) && Object.isFrozen(AGENT_LABELS) && Object.isFrozen(ADAPTERS));
   assert.equal(isKnownAgent('codex'), true);
@@ -97,10 +97,16 @@ test('selectAdapters: agents narrows the set; requested unimplemented ids are re
   const only = await selectAdapters({ agents: ['claude-code'], roots, probe });
   assert.deepEqual(only.enabled.map((x) => x.id), ['claude-code']);
   const ag = await selectAdapters({ agents: ['antigravity'], roots, probe });
-  assert.deepEqual([ag.enabled, ag.notImplemented], [[], ['antigravity']]);
+  assert.deepEqual([ag.enabled, ag.notImplemented], [[], []], 'antigravity (implemented since P5e) has no root here: skipped');
+  // a requested id that is not implemented is reported: a registry without antigravity (as before P5e)
+  const preP5e = { 'claude-code': claudeCode, codex: ADAPTERS.codex, grok: ADAPTERS.grok };
+  const agOld = await selectAdapters({ agents: ['antigravity'], roots, probe, adapters: preP5e });
+  assert.deepEqual([agOld.enabled, agOld.notImplemented], [[], ['antigravity']]);
   const mixed = await selectAdapters({ agents: ['antigravity', 'claude-code', 'codex', 'antigravity'], roots, probe });
-  assert.deepEqual(mixed.enabled.map((x) => x.id), ['claude-code'], 'codex (implemented since P5d) has no root here: skipped');
-  assert.deepEqual(mixed.notImplemented, ['antigravity']);
+  assert.deepEqual(mixed.enabled.map((x) => x.id), ['claude-code'], 'codex (P5d) and antigravity (P5e) have no root here: skipped');
+  assert.deepEqual(mixed.notImplemented, [], 'every known id is implemented since P5e');
+  const mixedOld = await selectAdapters({ agents: ['antigravity', 'claude-code', 'codex', 'antigravity'], roots, probe, adapters: preP5e });
+  assert.deepEqual(mixedOld.notImplemented, ['antigravity']);
   // the order rule with two unimplemented ids: a registry without codex (as before P5d)
   const older = await selectAdapters({ agents: ['antigravity', 'claude-code', 'codex', 'antigravity'], roots, probe, adapters: { 'claude-code': claudeCode } });
   assert.deepEqual(older.notImplemented, ['codex', 'antigravity'], 'KNOWN_AGENTS order, deduped');

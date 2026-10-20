@@ -99,7 +99,8 @@ test('an adapter left out by --agents is never re-probed or switched on', async 
     await app.ready;
     await claudeRootAt(root);
     await sleep(200);
-    assert.deepEqual([app.agents, app.notImplemented], [[], ['antigravity']]);
+    // antigravity is implemented since P5e and has no root here: skipped, not reported (only it was selected)
+    assert.deepEqual([app.agents, app.notImplemented], [[], []]);
     assert.deepEqual((await health(app)).agents, []);
     assert.deepEqual(probed, [], 'claude-code was not selected, so its root is not checked at all');
     assert.deepEqual(logs, []);

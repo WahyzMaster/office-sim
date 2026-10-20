@@ -2,7 +2,9 @@
 // SessionState 는 파일 하나만 보므로, 파일을 가로지르는 일(부모 찾기, 부모 쪽 신호로 끝내기, 부모 층 상속)은 여기서 한다.
 // Claude 서브에이전트 연결(4.5)은 store-claude.mjs 에 있고, entry 의 agent 가 'claude-code' 일 때만 부른다.
 // IO 는 하지 않는다: meta/journal 은 서버가 읽어서 넣어 준다.
-import { refIdentity, refAgent, refIdsOk, subTitle, newIndex, sameSession, parentFirst, ringSince, pickFloor } from './store-link.mjs';
+import {
+  refIdentity, refAgent, refIdsOk, subTitle, newIndex, sameSession, parentFirst, ringSince, pickFloor, openToolIds, staleToolEnds,
+} from './store-link.mjs';
 import { cleanLabel, publicSessionId, agentScopedId, CLAUDE_CODE_AGENT } from './session-identity.mjs';
 import { basename } from './session-util.mjs';
 import * as claude from './store-claude.mjs';
@@ -31,6 +33,7 @@ export class Store {
     this.bySid = new Map(); // sid -> Set(entry), byPath 와 같은 삽입 순서
     this.indexes = new Map(); // sid -> index (Claude 서브에이전트 연결 색인, store-link newIndex)
     this.movedShown = new Set(); // 열린 페이지에 보이던 채로 다른 경로로 옮겨 간 캐릭터
+    this.movedOpen = new Map(); // charId -> 옮길 때 페이지에 열려 있던 도구 id (finding 6: 다시 알릴 때 없는 것은 abandoned)
     this.order = 0;
     this.rejected = new Set(); // 거절한 ref 경로 (F2, G1): 경로마다 로그 한 줄, 1000 개까지, 지우지 않는다
     this.rejectedFull = false; // 1000 개가 찬 뒤 처음 거절할 때 한 번만 로그한다
@@ -133,11 +136,17 @@ export class Store {
 
   // moved: 같은 캐릭터가 새 경로에서 곧 다시 붙는다. 열린 페이지에 보이던 캐릭터면 기억해 두었다가, 옮기는 사이에
   // 끝났으면 다시 붙을 때 session_end 를 보낸다. 다시 붙지 못하면(사라짐) 여기서 idle 로 끝을 알린다.
+  // 페이지에 열려 있던 도구 id 도 기억한다 (알린 적 없는 entry 면 앞서 기억한 것이 그대로 페이지의 것이다, 1000 개까지).
   detachFile(path, { moved = false } = {}) {
     const e = this.byPath.get(path);
     if (!e) return false;
     const shown = e.announced ? !e.ended : e.wasShown;
     this.dropEntry(e);
+    if (!(shown && moved)) this.movedOpen.delete(e.charId);
+    else if (e.announced) {
+      if (this.movedOpen.size >= MAX_REMEMBERED) this.movedOpen.delete(this.movedOpen.keys().next().value);
+      this.movedOpen.set(e.charId, openToolIds(e.state));
+    }
     if (shown && moved) this.movedShown.add(e.charId);
     else if (shown && !e.announced) {
       this.push({ type: 'session_end', sessionId: e.charId, ts: new Date(this.now()).toISOString(), reason: 'idle' });
@@ -379,6 +388,8 @@ export class Store {
     this.resolve(e);
     const before = this.lastSeq;
     const hinted = this.takeEnd(e); // F4: 부모 파일에서 이미 끝난 자식은 끝난 채로 시작한다 (보인 적 없으면 아무것도 보내지 않는다)
+    const shownIds = this.movedOpen.get(e.charId) ?? null; // finding 6: 옮기기 전에 페이지에 열려 있던 도구
+    this.movedOpen.delete(e.charId);
     if (hinted || this.isDone(e) || e.state.ended) {
       if (e.wasShown) {
         this.push({ type: 'session_end', sessionId: e.charId, ts: new Date(this.now()).toISOString(), reason: hinted ?? 'done' });
@@ -387,7 +398,9 @@ export class Store {
       if (hinted) e.doneAt = this.now(); // endCharacter 처럼: 바로 뒤에 읽힌 꼬리 줄은 유예 시간 동안 버린다
     } else {
       e.ended = false;
-      for (const ev of this.entryEvents(e)) this.push(ev);
+      const evs = this.entryEvents(e);
+      for (const ev of evs) this.push(ev);
+      for (const ev of staleToolEnds(shownIds, evs, e.charId, new Date(this.now()).toISOString())) this.push(ev);
     }
     e.wasShown = false;
     if (e.kind === 'main') this.refreshSubs(e.sid);
