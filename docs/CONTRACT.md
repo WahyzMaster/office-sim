@@ -27,8 +27,11 @@ adapter (P5e) in 4.8.
 ## 1. Layout
 
 ```
-bin/office-sim.mjs      CLI: parse args, start server, print URL
+bin/office-sim.mjs      CLI: parse args, start server, print URL, --open (P4)
 src/cli-args.mjs        argv -> start() options (pure), USAGE text
+src/open-url.mjs        --open: platform opener command and a detached, never-awaited spawn (injectable, P4)
+skills/office/SKILL.md  the /office Claude Code skill (P4): start or reuse, open, status, stop
+scripts/install-skill.mjs links <home>/.claude/skills/office to skills/office (P4; npm run skill:install / skill:uninstall)
 src/summarize.mjs       tool_use -> { summary, room? } (pure); cleanText, the one section 5 text scrub
 src/summarize-shell.mjs Bash/Monitor command -> program name (+ allow-listed subcommand) (pure)
 src/plan.mjs            update_plan / task list / ExitPlanMode plan reconstruction (pure)
@@ -1621,6 +1624,33 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   `--active` the minutes of mtime window for attaching files, `--host` must be a loopback address.
   `--claude-root <dir>` is the Claude Code transcripts root (default `~/.claude/projects`); `--root <dir>` is an alias
   that sets the same option. Both set the `start()` option `root`.
+- `--open` (P4, a switch without a value; `--open=x` is an error): after the listen and the URL / agents lines (and the
+  replay line), the bin opens the printed `url` in the default browser through `src/open-url.mjs`, so with `--auth` it
+  opens the token URL. Opener: darwin `open <url>`, win32 `cmd /c start "" <url>` (verbatim arguments), anything else
+  `xdg-open <url>`; the URL is always one argv element. It is spawned detached with stdio ignored, `unref()`-ed and never
+  awaited. Only a loopback `http://` URL whose path, query and fragment use `[A-Za-z0-9/?=#_.-]` is opened (what the bin
+  prints, plus `#demo`), so nothing reaches `cmd` that it could read as a command. Every failure (a refused URL, a
+  spawn throw, an `error` event such as ENOENT, a non-zero exit) is exactly one log line, `open failed: <cmd>: <code>`
+  or `open failed: <cmd> exited <n>`, without the URL; the server keeps serving. `open` is not a `start()` option (the
+  bin strips it). Without the flag nothing is spawned. Trade-off: with `--auth --open` the token URL sits in the argv
+  of the opener and of any browser it starts, whereas office-sim itself never has the token in its argv or env. On
+  Linux, `xdg-open` in generic mode waits for the browser, and a browser launched fresh (none was running) keeps the URL
+  in its main-process argv until it exits, so other local users can read the token from `ps` or `/proc` for the
+  browser's lifetime, which can outlast the run. macOS `open` hands the URL to LaunchServices, not to the browser's
+  argv. On a shared Linux host, `--auth --open` therefore weakens what `--auth` is for; open the token URL by hand in an
+  already running browser instead. The token is still per run, and `--auth` without `--open` is unchanged. Tests
+  replace the opener through `PATH` (fake `open` / `xdg-open` scripts); there is no test hook in the code.
+- The `/office` skill (P4, `skills/office/SKILL.md`) depends on these server facts, so changing one means changing the
+  skill and `test/skill-commands.test.mjs`: `GET /healthz` -> 200 `{ ok: true, files, sessions, clients, agents }`; with
+  `--auth` every request without the cookie, `/healthz` included, gets 401 with the body `unauthorized: open the URL
+  printed by office-sim`; stdout starts with `office-sim: <url>` then `office-sim: agents <ids|none>`; SIGTERM stops the
+  server (exit 0, forced after 3 s); a failed listen prints one `office-sim: <message>` line (EADDRINUSE with a
+  `(port in use: ...)` hint) and exits 1. The skill starts `node <repo>/bin/office-sim.mjs --port <4317|0> [--auth]`
+  with the absolute bin path and stops only processes whose argv is exactly that (`node <repo>/bin/...`; on Windows the
+  same rule as a case-insensitive regex). It does not pass `--open`: it runs the platform opener itself, waits at most
+  3 s and reports the result (on Linux it never runs `xdg-open` with an `--auth` token URL), so a failed open is seen
+  and the user gets the URL to open by hand. Before it says `/office stop` stops a server it reused on 4317, it checks
+  that the server's argv is that command (`ours pid <n>`).
 - Adapters (P5a, 4.0.1): `--agents <id,id>` is a comma list of adapter ids, each validated against `KNOWN_AGENTS` (an
   unknown id is a usage error, exit 2). It narrows the enabled set (D3); without it every implemented adapter whose root
   exists is on. `--codex-root <dir>`, `--grok-root <dir>` and `--antigravity-root <dir>` are accepted, `~`-expanded and

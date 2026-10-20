@@ -19,6 +19,7 @@ export const USAGE = `Usage: office-sim [options]
   --antigravity-root <dir>  Antigravity CLI and legacy IDE root (default ~/.gemini; only its antigravity-cli/ and
                        antigravity-ide/ folders are read, never the desktop app's antigravity/)
   --auth               require a per-run token: open the printed URL once, the browser then keeps a cookie
+  --open               open the printed URL (with --auth, the token URL) in the default browser once listening
   --replay <file>      replay one past session (<uuid>.jsonl plus its subagents) instead of tailing --claude-root
   --speed <x>          replay speed factor, 0.1..1000 (default 1)
   --loop               replay again from the start when it ends
@@ -41,6 +42,7 @@ const SPEC = {
   'grok-root': { key: 'roots', agent: 'grok', kind: 'path' },
   'antigravity-root': { key: 'roots', agent: 'antigravity', kind: 'path' },
   auth: { key: 'auth', kind: 'flag' },
+  open: { key: 'open', kind: 'flag' }, // bin 만 쓴다 (start() 로 넘기지 않는다)
   replay: { key: 'replay', kind: 'path' },
   speed: { key: 'speed', kind: 'num', min: 0.1, max: 1000 },
   loop: { key: 'loop', kind: 'flag' },

@@ -3,6 +3,7 @@
 import { parseArgs, USAGE } from '../src/cli-args.mjs';
 import { start } from '../src/server.mjs';
 import { defaultRoots } from '../src/adapters/index.mjs';
+import { openUrl } from '../src/open-url.mjs';
 
 let args;
 try {
@@ -16,6 +17,8 @@ if (args.help) {
   process.exit(0);
 }
 delete args.help;
+const open = args.open === true; // --open 은 bin 의 일이다: start() 옵션에 섞지 않는다
+delete args.open;
 
 const log = (msg) => process.stderr.write(`[office-sim] ${msg}\n`);
 
@@ -34,6 +37,8 @@ process.stdout.write(`office-sim: ${app.url}\n`);
 process.stdout.write(`office-sim: agents ${app.agents.length ? app.agents.join(',') : 'none'}\n`);
 for (const id of app.notImplemented) process.stdout.write(`office-sim: ${id} is not implemented yet\n`);
 if (args.replay) process.stdout.write(`office-sim: replay ${args.speed ?? 1}x${args.loop ? ', loop' : ''}\n`);
+// 출력한 주소 그대로 연다 (--auth 면 토큰 주소). 실패는 로그 한 줄로 끝나고 서버는 계속 돈다
+if (open) openUrl(app.url, { log });
 
 let stopping = false;
 async function stop() {
