@@ -234,6 +234,17 @@ export function linkFacts(rec) {
   return null;
 }
 
+/** D1: the first floor whose label equals one of `names`, tried in order (<repo>, then <name>); else null. */
+export function pickFloor(names, floors) {
+  if (!Array.isArray(names) || !Array.isArray(floors)) return null;
+  for (const name of names) {
+    if (typeof name !== 'string' || name === '') continue;
+    const hit = floors.find((f) => f?.projectLabel === name);
+    if (hit) return hit;
+  }
+  return null;
+}
+
 // snapshot 순서: 메인, 그다음 부모가 이미 놓인(또는 살아 있지 않은) 서브. 순환이면 남은 것을 그대로 둔다.
 // 부모 확인은 Set 으로 한다 (부모 없는 서브가 수천 개여도 선형).
 export function parentFirst(live) {

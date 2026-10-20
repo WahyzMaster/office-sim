@@ -26,11 +26,11 @@ async function tmp() {
   return d;
 }
 
-test('KNOWN_AGENTS, AGENT_LABELS (same as the page) and ADAPTERS (claude-code only)', () => {
+test('KNOWN_AGENTS, AGENT_LABELS (same as the page) and ADAPTERS (claude-code, grok since P5c)', () => {
   assert.deepEqual([...KNOWN_AGENTS], ['claude-code', 'codex', 'grok', 'antigravity']);
   assert.deepEqual(Object.keys(AGENT_LABELS), [...KNOWN_AGENTS]);
   for (const id of KNOWN_AGENTS) assert.equal(AGENT_LABELS[id], agentLabel(id), `label of ${id} matches public/js/hud.js`);
-  assert.deepEqual(Object.keys(ADAPTERS), ['claude-code']);
+  assert.deepEqual(Object.keys(ADAPTERS), ['claude-code', 'grok']);
   assert.equal(ADAPTERS['claude-code'], claudeCode);
   assert.ok(Object.isFrozen(KNOWN_AGENTS) && Object.isFrozen(AGENT_LABELS) && Object.isFrozen(ADAPTERS));
   assert.equal(isKnownAgent('codex'), true);
@@ -98,9 +98,9 @@ test('selectAdapters: agents narrows the set; requested unimplemented ids are re
   assert.deepEqual(only.enabled.map((x) => x.id), ['claude-code']);
   const codex = await selectAdapters({ agents: ['codex'], roots, probe });
   assert.deepEqual([codex.enabled, codex.notImplemented], [[], ['codex']]);
-  const mixed = await selectAdapters({ agents: ['grok', 'claude-code', 'codex', 'grok'], roots, probe });
+  const mixed = await selectAdapters({ agents: ['antigravity', 'claude-code', 'codex', 'antigravity'], roots, probe });
   assert.deepEqual(mixed.enabled.map((x) => x.id), ['claude-code']);
-  assert.deepEqual(mixed.notImplemented, ['codex', 'grok'], 'KNOWN_AGENTS order, deduped');
+  assert.deepEqual(mixed.notImplemented, ['codex', 'antigravity'], 'KNOWN_AGENTS order, deduped');
   const none = await selectAdapters({ agents: [], roots, probe });
   assert.deepEqual([none.enabled, none.off, none.notImplemented], [[], [], []]);
   await assert.rejects(selectAdapters({ agents: ['claude-code', 'copilot'], roots, probe }), { name: 'RangeError', message: /copilot/ });

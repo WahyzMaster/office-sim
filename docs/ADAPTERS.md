@@ -1,8 +1,9 @@
 # 멀티 에이전트 어댑터 설계안 (P5)
 
-- 상태: 승인됨(2026-10-20). 11절의 결정 D1~D12 를 모두 추천안대로 승인했다. 구현은 9절 순서로 한다. P5a(공통 분리)는
-  끝나 master 에 병합됐고, P5b(`SessionCore`, `tool-summary`)도 끝났다. 승인된 결정과 P5a 범위는 `docs/CONTRACT.md`
-  4.0.1절에, P5b 의 정규화 항목과 의미는 4.0.2절에 옮겼다.
+- 상태: 승인됨(2026-10-20). 11절의 결정 D1~D12 를 모두 추천안대로 승인했다. 구현은 9절 순서로 한다. P5a(공통 분리)와
+  P5b(`SessionCore`, `tool-summary`)는 끝나 master 에 병합됐고, P5c(Grok 어댑터, `SidecarWatcher`)도 끝났다. 승인된
+  결정과 P5a 범위는 `docs/CONTRACT.md` 4.0.1절에, P5b 의 정규화 항목과 의미는 4.0.2절에, Grok 어댑터의 탐색, id, 매핑은
+  4.6절에 옮겼다. 다음은 P5d Codex 다.
 - 작성일: 2026-10-20
 - 기준 문서: `docs/CONTRACT.md` 2절(이벤트 스키마), 4.0절(어댑터 범위), 5절(개인정보)
 - 조사 근거: `docs/research/codex-format.json`, `docs/research/grok-format.json`, `docs/research/antigravity-format.json`
@@ -178,7 +179,9 @@ P5b 에서 만든 `SessionCore` 와 `tool-summary` 의 정확한 모양(정규�
 - 메타 파일: 통째로 다시 쓰이는 작은 파일(Grok `summary.json`, Antigravity `*_summaries_proto.pb`, `annotations/<id>.pbtxt`,
   `brain/<id>/task.md`)과 작은 색인(Codex `session_index.jsonl`)은 `SidecarWatcher` 가 rescan 때마다 stat 하고,
   mtime/크기/inode 가 바뀌면 크기 상한(예: 1 MB) 안에서 다시 읽어 `setInfo()` 로 넘긴다. 처음 읽을 때 한 번,
-  그 뒤로는 바뀔 때만 읽는다. 이 장치는 새 파일 하나(`src/core/sidecar.mjs`, 100줄 안쪽)다.
+  그 뒤로는 바뀔 때만 읽는다. 이 장치는 새 파일 하나(`src/core/sidecar.mjs`, 100줄 안쪽)다. P5c 에서 만들었고, 어댑터
+  설명자의 선택 훅 `sidecars(ref)` 가 있는 어댑터에만 Runner 가 돌린다(지금은 Grok 의 `summary.json` 하나, Claude 는 훅이
+  없어 그대로). 정확한 규칙은 `docs/CONTRACT.md` 4.6절.
 - 파일 안의 기록 자체를 통째로 다시 쓰는 도구가 생기면 그때 `document` 읽기 방식을 더한다. 지금은 필요 없다.
 
 ### 3.4 서브에이전트 연결
@@ -243,8 +246,8 @@ flowchart LR
 | 선행 | `server-runner.mjs` | `prepare()` 의 meta/label 읽기를 `deps.readMeta` 가 있을 때만, `onLine` 은 그대로, rescan 끝에 `SidecarWatcher` 확인(3.3절, P5c 로 옮김, 9절), 어댑터가 낸 서브 종료 힌트를 Store 로 넘김(3.4절) |
 | 선행 | `server.mjs`, `cli-args.mjs` | 어댑터 등록표, `RunnerGroup`, `--codex-root`, `--grok-root`, `--antigravity-root`, `--agents <id,...>`. `--root`/`--claude-root` 는 그대로 |
 | 새 파일 | `src/adapters/index.mjs`, `src/adapters/claude-code.mjs` | 등록표와 Claude 설명자 |
-| 새 파일 | `src/core/session-core.mjs`, `src/core/tool-summary.mjs`, `src/core/sidecar.mjs` | 3.2, 3.3절. 앞의 둘은 P5b 에서 만들었다(CONTRACT 4.0.2절). `sidecar.mjs` 는 P5c |
-| 새 파일 | `src/adapters/codex/{discover,records}.mjs` 등 | 도구마다 탐색 + 정규화 (각 파일 500줄 이하) |
+| 새 파일 | `src/core/session-core.mjs`, `src/core/tool-summary.mjs`, `src/core/sidecar.mjs` | 3.2, 3.3절. 앞의 둘은 P5b 에서 만들었다(CONTRACT 4.0.2절). `sidecar.mjs` 는 P5c 에서 만들었다(CONTRACT 4.6절) |
+| 새 파일 | `src/adapters/grok/` (P5c 에서 만듦), `src/adapters/codex/{discover,records}.mjs` 등 | 도구마다 탐색 + 정규화 (각 파일 500줄 이하) |
 | 문서 | `docs/CONTRACT.md` | 1절 배치, 4.0절 아래에 어댑터별 절(4.6 Codex ...), 6절 CLI. `README.md` 지원 표 |
 | 화면 | `public/js/*` | 원칙적으로 없음. 방은 서버가 `room` 힌트로 보낸다(결정 D4) |
 
@@ -342,6 +345,23 @@ flowchart LR
 - 미확인(조사 때 실행 중인 세션이 없었다): 실행 중 덧붙이는 단위, `active_sessions.json` 행 모양, 수동 `/compact` 의
   표현, headless(`grok -p`)와 ACP 세션의 파일 차이, 바이너리에만 있는 레코드 종류의 키, 255바이트를 넘는 cwd 그룹 이름
   (slug + hash + `.cwd` 파일), 세션 중 cwd 변경과 `/fork` 의 표현.
+- P5c 구현 뒤 상태(2026-10-20, 기준은 `docs/CONTRACT.md` 4.6절). 위 목록은 조사 때 그대로 두고 항목마다 상태만 적는다.
+  실행 중인 Grok 세션을 아직 보지 못했으므로 확인으로 풀린 항목은 없다. 항목마다 어댑터가 무엇을 가정하는지를 정했다.
+
+  | 미확인 항목 | 상태 | P5c 의 가정과 처리 |
+  |---|---|---|
+  | 실행 중 덧붙이는 단위 | 미확인 그대로 | 줄 단위 `Tailer` 가 잘린 마지막 줄을 다음 회차로 넘기므로 한 레코드가 여러 번에 나뉘어 써져도 흡수한다. 실제 세션으로 보는 확인은 9절 P5c 끝 조건에 남아 있다(8.1절 11번) |
+  | `active_sessions.json` 행 모양 | 미확인 그대로 | 이 파일은 열지 않는다(허용 목록 밖). 메인은 활동 창을 벗어나면, 서브는 부모의 `subagent_finished` 나 무활동으로 끝난다 |
+  | 수동 `/compact` 의 표현 | 미확인 그대로 | `auto_compact_started` 만 `system compact` 로 낸다. 다른 표현이 생기면 모르는 종류로 무시된다 |
+  | headless(`grok -p`), ACP 세션의 파일 차이 | 미확인 그대로 | 같은 배치(`sessions/<그룹>/<세션>/updates.jsonl`)라고 가정한다. 다르면 탐색이 찾지 못할 뿐 다른 파일을 열지는 않는다 |
+  | 바이너리에만 있는 레코드 종류의 키 | 미확인 그대로, 동작 영향 없음 | 모르는 `sessionUpdate` 는 모두 무시한다(`session_ended` 가 써져도 지금은 쓰지 않는다) |
+  | 255바이트를 넘는 cwd 그룹 이름(slug + hash + `.cwd`) | 미확인 그대로, 동작 영향 없음 | 그룹 이름을 해석하지 않고 `.cwd` 파일도 열지 않는다. cwd 는 `summary.json` 의 `info.cwd` 에서만 오므로 긴 이름의 그룹도 똑같이 훑는다 |
+  | 세션 중 cwd 변경과 `/fork` | 미확인 그대로 | 층은 처음 cwd 에 머문다(CONTRACT 4.4). `/fork` 로 생긴 세션은 다른 세션의 `subagents/` 에 없으면 메인으로 보인다 |
+  | `ask_user_question` 거절(8.2절) | 미확인 그대로 | `rawOutput` 없는 `failed` 에 고정 거절 문구가 있으면 `denied`, 그 밖의 `failed` 는 `failed` |
+
+  P5c 에서 새로 생긴 미확인: 자식의 세션 폴더와 부모의 `subagents/<자식>/` 폴더 중 어느 쪽이 먼저 생기는지(어댑터는
+  첫 탐색 뒤에 새로 보인 폴더를 부모가 부를 때까지 1초 기다린다. 그보다 늦으면 자식이 메인으로 보인다), Grok 이 직접
+  만드는 워크트리(`~/.grok/worktrees/<repo>/<name>`, 이 Mac 에는 없음)의 실제 cwd 모양.
 
 ### 5.3 Antigravity (`docs/research/antigravity-format.json`)
 
@@ -387,7 +407,8 @@ flowchart LR
 
 ### 6.1 신호 -> 이벤트
 
-Claude Code 칸은 지금 동작(CONTRACT 4절)이고, 나머지는 제안이다. "없음" 은 기록에 그 신호가 없다는 뜻이다.
+Claude Code 칸은 지금 동작(CONTRACT 4절)이고, Grok 칸은 P5c 에서 구현했다(기준은 CONTRACT 4.6절, 이 표와 달라진 점은
+9절). 나머지는 제안이다. "없음" 은 기록에 그 신호가 없다는 뜻이다.
 
 | 신호 | Claude Code (지금) | Codex | Grok | Antigravity CLI |
 |---|---|---|---|---|
@@ -435,6 +456,9 @@ Claude Code 칸은 지금 동작(CONTRACT 4절)이고, 나머지는 제안이다
 
 모르는 도구 이름은 지금처럼 `tool` 은 그대로, 방은 `here`(제자리)다. 이름이 버전마다 바뀌는 것(Antigravity
 `view_file` -> `read_file`)은 표에 옛 이름과 새 이름을 함께 둔다.
+
+Grok 칸은 P5c 에서 이대로 구현했다(CONTRACT 4.6절). 다만 `enter_plan_mode` 는 화면을 바꾸지 않고는(D4) 회의실 힌트를
+줄 수 없어 `todo_write` 처럼 숨기고, `search_tool` 은 배관으로 숨긴다(도구 검색으로 보이는 것은 여전히 미확인).
 
 ### 6.3 Codex code-mode `exec`
 
@@ -501,7 +525,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 - Codex: 백그라운드 명령이 턴 끝까지 살아 있을 때의 끝 표시, guardian 거절의 모양, writer lock 의 뜻, 기록 형식
   옮겨 쓰기가 꼬리 읽기 중에 일어나는지, `~/.codex/worktrees` 세션의 가장 좋은 층 키.
 - Grok: 실행 중 덧붙이는 단위, `active_sessions.json` 행 모양, 수동 `/compact`, headless/ACP 세션, 바이너리에만 있는
-  레코드 종류, 긴 cwd 그룹 이름, `/fork`, `ask_user_question` 거절.
+  레코드 종류, 긴 cwd 그룹 이름, `/fork`, `ask_user_question` 거절. P5c 뒤의 상태는 5.2절 끝의 표에 있다.
 - Antigravity: 2.x 데스크톱 앱이 `brain/<id>/.system_generated/logs/` 를 쓰는지, `.pb` 암호화 방식, 요약 proto 필드
   번호 일부, 거절과 중단의 표현, 서브에이전트 레코드, CLI 할 일 목록 도구.
 
@@ -513,7 +537,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 |---|---|---|
 | P5a 공통 분리 (완료) | 4절 "선행" 줄 전부(`SidecarWatcher` 는 빼고 P5c 로). `store.mjs` 에서 Claude 연결을 빼고, agent id 를 ref -> entry -> session 이벤트로 흐르게 하고, `RunnerGroup` 과 어댑터 등록표를 넣되 등록된 어댑터는 `claude-code` 하나. CLI 옵션은 받기만 한다 | 기존 `npm test` 전부 그대로 통과(테스트 수정 0개가 목표, 경로 import 가 바뀌는 곳만 예외). 새 테스트: agent id 흐름, 등록표, 루트가 없는 어댑터는 조용히 꺼짐. 실제 서버를 띄워 화면이 이전과 같은지 앱 브라우저로 확인 |
 | P5b `SessionCore` (완료) | `src/core/session-core.mjs`, `src/core/tool-summary.mjs` 와 그 단위 테스트(정규화 항목 -> 이벤트, `test/core-session.test.mjs`, `test/core-tool-summary.test.mjs`, 리뷰 회귀 테스트 `test/core-session-fixes.test.mjs`), 10절의 공통 적합성 하네스(`test/fixtures/conformance.mjs`)와 그것을 시험용 `core-fixture` 어댑터로 돌리는 `test/adapter-conformance.test.mjs`. 아직 어떤 어댑터도 쓰지 않는다. 정확한 모양은 CONTRACT 4.0.2절 | 정규화 항목만으로 만든 합성 입력에서 스키마, dedupe, 도구 짝, 턴, 계획, 개인정보 테스트 통과 |
-| P5c Grok | 5.2절. 탐색(모든 cwd 그룹, `subagents/` 연결) + 정규화 + `summary.json` 메타 + 설명자 등록. `SidecarWatcher`(`src/core/sidecar.mjs`, 3.3절)도 이 단계에서 만든다 | 10절의 공통 적합성 테스트 + Grok 전용 테스트. 지어낸 픽스처를 시간차로 덧붙이는 스크립트로 라이브 화면 확인(Claude 와 Grok 직원이 같은 층에 섞여 보임). 실제 Grok 세션 하나를 띄워 덧붙이는 단위 확인(8.1절 11번) |
+| P5c Grok (완료) | 5.2절. 탐색(모든 cwd 그룹, `subagents/` 연결) + 정규화 + `summary.json` 메타 + 설명자 등록. `SidecarWatcher`(`src/core/sidecar.mjs`, 3.3절)도 이 단계에서 만든다. 정확한 모양은 CONTRACT 4.6절 | 10절의 공통 적합성 테스트 + Grok 전용 테스트. 지어낸 픽스처를 시간차로 덧붙이는 스크립트로 라이브 화면 확인(Claude 와 Grok 직원이 같은 층에 섞여 보임). 실제 Grok 세션 하나를 띄워 덧붙이는 단위 확인(8.1절 11번) |
 | P5d Codex | 5.1절, 6.3절. guardian 숨김, code-mode, 서브에이전트 문맥 건너뛰기, `session_index.jsonl` 제목 | P5c 와 같음. 추가로 0.142 이전(`exec_command`, `update_plan`)과 이후(code-mode) 픽스처 둘 다 |
 | P5e Antigravity CLI | 5.3절. 위치 짝짓기, `USER_REQUEST` 꺼내기, 요약 proto varint 해석(결정 D6 범위 안에서) | P5c 와 같음. 옛 도구 이름과 새 도구 이름 픽스처 둘 다 |
 | P5f 문서 | `CONTRACT.md` 에 어댑터별 절, `README.md` 지원 표와 옵션, `PLAN.md` 진행 기록 | 문서와 `--help` 출력이 맞음 |
@@ -527,6 +551,45 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
   `docs/CONTRACT.md` 4.0.2절이 기준이고, 3.2절의 항목 목록은 그 전의 제안이다. 시험용 `core-fixture` 어댑터
   (`test/fixtures/core-adapter.mjs`)는 테스트에서만 등록표 훅으로 붙이고 `src/adapters/` 에는 넣지 않았다. 등록된
   어댑터는 여전히 `claude-code` 하나라 Claude 동작은 바뀌지 않는다. 다음은 P5c Grok 이다.
+- P5c 완료(2026-10-20): Grok 어댑터(`src/adapters/grok/`, 설명자 `src/adapters/grok/index.mjs`, 등록표에 `grok`)와
+  `SidecarWatcher`(`src/core/sidecar.mjs`)를 만들었다. 기준은 `docs/CONTRACT.md` 4.6절이다(허용 목록 탐색, `grok-<세션
+  폴더 uuid>` id, 서브에이전트 연결, `summary.json` 사이드카, 레코드 -> 항목 표, 거절과 종료 코드 규칙, D1 워크트리 층).
+  5.2절의 연결 방식과 6.1, 6.2절의 Grok 칸은 그 전의 제안이고, 달라진 점은 이렇다.
+  - 서브에이전트 연결은 부모 세션 폴더의 `subagents/<자식>/` 디렉터리 이름만 본다(3.4절). `meta.json` 은 열지 않는다.
+    `subagent_spawned` 는 연결에 쓰지 않고, 그 턴에서 열려 있는 `spawn_subagent` 호출을 ok 로 닫는 데만 쓴다(비동기 실행,
+    R28. 호출 자신의 완료가 먼저 오면 그것으로 닫힌다).
+  - 턴은 `promptId` 로 나눈다. `user_message_chunk` 에는 `promptId` 가 없다. 실제 기록은 대개 `user_prompt_submit` 훅이
+    새 id 를 들고 메시지보다 먼저 오고(1,214/1,238 턴, 서브에이전트 파일은 모두 이 훅으로 시작), 그 훅이 턴을 연다
+    (`turn_start { id }`). 메시지가 먼저 오면 그 자리에서 id 없는 `turn_start` 를 보내고(CONTRACT 4.0.2 의 순서 규칙: 턴
+    시작이 프롬프트보다 먼저) 뒤따르는 첫 새 `promptId` 를 그 턴의 id 로 삼는다. 아직 일(생각, 말, 도구)이 없는 턴의
+    메시지, 턴 중간에 친 입력(`interjection`, `promptIndex` 없는 사람 입력), id 를 알기 전의 두 번째 메시지, 숨은 주입
+    메시지는 열린 턴에 그대로 둔다. 이미 끝난 턴의 늦은 레코드는 버린다. 다만 앞 턴이 끝나지 않은 채 메시지가 새 턴을
+    열었는데 앞 턴 id 의 레코드가 이어지면, 열린 턴이 그 id 를 다시 받아 일을 버리지 않는다(CONTRACT 4.6 표).
+  - chunk 하나가 항목 하나다. 조사대로 한 줄이 한 덩어리(생각은 추론 요약 한 단락)라 앞 줄에 이어 붙이지 않고, 줄마다
+    따로 지운다(5절 규칙). `say` 는 `final` 을 켜지 않는다: Grok 은 턴마다 `turn_completed` 를 쓰므로(1,234/1,234) 20초
+    무활동 추정은 일하는 턴을 일찍 끝낼 뿐이다.
+  - `exit_plan_mode` 의 계획 글은 조사에서 답을 받은 뒤의 완료 갱신에만 있었다(`rawInput` 은 `{}`, `plan.md` 는 허용 목록
+    밖). 호출에 계획이 실려 오면 R34 순서(계획 먼저, 질문 나중)대로 보내고, 아니면 질문이 먼저 뜨고 승인되면 계획판이
+    채워진다. 수정 요청이나 포기는 `denied` 다.
+  - 거절의 오류 문구는 고정 문구로만 만든다(훅이나 분류기가 적은 이유는 버린다). `spawn_subagent` 의 요약은 모델이 쓴
+    `description` 이 아니라 `subagent_type` 이고, 셸 명령의 `description` 도 읽지 않는다(요약은 프로그램 이름).
+  - `enter_plan_mode` 와 `search_tool` 은 숨긴다(6.2절). 이름표에 없는 도구는 `x.ai/tool.kind` 로 방을 고른다.
+  - 서브의 `agentType` 은 자식 자신의 `summary.json` 에서 `session_kind` 가 `subagent`/`subagent_resume` 일 때의
+    `agent_name` 이다(조사에서 subagent_type 과 62/62 같다). `subagent_spawned` 와 `meta.json` 은 읽지 않는다.
+  - 자식 폴더가 부모의 `subagents/<자식>/` 보다 먼저 보일 수 있어서, 첫 탐색 뒤에 새로 생긴 폴더 중 아무 부모도 부르지
+    않는 것은 1초(`LINK_GRACE_MS`) 기다린 뒤에 메인으로 낸다. 한 번 메인으로 붙은 세션은 서브로 바뀌지 않는다. 그보다
+    늦게 불린 자식은 메인으로 남지만, 자기 `summary.json` 의 `session_kind` 가 `subagent` 이면 `SessionCore` 가 그
+    세션의 사람 입력(부모가 넘긴 과제)을 프롬프트로도 제목으로도 쓰지 않는다(이미 잡힌 제목 대안도 지운다).
+  - `subagents` 가 심볼릭 링크면 따라가지 않는다(lstat 으로 진짜 디렉터리일 때만 연다). `SidecarWatcher` 는
+    `O_NOFOLLOW` 로 열고, 연 파일이 lstat 한 그 일반 파일(inode, 장치)일 때만 읽는다.
+  - 탐색 상한(`SCAN_LIMITS`: 그룹 10,000, 세션 폴더 50,000, 부모당 자식 5,000)을 넘을 탐색은 이름 순으로 자르지 않고
+    `SCAN_CAPPED` 로 실패한다. Runner 는 코드만 한 번 남기고, 붙은 세션은 그대로 둔 채 그 rescan 을 건너뛴다(자르면
+    가장 새 UUIDv7 폴더가 빠지고, 부모가 잘린 자식은 영영 메인이 된다).
+  - D1 층은 시작 순서에 기대지 않는다. 그룹의 첫 rescan 에서 층 규칙이 있는 Runner(Grok)는 다른 Runner(Claude)의 첫
+    붙이기가 끝난 뒤에 탐색한다(`RunnerGroup.rescan`). 그래서 이미 있던 Grok 전용 워크트리 세션도 저장소 이름이 같은
+    Claude 층을 찾는다.
+  - 5.2절 미확인 항목의 상태는 5.2절 끝의 표에 적었다. 끝 조건 중 실행 중인 실제 Grok 세션으로 덧붙이는 단위를 보는
+    확인(8.1절 11번)과 실제 기록으로 개수만 세는 확인의 결과는 통합 단계가 `PLAN.md` 8.2절에 적는다. 다음은 P5d Codex 다.
 
 ## 10. 테스트 전략
 
@@ -535,7 +598,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
   기본 루트를 쓰는 `start()` 호출이 테스트에 없음을 확인하는 검사를 하나 둔다.
 - 공통 적합성 테스트(`test/adapter-conformance.test.mjs`): `(adapter, fixtureRoot)` 쌍마다 같은 검사를 돈다.
   P5b 에서 하네스(`test/fixtures/conformance.mjs`)를 만들어 시험용 `core-fixture` 어댑터로 돌린다(CONTRACT 4.0.2절).
-  아래 탐색 허용 목록 검사는 이 하네스에 아직 없다.
+  아래 탐색 허용 목록 검사는 이 하네스에 아직 없다. Grok 은 P5c 의 Grok 전용 테스트가 확인한다(CONTRACT 4.6절).
   - 스키마: 이벤트 type 이 CONTRACT 2절 표 안에 있고, type 마다 허용된 필드만 있고, 길이 상한(80/100/120/160)을 지킨다.
   - `session.agent` 가 그 어댑터 id 이고, `sessionId` 와 `parentSessionId` 가 `publicSessionId` 규칙을 지킨다.
   - 도구 짝: 모든 `tool_end` 의 `toolUseId` 는 앞선 `tool_start` 가 있고, 끝나지 않은 도구는 `snapshot()` 에 남는다.

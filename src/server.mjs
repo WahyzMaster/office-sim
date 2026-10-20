@@ -12,6 +12,8 @@ import { newToken } from './server-guard.mjs';
 import { ADAPTERS, KNOWN_AGENTS, checkAgents, isKnownAgent, probeRoot, probeWithin, selectAdapters } from './adapters/index.mjs';
 
 const CLAUDE = 'claude-code';
+/** D1 startup order: how long a Runner with a floor rule waits for the other Runners' first rescan at most. */
+export const FIRST_PASS_WAIT_MS = 10_000;
 
 export const DEFAULTS = Object.freeze({
   port: 4317, host: '127.0.0.1', intervalMs: 250, activeMinutes: 30, rescanMs: 3000,
@@ -78,6 +80,8 @@ export class RunnerGroup {
     this.late = late;
     this.waiting = (late?.waiting ?? []).map(({ id, root }) => ({ id, root, busy: false, failed: false }));
     this.started = false;
+    this.firstRescanned = false; // D1: 첫 rescan 은 층 규칙이 있는 Runner 를 다른 Runner 뒤에 (rescan())
+    this.firstPassWaitMs = FIRST_PASS_WAIT_MS; // 그래도 이보다 오래 기다리지는 않는다 (멈춘 마운트가 Grok 을 막지 않게)
     this.closed = false;
     this.timer = null;
     this.checking = null;
@@ -102,7 +106,26 @@ export class RunnerGroup {
     }
   }
 
-  rescan() { return Promise.all(this.entries.map(({ runner }) => runner.rescan())); }
+  // D1 시작 순서 (CONTRACT 4.6 Floors): 첫 rescan 에서 층 규칙이 있는 Runner (Grok 의 도구 전용 워크트리는 이미 있는
+  // 층을 라벨로 찾는다) 는 다른 Runner 의 첫 탐색(붙이기, 알리기)이 끝난 뒤에 탐색한다 (길어도 firstPassWaitMs 까지).
+  // 그 Runner 의 rescan 주기도 이 약속을 기다리므로 시작 순서가 층을 정하지 않는다. 다른 Runner (Claude) 는 기다리지
+  // 않고, 그 뒤의 rescan 은 모두 함께 돈다.
+  rescan() {
+    if (this.firstRescanned) return Promise.all(this.entries.map(({ runner }) => runner.rescan()));
+    this.firstRescanned = true;
+    const ruled = (runner) => runner.floorRule === true;
+    const plain = this.entries.map(({ runner }) => (ruled(runner) ? null : runner.rescan()));
+    const gate = new Promise((resolve) => {
+      const timer = setTimeout(resolve, this.firstPassWaitMs);
+      timer.unref?.();
+      Promise.all(plain.filter((p) => p !== null)).then(resolve, resolve).finally(() => clearTimeout(timer));
+    });
+    return Promise.all(this.entries.map(({ runner }, i) => {
+      if (!ruled(runner)) return plain[i];
+      runner.gate = gate;
+      return runner.rescan();
+    }));
+  }
 
   // F1: 시작할 때 루트가 없거나 읽을 수 없던 어댑터를 다시 확인한다. 겹치지 않는다 (돌고 있으면 그 약속을 돌려준다).
   // 돌려주는 값: 이번에 켜진 어댑터 id 목록.
@@ -175,11 +198,14 @@ export class RunnerGroup {
   }
 }
 
-// 어댑터 id -> 루트 (절대 경로). Claude Code 는 root 옵션, 나머지는 roots[id] 아니면 설명자의 기본 루트.
+// 어댑터 id -> 루트 (절대 경로). Claude Code 는 root 옵션, 나머지는 roots[id] 가 있을 때만: start() 는 다른 어댑터의 기본
+// 루트(~/.grok ...)로 돌아가지 않는다. 기본 루트는 bin 이 채운다 (defaultRoots), 그래서 루트를 주지 않은 호출(테스트)은
+// 실제 기록 폴더를 확인하지도 읽지도 않는다 (ADAPTERS 10).
 function rootsFor(opts, adapters) {
   const out = {};
-  for (const [id, adapter] of Object.entries(adapters)) {
-    out[id] = id === CLAUDE ? opts.root : path.resolve(expandHome(opts.roots?.[id] ?? adapter.defaultRoot));
+  for (const id of Object.keys(adapters)) {
+    if (id === CLAUDE) out[id] = opts.root;
+    else if (typeof opts.roots?.[id] === 'string' && opts.roots[id] !== '') out[id] = path.resolve(expandHome(opts.roots[id]));
   }
   return out;
 }
@@ -225,8 +251,8 @@ async function createRunners({ opts, store, log, onStatus }) {
  * @param {object} options port, host, root (Claude Code root), intervalMs, activeMinutes, rescanMs, publicDir,
  *   pingMs (SSE heartbeat, default 15000), idleMs (idle() loop, default 1000), ringSize, log,
  *   agents (adapter ids to enable, default: every implemented adapter whose root exists), roots ({ <agent id>: dir }
- *   for the non-Claude adapters), auth (opt-in per-run token: every route then needs the cookie that GET /?t=<token>
- *   sets), replay (a main transcript path: replay it instead of tailing --root), speed (replay factor), loop (replay
+ *   for the non-Claude adapters; one without a root here is not started, the bin passes defaultRoots()), auth (opt-in
+ *   per-run token: every route then needs the cookie that GET /?t=<token> sets), replay (a main transcript path: replay it instead of tailing --root), speed (replay factor), loop (replay
  *   again). Test hooks: deps (claude-code deps override; a fake scan also skips the root check), adapters (registry
  *   override), probe ((root, id) => error code | null, replaces the root check), probeTimeoutMs (root check time
  *   limit, default 2000), replayTiming ({ maxGapMs, holdMs, restartMs, statusMs }).

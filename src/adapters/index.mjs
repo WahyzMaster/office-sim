@@ -2,6 +2,7 @@
 // 루트 확인은 주입할 수 있는 probe 로 한다 (테스트는 임시 폴더나 가짜 probe 만 쓴다).
 import fsp from 'node:fs/promises';
 import { claudeCode } from './claude-code.mjs';
+import { grok } from './grok/index.mjs';
 
 /** Every adapter id the CLI accepts; the `agent` of a `session` event is one of these. */
 export const KNOWN_AGENTS = Object.freeze(['claude-code', 'codex', 'grok', 'antigravity']);
@@ -11,8 +12,23 @@ export const AGENT_LABELS = Object.freeze({
   'claude-code': 'Claude Code', codex: 'Codex', grok: 'Grok', antigravity: 'Antigravity',
 });
 
-/** Implemented adapters by id. P5a: claude-code only (Grok, Codex, Antigravity come in P5c-P5e, D11). */
-export const ADAPTERS = Object.freeze({ 'claude-code': claudeCode });
+/** Implemented adapters by id: claude-code (P5a) and grok (P5c). Codex and Antigravity come in P5d-P5e (D11). */
+export const ADAPTERS = Object.freeze({ 'claude-code': claudeCode, grok });
+
+const CLAUDE = 'claude-code';
+
+/**
+ * The default root of every implemented adapter except claude-code (whose root is the start() `root` option), as the
+ * descriptors give it (`~` not expanded): what the bin passes as `roots` under the --<id>-root flags. start() itself
+ * never falls back to these, so a caller (a test) that gives no root for an adapter never reads its real folder.
+ */
+export function defaultRoots(adapters = ADAPTERS) {
+  const out = {};
+  for (const [id, a] of Object.entries(adapters)) {
+    if (id !== CLAUDE && typeof a?.defaultRoot === 'string' && a.defaultRoot !== '') out[id] = a.defaultRoot;
+  }
+  return out;
+}
 
 export function isKnownAgent(id) {
   return typeof id === 'string' && KNOWN_AGENTS.includes(id);
@@ -72,6 +88,8 @@ export function probeWithin(probe, root, id, ms, { unref = false, onSettle = nul
 /**
  * Which adapters run (D3): every implemented adapter whose root can be opened. `agents` (when given) narrows the set;
  * a requested id that is known but not implemented is reported in `notImplemented` and skipped; an unknown id throws.
+ * An implemented adapter other than claude-code with no root in `roots` is skipped too (not probed, not reported):
+ * default roots are the caller's choice (defaultRoots(), the bin), never this function's.
  * @param {{ agents?: string[]|null, roots?: Record<string, string>, adapters?: object,
  *           probe?: (root: string, id: string) => (string|null|Promise<string|null>), probeTimeoutMs?: number }} o
  *   roots: the resolved root per adapter id (the caller expands ~). probe: null = usable, else an error code.
@@ -93,6 +111,7 @@ export async function selectAdapters({
       continue;
     }
     const root = roots?.[id];
+    if (id !== CLAUDE && (typeof root !== 'string' || root === '')) continue; // 루트를 받지 않은 어댑터: 기본 루트를 읽지 않는다
     const code = await probeWithin(probe, root, id, limit);
     if (code) out.off.push({ id, code });
     else out.enabled.push({ id, adapter, root });
