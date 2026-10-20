@@ -425,3 +425,17 @@ test('one tool_call never counted (an oversize id): a held request resyncs at th
   assert.deepEqual([ap(s2).held, ap(s2).stats.misses], [[1], 0]);
   assert.deepEqual(types(s2.apply(shell(g2))), ['tool_start', 'tool_wait'], 'the late call still pairs');
 });
+
+test('an approval-only setInfo never announces the session: the stream minus tool_wait equals the stream without events.jsonl', () => {
+  // P5g recount: the first caught-up read of a tail comes with no facts; it reached core.setInfo({}) and its session check,
+  // so a session with nothing visible yet got a session event the same session without events.jsonl never sends
+  const { s, g } = mk();
+  assert.deepEqual(readUp(s, [], T0), [], 'fresh session, no facts: nothing');
+  assert.deepEqual(read(s, [], T0 + 3000, true), [], 'a reset with no facts: nothing');
+  const plain = mk().s;
+  const recs = [...turn(g), shell(g)];
+  assert.deepEqual(types(run(s, recs)), types(run(plain, recs)), 'the session event still comes with the first record');
+  assert.deepEqual(readUp(s, [], T0 + 6000), [], 'later, still nothing extra');
+  // a sidecar title next to the approval still reaches the core (GrokMeta merges summary.json info with the fact)
+  assert.deepEqual(types(s.setInfo({ title: 'Renamed in summary.json', approval: { facts: [], seenAt: T0 + 9000, reset: false, caughtUp: true } })), ['session']);
+});

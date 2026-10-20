@@ -83,7 +83,8 @@ export class GrokSession {
   setInfo(info) {
     if (!isObj(info) || !Object.hasOwn(info, 'approval')) return this.core.setInfo(info);
     const { approval, ...rest } = info;
-    const out = this.core.setInfo(rest);
+    // approval 만 온 호출은 코어의 세션 확인을 건드리지 않는다(events.jsonl 이 없을 때와 같은 session 흐름)
+    const out = Object.keys(rest).length ? this.core.setInfo(rest) : [];
     for (const it of this._approval.onFact(approval)) for (const ev of this.core.apply(it)) out.push(ev);
     return out;
   }
