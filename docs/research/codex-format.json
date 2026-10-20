@@ -1,0 +1,267 @@
+{
+ "about": "Codex session transcript study (2026-10-20). Structure-only: key names, value types, short enum vocabularies and counts read from ~/.codex on one Mac (python scripts that print shapes, never values), plus the openai/codex main-branch sources for semantics. No prompts, commands, paths, titles, branches or ids are reproduced; placeholders stand in for every value. Counts are from the whole local corpus unless a note says otherwise. Upstream main may be newer than the local builds (newest local rollout: 0.163.0-alpha).",
+ "tool": "codex",
+ "versionsSeen": {
+  "binaryOnPath": "codex-cli 0.157.0 (codex --version). Rollouts are written by whichever client ran the thread, so the newest files (0.162/0.163 alpha, originator Codex Desktop) are newer than this binary: key behaviour off session_meta.payload.cli_version, never off the installed CLI.",
+  "rolloutFilesByCliMinor": {"0.40": 18, "0.42": 84, "0.45": 27, "0.47": 5, "0.50": 24, "0.53": 27, "0.55": 18, "0.56": 8, "0.57": 14, "0.58": 12, "0.61": 10, "0.63": 27, "0.65": 1, "0.66": 7, "0.71": 6, "0.72": 12, "0.73": 7, "0.76": 7, "0.77": 39, "0.78": 4, "0.80": 17, "0.81": 4, "0.84": 2, "0.87": 21, "0.88": 4, "0.89": 19, "0.91": 4, "0.92": 9, "0.93": 4, "0.94": 4, "0.95": 3, "0.96": 3, "0.98": 17, "0.99": 11, "0.100": 18, "0.101": 13, "0.104": 337, "0.105": 41, "0.107": 58, "0.108": 187, "0.115": 57, "0.116": 49, "0.117": 107, "0.118": 156, "0.119": 10, "0.122": 88, "0.124": 21, "0.125": 3, "0.126": 7, "0.128": 205, "0.129": 8, "0.130": 36, "0.131": 5, "0.135": 2, "0.136": 8, "0.137": 76, "0.138": 9, "0.140": 61, "0.142": 209, "0.144": 230, "0.145": 289, "0.146": 239, "0.147": 279, "0.148": 166, "0.149": 345, "0.150": 59, "0.151": 141, "0.153": 9, "0.154": 82, "0.155": 117, "0.158": 47, "0.159": 84, "0.160": 49, "0.162": 769, "0.163": 78},
+  "notes": "5233 rollout files, first record always session_meta. Many alpha builds (e.g. 0.162.0-alpha.17.2 is the single most common exact version, 640 files). The plain (uncompressed) .jsonl files are all 0.154-0.163."
+ },
+ "corpus": {
+  "files": 5233,
+  "sessionsDir": {"jsonl": 448, "jsonlZst": 4648, "suffixedSegments": 6},
+  "archivedDir": {"jsonlZst": 137},
+  "lines": 4070420,
+  "unparsableLines": 0,
+  "bytes": {"plainJsonl": 1637562158, "zstCompressedSessions": 2483095644, "zstCompressedArchived": 44828189},
+  "plainJsonlSize": {"min": 50468, "median": 925898, "max": 244080544},
+  "longestLinePerFile": {"p50": 53762, "p90": 219013, "p99": 2252549, "max": 10394069},
+  "newestMtimeAgeMinutes": 1206,
+  "oldestFileAgeDays": 390.6,
+  "plainOldestAgeDays": 8.9,
+  "zstNewestAgeDays": 8.1,
+  "monthsCovered": "2025-09 .. 2026-10",
+  "notes": "No thread was appending at study time: newest rollout mtime about 20 h old, while the desktop app was running (26 processes named like codex, ~/.codex/.codex-global-state.json and logs_2.sqlite-wal modified within 3 min). Liveness was therefore judged from file metadata and the recorder source, not by watching a file grow."
+ },
+ "locations": [
+  {"pattern": "~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<YYYY-MM-DDTHH-MM-SS>-<uuid>.jsonl", "role": "live transcript of one thread (main session, spawned subagent, guardian reviewer, review). Append-only, one JSON object per line.", "count": 447, "notes": "Directory date and filename timestamp are LOCAL time (5233/5233 filenames match session_meta time in the local zone; recorder uses OffsetDateTime::now_local for the path). In-record timestamps are UTC. <uuid> == session_meta.payload.id in 5233/5233 (first uuid of the name)."},
+  {"pattern": "~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<iso-ts>-<uuid>.jsonl.zst", "role": "same transcript, zstd-compressed in place once older than 7 days (MIN_ROLLOUT_AGE); the .jsonl is deleted after the .zst is published.", "count": 4643, "notes": "Locally: oldest plain file 8.9 d, newest .zst 8.1 d. Compression keeps mtime (sample of 150: p50 mtime - last record ts = 0.001 s). When a compressed thread is resumed the recorder decompresses it back to .jsonl before appending (materialize_rollout_for_append), so a .jsonl can reappear in an old date directory and the .zst vanish."},
+  {"pattern": "~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<iso-ts>-<uuid>_<uuid2>.jsonl[.zst]", "role": "continuation segment of the same thread written after a revert/rollback (recorder: 'A revert adds a suffix: _<rollout_id>').", "count": 6, "notes": "6 files over 4 thread ids (1 plain, 5 zst). First uuid == session_meta.id; first line is session_meta with ordinal > 0 (676 .. 46010), and that first ordinal is LOWER than the last ordinal of the previous segment (e.g. previous 0..48513, segment starts 46010): records at ordinal >= the segment start supersede the previous file's tail."},
+  {"pattern": "~/.codex/archived_sessions/rollout-<iso-ts>-<uuid>.jsonl.zst", "role": "archived threads, flat directory (no date folders), zst only here.", "count": 137, "notes": "state_5.sqlite threads.archived = 1 for 137 rows."},
+  {"pattern": "~/.codex/session_index.jsonl", "role": "thread name index: {id, thread_name, updated_at}", "count": 1786, "notes": "1786 lines, 1698 distinct ids, 88 repeated ids (append-only, latest line wins). 1781 ids exist in threads; thread_name == threads.name for 1694 of them. Last modified ~20 h before the study, same as the newest rollout."},
+  {"pattern": "~/.codex/state_5.sqlite (table threads, thread_spawn_edges, thread_attachments, projects, ...)", "role": "thread catalog maintained by Codex: rollout_path, cwd, title, name, git_branch, source, thread_source, agent_nickname/role/path, cli_version, model, archived, timestamps.", "count": 5227, "notes": "threads 5227 rows, thread_spawn_edges 1948 rows (parent_thread_id, child_thread_id, status open 1663 | closed 285). rollout_path always ends in .jsonl even when only <path>.zst exists (4780 rows). WAL mode; open read-only."},
+  {"pattern": "~/.codex/thread_history_1.sqlite (thread_items, thread_turns, thread_history_projection_state)", "role": "app-server projection of the rollouts into items and turns, with the byte offset / ordinal it has consumed.", "count": 392417, "notes": "thread_items 392417 rows (item_type camelCase: agentMessage, reasoning, commandExecution, userMessage, fileChange, mcpToolCall, subAgentActivity, ...), thread_turns 29284 rows (status completed 28645, interrupted 424, inProgress 109, failed 106; error_json non-null 106), projection_state 5232 rows (next_rollout_byte_offset, next_rollout_ordinal). 1.8 GB. Derived data; the jsonl stays the source of truth."},
+  {"pattern": "~/.codex/sqlite/{state_5.sqlite, codex-dev.db, codex-thread-summaries-dev.db, logs_2.sqlite, goals_1.sqlite, memories_1.sqlite}", "role": "second, desktop-app side database set (older copy of state_5 with 2026 thread rows; codex-dev.db has local_thread_catalog with display_title, cwd, git_branch, source_kind; thread_turn_summaries).", "count": 707, "notes": "707 = local_thread_catalog rows. Not needed for tailing; possible title fallback (미확인 which store the app treats as current)."},
+  {"pattern": "~/.codex/history.jsonl", "role": "composer prompt history {session_id, text, ts}", "count": 5929, "notes": "318 distinct session ids. Holds raw prompt text: sensitive, not needed by the adapter (the rollout has the prompt)."},
+  {"pattern": "~/.codex/.codex-global-state.json", "role": "desktop (Electron) UI state, 48 top-level keys (pinned-thread-ids, project-order, thread-workspace-root-hints, thread-project-assignments, thread-titles {titles, order}, ...).", "count": 48, "notes": "thread-titles.titles had 0 entries here, so titles are not taken from this file. Rewritten every few minutes with .tmp/.bak siblings."},
+  {"pattern": "~/.codex/thread-writer-locks/<name>.lock", "role": "per-thread writer lock files (recorder holds a writer lock until queued writes finish).", "count": 9, "notes": "Zero-byte files. Whether presence or lock state means 'thread open now' is 미확인."},
+  {"pattern": "~/.codex/logs_2.sqlite (+ -wal)", "role": "tracing log table logs(ts, level, target, thread_id, feedback_log_body, ...)", "count": 24544, "notes": "Written continuously while the app runs. Not a transcript."},
+  {"pattern": "~/.codex/external_agent_session_imports.json", "role": "{records: [], detected_connector_records: [{source_path, connector_names[]}]}", "count": 49, "notes": "49 detected connector records, 0 imported records. Not a transcript source."},
+  {"pattern": "~/.codex/worktrees/<id>/<name>", "role": "Codex-managed git worktrees; a session cwd can point here.", "count": 152, "notes": "Session cwds: 4846 under ~/<path>, 218 under <repo>/.claude/worktrees/<name> or <repo>/.worktrees/<name>, 152 under ~/.codex/worktrees/<id>/<name>, 17 equal to ~."}
+ ],
+ "findings": [
+  {
+   "topic": "Line envelope",
+   "example": "{\"timestamp\":\"<YYYY-MM-DDTHH:MM:SS.mmmZ>\",\"ordinal\":<int>,\"type\":\"<record type>\",\"payload\":{...},\"metadata\":{...}?}",
+   "count": "4070420 lines, 0 unparsable. ordinal present on 4070389 (missing only in the 1 history_mode=legacy file, 31 lines). metadata on 118410. One timestamp format (ms, Z) on every line.",
+   "notes": "ordinal == 0-based line index in 5226/5233 files (the 6 rollback segments start higher, the legacy file has none); ordinals strictly increase within a file in 5232/5233. Timestamps go backwards in 16 records (16 files) - order by file position/ordinal, not by time. timestamp is stamped at write time (recorder: OffsetDateTime::now_utc). metadata key sets seen: client_authored (always), user_input_order, retained_source, mcp_attribution, fallback_token_limit_override, inherited_user_message, guardian_sources, guardian_retained_omissions, guardian_source_order_guidance, sender_user_messages."
+  },
+  {
+   "topic": "Record types (type / payload.type), counts, files, cli_version range",
+   "example": {
+    "event_msg/token_count": [800282, 4895, "0.40-0.163"],
+    "event_msg/item_completed": [695830, 4985, "0.40-0.163"],
+    "response_item/reasoning": [515989, 4834, "0.40-0.163"],
+    "response_item/function_call": [498056, 2790, "0.40-0.163"],
+    "response_item/function_call_output": [497742, 2790, "0.40-0.163"],
+    "response_item/message": [243114, 5055, "0.40-0.163"],
+    "turn_context": [232032, 4908, "0.40-0.163"],
+    "response_item/custom_tool_call_output": [151240, 1867, "0.45-0.163"],
+    "response_item/custom_tool_call": [151155, 1867, "0.45-0.163"],
+    "token_usage_record": [71183, 1104, "0.153.4-0.163"],
+    "event_msg/task_started": [53662, 5006, "0.40-0.163"],
+    "event_msg/task_complete": [52195, 4841, "0.40-0.163"],
+    "event_msg/thread_settings_applied": [30884, 2354, "0.142.5-0.163"],
+    "response_item/agent_message": [22130, 1543, "0.144-0.163"],
+    "event_msg/thread_goal_updated": [15411, 5, "0.131-0.137"],
+    "inter_agent_communication_metadata": [13770, 939, "0.144-0.163"],
+    "world_state": [8658, 2827, "0.142.5-0.163"],
+    "session_meta": [5564, 5233, "0.40-0.163"],
+    "compacted": [4722, 1453, "0.40-0.163"],
+    "response_item/web_search_call": [1690, 228, "0.91-0.142.5"],
+    "response_item/tool_search_call": [1540, 242, "0.117-0.146"],
+    "response_item/tool_search_output": [1540, 242, "0.117-0.146"],
+    "response_item/compaction": [1002, 1002, "0.150-0.163"],
+    "event_msg/turn_aborted": [887, 659, "0.40-0.163"],
+    "response_item/additional_tools": [65, 65, "0.163"],
+    "retained_context/verified_answer": [64, 12, "0.154-0.162"],
+    "response_item/image_generation_call": [9, 4, "0.142.3-0.142.5"],
+    "event_msg/user_message": [2, 1, "0.160 (legacy-mode file only)"],
+    "event_msg/agent_message": [2, 1, "0.160 (legacy-mode file only)"]
+   },
+   "count": "29 distinct groups over 4070420 lines.",
+   "notes": "No local_shell_call, no event_msg error/stream_error/exec_command_*/patch_apply_*/agent_reasoning/exec_approval_request anywhere. The rollout persistence policy explains it: in history_mode=paginated (5232/5233 files) only token_count, thread_goal_updated, thread_rolled_back, turn_aborted, task_started, task_complete, thread_settings_applied and item_completed are persisted from EventMsg; approvals, errors, warnings, PlanUpdate, ItemStarted, deltas and *_begin/*_end are transient (policy.rs). Old versions (0.40 ..) also show item_completed and ordinal, so those files were evidently rewritten into the paginated format by a migration (state_5 has rollout_migration_state / rollout_migration_skipped_rollouts tables; the mechanism is 미확인)."
+  },
+  {
+   "topic": "session_meta (always line 0)",
+   "example": "{\"type\":\"session_meta\",\"payload\":{\"id\":\"<uuid>\",\"session_id\":\"<uuid>\",\"timestamp\":\"<iso>\",\"cwd\":\"<cwd>\",\"originator\":\"<originator>\",\"cli_version\":\"<ver>\",\"source\":\"vscode\"|\"cli\"|\"exec\"|{\"subagent\":<SubAgentSource>},\"thread_source\":\"user\"|\"subagent\"|\"guardian_review\"?,\"model_provider\":\"openai\",\"base_instructions\":{...},\"history_mode\":\"paginated\",\"git\":{\"branch\":\"<branch>\",\"commit_hash\":\"<sha>\",\"repository_url\":\"<url>\"}|null,\"parent_thread_id\":\"<uuid>\"?,\"forked_from_id\":\"<uuid>\"?,\"agent_nickname\":\"<text>\"?,\"agent_role\":\"<role>\"?,\"agent_path\":\"/root/<name>\"? (first segment 'root' in 975/975),\"subagent_history_start_ordinal\":<int>?,\"multi_agent_version\":\"v1\"|\"v2\"|\"disabled\"?,\"runtime_workspace_roots\":[\"<path>\"],\"context_window\":{...},\"creator_user_id\":\"<id>\",\"creator_account_id\":\"<id>\"}}",
+   "count": "5233/5233 files start with it. 331 files hold a second session_meta line: 330 carry another thread's id and sit inside inherited history (before subagent_history_start_ordinal), 1 repeats the same id.",
+   "notes": "id == filename uuid 5233/5233. source: subagent object 4196, vscode 496, cli 347, exec 194. thread_source: subagent 1926, absent 1869, guardian_review 1166, user 272. history_mode: paginated 5232, legacy 1. multi_agent_version: absent 2166, disabled 2112, v2 895, v1 60. git: {branch,commit_hash,repository_url} 4446, null 526, {commit_hash,repository_url} 123, {branch,commit_hash} 109, {} 29. session_id is documented as 'equal to the root thread's ID' but locally it equals id for 1018 thread_spawn files and the parent for 826: do not use it as the session key. creator_* fields are account ids: never surface them."
+  },
+  {
+   "topic": "Clients: desktop app vs CLI vs IDE (originator x source)",
+   "example": "payload.originator in {\"Codex Desktop\",\"codex_work_desktop\",\"codex_cli_rs\",\"codex-tui\",\"codex_exec\",\"codex_vscode\",\"Claude Code\"}; payload.source in {\"vscode\",\"cli\",\"exec\",{\"subagent\":...}}",
+   "count": "Codex Desktop 3848 (subagent 3539, vscode 309; cli minor 0.95-0.163), codex_cli_rs 492 (cli 332, subagent 121, vscode 39; 0.40-0.104), codex_work_desktop 351 (0.147-0.151), codex_exec 280 (exec 192, subagent 88), codex_vscode 158, codex-tui 87 (0.118-0.145), Claude Code 17 (third-party app-server client).",
+   "notes": "The desktop app writes source \"vscode\" for its main threads, so source alone does not tell desktop from the VS Code extension; originator does. Desktop and CLI threads use the same record format and the same sessions directory. agent: 'codex' covers all of them."
+  },
+  {
+   "topic": "Subagent and reviewer sources",
+   "example": "{\"subagent\":{\"thread_spawn\":{\"parent_thread_id\":\"<uuid>\",\"depth\":<int>,\"agent_path\":\"/root/<name>\"|null,\"agent_nickname\":\"<text>\"|null,\"agent_role\":\"<role>\"|null}}} | {\"subagent\":{\"other\":\"guardian\"}} | {\"subagent\":\"review\"}",
+   "count": "thread_spawn 1948 (depth 1: 1844, 2: 97, 3: 7), other=guardian 2171, \"review\" 77. Every thread_spawn file has its parent in the corpus (1948/1948); payload.parent_thread_id is also set on 951 of them and always equals thread_spawn.parent_thread_id. Guardian files: payload.parent_thread_id set and present in corpus 2095/2171.",
+   "notes": "agent_role: built-ins explorer 660, worker 310, default 82, awaiter 2, null 526, plus 9 other role names in 368 files (not listed; user-configured agents). agent_path has 2-4 '/'-separated segments starting with '/'. Guardian = automatic approval reviewer (approvals_reviewer auto_review, model codex-auto-review); thread_source for these is guardian_review 1166 or subagent 958 or absent 47, so test source.subagent.other == 'guardian', not thread_source. These 2171 files are 41% of the corpus."
+  },
+  {
+   "topic": "Inherited context and subagent_history_start_ordinal",
+   "example": "line0 session_meta{subagent_history_start_ordinal: H} | ordinals 1..H-1 = inherited model context (may contain the parent's session_meta, compacted, response_item/compaction, messages) | ordinals >= H = this subagent's own turns",
+   "count": "Present in 4103 files (thread_spawn 1928/1948, guardian 2098/2171, review 77/77). Files with records after H (guardian 770, all 0.154+; spawn-fork 339): the pre-H records are written in a burst at birth (time after line 0: p50 0.0 s, p90 0.0 s) and H is small (guardian p50 2, spawn-fork p50 16). Files with no records after H (H == line count) 2990: spawn-nofork 875 (all < 0.154), spawn-fork 710 (< 0.154), guardian 1328 (186 of them 0.154+), review 77; there the pre-H block spans minutes (non-fork spawns p50 275 s) and holds the child's own task_started turns (875/875 non-fork).",
+   "notes": "Upstream doc: 'First rollout ordinal that belongs to this subagent's own projected history. Earlier rollout records are inherited model context and stay out of child turn/item projection.' Pre-H records never carried another thread_id in payload.thread_id (own id or none), so thread_id cannot detect inheritance; the ordinal can. Fork links: forked_from_id set in 1059 files and equals the spawn parent in 1053/1053; forked_from_ordinal_exclusive and history_base did not appear locally."
+  },
+  {
+   "topic": "Turn markers",
+   "example": "{\"type\":\"event_msg\",\"payload\":{\"type\":\"task_started\",\"turn_id\":\"<id>\",\"root_turn_id\":\"<id>\",\"started_at\":<unix-s>,\"model_context_window\":<int>,\"collaboration_mode_kind\":\"default\"|\"plan\",\"turn_attribution\":{...}}} ... {\"type\":\"event_msg\",\"payload\":{\"type\":\"task_complete\",\"turn_id\":\"<id>\",\"root_turn_id\":\"<id>\",\"last_agent_message\":\"<text>\"|null,\"started_at\":<s>,\"completed_at\":<s>,\"duration_ms\":<int>,\"time_to_first_token_ms\":<int>,\"error\":{\"codex_error_info\":...,\"message\":\"<text>\"}?}} | {\"type\":\"event_msg\",\"payload\":{\"type\":\"turn_aborted\",\"reason\":\"interrupted\",\"turn_id\":\"<id>\",\"started_at\"?,\"completed_at\"?,\"duration_ms\"?,\"root_turn_id\"?}}",
+   "count": "task_started 53662, task_complete 52195, turn_aborted 887 (reason interrupted 887). collaboration_mode_kind default 51878, plan 1784. task_complete.error present 106 (keys codex_error_info, message) = thread_turns.status failed 106. 787 task_started followed by another task_started with no end; 279 task_complete without a preceding start; 73 files end inside an open turn.",
+   "notes": "Upstream TurnAbortReason: interrupted, replaced, review_ended, budget_limited (only interrupted seen). turn_context (232032) follows task_started and carries per-turn cwd/model/effort; it repeats within a turn in older files. Serialized names are task_started/task_complete even though the Rust variants are TurnStarted/TurnComplete."
+  },
+  {
+   "topic": "turn_context, thread_settings_applied, world_state",
+   "example": "{\"type\":\"turn_context\",\"payload\":{\"turn_id\":\"<id>\"?,\"cwd\":\"<cwd>\",\"approval_policy\":\"never\"|\"on-request\",\"approvals_reviewer\":\"auto_review\",\"sandbox_policy\":{...},\"model\":\"<model>\",\"effort\":\"low|medium|high|xhigh|ultra\",\"summary\":\"<mode>\",\"collaboration_mode\":{...},\"personality\"?,\"current_date\"?,\"timezone\"?}} | {\"type\":\"world_state\",\"payload\":{\"full\":<bool>,\"state\":{\"environments\":{\"current_date\"?,\"environments\":{\"local\":{\"cwd\":\"<cwd>\",\"shell\":\"<shell>\",\"status\":\"<s>\"}}?,\"filesystem\"?,\"subagents\"?,\"timezone\"?},\"agents_md\"?,\"collaboration_mode\"?,\"model\"?,\"permissions\"?,...}}}",
+   "count": "every turn_context has cwd and model. turn_context.cwd differed from session_meta.cwd in 0 of 5233 files. thread_settings_applied 30884 (approval_policy never 27790 / on-request 3094; collaboration_mode.mode default 30482 / plan 402).",
+   "notes": "cwd is stable per thread here; the session_meta cwd is enough. world_state is a context diff (full/partial) with prompt material (agents_md, skills, instructions): ignore except as a cwd fallback."
+  },
+  {
+   "topic": "Human prompt vs injected context",
+   "example": "{\"type\":\"event_msg\",\"payload\":{\"type\":\"item_completed\",\"thread_id\":\"<uuid>\",\"turn_id\":\"<id>\",\"item\":{\"type\":\"UserMessage\",\"id\":\"<id>\",\"content\":[{\"type\":\"text\",\"text\":\"<text>\",\"text_elements\":[]}|{\"type\":\"image\",\"image_url\":\"<url>\"}|{\"type\":\"local_image\",\"path\":\"<path>\"}],\"client_id\":\"<id>\"?},\"started_at_ms\"?,\"completed_at_ms\":<ms>}}",
+   "count": "UserMessage items 44324 (4015 files, 0.40-0.163). By thread_source (own records only): guardian_review 10190, absent 8504, user 2617. First text: plain 19604, '#' heading 1171, <heartbeat> 274, <in-app-browser-context> 108, <send_user_message_question_reply> 107, <environment_context> 33, <task> 4, <codex_delegation> 1. Preceded by response_item/message(user) 14690 or task_started 6544.",
+   "notes": "response_item/message role=user (66283) mixes the prompt with injected context: '# AGENTS.md instructions ...' 4445, <subagent_notification> 3093, <environment_context> 1562, <recommended_plugins> 537, <turn_aborted> 514, <heartbeat> 298, <codex_internal_context> 287, <user_instructions> 167, <goal_context> 149, <hook_prompt> 96, <skill> 84, <user_action> 72, ... and role=developer (13215: <permissions>, <collaboration_mode>, <multi_agent_mode>, <app-context>, <skills_instructions>, <model_switch>, ...). The UserMessage item holds only what the user (or an automation/heartbeat) submitted. Rule: prompt = UserMessage item text, skip text starting with '<', skip guardian threads."
+  },
+  {
+   "topic": "Assistant text",
+   "example": "{\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"id\":\"<id>\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"<text>\"}],\"phase\":\"commentary\"|\"final_answer\"?,\"status\":\"completed\"?}} and (>= paginated) {\"type\":\"event_msg\",\"payload\":{\"type\":\"item_completed\",\"item\":{\"type\":\"AgentMessage\",\"id\":\"<id>\",\"content\":[{\"type\":\"Text\",\"text\":\"<text>\"}],\"phase\":\"commentary\"|\"final_answer\"?,\"questions\"?,\"delivery\":\"async\"?}}}",
+   "count": "assistant messages 163616 (phase commentary 111848, final_answer 45399, none 6369). AgentMessage items 166248 (phase commentary 110010, final_answer 43261).",
+   "notes": "In paginated files an assistant message normally appears twice, as the AgentMessage item and right after as response_item/message: emit 'say' from one source only (response_item/message exists in all versions). phase=final_answer marks the turn's closing answer."
+  },
+  {
+   "topic": "Reasoning",
+   "example": "{\"type\":\"response_item\",\"payload\":{\"type\":\"reasoning\",\"id\":\"<id>\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"<text>\"}],\"content\":null,\"encrypted_content\":\"<opaque>\"}} and {\"type\":\"event_msg\",\"payload\":{\"type\":\"item_completed\",\"item\":{\"type\":\"Reasoning\",\"id\":\"<id>\",\"summary_text\":[\"<text>\"],\"raw_content\":[]},\"started_at_ms\"?,\"completed_at_ms\":<ms>}}",
+   "count": "response_item/reasoning 515989: encrypted_content always; content null always; summary non-empty 190217, empty 325772. Reasoning items (own records, 276721): summary_text non-empty 203166, empty 73555; raw_content non-empty 0.",
+   "notes": "Raw reasoning text is never stored; only the optional summary is readable. thinking.text = first sentence of the first non-empty summary entry, else null. item_completed carries started_at_ms on 245366 of 695830 items and completed_at_ms on all, which can give durationMs when both exist."
+  },
+  {
+   "topic": "function_call / function_call_output",
+   "example": "{\"type\":\"response_item\",\"payload\":{\"type\":\"function_call\",\"id\":\"<id>\",\"name\":\"<tool>\",\"namespace\":\"<ns>\"?,\"arguments\":\"<JSON string>\",\"call_id\":\"call_<id>\",\"status\":\"completed\"?}} ... {\"type\":\"response_item\",\"payload\":{\"type\":\"function_call_output\",\"id\":\"<id>\"?,\"call_id\":\"call_<id>\",\"output\":\"<text or JSON string>\"|[{\"type\":\"input_text\",\"text\":\"<text>\"}|{\"type\":\"input_image\",\"image_url\":\"<url>\",\"detail\":\"high|original\"}]}}",
+   "count": "498056 calls / 497742 outputs. call_id starts with 'call_' in 649197 of 649211 function/custom calls. arguments is a JSON string in 498056/498056 (2 unparsable). Names (calls, files, versions): exec_command 266024 (1576, 0.93-0.146), shell_command 58409 (169, 0.57-0.95), shell 48331 (210, 0.40-0.58), write_stdin 38732 (694, 0.95-0.146), mcp__<server>__<tool> 20563 (554, 0.50-0.118), wait 10904 (421, 0.100-0.163), update_plan 9391 (966, 0.40-0.146), collaboration.send_message 9541, collaboration.wait_agent 6004, spawn_agent 4953 (0.100-0.129), wait_agent 2852, close_agent 2258, clock.sleep 1909 (0.154-0.163), collaboration.list_agents 1694, send_input 1654, collaboration.followup_task 1495, request_user_input 1441 (368, 0.94-0.162), collaboration.spawn_agent 1165 (0.144-0.162), view_image 342, search_tool_bm25 200, request_user_input_async 172 (0.154-0.162), collaboration.interrupt_agent 127, get_goal 108, list_mcp_resources 107, namespace mcp__<server> + <tool> 9321 (248, 0.117-0.162), codex_app.* 52, web.run 40, others < 40.",
+   "notes": "namespace values: collaboration, clock, codex_app, web, mcp__<server> (masked). Argument key sets: exec_command {cmd, workdir?, yield_time_ms?, max_output_tokens?, tty?, login?, justification?, sandbox_permissions?, prefix_rule?}; shell {command, workdir?, timeout_ms?, justification?, with_escalated_permissions?}; shell_command {command, workdir?, timeout_ms?, justification?, sandbox_permissions?, with_escalated_permissions?}; write_stdin {session_id, chars?, yield_time_ms?, max_output_tokens?}; update_plan {plan, explanation?}; request_user_input {questions}; spawn_agent {message, agent_type?, fork_context?, fork_turns?, task_name?, model?, reasoning_effort?}; send_message/followup_task {target, message}; wait_agent {timeout_ms, targets?|ids?}; close_agent {target|id}; send_input {id|target, message, interrupt?}; wait {cell_id, yield_time_ms, max_tokens, terminate?} or {ids, timeout_ms}; sleep {duration_ms}. justification/sandbox_permissions/with_escalated_permissions mark a call that asked for escalation (approval)."
+  },
+  {
+   "topic": "custom_tool_call: code-mode exec and apply_patch",
+   "example": "{\"type\":\"response_item\",\"payload\":{\"type\":\"custom_tool_call\",\"id\":\"<id>\",\"status\":\"completed\",\"call_id\":\"call_<id>\",\"name\":\"exec\"|\"apply_patch\",\"input\":\"<free-form text: a script for exec, '*** Begin Patch' grammar for apply_patch>\"}} ... {\"type\":\"response_item\",\"payload\":{\"type\":\"custom_tool_call_output\",\"id\":\"<id>\",\"call_id\":\"call_<id>\",\"output\":[{\"type\":\"input_text\",\"text\":\"<text>\"}|{\"type\":\"input_image\",...}]|\"<text or JSON string>\"}}",
+   "count": "exec 108303 calls (1083 files, 0.142.5-0.163); apply_patch 42852 (817 files, 0.45-0.146; input starts with '*** Begin Patch' 42852/42852). Outputs 151240: array of input_text 100491 (+ input_image 1038) for exec; apply_patch outputs JSON {output, metadata{exit_code, duration_seconds}} 33696 or text 9153.",
+   "notes": "From 0.142.5 the model drives almost everything through one 'exec' tool whose input is a script calling tools.<name>(...): mentions per exec call of tools.exec_command 68102, tools.write_stdin 11561, tools.apply_patch 8000, MCP tools 7519, tools.view_image 807, tools.update_plan 412, tools.tool_search 172. The inner calls have no response_item of their own; they surface as item_completed items (CommandExecution, FileChange, McpToolCall, ...) written while the exec call is still open (78579 of 101051 CommandExecution items fall between an exec call and its output). A failing script returns text starting 'Script failed' / 'Script error:'. In 0.163 an additional_tools response_item (role developer) lists the namespaces/tools offered (65 files)."
+  },
+  {
+   "topic": "Shell command shape (for the program-name summary)",
+   "example": "shell.arguments.command: [\"<argv0>\",\"<arg>\",...]; shell_command.arguments.command: \"<script string>\"; exec_command.arguments.cmd: \"<script string>\"; item CommandExecution: {\"type\":\"CommandExecution\",\"id\":\"<id>\",\"command\":[\"/bin/zsh\",\"-lc\",\"<script>\"],\"cwd\":\"<cwd>\",\"process_id\":\"<id>\",\"source\":\"unified_exec_startup\"|\"user_shell\",\"status\":\"completed\"|\"failed\",\"exit_code\":<int>,\"duration\":{\"secs\":<int>,\"nanos\":<int>},\"parsed_cmd\":[{\"type\":\"read|search|list_files|unknown\",\"cmd\":\"<text>\",\"name\"?,\"path\"?,\"query\"?}],\"aggregated_output\"?,\"stdout\"?,\"stderr\"?,\"formatted_output\"?}",
+   "count": "shell.command array 48267, string 43; shell_command.command string 58407 (array 2); exec_command.cmd string 266006 (array 1). CommandExecution.command is a 3-element argv in 101051/101051: zsh 101029, bash 22; argv[1] '-lc' 101031, '-c' 20. parsed_cmd types: unknown 53764, read 37124, search 11946, list_files 4873. status completed (exit 0) 92653, failed (non-zero exit) 8398.",
+   "notes": "argv[0] of CommandExecution is always the shell, so the program name must come from parsed_cmd[0] (cmd/name) or from the first word of the script (argv[2] / cmd / command string) after env assignments; old 'shell' argv may itself be [bash,-lc,<script>]. parsed_cmd.type read/search/list_files already classifies the common cases (path, query)."
+  },
+  {
+   "topic": "Tool output formats, exit codes, background processes",
+   "example": "shell (<=0.58): \"{\\\"output\\\":\\\"<text>\\\",\\\"metadata\\\":{\\\"exit_code\\\":<int>,\\\"duration_seconds\\\":<float>}}\"; shell_command: \"Exit code: <n>\\nWall time: <s>\\nOutput:\\n<text>\"; exec_command / write_stdin: \"Chunk ID: <id>\\nWall time: <s>\\nProcess exited with code <n> | Process running with session ID <n>\\nOriginal token count: <n>\\nOutput:\\n<text>\"",
+   "count": "JSON {output, metadata{exit_code, duration_seconds}} 80430 outputs (exit 0: 74793, 1: 4683, 2: 346, 124: 212, other non-zero 396). Text 'Exit code:' heads 64607 (shell_command, apply_patch). exec_command outputs: exited 244210, running 18279, '<tool> failed...' prefix 1722, 'aborted by user' 137, other 1574. write_stdin: exited 16017, running 21419, failed 617, aborted 15.",
+   "notes": "'Process running with session ID' means the command is still alive in the background; a later write_stdin with that session_id reports its exit. Non-zero exit is a failed tool, not an error record."
+  },
+  {
+   "topic": "Call/result pairing",
+   "example": "function_call.call_id == function_call_output.call_id; custom_tool_call.call_id == custom_tool_call_output.call_id",
+   "count": "Outputs without a known call: 5 (function_call_output) corpus-wide. Calls still open at EOF: 0 in 5017 files, 1-5 in 216 files (0 in all 448 plain files). Line distance call->output (650517 paired): 1 line 157553, 2 lines 220802, 3-5 lines 219070, 6-10 lines 50032, >10 lines 3060. Timestamp gap call->output: exec_command p50 0.18 s / p90 4.3 s / p99 34 s; exec p50 0.99 s / p90 10 s; other tools p50 0.23 s / p90 30 s.",
+   "notes": "Several calls can be written back to back before their outputs (parallel tool calls), so pair strictly by call_id. The call line is written before the tool runs (gap tracks tool duration), so tool_start can be emitted live. item_completed items have their own ids and no call_id."
+  },
+  {
+   "topic": "item_completed items (the structured activity log)",
+   "example": "{\"type\":\"event_msg\",\"payload\":{\"type\":\"item_completed\",\"thread_id\":\"<uuid>\",\"turn_id\":\"<id>\",\"item\":{\"type\":\"<ItemType>\",\"id\":\"<id>\",...},\"started_at_ms\":<ms>?,\"completed_at_ms\":<ms>}}",
+   "count": "Reasoning 315664, AgentMessage 166248, CommandExecution 101051 (0.118-0.163), UserMessage 44324, FileChange 20578 (0.118-0.163), McpToolCall 19007 (0.122-0.163), SubAgentActivity 15060 (0.144-0.163), ContextCompaction 4196, Extension 2682, CollabAgentToolCall 2214, WebSearch 1622, ImageView 1461, Plan 1418, HookPrompt 92, EnteredReviewMode 79, ExitedReviewMode 72, DynamicToolCall 61, FunctionCallOutput 1.",
+   "notes": "Only completion is persisted (ItemStarted is transient per policy.rs), so an inner command is seen once, when it ends. Key sets: FileChange {changes{<path>: {type add|update|delete, content | unified_diff, move_path}}, status completed|failed|declined, stdout?, stderr?}; McpToolCall {server, tool, status completed|failed, error{message}?, duration, readOnlyHint?, appName?, actionName?, connectorId?, pluginId?, linkId?}; WebSearch {query, action{type search|open_page|find_in_page, query?, queries?, url?, pattern?}, results?}; Extension {kind clock.sleep|web.search|image_gen.generation, ...}; SubAgentActivity {agent_thread_id, agent_path, kind started|interacted|completed|interrupted, model, reasoning_effort}; CollabAgentToolCall {tool wait, status, sender_thread_id, receiver_thread_ids, receiver_agents, agents_states}; ImageView {path}; Plan {text}; EnteredReviewMode {target{type baseBranch|custom|uncommittedChanges|commit, ...}, user_facing_hint}; ExitedReviewMode {review_output{findings, overall_correctness, ...}|null}. Item statuses overall: completed 133455, failed 9468, declined 7, generating 9. McpToolCall results are truncated and CommandExecution output above 64 KiB is middle-truncated before persisting."
+  },
+  {
+   "topic": "MCP tool calls",
+   "example": "old: function_call{name:\"mcp__<server>__<tool>\",arguments:\"<JSON>\"}; 0.117+: function_call{namespace:\"mcp__<server>\",name:\"<tool>\",arguments:\"<JSON>\"}; code mode: tools.<mcp tool>(...) inside exec + item McpToolCall{server:\"<server>\",tool:\"<tool>\",status}",
+   "count": "mcp__<server>__<tool> names 20563 calls (554 files, 0.50-0.118); namespace form 9321 calls (248 files, 0.117-0.162); McpToolCall items 19007 (failed 990, of which error object 199). Output JSON {result} 10919 or arrays.",
+   "notes": "server/tool names and connector ids are user-specific: apply the shared connector-uuid scrub to the server segment. list_mcp_resources / list_mcp_resource_templates / read_mcp_resource are built-in helpers."
+  },
+  {
+   "topic": "Plan / todo",
+   "example": "<=0.146: function_call{name:\"update_plan\",arguments:\"{\\\"explanation\\\":\\\"<text>\\\"?,\\\"plan\\\":[{\\\"step\\\":\\\"<text>\\\",\\\"status\\\":\\\"pending|in_progress|completed\\\"}]}\"}, output text; plan mode: item{type:\"Plan\",text:\"<markdown>\"} and assistant text containing <proposed_plan>",
+   "count": "update_plan calls 9391 (966 files, 0.40-0.146); plan items 38945: status completed 16947, pending 15011, in_progress 6987; item keys {step,status} 38931 (+explanation 13, notes 1). Code mode: 807 exec calls mention update_plan (412 with tools.update_plan) and leave no structured plan record. Plan items 1418 (0.94-0.162; '#' heading 1415, >= 2000 chars 1393, numbered lines 375, checkboxes 3, never JSON). Assistant messages with <proposed_plan> 1530. task_started.collaboration_mode_kind plan 1784.",
+   "notes": "update_plan maps 1:1 to the plan event (step -> content, same status enum). After 0.146 the checklist only exists inside exec script text (the PlanUpdate event is transient), so the board can only be filled by parsing the script or not at all. Plan items are plan-mode proposals in markdown (closer to exit_plan / planFromMarkdown)."
+  },
+  {
+   "topic": "Questions to the user, approvals",
+   "example": "function_call{name:\"request_user_input\",arguments:\"{\\\"questions\\\":[{\\\"id\\\":\\\"<id>\\\",\\\"header\\\":\\\"<text>\\\",\\\"question\\\":\\\"<text>\\\",\\\"options\\\":[{\\\"label\\\":\\\"<text>\\\",\\\"description\\\":\\\"<text>\\\"}]}]}\"} -> output \"{\\\"answers\\\":{...}}\"; request_user_input_async -> output {accepted}; item AgentMessage{questions:[{title,options:[str]|null}],delivery:\"async\"}",
+   "count": "request_user_input 1441 calls (368 files, 0.94-0.162), output {answers} 1426; question key set {header,id,options,question} 1863/1863, option keys {description,label} 1863/1863. request_user_input_async 172 (output {accepted} 172). AgentMessage items with questions + delivery async 172. Plan-mode replies arrive as UserMessage <send_user_message_question_reply> (107).",
+   "notes": "Approval prompts (ExecApprovalRequest, ApplyPatchApprovalRequest, RequestPermissions, ElicitationRequest, GuardianAssessment) are not persisted, so a pending approval cannot be seen in the rollout; only the escalation request in the call arguments (justification / sandbox_permissions / with_escalated_permissions) and the outcome text are."
+  },
+  {
+   "topic": "Errors, denials, interrupts",
+   "example": "turn_aborted{reason:\"interrupted\"}; task_complete.error{codex_error_info,message}; output text heads: \"aborted by user after <s>\", \"<tool> failed: ... rejected by user\", \"... approval required by policy, but AskForApproval is set to ...\", \"failed in sandbox ...\" / \"sandbox denied ...\", \"command timed out after <ms> milliseconds\", \"Script failed\"; item status failed|declined",
+   "count": "turn_aborted 887 (659 files); injected <turn_aborted> messages user 514 / developer 148. task_complete.error 106. Output heads (first 400 chars): 'aborted by user' 69 (exec_command outputs starting 'aborted by user' 137, write_stdin 15), 'rejected by user' 69, 'exec command rejected' 18, 'patch rejected' 5, 'approval required by policy' 116, 'failed in sandbox' 814, 'sandbox denied' 131, 'command timed out' 441, 'Script failed' 675, 'collab spawn failed' 290. FileChange declined 7, CommandExecution failed 8398, McpToolCall failed 990, DynamicToolCall failed 8.",
+   "notes": "No error/stream_error/warning records are persisted (policy), so API retries are invisible; the turn-level failure is task_complete.error (= thread_turns failed). Calls pending at turn_aborted: 0 in 421 of 424 checked aborts (outputs are written before the abort)."
+  },
+  {
+   "topic": "Multi-agent wiring inside the parent",
+   "example": "function_call{namespace:\"collaboration\",name:\"spawn_agent\",arguments:\"{\\\"agent_type\\\":\\\"<role>\\\"?,\\\"message\\\":\\\"<text>\\\",\\\"task_name\\\":\\\"<name>\\\",\\\"fork_turns\\\"?}\"} -> output {agent_id?, nickname?, task_name?}; item SubAgentActivity{agent_thread_id,agent_path,kind}; response_item{type:\"agent_message\",author:\"/root/...\",recipient:\"/root/...\",content:[{type:\"input_text\"},{type:\"encrypted_content\"}]} preceded by inter_agent_communication_metadata{trigger_turn:<bool>}",
+   "count": "spawn_agent 6141 calls (0.100-0.129 un-namespaced 4953, collaboration.* 0.144-0.162 1165, other 23); agent_type explorer 3923, worker 1152, default 387, awaiter 3, user-defined 461; fork_context true 3753 / false 399. spawn outputs: {agent_id,nickname} 2421, {agent_id,nickname,task_name} 904, {task_name} 879, {agent_id} 355. SubAgentActivity kinds: interacted 9462, completed 1194, started 826, interrupted 116. agent_message 22130 (author/recipient are '/'-rooted agent paths, 1-4 segments). 'collab spawn failed: agent thread limit reached' 290 outputs.",
+   "notes": "Child files are found by session_meta.source.subagent.thread_spawn.parent_thread_id (1948/1948 parents present); state_5.thread_spawn_edges has 1948 rows (same count) with status open|closed. SubAgentActivity.agent_thread_id gives the child id in the parent's own stream (started/completed/interrupted lifecycle)."
+  },
+  {
+   "topic": "Compaction",
+   "example": "{\"type\":\"compacted\",\"payload\":{\"message\":\"<text>\"|\"\",\"replacement_history\":[...],\"replacement_history_metadata\":[...],\"retained_context\":{...},\"window_number\":<int>,\"window_id\":\"<id>\",\"first_window_id\":\"<id>\",\"previous_window_id\":\"<id>\",\"compaction_response_id\":\"<id>\",\"latest_token_usage_record\":{...},\"resume_metadata\":{...}}} + {\"type\":\"response_item\",\"payload\":{\"type\":\"compaction\",\"encrypted_content\":\"<opaque>\"}} + item ContextCompaction{id}",
+   "count": "compacted 4722 (1453 files; message empty in 2641 of 2707 own-record cases); response_item/compaction 1002 (one per file, 0.150+); ContextCompaction items 4196 (0.66+).",
+   "notes": "The three can describe the same compaction; also compacted / compaction often sit inside a subagent's inherited prefix. Emit system/compact once, from own records only."
+  },
+  {
+   "topic": "Noise records",
+   "example": "event_msg/token_count{info,rate_limits{limit_id,limit_name,plan_type,...}}; token_usage_record{thread_id,turn_id,session_id,root_turn_id,response_id,usage,turn_token_usage,thread_token_usage}; event_msg/thread_settings_applied; event_msg/thread_goal_updated{goal{status active|complete|paused}}; retained_context/verified_answer{turn_id,call_id,questions,acceptance_order}",
+   "count": "token_count 800282, token_usage_record 71183, thread_settings_applied 30884, thread_goal_updated 15411 (5 files), retained_context 64.",
+   "notes": "No UI events. token_count rate_limits carry plan/limit identifiers: do not surface."
+  },
+  {
+   "topic": "Titles, cwd, branch",
+   "example": "title: session_index.jsonl {\"id\":\"<uuid>\",\"thread_name\":\"<title>\",\"updated_at\":\"<iso>\"} (latest wins) | state_5.threads.name; cwd: session_meta.payload.cwd; branch: session_meta.payload.git.branch",
+   "count": "threads.name non-empty 3041/5227 (length 10-78, avg 19; guardian 1166/1166, subagent 1013/1926, user 137/266, null 725/1869). threads.title non-empty 4580 but equals first_user_message in 2832 rows and runs to 98876 chars: it is a prompt, not a title. session_index covers 1698 ids. git.branch present in 4555/5233 session_meta (git null 526); threads.git_branch 4565/5227.",
+   "notes": "The rollout itself has no title record. Order: session_index thread_name (latest line per id) -> threads.name -> first UserMessage text (<= 40) -> id prefix. Subagent label: agent_nickname, then agent_path last segment, then agent_role. cwd never changed within a thread (0/5233)."
+  },
+  {
+   "topic": "Liveness and file lifecycle",
+   "example": "append-only .jsonl, one line per record, flushed per line; compressed to .jsonl.zst after 7 days; decompressed back on resume",
+   "count": "448/448 plain files: mtime - last record timestamp = 0.03 .. 5.76 ms (p50 0.56 ms). Newest file ~20 h old at study time, so growth was not observed live.",
+   "notes": "recorder.rs: files opened with append(true); JsonlWriter::write_line flushes after every line (no fsync); 'This file never truncates or rewrites in place'. A new thread's items can be held in pending_items until the rollout is materialized (persist), so a file may appear only after the first user input. Paths to watch: the date directory of today and yesterday (local time) for new files, plus any .jsonl reappearing in older directories (resume), plus _<uuid2> rollback segments."
+  }
+ ],
+ "mappingHints": {
+  "session": "One character per rollout file (thread). sessionId = session_meta.payload.id (== filename uuid; strip a '_<uuid2>' rollback suffix and treat the segment as the same session). agent = 'codex'. isSubagent = payload.source is an object with subagent.thread_spawn; parentSessionId = thread_spawn.parent_thread_id; agentType = agent_role (built-ins default|explorer|worker|awaiter, else scrubbed label). Skip or hide guardian reviewers (source.subagent.other == 'guardian', model codex-auto-review): 2171/5233 files. source.subagent == 'review' = /review runs (77).",
+  "cwdAndProject": "project key from session_meta.payload.cwd (constant per thread here). Map ~/.codex/worktrees/<id>/<name> and <repo>/.worktrees|.claude/worktrees/<name> to their repo the same way as section 4.4 (for ~/.codex/worktrees the repo root is not in the path: fall back to git.repository_url basename or threads cwd; 미확인 best key). Subagents inherit the parent's project.",
+  "title": "session_index.jsonl thread_name (latest per id) -> state_5 threads.name (read-only) -> first UserMessage text -> id prefix. Never threads.title (it is the first prompt).",
+  "branch": "session_meta.payload.git.branch (null git -> null branch). Not updated during the thread in the rollout; threads.git_branch is the catalog copy.",
+  "prompt": "Main threads: item_completed with item.type UserMessage: first content[].text; skip text starting with '<' (heartbeat, browser context, question replies, environment_context). Do not use response_item/message role=user (mixes AGENTS.md and tag-wrapped context). Ignore UserMessage in guardian threads. Spawned children (multi-agent v2): 0 own UserMessage items in 1948 thread_spawn files; the task arrives as response_item/agent_message (4331 own records; content[].type input_text, often plus encrypted_content) after inter_agent_communication_metadata, so child prompt = first own agent_message input_text (or the parent's spawn_agent arguments.message). In old/migrated child files the task is a UserMessage inside the pre-H block (4106).",
+  "toolStart": "response_item function_call / custom_tool_call at the line where it appears (written before execution). toolUseId = call_id. Summary: exec_command.cmd / shell_command.command (string) or shell.command (argv) -> first program word; apply_patch input '*** Update|Add|Delete File: <path>' -> basename; MCP -> namespace/name masked per section 5; web_search_call.action.url host or query; request_user_input -> question/options. For code-mode 'exec' (>= 0.142.5) the input is a script: summarize as the first tools.<name> it calls, and optionally emit synthetic short tool_start/tool_end pairs for each inner item_completed CommandExecution (program from parsed_cmd[0] or argv[2] first word), FileChange (basename of changes keys), McpToolCall (server/tool), WebSearch (query or host).",
+  "toolEnd": "function_call_output / custom_tool_call_output with the same call_id. ok unless: output head 'aborted by user' -> interrupted; 'rejected by user' / 'exec command rejected' / 'patch rejected' / 'approval required by policy' / 'sandbox denied' / 'failed in sandbox' -> denied; JSON metadata.exit_code != 0, 'Exit code: <n!=0>', 'Process exited with code <n!=0>', 'Script failed' / 'Script error:', '<tool> failed:' -> failed. 'Process running with session ID' -> ok with background: true. wait (code-mode cell polling, args cell_id) and write_stdin (args session_id) poll an already running exec/command: treat them as continuations (background) rather than new work. A call with no output when task_complete/turn_aborted for its turn arrives -> abandoned.",
+  "thinking": "response_item reasoning: first non-empty summary[].text, else null (content and raw_content are never filled; encrypted_content is opaque). durationMs from the matching Reasoning item's completed_at_ms - started_at_ms when both exist, else null. Emit from one of the two duplicates only.",
+  "say": "response_item message role=assistant, content[].type output_text (phase commentary or final_answer). Skip the duplicate AgentMessage item.",
+  "plan": "update_plan arguments.plan[] {step,status} -> items {content: step, status} with source 'update_plan' (status enum identical). Plan item text and <proposed_plan> markdown -> planFromMarkdown (like exit_plan). Code-mode update_plan (>= 0.142.5) has no structured record: 미확인 whether to parse tools.update_plan({...}) out of the exec script.",
+  "question": "request_user_input: question = questions[0].question (+N), options = questions[0].options[].label; ended by its output ({answers} -> ok). request_user_input_async and AgentMessage.questions(delivery async) are fire-and-forget questions.",
+  "turnEnd": "task_complete -> turn_end reason end_turn; task_complete with error -> system kind api_error (error.message, scrubbed) then turn_end reason api_error; turn_aborted -> turn_end reason interrupt; a new task_started while the previous turn is open -> turn_end reason next_turn (787 cases). Turn start = task_started (turn_id).",
+  "subagents": "Child files: own session_meta.source.subagent.thread_spawn.parent_thread_id. Skip records with ordinal < subagent_history_start_ordinal (inherited context) when that prefix is a birth-time burst; old migrated files set the value to the file length, so if skipping would leave nothing, fall back to reading everything after line 0. Parent side: SubAgentActivity kind completed|interrupted for agent_thread_id -> session_end done for that child; spawn_agent output gives agent_id/task_name. Depth up to 3.",
+  "errorsDenialsInterrupts": "turn_aborted reason interrupted (887); task_complete.error {codex_error_info,message} (106); tool-level texts listed in toolEnd; item status failed/declined. No persisted API-error, warning or approval records.",
+  "compact": "One system kind 'compact' per compacted record outside the inherited prefix; ignore response_item/compaction and the ContextCompaction item (same event).",
+  "liveTailing": "Watch ~/.codex/sessions/<local YYYY/MM/DD>/rollout-*.jsonl (today and recent days) every 250 ms by byte offset; files are append-only and flushed per line, lines up to ~10 MB. Dedupe by ordinal (0-based line index; a rollback segment restarts at a lower ordinal and supersedes the tail). Read .jsonl.zst only for replay/history (needs zstd; node 20 zlib has no zstd). Handle a .jsonl disappearing (compression after 7 days) or reappearing (resume)."
+ },
+ "unverified": [
+  "미확인: what 'Process running with session ID' turns into when the turn ends with the process still alive (no explicit end record seen).",
+  "미확인: how a guardian (auto_review) denial is reflected in the parent beyond the tool output text; GuardianAssessment is not persisted.",
+  "미확인: whether thread-writer-locks/*.lock reliably marks a thread as currently open.",
+  "미확인: the migration that rewrote legacy rollouts into paginated format (all 0.40+ files carry ordinal and item_completed); whether it can rewrite a file again in place while the adapter is tailing it.",
+  "미확인: meaning of originator 'codex_work_desktop' (351 files, 0.147-0.151) beyond being a desktop client.",
+  "미확인: forked_from_ordinal_exclusive and history_base (documented upstream, absent locally).",
+  "미확인: TurnAbortReason values replaced / review_ended / budget_limited and ThreadRolledBack records (documented upstream, not seen locally).",
+  "미확인: whether a new thread's file can lag its first records (pending_items before persist) long enough to matter for a 250 ms tailer.",
+  "미확인: best project key for cwds under ~/.codex/worktrees/<id>/<name> (repo root not in the path).",
+  "미확인: which of ~/.codex/state_5.sqlite and ~/.codex/sqlite/state_5.sqlite the current app treats as authoritative (the former has 5227 threads, the latter 2026)."
+ ],
+ "sources": [
+  "https://raw.githubusercontent.com/openai/codex/main/codex-rs/protocol/src/protocol.rs",
+  "https://raw.githubusercontent.com/openai/codex/main/codex-rs/rollout/src/recorder.rs",
+  "https://raw.githubusercontent.com/openai/codex/main/codex-rs/rollout/src/policy.rs",
+  "https://raw.githubusercontent.com/openai/codex/main/codex-rs/rollout/src/compression.rs",
+  "https://api.github.com/repos/openai/codex/contents/codex-rs/rollout/src",
+  "https://developers.openai.com/codex/subagents"
+ ]
+}
