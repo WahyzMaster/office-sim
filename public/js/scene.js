@@ -143,9 +143,10 @@ export function createStage(host) {
     setGoal(v) { goal.copy(v); },
     setLampY(y) { lampGoal = y; },
     setViewFn(fn) { viewFn = fn; resize(); },
-    render() {
+    // labelRoot: CSS 라벨을 계산할 묶음 (기본은 장면 전체). 숨은 층의 라벨까지 매 프레임 돌지 않게 한다.
+    render(labelRoot = scene) {
       renderer.render(scene, camera);
-      labels.render(scene, camera);
+      labels.render(labelRoot, camera);
     },
   };
 }

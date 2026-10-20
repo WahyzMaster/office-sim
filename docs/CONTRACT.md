@@ -42,7 +42,9 @@ src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
 src/replay.mjs          ReplayRunner (extends Runner): --replay playback of one session (section 6.1)
 src/replay-timeline.mjs replay timeline: line times, cross-file merge, speed + gap cap, approval look-ahead (pure)
 test/*.test.mjs         unit + integration tests, synthetic fixtures under test/fixtures/ or generated
-public/                 the browser app; owned by the browser module (public/js/*), server work does not edit it
+public/                 the browser app; owned by the browser module (public/js/*), server work does not edit it.
+                        P3: js/detail.js (per-floor detail: hidden floors skip draw, matrices, labels, animation;
+                        unfocused floors cast no shadows; CSS labels only for the focused floor), js/bench.js (#bench)
 ```
 
 ## 2. Event schema (server -> browser)

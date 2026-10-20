@@ -99,6 +99,7 @@ export class Agent {
   setLabelsVisible(vis) {
     this.label.visible = vis;
     this.sweat.visible = vis;
+    if (!vis) this.label.element.style.display = this.sweat.element.style.display = 'none'; // 렌더러가 이 층을 돌지 않을 때도
   }
 
   rename(info) {
@@ -408,7 +409,7 @@ export class Agent {
         this.refreshTag();
       }
     }
-    this.animate();
+    if (this.floor.animate) this.animate(); // 숨은 층(detail.js)은 몸짓을 건너뛴다
   }
 
   turnTo(angle, dt) {

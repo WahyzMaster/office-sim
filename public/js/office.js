@@ -4,6 +4,7 @@ import { Floor, FLOOR_GAP, EXPLODE_GAP } from './floor.js';
 import { Agent } from './agent.js';
 import { ROOMS, classify, toolLabel } from './rooms.js';
 import { Inbox } from './office-inbox.js';
+import { floorDetail, labelRootIndex } from './detail.js';
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 // 이 이벤트가 오면 tool_end 를 못 받은 채 열려 있는 질문은 이미 끝난 것이다(새 요청, 새 메시지, 턴 끝).
@@ -174,7 +175,7 @@ export class Office {
     const spawn = parent ? { x: parent.group.position.x + 0.6, z: parent.group.position.z + 0.4, jitter: true } : null;
     const a = new Agent(this, { ...info, project: floor.key }, floor, spawn);
     this.agents.set(a.id, a);
-    a.setLabelsVisible(this.labelsVisible(floor));
+    this.dress(a);
     this.hud.renderFloors(this);
     return a;
   }
@@ -208,7 +209,7 @@ export class Office {
     a.history = old.history;
     a.childSeq = old.childSeq; // 이미 있는 형제와 색이 겹치지 않게 순번을 이어 간다
     this.agents.set(a.id, a);
-    a.setLabelsVisible(this.labelsVisible(floor));
+    this.dress(a);
     if (this.selected === old) this.select(a);
     if (floor !== from) {
       for (const kid of [...this.agents.values()]) if (kid.parentId === a.id && kid.floor === from) this.rehome(kid, {}, floor);
@@ -298,6 +299,18 @@ export class Office {
   // ---- 시점 ----
   labelsVisible(floor) { return this.overview || floor.index === this.focusIndex; }
 
+  // 새 직원도 자기 층의 자세히 그리기 수준(라벨, 그림자)을 따른다.
+  dress(a) {
+    a.setLabelsVisible(this.labelsVisible(a.floor));
+    if (!a.floor.shadows) a.floor.setShadows(false, a.group);
+  }
+
+  // CSS 라벨을 계산할 묶음: 전체 보기면 장면 전체, 아니면 초점 층만 (detail.js).
+  labelRoot() {
+    const i = labelRootIndex(this.focusIndex, this.overview, this.floors.length);
+    return i < 0 ? this.stage.scene : this.floors[i].group;
+  }
+
   focus(index) {
     if (index === 'all') {
       this.overview = true;
@@ -316,9 +329,13 @@ export class Office {
     document.body.classList.toggle('overview', this.overview);
     for (const f of this.floors) {
       f.goalY = f.index * (this.overview ? EXPLODE_GAP : FLOOR_GAP);
-      f.group.visible = this.overview || f.index <= this.focusIndex;
-      f.setLabelsVisible(this.labelsVisible(f));
-      for (const a of f.agents) a.setLabelsVisible(this.labelsVisible(f));
+      const d = floorDetail(f.index, this.focusIndex, this.overview);
+      f.group.visible = d.visible;
+      f.group.matrixWorldAutoUpdate = d.visible; // 숨은 층은 행렬 갱신도 건너뛴다
+      f.animate = d.animate;
+      if (f.shadows !== d.shadows) f.setShadows(d.shadows);
+      f.setLabelsVisible(d.labels);
+      for (const a of f.agents) a.setLabelsVisible(d.labels);
     }
     const n = this.floors.length;
     const y = this.overview ? ((n - 1) * EXPLODE_GAP) / 2 : this.focusIndex * FLOOR_GAP;

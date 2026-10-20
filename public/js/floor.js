@@ -28,6 +28,8 @@ export class Floor {
     this.occupied = Object.fromEntries(Object.entries(SLOTS).map(([k, s]) => [k, s.map(() => null)]));
     this.waiting = {}; // 자리가 없어 기다리는 직원: 방마다 빈칸을 다시 쓰는 줄(번호 = 기다리는 곳)
     this.board = new Board();
+    this.animate = true; // detail.js: 숨은 층은 LED/지구본/문 애니메이션을 건너뛴다
+    this.shadows = true;
     this.build();
     stage.scene.add(this.group);
   }
@@ -96,7 +98,23 @@ export class Floor {
 
   renameTag() { this.tagEl.textContent = `${this.number} · ${this.label}`; }
 
-  setLabelsVisible(v) { for (const o of this.labels) o.visible = v; }
+  // 라벨을 숨길 때는 DOM 도 바로 숨긴다: 렌더러가 이 층을 더 돌지 않아 display 를 다시 쓰지 않는다 (detail.js).
+  setLabelsVisible(v) {
+    for (const o of this.labels) {
+      o.visible = v;
+      if (!v) o.element.style.display = 'none';
+    }
+  }
+
+  // 그림자를 드리울지 (detail.js). 메시가 원래 드리우던 값은 userData 에 남겨 두고 그 값만 켜고 끈다.
+  setShadows(on, root = this.group) {
+    if (root === this.group) this.shadows = on; // 직원 하나(root)만 맞출 때는 층의 값을 바꾸지 않는다
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      if (o.userData.castShadow === undefined) o.userData.castShadow = o.castShadow;
+      o.castShadow = on && o.userData.castShadow;
+    });
+  }
 
   claim(room, agent, prefer = -1) {
     const occ = this.occupied[room];
@@ -156,6 +174,7 @@ export class Floor {
 
   update(dt, realDt) {
     this.group.position.y += (this.goalY - this.group.position.y) * Math.min(1, realDt * 5);
+    if (!this.animate) return;
     const M = mats();
     this.ledT -= dt;
     if (this.ledT <= 0) {
