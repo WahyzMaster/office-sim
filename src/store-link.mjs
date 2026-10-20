@@ -280,3 +280,31 @@ export function subTitle(meta, label, agentId) {
     ?? nonEmpty(meta?.workflowPhase) ?? nonEmpty(meta?.agentType) ?? agentId;
   return cleanText(String(t), 80) || agentId; // session-identity.mjs 와 같은 규칙 (section 5 scrub + 80)
 }
+
+// ---- a character that moved to another file (P5e review finding 6) ---------------------------------------------------
+
+/** The ids of the tools open in a session's snapshot (its tool_start events). Never throws: a failing state gives none. */
+export function openToolIds(state) {
+  const out = new Set();
+  let evs = null;
+  try {
+    evs = state?.snapshotEvents?.();
+  } catch {
+    evs = null;
+  }
+  for (const ev of Array.isArray(evs) ? evs : []) if (ev?.type === 'tool_start' && typeof ev.toolUseId === 'string') out.add(ev.toolUseId);
+  return out;
+}
+
+/**
+ * After a move to another file, the tools the page still shows under the old file (`shownIds`) that are not open in the
+ * new snapshot (`events`): tool_end `abandoned`, the core's shape (CONTRACT 4.0.2). Antigravity ids carry the line's
+ * byte position, which differs between its two transcripts; stable ids that are still open come back, so nothing for
+ * them (a tool that ended during the move closes `abandoned` instead of staying open on the page).
+ */
+export function staleToolEnds(shownIds, events, charId, ts) {
+  if (!shownIds?.size) return [];
+  const open = new Set(events.filter((ev) => ev?.type === 'tool_start').map((ev) => ev.toolUseId));
+  return [...shownIds].filter((id) => !open.has(id))
+    .map((id) => ({ type: 'tool_end', sessionId: charId, ts, toolUseId: id, ok: false, errorKind: 'abandoned', error: 'no result' }));
+}

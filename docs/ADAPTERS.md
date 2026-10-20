@@ -1,9 +1,11 @@
 # 멀티 에이전트 어댑터 설계안 (P5)
 
-- 상태: 승인됨(2026-10-20). 11절의 결정 D1~D12 를 모두 추천안대로 승인했다. 구현은 9절 순서로 한다. P5a(공통 분리)와
-  P5b(`SessionCore`, `tool-summary`)는 끝나 master 에 병합됐고, P5c(Grok 어댑터, `SidecarWatcher`)와 P5d(Codex 어댑터)도
-  끝났다. 승인된 결정과 P5a 범위는 `docs/CONTRACT.md` 4.0.1절에, P5b 의 정규화 항목과 의미는 4.0.2절에, Grok 어댑터의
-  탐색, id, 매핑은 4.6절에, Codex 어댑터의 탐색, id, 매핑은 4.7절에 옮겼다. 다음은 P5e Antigravity CLI 다.
+- 상태: 승인됨(2026-10-20). 11절의 결정 D1~D12 를 모두 추천안대로 승인했다. 구현은 9절 순서로 한다. P5a(공통 분리),
+  P5b(`SessionCore`, `tool-summary`), P5c(Grok 어댑터, `SidecarWatcher`), P5d(Codex 어댑터)는 끝나 master 에 병합됐고,
+  P5e(Antigravity CLI 어댑터)와 P5f(문서)도 끝났다. 승인된 결정과 P5a 범위는 `docs/CONTRACT.md` 4.0.1절에, P5b 의 정규화
+  항목과 의미는 4.0.2절에, Grok 어댑터의 탐색, id, 매핑은 4.6절에, Codex 어댑터는 4.7절에, Antigravity 어댑터는 4.8절에
+  옮겼다. 이로써 P5 의 필수 단계는 모두 끝났고, 남은 것은 선택 단계 P5g(Grok 라이브 승인 대기)와 9절에 적은 실제 세션
+  확인이다.
 - 작성일: 2026-10-20
 - 기준 문서: `docs/CONTRACT.md` 2절(이벤트 스키마), 4.0절(어댑터 범위), 5절(개인정보)
 - 조사 근거: `docs/research/codex-format.json`, `docs/research/grok-format.json`, `docs/research/antigravity-format.json`
@@ -181,7 +183,9 @@ P5b 에서 만든 `SessionCore` 와 `tool-summary` 의 정확한 모양(정규�
   mtime/크기/inode 가 바뀌면 크기 상한(예: 1 MB) 안에서 다시 읽어 `setInfo()` 로 넘긴다. 처음 읽을 때 한 번,
   그 뒤로는 바뀔 때만 읽는다. 이 장치는 새 파일 하나(`src/core/sidecar.mjs`, 100줄 안쪽)다. P5c 에서 만들었고, 어댑터
   설명자의 선택 훅 `sidecars(ref)` 가 있는 어댑터에만 Runner 가 돌린다(지금은 Grok 의 `summary.json` 하나, Claude 는 훅이
-  없어 그대로). 정확한 규칙은 `docs/CONTRACT.md` 4.6절. Codex 의 `session_index.jsonl` 은 P5d 에서 이 장치로 읽지 않기로
+  없어 그대로). 정확한 규칙은 `docs/CONTRACT.md` 4.6절. Antigravity(P5e)는 요약 proto 가 대화 모두가 같이 쓰는 파일이라
+  이 훅 대신 자기 감시자 `AntigravityMeta`(`SidecarWatcher` 둘 위에 선다)를 Codex 제목 읽기와 같은 자리
+  `deps.sidecarWatcher` 로 넘긴다(CONTRACT 4.8절). Codex 의 `session_index.jsonl` 은 P5d 에서 이 장치로 읽지 않기로
   했다. 모든 스레드가 같이 쓰는 덧붙이기 색인이라 커질 수 있으므로, 기억해 둔 위치 뒤에 덧붙은 부분만 상한 안에서 읽는
   따로 된 읽기를 쓴다(CONTRACT 4.7절, 9절).
 - 파일 안의 기록 자체를 통째로 다시 쓰는 도구가 생기면 그때 `document` 읽기 방식을 더한다. 지금은 필요 없다.
@@ -201,7 +205,8 @@ Claude 의 연결 규칙(R28/R29, 4.5절: Agent tool_use id, 결과 꼬리표, t
 - Grok: 자식 파일에는 부모가 없고(61/62), 부모 폴더의 `subagents/<자식 id>/` 디렉터리 이름이 자식 id 다. 탐색이 이
   디렉터리 이름만 보고(파일은 열지 않는다) `ref.parentId` 를 채운다. 끝은 부모 파일의 `subagent_finished`.
 - Antigravity: 이 Mac 의 기록에서는 서브에이전트 연결을 찾지 못했다. 서브에이전트 없이 시작하고, `browser_subagent`
-  같은 호출은 부모 직원의 도구 호출(`room: 'here'`)로 보인다.
+  같은 호출은 부모 직원의 도구 호출(`room: 'here'`)로 보인다. P5e 에서 이대로 구현했다: 모든 대화가 메인이다
+  (CONTRACT 4.8).
 
 Store 의 공통 규칙으로 남는 것은 둘이다. 서브에이전트의 층은 부모의 층을 따른다(지금 4.4절의 "Subagents inherit the
 parent's project" 를 모든 어댑터로). 부모가 아직 알려지지 않은 자식은 부모가 알려질 때까지 기다렸다 알린다
@@ -406,14 +411,18 @@ flowchart LR
   가므로 줄은 바이트 위치로 구분한다. `type` 은 앞으로 늘어날 수 있으니 모르는 값은 무시한다.
 - 도구 짝짓기는 위치로 한다. `tool_calls` 가 N개인 `PLANNER_RESPONSE` 줄 뒤의 N개 결과 줄이 차례로 그 결과다.
   id 는 `<대화 id>:<바이트 위치>:<i>` 로 만든다. 순서가 어긋난 경우가 약 8,990번 중 최소 51번 있었으므로, 다음
-  `PLANNER_RESPONSE`/`USER_INPUT`/`CHECKPOINT`/`ERROR_MESSAGE` 가 오면 남은 호출은 `abandoned` 로 닫는다.
+  `PLANNER_RESPONSE`/`USER_INPUT`/`ERROR_MESSAGE` 가 오면 남은 호출은 `abandoned` 로 닫는다. 조사는 `CHECKPOINT` 도
+  닫는 줄로 적었지만, 압축 표시 뒤에도 결과 줄이 올 수 있어 P5e 리뷰(1)에서 닫는 줄에서 뺐다(그 결과 줄은 제 결과를 낸다).
 - 결과가 `RUNNING` 인 줄(백그라운드 명령)은 다시 쓰이지 않는다. 완료는 나중에 `messages/<uuid>.json` 에 온다.
   Claude 의 비동기 실행(R28)처럼 `tool_end` ok 로 닫는다.
 - 도구 이름이 버전마다 바뀐다(예전 `view_file`/`write_to_file`, 1.4.x `read_file`/`write_file`). 이름 표는 둘 다 받는다.
+  1.4.x 는 `edit_file`(`Path`, `Target`, `Replacement`)도 쓴다. 조사 파일에는 없고 통합 단계의 실제 데이터 개수 확인에서
+  찾았다(호출 71번). 경로(`Path`)만 읽고 바꾸기 전후의 글(`Target`, `Replacement`)은 읽지 않는다.
   `toolAction`/`toolSummary` 인자는 모델이 쓴 짧은 설명인데 명령 원문이 들어갈 수 있어 쓰지 않는다.
 - 프롬프트: `USER_INPUT` 의 `content` 는 201/201 이 `<USER_REQUEST>...</USER_REQUEST><ADDITIONAL_METADATA>...` 꼴이다.
   안쪽 `USER_REQUEST` 만 쓰고 나머지 블록(환경 정보, 설정 변경, 계획)은 버린다. Claude 의 "`<` 로 시작하면 건너뜀" 규칙을
-  그대로 쓰면 모든 프롬프트가 사라진다.
+  그대로 쓰면 모든 프롬프트가 사라진다. 맨 바깥 블록만 본다: 다른 블록 안에 적힌 `<USER_REQUEST>`(환경 정보 속의 선택 영역이나
+  파일 발췌)는 프롬프트도 제목도 되지 않는다(P5e 리뷰 3).
 - 생각과 말: `PLANNER_RESPONSE.thinking`(3,416줄), `content`(660줄). 생각 시간 필드는 없다.
 - 턴 끝: 명시적인 표시가 없다. 도구 호출 없이 `content` 만 있는 `PLANNER_RESPONSE` 뒤에 조용한 시간이 지나면 `end_turn`,
   다음 `USER_INPUT` 이 오면 `next_turn`. 요약 파일의 상태(idle/running)로 확인할 수 있다. `CHECKPOINT` 는 압축.
@@ -427,13 +436,39 @@ flowchart LR
 - 다른 경로: CLI 는 대화마다 SQLite db(`conversations/<uuid>.db`)에 실제 도구 호출 id 가 있는 같은 단계를 저장하지만,
   Node 20 에는 내장 SQLite 가 없다(`node:sqlite` 는 22.5 이상). `agy` 프로세스마다 localhost 의 임의 포트에 언어 서버가
   뜨지만 문서화되지 않은 API 라 쓰지 않는다(조사에서도 부르지 않았다).
+- P5e 구현 뒤 상태(2026-10-20, 기준은 `docs/CONTRACT.md` 4.8절). 위 목록과 8.2절의 Antigravity 항목, 조사 파일의
+  `unverified` 목록은 조사 때 그대로 두고 항목마다 상태만 적는다. 조사는 쓰이는 중인 CLI 대화 둘의 덧붙임을 직접
+  보았지만(8.2절), 아래 항목 중 확인으로 풀린 것은 없다. 항목마다 어댑터가 무엇을 가정하는지를 정했다.
+
+  | 미확인 항목 | 상태 | P5e 의 가정과 처리 |
+  |---|---|---|
+  | 2.x 데스크톱 앱이 `~/.gemini/antigravity/brain/<id>/.system_generated/logs/` 를 쓰는지 | 미확인 그대로 | D6 대로 `antigravity/` 는 목록도 보지 않는다(조사의 mappingHints 는 혹시 모를 기록을 위해 이 폴더도 훑자고 했지만 따르지 않았다). 앱이 그곳에 기록을 쓰더라도 그 대화는 보이지 않는다 |
+  | `.pb` 암호화 방식, 키, 스키마 | 미확인 그대로, 동작 영향 없음 | `.pb` 는 열지 않는다 |
+  | SQLite 단계 상태 5, 6 과 `step_type` 28 의 뜻 | 미확인 그대로, 동작 영향 없음 | SQLite 는 열지 않는다(Node 20 에서 읽지 못하기도 한다) |
+  | 요약 proto 필드 번호(추정) | 미확인 그대로 | 남기는 경로는 `1.1`, `1.2.1`, `1.2.5`, `1.2.9.1`, `1.2.9.4` 뿐이고 문서에 추정이라고 적었다. 해석기는 한계 안에서만 읽고 예외를 던지지 않으며, 바이트 덩어리를 메시지로 짐작해 풀지 않고 정해진 경로로만 내려간다. 번호가 틀리면 제목, 작업 폴더, branch 가 틀릴 수 있으므로 제목은 `annotations` 가 이기고, 작업 폴더는 `file://` URI 를 풀어 절대 경로일 때만 쓰며, 없으면 첫 `run_command` 의 `Cwd` 로 대신한다. 상태(`1.2.5`)가 idle 이면 도구 없는 마지막 답 뒤의 열린 턴을 조용한 시간을 기다리지 않고 바로 끝낸다(틀린 값이면 그 턴이 조금 일찍 끝날 뿐이다) |
+  | 사용자 거절과 사용자 중단의 표현 | 미확인 그대로 | `denied` 와 `interrupted` 는 내지 않는다. 그런 호출은 결과 줄의 `status`, `error`, `exit_code` 에 따라 실패나 ok 로, 결과 줄이 없으면 다음 계획 줄, 입력, 오류 단계에서 `abandoned` 로 보인다(압축 표시는 닫지 않는다) |
+  | 서브에이전트 레코드(`INVOKE_SUBAGENT`)와 부모 연결 | 미확인 그대로 | 모든 대화가 메인이다. 그런 단계가 생기면 모르는 종류라, 기다리는 호출이 있을 때는 결과 줄로, 없을 때는 무시된다. 자식 대화가 자기 `brain/<id>/` 를 가지면 따로 된 메인으로 보인다 |
+  | 다른 버전의 CLI 할 일 목록 도구 | 미확인 그대로 | 계획판으로 바꾸는 도구는 없다(`manage_task` 는 백그라운드 작업 제어라 서버실). CLI 대화에도 `task.md` 가 생기면 같은 규칙으로 읽는다 |
+  | 언어 서버 API 의 인증과 주소 | 미확인 그대로, 동작 영향 없음 | 부르지 않는다 |
+  | `transcript_full.jsonl` 이 늦게 생긴 것 말고 다른 이유로 짧을 때 | 미확인 그대로 | 이유와 상관없이 줄 수로 고른다: 처음에는 `transcript_full.jsonl` 의 줄 수가 같거나 많으면 그것, 적으면 `transcript.jsonl`. 한 번 `transcript_full.jsonl` 을 고른 대화는 `transcript.jsonl` 이 16줄(`FULL_SLACK_LINES`)을 넘게 앞설 때만 바꾸고, 다른 쪽에 있다가도 `transcript_full.jsonl` 이 따라잡으면 돌아간다. 고른 파일이 바뀌면 직원을 그 파일로 옮겨 처음부터 다시 읽는다(상태는 새 파일로만 다시 만든다) |
+
+  P5e 에서 새로 생긴 미확인: 두 파일이 덧붙는 순서 때문에 줄 수가 잠깐 얼마나 어긋나는지(16줄 여유는 어림이다. 실제 "짧은
+  full" 은 74줄 차이였다. 여유를 넘게 어긋나면 고른 파일이 잠깐 바뀌고, 다시 붙여 처음부터 읽을 뿐 이벤트는 잃지 않지만
+  읽기 비용이 든다), 예전 IDE 의 요약 파일 위치(작업 지시는 `antigravity-ide/agyhub_summaries_proto.pb` 를 읽으라고 했지만
+  조사는 이 파일을 데스크톱 앱 루트 `antigravity/` 에서만 보았다. 있으면 읽고, 없으면 예전 IDE 대화의 제목은 첫
+  `USER_REQUEST`, 작업 폴더는 첫 `run_command` 의 `Cwd` 다), `ERROR_MESSAGE` 의 `error`/`content` 첫 줄이 어떤
+  글인지(조사는 템플릿을 사전 단어로만 보았다. 공통 코어가 줄이고 거른다), `transcript.jsonl` 에서 `tool_calls` 가 잘려
+  호출 수를 모르는 줄이 얼마나 되는지(조사: `truncated_fields` 의 `tool_calls` 622번. 그 줄의 호출은 보이지 않고 다음 닫는
+  줄까지의 결과 줄은 건너뛴다. `transcript_full.jsonl` 이 있으면 생기지 않는다).
 
 ## 6. 도구별 매핑 표
 
 ### 6.1 신호 -> 이벤트
 
-Claude Code 칸은 지금 동작(CONTRACT 4절)이고, Grok 칸은 P5c 에서, Codex 칸은 P5d 에서 구현했다(기준은 CONTRACT 4.6절과
-4.7절, 이 표와 달라진 점은 9절). 나머지는 제안이다. "없음" 은 기록에 그 신호가 없다는 뜻이다.
+Claude Code 칸은 지금 동작(CONTRACT 4절)이고, Grok 칸은 P5c 에서, Codex 칸은 P5d 에서, Antigravity CLI 칸은 P5e 에서
+구현했다(기준은 CONTRACT 4.6절, 4.7절, 4.8절, 이 표와 달라진 점은 9절). "없음" 은 기록에 그 신호가 없다는 뜻이다.
+Antigravity 칸의 "세션 끝"에 적은 요약 proto 의 상태는 P5e 에서 세션 끝에 쓰지 않는다(메인은 활동 창을 벗어나면 끝난다).
+대신 상태가 idle 이 되면 도구 없는 마지막 답 뒤의 열린 턴을 바로 `end_turn` 으로 끝낸다(조사의 "idle 로 확인" 제안).
 
 | 신호 | Claude Code (지금) | Codex | Grok | Antigravity CLI |
 |---|---|---|---|---|
@@ -448,7 +483,7 @@ Claude Code 칸은 지금 동작(CONTRACT 4절)이고, Grok 칸은 P5c 에서, C
 | `tool_end` 실패 | `is_error` | 종료 코드 != 0, `Script failed`, `<tool> failed:` | `failed`, 또는 `completed` 인데 셸 종료 코드 != 0 | `status: ERROR`, `error`, `exit_code` != 0 |
 | 거절 (`denied`) | 거절 문구, `toolDenialKind` | `rejected by user`, `sandbox denied`, `approval required by policy` 등 | `rawOutput` 없는 `failed` + 고정 문구 5종 | 없음 (미확인) |
 | 중단 (`interrupted`) | interrupt 표시 | `aborted by user`, `turn_aborted` 때 열린 도구 | `turn_completed cancelled` 때 열린 도구 | 없음 (미확인) |
-| `abandoned` | 다른 msgId (R27) | 결과 없이 턴 끝 | 결과 없이 다음 턴 | 결과 줄 없이 다음 계획 줄, 입력, 체크포인트 |
+| `abandoned` | 다른 msgId (R27) | 결과 없이 턴 끝 | 결과 없이 다음 턴 | 결과 줄 없이 다음 계획 줄, 입력, 오류 단계 |
 | 백그라운드 | `run_in_background` | `Process running with session ID` -> ok + `background` | `rawInput.background`, `BackgroundTaskStarted` | 결과 `RUNNING` -> ok + `background` |
 | `thinking` | `thinking` 블록 (80% 비어 있음) | `reasoning.summary[]` 첫 문장 (원문 암호화) | `agent_thought_chunk` (요약, 늘 있음) | `PLANNER_RESPONSE.thinking` |
 | `say` | `text` 블록 | `message role=assistant output_text` (중복 한쪽만) | `agent_message_chunk` | `PLANNER_RESPONSE.content` |
@@ -470,7 +505,7 @@ Claude Code 칸은 지금 동작(CONTRACT 4절)이고, Grok 칸은 P5c 에서, C
 | 방 | Codex | Grok | Antigravity CLI |
 |---|---|---|---|
 | 자료실 | `view_image`, `ImageView` | `read_file`, `grep`, `list_dir` | `view_file`, `read_file`, `grep_search`, `find_by_name`, `list_dir` |
-| 개발실 | `apply_patch`, `FileChange` 항목 | `search_replace`, `write` | `write_to_file`, `write_file`, `replace_file_content`, `multi_replace_file_content` |
+| 개발실 | `apply_patch`, `FileChange` 항목 | `search_replace`, `write` | `write_to_file`, `write_file`, `edit_file`, `replace_file_content`, `multi_replace_file_content` |
 | 서버실 | `exec_command`, `shell`, `shell_command`, `CommandExecution` 항목 (프로그램 이름 규칙) | `run_terminal_command`, `monitor` (프로그램 이름 규칙), `get_command_or_subagent_output`, `kill_command_or_subagent` | `run_command` (프로그램 이름 규칙), `command_status`, `manage_task` |
 | 정보검색실 | `web.run`, `WebSearch` 항목, MCP | `web_fetch`, 서버 측 웹 검색, `use_tool` (MCP) | `search_web`, `read_url_content`, `call_mcp_tool` (MCP) |
 | 회의실 | `update_plan` (`plan` 이벤트만, `tool_start` 없음) | `todo_write` (숨기고 `plan` 레코드로 보드 갱신), `enter_plan_mode` | (IDE `task.md` 는 `plan` 이벤트만) |
@@ -489,6 +524,13 @@ Codex 칸은 P5d 에서 이대로 구현했다(CONTRACT 4.7절). `clock.sleep` �
 `CodexSession` 이 그 `tool_start` 에 라운지 힌트를 직접 붙인다(화면은 그대로, D4). `request_user_input_async` 도 내 자리,
 `collaboration.*` 의 `send_message`, `followup_task`, `list_agents`, `interrupt_agent` 도 제자리이고, 배관에는
 `list_mcp_resource_templates` 를 더했다. 이름표에 없는 도구는 `other`(제자리)다.
+
+Antigravity CLI 칸은 P5e 에서 이대로 구현했다(CONTRACT 4.8절). `schedule` 은 Codex 의 `clock.sleep` 처럼
+`AntigravitySession` 이 그 `tool_start` 에 라운지 힌트를 직접 붙인다. `list_permissions` 는 배관이라 숨기지만, 위치 짝짓기에서는
+자리를 차지하므로 그 결과 줄은 조용히 소비된다. `call_mcp_tool` 은 `ServerName`, `ToolName` 으로 `mcp__<server>__<tool>`
+이 되고 방 힌트 없이 화면이 MCP 규칙으로 고른다. 회의실 칸의 `task.md` 는 도구가 아니라 메타 파일이라 `plan` 이벤트만
+낸다(CLI 대화에는 조사 때 `task.md` 가 없었다). 개발실의 `edit_file` 은 1.4.x 이름으로, 조사가 아니라 통합 단계의 실제
+데이터 개수 확인에서 찾아 더했다(5.3절). 이름표에 없는 도구는 `other`(제자리)다.
 
 ### 6.3 Codex code-mode `exec`
 
@@ -563,7 +605,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 - Grok: 실행 중 덧붙이는 단위, `active_sessions.json` 행 모양, 수동 `/compact`, headless/ACP 세션, 바이너리에만 있는
   레코드 종류, 긴 cwd 그룹 이름, `/fork`, `ask_user_question` 거절. P5c 뒤의 상태는 5.2절 끝의 표에 있다.
 - Antigravity: 2.x 데스크톱 앱이 `brain/<id>/.system_generated/logs/` 를 쓰는지, `.pb` 암호화 방식, 요약 proto 필드
-  번호 일부, 거절과 중단의 표현, 서브에이전트 레코드, CLI 할 일 목록 도구.
+  번호 일부, 거절과 중단의 표현, 서브에이전트 레코드, CLI 할 일 목록 도구. P5e 뒤의 상태는 5.3절 끝의 표에 있다.
 
 ## 9. 단계별 구현 순서
 
@@ -575,8 +617,8 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 | P5b `SessionCore` (완료) | `src/core/session-core.mjs`, `src/core/tool-summary.mjs` 와 그 단위 테스트(정규화 항목 -> 이벤트, `test/core-session.test.mjs`, `test/core-tool-summary.test.mjs`, 리뷰 회귀 테스트 `test/core-session-fixes.test.mjs`), 10절의 공통 적합성 하네스(`test/fixtures/conformance.mjs`)와 그것을 시험용 `core-fixture` 어댑터로 돌리는 `test/adapter-conformance.test.mjs`. 아직 어떤 어댑터도 쓰지 않는다. 정확한 모양은 CONTRACT 4.0.2절 | 정규화 항목만으로 만든 합성 입력에서 스키마, dedupe, 도구 짝, 턴, 계획, 개인정보 테스트 통과 |
 | P5c Grok (완료) | 5.2절. 탐색(모든 cwd 그룹, `subagents/` 연결) + 정규화 + `summary.json` 메타 + 설명자 등록. `SidecarWatcher`(`src/core/sidecar.mjs`, 3.3절)도 이 단계에서 만든다. 정확한 모양은 CONTRACT 4.6절 | 10절의 공통 적합성 테스트 + Grok 전용 테스트. 지어낸 픽스처를 시간차로 덧붙이는 스크립트로 라이브 화면 확인(Claude 와 Grok 직원이 같은 층에 섞여 보임). 실제 Grok 세션 하나를 띄워 덧붙이는 단위 확인(8.1절 11번) |
 | P5d Codex (완료) | 5.1절, 6.3절. guardian 숨김, code-mode, 서브에이전트 문맥 건너뛰기, `session_index.jsonl` 제목 | P5c 와 같음. 추가로 0.142 이전(`exec_command`, `update_plan`)과 이후(code-mode) 픽스처 둘 다 |
-| P5e Antigravity CLI | 5.3절. 위치 짝짓기, `USER_REQUEST` 꺼내기, 요약 proto varint 해석(결정 D6 범위 안에서) | P5c 와 같음. 옛 도구 이름과 새 도구 이름 픽스처 둘 다 |
-| P5f 문서 | `CONTRACT.md` 에 어댑터별 절, `README.md` 지원 표와 옵션, `PLAN.md` 진행 기록 | 문서와 `--help` 출력이 맞음 |
+| P5e Antigravity CLI (완료) | 5.3절. 위치 짝짓기, `USER_REQUEST` 꺼내기, 요약 proto varint 해석(결정 D6 범위 안에서). 정확한 모양은 CONTRACT 4.8절 | P5c 와 같음. 옛 도구 이름과 새 도구 이름 픽스처 둘 다 |
+| P5f 문서 (완료) | `CONTRACT.md` 에 어댑터별 절, `README.md` 지원 표와 옵션, `PLAN.md` 진행 기록 | 문서와 `--help` 출력이 맞음 |
 | (선택) P5g Grok 승인 대기 | `events.jsonl` 을 함께 읽어 라이브 승인 대기(결정 D7) | CONTRACT 7절 갱신 + 순서 짝짓기 회귀 테스트 |
 
 - `SidecarWatcher`(3.3절)는 P5a 에서 P5c 로 옮겼다(2026-10-20). 처음 쓰는 곳이 Grok 의 `summary.json` 이고, P5a 에는
@@ -706,6 +748,82 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
   - 5.1절 미확인 항목의 상태는 5.1절 끝의 표에 적었다. 끝 조건 중 실행 중인 실제 Codex 세션으로 덧붙이는 단위를 보는
     확인(8.1절 11번)과 실제 기록으로 개수만 세는 확인의 결과는 통합 단계가 `PLAN.md` 8.2절에 적는다. 다음은 P5e
     Antigravity CLI 다.
+- P5e 완료(2026-10-20): Antigravity 어댑터(`src/adapters/antigravity/`, 설명자 `src/adapters/antigravity/index.mjs`,
+  등록표에 `antigravity`)를 만들었다. 범위는 D6 대로 CLI(`agy`)와 예전 IDE 의 transcript 뿐이고, 데스크톱 앱은 범위 밖이다.
+  기준은 `docs/CONTRACT.md` 4.8절이다(허용 목록 탐색과 파일 고르기, `antigravity-<대화 uuid>` id, 메타 파일 셋, 추정한 proto
+  필드, 레코드 -> 항목 표, 위치 짝짓기와 `abandoned` 닫기, `USER_REQUEST` 프롬프트, 조용한 시간의 턴 끝, `task.md` 계획판,
+  D1 층). 5.3절과 6.1, 6.2절의 Antigravity 칸은 그 전의 제안이고, 달라진 점과 더 정한 점은 이렇다.
+  - 탐색은 루트(`~/.gemini`) 아래 `antigravity-cli/` 와 `antigravity-ide/` 두 폴더에만 들어간다. `~/.gemini` 는 Gemini CLI 와
+    같이 쓰는 폴더라 인증 파일(`oauth_creds.json`, `google_accounts.json`), 설정, `history`, `tmp/` 같은 것이 함께 있다.
+    조사의 mappingHints 는 혹시 모를 기록을 위해 데스크톱 앱 루트 `antigravity/` 도 훑자고 했지만, D6 대로 그 폴더는 목록도
+    보지 않는다(그 아래의 `task.md` 와 `agyhub_summaries_proto.pb` 도 읽지 않는다).
+  - 파일 고르기: 대화마다 `transcript_full.jsonl` 을 쓰고, 없거나 줄 수가 더 적으면 `transcript.jsonl` 을 쓴다(바이트가
+    아니라 줄 수, 8.1절 14번). 줄 수는 경로마다 덧붙은 부분만 세어 기억한다(rescan 한 번에 최대 64 MB). 두 파일은 차례로
+    덧붙으므로, 한 번 `transcript_full.jsonl` 을 고른 대화는 `transcript.jsonl` 이 16줄을 넘게 앞설 때만 바꾼다. 고른
+    파일은 대화 중에 바뀔 수 있어서, Runner 는 Codex 의 이어쓰기 조각(9절 P5d)과 같은 장치로 직원을 새 파일로 옮겨 처음부터
+    다시 읽는다. 직원 id 는 그대로다. 같은 uuid 가 두 앱 폴더에 있으면 더 새 mtime, 더 큰 크기, 그다음 `antigravity-cli` 다.
+  - 줄은 위치로 구분한다. 세션이 받은 줄의 바이트를 세고(붙일 때마다 0 부터), 그 위치가 도구 id `<대화 uuid>:<위치>:<i>`
+    의 가운데 조각이다. Runner 는 해석한 레코드만 넘기므로 지금의 위치는 레코드를 다시 직렬화한 길이 + 1 로 센 의사 위치다
+    (같은 줄이면 replay 와 라이브에서 같다. 파일의 실제 바이트 위치는 아니다). 실제 위치를 넘기는 호출은 `{ offset }` 을 주고,
+    그때는 이미 지난 위치의 줄을 반복으로 건너뛴다. `step_index` 는 쓰지 않는다.
+  - 위치 짝짓기에서 결과 줄이 아닌 것을 정했다: `PLANNER_RESPONSE`, `USER_INPUT`, `ERROR_MESSAGE` 는 남은 호출을
+    `abandoned` 로 닫고, `CHECKPOINT` 는 `system compact` 만 낸다(닫지 않는다: 압축 표시 뒤에도 결과 줄이 온다, 리뷰 1).
+    `SYSTEM_MESSAGE` 와 `CONVERSATION_HISTORY` 는 결과도 닫는 줄도 아니다(조사에서 도구 없는 마지막 계획 줄 뒤에
+    `SYSTEM_MESSAGE` 가 324번 왔다). 그 밖의 종류(모르는 종류 포함)는 기다리는 호출이 있으면 결과 줄이다.
+  - 결과가 `RUNNING` 인 호출은 그 줄에서 ok + 백그라운드로 끝난다. 나중의 완료 알림(`messages/<uuid>.json`)은 열지 않는다
+    (조사의 mappingHints 는 그것으로 백그라운드 작업을 닫자고 했다). 실패는 `status: ERROR`, `error`, 0 이 아닌 `exit_code`
+    이고 오류 줄은 `Exit code <n>` 이나 `error` 의 첫 줄(공통 코어가 줄이고 거름)이다. `INVALID` 와 모르는 상태는 오류 줄
+    없는 실패다. 거절과 중단은 표시가 없어 내지 않는다. `transcript.jsonl` 에서 `tool_calls` 가 잘려 읽을 수 없는 계획
+    줄은 호출을 보이지 않고, 다음 닫는 줄까지의 결과 줄을 건너뛴다(어긋난 짝을 만들지 않게).
+  - 프롬프트는 `USER_INPUT` 안의 맨 바깥 `<USER_REQUEST>` 블록 안쪽 글뿐이다. 블록을 먼저 꺼내므로 공통 코어의 "`<` 로
+    시작하면 건너뜀" 규칙에 걸리지 않는다. `ADDITIONAL_METADATA`, `USER_SETTINGS_CHANGE`, `PLAN` 블록은 통째로 건너뛰므로
+    그 안에 적힌 `<USER_REQUEST>` 는 읽지 않는다(리뷰 3).
+  - 턴 끝: 도구 없이 글만 있는 `PLANNER_RESPONSE` 의 `say` 가 `final` 이라, 그 뒤 20초 동안 조용하면 `end_turn`, 그 전에
+    다음 `USER_INPUT` 이 오면 `next_turn` 이다. 요약 proto 의 상태(`1.2.5`)가 idle 로 오면, 열린 턴의 마지막 일이 그 답이고
+    기다리는 호출이 없을 때 조용한 시간을 기다리지 않고 바로 `end_turn` 이다. 요약 파일(rescan)과 기록(poll)은 따로 읽으므로
+    idle 이 그 답보다 먼저 올 수 있다. 그때는 기억해 두었다가 답이 오면 바로 닫고, 그 사이에 `USER_INPUT`, 도구 호출이 있는
+    계획 줄, `running` 이 오면 잊는다(리뷰 7). 상태는 세션 끝에는 쓰지 않는다(6.1절의 제안과 다르다). `ERROR_MESSAGE` 는
+    `system api_error` 이고 턴을 끝내지 않는다.
+  - 8.1절 13번의 "결과 줄 뒤 다음 계획 줄 전까지 생각 중으로 두기"(선택)는 하지 않았다. 생각은 계획 줄의 `thinking` 이
+    도착할 때만 보인다.
+  - 작업 폴더의 대안은 첫 `run_command` 의 `Cwd` 하나다. 5.3절이 대안으로 적은 `history.jsonl` 은 원문 입력이 들어 있어
+    읽지 않는다. 붙일 때의 replay 동안에는 그 `Cwd` 를 기억만 하고, replay 가 끝날 때(Runner 의 첫 메타 확인 뒤) 요약에
+    작업 폴더가 없을 때만 쓴다. 그래서 요약 항목이 있는 대화는 작업 폴더가 첫 cwd 다. 첫 cwd 가 층을 정하므로(CONTRACT
+    4.4), 요약 항목이 `run_command` 보다 늦게 생긴 새 대화는 그 `Cwd` 의 층(하위 폴더일 수 있다)에 머문다.
+  - 메타 파일 셋: 요약 proto(CLI `jetbox_summaries_proto.pb`, 예전 IDE `agyhub_summaries_proto.pb`, 대화마다 자기 항목만),
+    `annotations/<uuid>.pbtxt`(`title` 키만), `brain/<uuid>/task.md`(체크리스트를 `tasks` 계획판으로. `SessionCore.setInfo`
+    는 계획을 받지 않으므로 `AntigravitySession.setInfo` 가 `plan` 항목으로 바꾼다). 3.3절의 `sidecars(ref)` 훅이 아니라
+    `AntigravityMeta`(`meta.mjs`)를 `deps.sidecarWatcher` 로 넘긴다: 요약 파일은 대화 모두가 같이 쓰므로 대화마다가 아니라
+    파일마다 한 번 보고 바뀔 때 한 번 푼다(최대 8 MB), annotations 와 `task.md` 는 대화마다(최대 256 KB). 둘 다
+    `SidecarWatcher` 위에 서므로 링크를 따라가지 않고 바뀔 때만 읽는다. 파일의 lstat 은 마지막 이름만 보므로 확인할 때마다
+    폴더(`<app>`, `annotations/`, `brain/`, `brain/<uuid>/`)도 lstat 하고, 링크인 폴더는 없는 것으로 친다(리뷰 4). 바뀐 값만
+    넘기고, 파일이 사라져도 넘긴 값은 비우지 않는다. proto 는 새 파일 `proto.mjs` 의 작은 일반 해석기로 읽는다(깊이, 필드 수, 크기에 한계가 있고 예외를 던지지
+    않으며, 정해진 경로로만 내려간다). 필드 번호는 추정이라 문서에 그렇게 적었다.
+  - 도구 이름표는 6.2절 Antigravity 칸 그대로다(옛 이름과 새 이름 둘 다). 설명자에는 경로, `run_command` 의 명령 문자열
+    (프로그램 이름만 보임), URL(host), 검색어, MCP 서버와 도구 이름만 넣는다. `toolAction`/`toolSummary` 와 그 밖의 자유
+    글 인자는 읽지 않는다. `transcript.jsonl` 의 인자는 JSON 문자열이라(세션은 탐색이 ref 에 적은 `facts.full` 로 파일
+    형식을 안다) 허용된 필드만 하나씩 풀고, 잘려서 풀리지 않는 값은 버린다.
+  - D1 층은 공통 `projectKey` 만 쓴다. 조사에 Antigravity 전용 워크트리가 없어 층 규칙(`worktreeFloor`)이 없고, 그래서
+    Antigravity Runner 는 첫 rescan 에서 Grok, Codex Runner 가 기다리는 "층 규칙 없는 Runner" 쪽이다.
+  - P5e 리뷰 수정(7건, CONTRACT 4.8절과 6절에 반영): (1) `CHECKPOINT` 는 닫는 줄이 아니다. (2) 1.4.x `edit_file` 을 문서의
+    이름표에 적었다(코드는 이미 받았다). (3) 맨 바깥 `<USER_REQUEST>` 만 프롬프트다. (4) 메타 파일의 폴더도 lstat 해서 링크인
+    `annotations/`, `brain/<uuid>/`, 앱 폴더를 따라가지 않는다. (5) Antigravity 의 Tailer 는 `noFollow` 다: 붙일 때
+    `O_NOFOLLOW` 로 열고 탐색이 lstat 한 그 파일(`ino`)일 때만 읽는다(공유 Tailer 의 기본값은 그대로라 다른 어댑터는 바뀌지
+    않는다). (6) 파일을 바꿔 다시 알린 직원은, 옮기기 전에 열린 페이지에 열려 있던 도구 중 새 스냅숏에 없는 것을 Store 가
+    `abandoned` 로 닫는다(위치가 든 도구 id 가 두 파일에서 다르기 때문이다. id 가 그대로이고 아직 열린 도구에는 보낼 것이
+    없고, 옮기는 사이에 끝난 도구는 페이지에 남지 않고 `abandoned` 로 닫힌다).
+    (7) 닫는 답보다 먼저 읽힌 요약 상태 idle 도 그 답에서 턴을 닫는다.
+  - 등록표의 모든 id 가 구현됐으므로 `--agents` 로 고른 id 가 "아직 구현되지 않음" 으로 알려지는 경우는 이제 없다(규칙은
+    앞으로의 id 를 위해 남는다). 이 때문에 `antigravity` 를 그 예로 쓰던 기존 테스트는 고칠 수밖에 없다(고친 곳은 통합
+    단계가 `PLAN.md` 8.2절에 하나씩 적는다).
+  - 5.3절 미확인 항목의 상태는 5.3절 끝의 표에 적었다. 실제 기록으로 개수만 세는 확인의 결과는 통합 단계가 `PLAN.md`
+    8.2절에 적는다. 조사가 쓰이는 중인 CLI 대화 둘의 덧붙임(줄이 끝나야 쓰임, 덧붙이기만 함)을 이미 보았으므로, 실제
+    세션으로 덧붙이는 단위를 보는 확인(8.1절 11번)은 Grok, Codex 와 달리 조사 결과가 근거다.
+- P5f 완료(2026-10-20, P5e 와 함께): `docs/CONTRACT.md` 에 어댑터마다 절이 있다(Claude Code 4.1~4.5, Grok 4.6, Codex
+  4.7, Antigravity 4.8). `README.md` 의 지원 표, 옵션 표, 에이전트마다 보이는 모습, `PLAN.md` 의 진행 기록을 맞췄다.
+  끝 조건의 `--help`: `src/cli-args.mjs` 의 USAGE 가 구현된 어댑터에 `antigravity` 를 넣고, `--antigravity-root` 를
+  "다음 어댑터용" 이 아니라 CLI 와 예전 IDE 의 루트(`antigravity-cli/`, `antigravity-ide/` 만 읽고 데스크톱 앱의
+  `antigravity/` 는 읽지 않음)로 적는다. README 옵션 표와 CONTRACT 6절이 같은 내용이다.
 
 ## 10. 테스트 전략
 
@@ -715,7 +833,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 - 공통 적합성 테스트(`test/adapter-conformance.test.mjs`): `(adapter, fixtureRoot)` 쌍마다 같은 검사를 돈다.
   P5b 에서 하네스(`test/fixtures/conformance.mjs`)를 만들어 시험용 `core-fixture` 어댑터로 돌린다(CONTRACT 4.0.2절).
   아래 탐색 허용 목록 검사는 이 하네스에 아직 없다. Grok 은 P5c 의 Grok 전용 테스트가, Codex 는 P5d 의 Codex 전용
-  테스트가 확인한다(CONTRACT 4.6절, 4.7절).
+  테스트가, Antigravity 는 P5e 의 Antigravity 전용 테스트가 확인한다(CONTRACT 4.6절, 4.7절, 4.8절).
   - 스키마: 이벤트 type 이 CONTRACT 2절 표 안에 있고, type 마다 허용된 필드만 있고, 길이 상한(80/100/120/160)을 지킨다.
   - `session.agent` 가 그 어댑터 id 이고, `sessionId` 와 `parentSessionId` 가 `publicSessionId` 규칙을 지킨다.
   - 도구 짝: 모든 `tool_end` 의 `toolUseId` 는 앞선 `tool_start` 가 있고, 끝나지 않은 도구는 `snapshot()` 에 남는다.

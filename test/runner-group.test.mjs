@@ -147,15 +147,23 @@ test('server agents option: narrows the enabled set and reports requested ids th
   const root = await tmp();
   const both = await start({ port: 0, root, publicDir: PUBLIC, agents: ['claude-code', 'antigravity'] });
   try {
-    assert.deepEqual([both.agents, both.notImplemented], [['claude-code'], ['antigravity']]);
+    // antigravity is implemented since P5e but has no root here: skipped, not reported
+    assert.deepEqual([both.agents, both.notImplemented], [['claude-code'], []]);
   } finally {
     await both.close();
+  }
+  // a requested id that is not implemented is reported: a registry without antigravity (as before P5e)
+  const older = await start({ port: 0, root, publicDir: PUBLIC, agents: ['claude-code', 'antigravity'], adapters: CLAUDE_ONLY });
+  try {
+    assert.deepEqual([older.agents, older.notImplemented], [['claude-code'], ['antigravity']]);
+  } finally {
+    await older.close();
   }
   const codexOnly = await start({ port: 0, root, publicDir: PUBLIC, agents: ['codex', 'antigravity'] });
   try {
     await codexOnly.ready;
-    // codex is implemented since P5d but has no root here: skipped, not reported
-    assert.deepEqual([codexOnly.agents, codexOnly.notImplemented], [[], ['antigravity']]);
+    // codex (P5d) and antigravity (P5e) are implemented but have no root here: skipped, not reported
+    assert.deepEqual([codexOnly.agents, codexOnly.notImplemented], [[], []]);
     assert.deepEqual(JSON.parse((await request(codexOnly.port, { path: '/healthz' })).body).agents, []);
   } finally {
     await codexOnly.close();
@@ -172,11 +180,12 @@ test('server rejects unknown agents and bad roots before listening', async () =>
   await assert.rejects(start({ port: 0, root, publicDir: PUBLIC, roots: ['x'] }), RangeError);
 });
 
-test('server roots option: accepted for the upcoming adapters and unused while they are not implemented', async () => {
+test('server roots option: each implemented adapter runs on its own root (all four since P5e); a missing root is off', async () => {
   const root = await tmp();
   const app = await start({ port: 0, root, publicDir: PUBLIC, roots: { codex: path.join(root, 'nope'), grok: '~/x', antigravity: root } });
   try {
-    assert.deepEqual(app.agents, ['claude-code']);
+    await app.ready;
+    assert.deepEqual(app.agents, ['claude-code', 'antigravity'], 'antigravity (P5e) runs on its root; codex and grok roots are missing');
   } finally {
     await app.close();
   }
@@ -189,10 +198,20 @@ test('replay stays Claude-only (D12): agents claude-code whatever --agents says,
   const app = await start({ port: 0, root, publicDir: PUBLIC, replay: mainPath, speed: 1000, intervalMs: 50, agents: ['antigravity'] });
   try {
     await app.ready;
-    assert.deepEqual([app.agents, app.notImplemented], [['claude-code'], ['antigravity']]);
+    // antigravity is implemented since P5e: not reported, and replay still runs claude-code only
+    assert.deepEqual([app.agents, app.notImplemented], [['claude-code'], []]);
     assert.deepEqual(JSON.parse((await request(app.port, { path: '/healthz' })).body).agents, ['claude-code']);
   } finally {
     await app.close();
+  }
+  // a registry without antigravity (as before P5e): the requested id is still reported in replay
+  const older = await start({ port: 0, root, publicDir: PUBLIC, replay: mainPath, speed: 1000, intervalMs: 50, agents: ['antigravity'], adapters: CLAUDE_ONLY });
+  try {
+    await older.ready;
+    assert.deepEqual([older.agents, older.notImplemented], [['claude-code'], ['antigravity']]);
+    assert.deepEqual(JSON.parse((await request(older.port, { path: '/healthz' })).body).agents, ['claude-code']);
+  } finally {
+    await older.close();
   }
 });
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// office-sim: AI 코딩 에이전트 세션 기록을 3D 사무실로 보여 주는 로컬 서버를 띄운다 (지금은 Claude Code, Codex, Grok 기록을 읽는다).
+// office-sim: AI 코딩 에이전트 세션 기록을 3D 사무실로 보여 주는 로컬 서버를 띄운다 (지금은 Claude Code, Codex, Grok, Antigravity CLI 기록을 읽는다).
 import { parseArgs, USAGE } from '../src/cli-args.mjs';
 import { start } from '../src/server.mjs';
 import { defaultRoots } from '../src/adapters/index.mjs';
@@ -21,7 +21,7 @@ const log = (msg) => process.stderr.write(`[office-sim] ${msg}\n`);
 
 let app;
 try {
-  // 다른 어댑터의 기본 루트(~/.codex, ~/.grok ...)는 여기서 채운다: start() 는 받은 루트만 쓴다. --<id>-root 가 이긴다
+  // 다른 어댑터의 기본 루트(~/.codex, ~/.grok, ~/.gemini)는 여기서 채운다: start() 는 받은 루트만 쓴다. --<id>-root 가 이긴다
   app = await start({ ...args, roots: { ...defaultRoots(), ...args.roots }, log });
 } catch (err) {
   const hint = err?.code === 'EADDRINUSE' ? ' (port in use: try --port 0 or another port)' : '';

@@ -7,7 +7,11 @@
 //   committed chunk (the caller dedupes by uuid, so re-delivered lines are harmless).
 // - One read per path at a time: poll() during a running read returns { bytes: 0, busy: true } instead of
 //   waiting; readAll() waits for a running read; forget() stops a running read at the next chunk boundary.
+// - noFollow (opt-in, the Antigravity deps; off by default, so Claude, Codex and Grok read as before): readAll() opens
+//   with O_NOFOLLOW and attaches only the regular file the scan lstat-ed (ref.ino when the ref has one); a link or
+//   another file at the path is `gone`. poll() needs no change: it only reads the inode readAll() attached.
 
+import { constants as FS } from 'node:fs';
 import fsp from 'node:fs/promises';
 import { setImmediate as yieldToLoop } from 'node:timers/promises';
 
@@ -65,17 +69,19 @@ export function splitChunk(carry, buf, maxLineBytes) {
 export class Tailer {
   #maxLineBytes;
   #chunkBytes;
+  #noFollow;
   #files = new Map(); // path -> { offset, ino, parts, partLen, skipping, skipped }
   #busy = new Map(); // path -> Promise of the running read
 
   /** Total lines skipped for exceeding maxLineBytes, across all files. */
   skippedLines = 0;
 
-  constructor({ maxLineBytes = 8 * 1024 * 1024, chunkBytes = 4 * 1024 * 1024 } = {}) {
+  constructor({ maxLineBytes = 8 * 1024 * 1024, chunkBytes = 4 * 1024 * 1024, noFollow = false } = {}) {
     if (!(Number.isInteger(maxLineBytes) && maxLineBytes > 0)) throw new RangeError('maxLineBytes must be a positive integer');
     if (!(Number.isInteger(chunkBytes) && chunkBytes > 0)) throw new RangeError('chunkBytes must be a positive integer');
     this.#maxLineBytes = maxLineBytes;
     this.#chunkBytes = chunkBytes;
+    this.#noFollow = noFollow === true;
   }
 
   /**
@@ -83,6 +89,7 @@ export class Tailer {
    * yielding to the event loop between chunks. Replaces any previous state for the path.
    * `end` stops the replay earlier (e.g. at the size seen when a truncation was detected): the rest is left for poll(),
    * so lines appended after that point are delivered live. A line cut by `end` is completed by the next poll.
+   * With noFollow, a path that is a link (ELOOP / EMLINK), not a regular file, or not the inode `ref.ino` is `gone`.
    * @returns {Promise<{ offset: number, skipped: number, gone?: true, forgotten?: true }>}
    */
   async readAll(ref, onLine, { end = Infinity } = {}) {
@@ -92,13 +99,17 @@ export class Tailer {
       this.#files.delete(p);
       let fh;
       try {
-        fh = await fsp.open(p, 'r');
+        fh = await fsp.open(p, this.#noFollow ? FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) : 'r');
       } catch (err) {
         if (err && err.code === 'ENOENT') return { offset: 0, skipped: 0, gone: true };
+        if (this.#noFollow && (err?.code === 'ELOOP' || err?.code === 'EMLINK')) return { offset: 0, skipped: 0, gone: true };
         throw err;
       }
       try {
         const st = await fh.stat();
+        if (this.#noFollow && (!st.isFile() || (Number.isSafeInteger(ref?.ino) && st.ino !== ref.ino))) {
+          return { offset: 0, skipped: 0, gone: true }; // 탐색이 lstat 한 그 파일이 아니다 (사이에 바뀌었다)
+        }
         const state = { offset: 0, ino: st.ino, parts: [], partLen: 0, skipping: false, skipped: 0 };
         this.#files.set(p, state);
         const stop = Number.isFinite(end) && end >= 0 ? Math.min(st.size, end) : st.size;

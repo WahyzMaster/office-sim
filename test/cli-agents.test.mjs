@@ -96,16 +96,28 @@ test('bin prints "agents claude-code" right after the URL line', async () => {
   assert.equal(lines[1], 'office-sim: agents claude-code');
 });
 
-test('bin --agents: one "is not implemented yet" line per requested unimplemented id, "agents none" when nothing runs', async () => {
+// waits until the agents line has been out for a moment, so a following "is not implemented yet" line would be there too
+function agentsLineSettled(ms = 300) {
+  let seenAt = 0;
+  return (ls) => {
+    if (!ls.some((l) => l.startsWith('office-sim: agents'))) return false;
+    seenAt ||= Date.now();
+    return Date.now() - seenAt >= ms;
+  };
+}
+
+test('bin --agents: every known id is implemented since P5e, so no "is not implemented yet" line; "agents none" when nothing runs', async () => {
   const root = await tmp();
   const mixed = await runBin(['--claude-root', root, '--agents', 'antigravity,claude-code,codex']);
-  let lines = await linesUntil(mixed, (ls) => ls.includes('office-sim: antigravity is not implemented yet'));
-  // codex is implemented since P5d: its default root (~/.codex under the temp HOME) is missing, so it is off, not reported
-  assert.deepEqual(lines.slice(1, 3), ['office-sim: agents claude-code', 'office-sim: antigravity is not implemented yet']);
-  assert.ok(!lines.includes('office-sim: codex is not implemented yet'));
+  let lines = await linesUntil(mixed, agentsLineSettled());
+  // codex (P5d) and antigravity (P5e) are implemented: their default roots (~/.codex, ~/.gemini under the temp HOME) are
+  // missing, so they are off, not reported
+  assert.equal(lines[1], 'office-sim: agents claude-code');
+  assert.ok(!lines.some((l) => l.endsWith('is not implemented yet')), lines.join('\n'));
   const none = await runBin(['--claude-root', root, '--agents', 'antigravity', '--antigravity-root', path.join(root, 'nope')]);
-  lines = await linesUntil(none, (ls) => ls.includes('office-sim: antigravity is not implemented yet'));
-  assert.deepEqual(lines.slice(1, 3), ['office-sim: agents none', 'office-sim: antigravity is not implemented yet']);
+  lines = await linesUntil(none, agentsLineSettled());
+  assert.equal(lines[1], 'office-sim: agents none');
+  assert.ok(!lines.some((l) => l.endsWith('is not implemented yet')), lines.join('\n'));
 });
 
 test('bin with a missing --claude-root: "agents none", one stderr log line without the path, server still up', async () => {

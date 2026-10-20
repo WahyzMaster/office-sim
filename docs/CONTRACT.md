@@ -1,13 +1,14 @@
-# office-sim server contract (P1-P3, P5a-P5d)
+# office-sim server contract (P1-P3, P5a-P5e)
 
 The server tails Claude Code session transcripts under `~/.claude/projects`, turns records into UI events,
 and streams them to the 3D office page (`public/`) over SSE. This file is the single source of truth for
 module boundaries, the event schema and the parsing rules. The format rules come from a corpus study of
 5,016 local transcript files (Claude Code 2.1.181 to 2.1.299, entrypoint `claude-desktop`).
-Since P5d three adapters are implemented: Claude Code, Grok (xAI Grok Build, 4.6) and Codex (OpenAI Codex, all clients,
-4.7); Antigravity is planned as a separate adapter (see 4.0). The approved multi-agent design is `docs/ADAPTERS.md`; its
-shared groundwork (P5a) is in 4.0.1, the shared session core for the new adapters (P5b) in 4.0.2, the Grok adapter (P5c)
-in 4.6 and the Codex adapter (P5d) in 4.7.
+Since P5e all four adapters are implemented: Claude Code (4.1-4.5), Grok (xAI Grok Build, 4.6), Codex (OpenAI Codex,
+all clients, 4.7) and Antigravity (the CLI `agy` and the legacy IDE, 4.8; the desktop app is out of scope, D6). The
+approved multi-agent design is `docs/ADAPTERS.md`; its shared groundwork (P5a) is in 4.0.1, the shared session core for
+the new adapters (P5b) in 4.0.2, the Grok adapter (P5c) in 4.6, the Codex adapter (P5d) in 4.7 and the Antigravity
+adapter (P5e) in 4.8.
 
 ## 0. Ground rules
 
@@ -37,13 +38,14 @@ src/session-util.mjs    tool_result status + error line, ask fields, public tool
 src/session-identity.mjs titles, branch/worktree/agentType labels, the `session` event with its `agent` id (pure)
 src/session-plan.mjs    PlanBoard: plan/task whiteboard state for one SessionState
 src/discover.mjs        find transcript files + read subagent meta / workflow journal labels
-src/tailer.mjs          per-file byte-offset tail with partial-line buffer
+src/tailer.mjs          per-file byte-offset tail with partial-line buffer; opt-in `noFollow` attach (Antigravity, 4.8)
 src/store.mjs           registry of sessions and projects, entry agent, event ring buffer, snapshot, announce, patch,
                         since, endCharacter (4.0.1); calls store-claude.mjs only for entries whose agent is claude-code
 src/store-claude.mjs    Claude subagent linking (4.5, R28/R29, R36 forwarding), split out of store.mjs in P5a:
                         observe, onResult, onNotification, subByToolUse, the Claude part of endAgent, task deltas,
                         buffered sub meta and journal labels
-src/store-link.mjs      Store helpers: file identity, link facts, per-session index, ring lookup (pure)
+src/store-link.mjs      Store helpers: file identity, link facts, per-session index, ring lookup, the open tool ids
+                        of a moved character (section 6 relocation) (pure)
 src/adapters/index.mjs  adapter registry: KNOWN_AGENTS, AGENT_LABELS, ADAPTERS, enabled-adapter selection (4.0.1)
 src/adapters/claude-code.mjs the claude-code descriptor; points at the Claude modules where they are (D8)
 src/adapters/grok/      the Grok adapter (P5c, 4.6), every file under 500 lines: `discover.mjs` (allowlist discovery,
@@ -56,28 +58,38 @@ src/adapters/codex/     the Codex adapter (P5d, 4.7), every file under 500 lines
                         reader), `records.mjs` (one record -> item pieces, pure), `exec.mjs` (code-mode `exec`, pure),
                         `session.mjs` (`CodexSession`: turn, tool and inherited-context state around SessionCore) and
                         the descriptor `index.mjs` (id `codex`, default root `~/.codex`, `worktreeFloor`)
+src/adapters/antigravity/ the Antigravity adapter (P5e, 4.8), every file under 500 lines: `discover.mjs` (allowlist
+                        discovery in the two app folders, transcript file preference by line count), `meta.mjs`
+                        (`AntigravityMeta`, the metadata watcher, and the summary / annotation / `task.md` parsers),
+                        `proto.mjs` (a bounded, never-throwing protobuf wire-format reader), `records.mjs` (one step ->
+                        item pieces, pure), `tools.mjs` (tool name table -> descriptors, pure), `session.mjs`
+                        (`AntigravitySession`: line positions, position pairing and the cwd fallback around
+                        SessionCore) and the descriptor `index.mjs` (id `antigravity`, default root `~/.gemini`,
+                        a `noFollow` Tailer)
 src/core/tool-summary.mjs normalized tool descriptor -> { tool, summary, room?, background? } (pure, 4.0.2)
 src/core/session-core.mjs SessionCore: normalized items -> UI events, the SessionLike API for the new adapters;
-                        used by the Grok and Codex adapters (4.0.2, 4.6, 4.7)
+                        used by the Grok, Codex and Antigravity adapters (4.0.2, 4.6, 4.7, 4.8)
 src/core/session-items.mjs pure shaping of normalized items into event fields for SessionCore (caps, scrub, plan view)
 src/core/sidecar.mjs    SidecarWatcher (P5c, ADAPTERS 3.3): at each rescan stats the small metadata files an adapter
                         declares (`sidecars(ref)`), re-reads one only when its mtime / size / inode changed (<= 1 MB,
                         parse errors ignored) and passes the result to the session's setInfo (4.6). The Codex title
-                        index is not read by it (an incremental reader of its own, 4.7)
+                        index is not read by it (an incremental reader of its own, 4.7); the Antigravity metadata
+                        watcher is built on two of them (4.8)
 src/server.mjs          start(): wires Store, RunnerGroup (one Runner per enabled adapter, defined here) and the
                         HTTP layer
 src/server-runner.mjs   Runner: poll / rescan / idle loops, attach, relocation, backoff; runs the SidecarWatcher at
                         rescan only for an adapter that has the `sidecars(ref)` hook (Grok; Claude has none), or in its
                         place an adapter's own watcher `deps.sidecarWatcher` (`check(ref)` / `forget(path)`: the Codex
-                        titles, 4.7); passes a ref's scan-time `facts` to the session constructor (Codex)
+                        titles, 4.7, and the Antigravity metadata, 4.8); passes a ref's scan-time `facts` to the session
+                        constructor (Codex, Antigravity)
 src/server-http.mjs     http: /, /js/*, /events (SSE), /state, /config, /healthz
 src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
 src/replay.mjs          ReplayRunner (extends Runner): --replay playback of one session (section 6.1)
 src/replay-timeline.mjs replay timeline: line times, cross-file merge, speed + gap cap, approval look-ahead (pure)
 test/*.test.mjs         unit + integration tests, synthetic fixtures under test/fixtures/ or generated
 test/fixtures/conformance.mjs adapter conformance harness (ADAPTERS 10, 4.0.2), run by test/adapter-conformance.test.mjs
-                        against the test-only core-fixture adapter (test/fixtures/core-adapter.mjs); the Grok and
-                        Codex adapters run it too (4.6, 4.7)
+                        against the test-only core-fixture adapter (test/fixtures/core-adapter.mjs); the Grok,
+                        Codex and Antigravity adapters run it too (4.6, 4.7, 4.8)
 public/                 the browser app; owned by the browser module (public/js/*), server work does not edit it.
                         P3: js/detail.js (per-floor detail: hidden floors skip draw, matrices, labels, animation;
                         unfocused floors cast no shadows; CSS labels only for the focused floor), js/bench.js (#bench)
@@ -104,10 +116,10 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 
 `session.agent` names the tool whose transcript the character comes from, so every character (main sessions and
 subagents alike) carries an agent id. It is on every `session` event, live and in snapshots. Ids: `claude-code`,
-`grok` and `codex` (implemented, `grok` since P5c, 4.6, `codex` since P5d, 4.7), and `antigravity` for the planned
-adapter. The page shows the labels `Claude Code`, `Codex`, `Grok`, `Antigravity`, and an unknown id as-is. The id flows
-from the file's `FileRef.agent` through its session object (`SessionState`, or the Grok or Codex session around
-`SessionCore`) and its Store entry (4.0.1).
+`grok`, `codex` and `antigravity`, all implemented (`grok` since P5c, 4.6, `codex` since P5d, 4.7, `antigravity` since
+P5e, 4.8). The page shows the labels `Claude Code`, `Codex`, `Grok`, `Antigravity`, and an unknown id as-is. The id flows
+from the file's `FileRef.agent` through its session object (`SessionState`, or the Grok, Codex or Antigravity session
+around `SessionCore`) and its Store entry (4.0.1).
 
 Wire messages on `/events` (each SSE `data:` line is one JSON object, every message has an `id:` line = seq):
 - `{ "type": "snapshot", "events": [ ...events ] }` first message on every connection (or replay, see 6).
@@ -252,7 +264,7 @@ Tolerate ENOENT anywhere (files move live). If the same main stem exists in seve
 ### 3.6 `src/tailer.mjs`
 ```js
 export class Tailer {
-  constructor({ maxLineBytes = 8 * 1024 * 1024, chunkBytes = 4 * 1024 * 1024 })
+  constructor({ maxLineBytes = 8 * 1024 * 1024, chunkBytes = 4 * 1024 * 1024, noFollow = false })
   async readAll(ref, onLine, { end }) // attach: stream the file from byte 0 (up to `end` when given), call onLine(line)
                               // per complete line, yield to the event loop between chunks; remembers offset + ino
   async poll(ref, onLine)     // read [offset, size); carry a trailing partial line; size < offset or ino change ->
@@ -264,6 +276,10 @@ export class Tailer {
 After a reset the runner re-attaches at once (no wait for the next rescan) and replays only up to the `size` seen at
 the reset; lines appended after it come from the next `poll` as live events.
 Lines longer than `maxLineBytes` are skipped (count them). JSON parsing happens in the caller.
+`noFollow` (off by default; the Antigravity descriptor's `deps().Tailer` turns it on, 4.8): `readAll` opens the path
+with `O_NOFOLLOW` and attaches it only when the opened file is a regular file whose inode is the ref's `ino` (when the
+ref has one); a link (`ELOOP` / `EMLINK`), another kind of file or another inode at the path returns `{ gone: true }`
+without a line, and the next rescan decides again. `poll` is unchanged: it only reads the inode `readAll` attached.
 
 ### 3.7 `src/store.mjs`
 ```js
@@ -293,7 +309,7 @@ entries whose agent is `claude-code`.
 ### 4.0 Adapter scope
 - Everything in 4.1-4.5 (R6-R36), together with the file layout in 3.5 and the record kinds in 3.3, is the Claude Code
   adapter: how Claude Code transcripts are found and read. Its `session` events carry `agent: 'claude-code'`.
-- Every other adapter (Grok since P5c, 4.6; Codex since P5d, 4.7; Antigravity planned) brings its own log discovery
+- Every other adapter (Grok since P5c, 4.6; Codex since P5d, 4.7; Antigravity since P5e, 4.8) brings its own log discovery
   and record mapping, but must emit the same event schema (section 2) with its own `agent` id, and must send every
   free-text field through the shared `cleanText` scrub and the privacy rules of section 5. The Store, the SSE wire
   format and the page stay shared.
@@ -332,11 +348,13 @@ Adapter registry (`src/adapters/index.mjs`):
 - `KNOWN_AGENTS = ['claude-code', 'codex', 'grok', 'antigravity']`: every id the CLI accepts.
 - `AGENT_LABELS`: display labels, the same as `AGENT_LABEL` in `public/js/hud.js` (`Claude Code`, `Codex`, `Grok`,
   `Antigravity`).
-- `ADAPTERS = { 'claude-code': claudeCode, codex, grok }`: the implemented adapters (P5a registered `claude-code` only;
-  P5c added `grok`, 4.6; P5d added `codex`, 4.7).
+- `ADAPTERS = { 'claude-code': claudeCode, codex, grok, antigravity }`: the implemented adapters (P5a registered
+  `claude-code` only; P5c added `grok`, 4.6; P5d added `codex`, 4.7; P5e added `antigravity`, 4.8). Since P5e every id
+  in `KNOWN_AGENTS` is implemented.
 - Selection (D3): an implemented adapter whose root exists is enabled. A requested list (`--agents`) narrows the set.
   A requested id that is in `KNOWN_AGENTS` but not implemented is reported as `not implemented yet` and skipped; an id
-  outside `KNOWN_AGENTS` is an error. Every list (enabled, off, not implemented) follows `KNOWN_AGENTS` order without
+  outside `KNOWN_AGENTS` is an error. (Since P5e no known id is unimplemented, so the `not implemented yet` list is
+  empty in practice; the rule stays for a future id.) Every list (enabled, off, not implemented) follows `KNOWN_AGENTS` order without
   duplicates, in live and replay mode alike. A root check that has not answered within 2 s (`PROBE_TIMEOUT_MS`, a
   stalled network or FUSE mount) counts as unreadable with code `ETIMEDOUT`. Since P5c an implemented adapter other
   than `claude-code` whose root is not given in `roots` is skipped: not probed, not enabled, not reported. Default
@@ -347,7 +365,9 @@ Adapter registry (`src/adapters/index.mjs`):
   `readJournalLabels`), and replay support (6.1, D12). It points at the existing modules in place (D8). The Grok
   descriptor (`src/adapters/grok/index.mjs`, P5c) has its own `deps()` and the optional `sidecars(ref)` hook, and no
   replay support (4.6). The Codex descriptor (`src/adapters/codex/index.mjs`, P5d) has its own `deps()` (with the
-  `sidecarWatcher` title reader, no `sidecars(ref)` hook) and `worktreeFloor`, and no replay support (4.7).
+  `sidecarWatcher` title reader, no `sidecars(ref)` hook) and `worktreeFloor`, and no replay support (4.7). The
+  Antigravity descriptor (`src/adapters/antigravity/index.mjs`, P5e) has its own `deps()` (with the `sidecarWatcher`
+  metadata reader, no `sidecars(ref)` hook), no `worktreeFloor`, and no replay support (4.8).
 
 Agent id flow:
 - `FileRef.agent` (string) is the adapter id. When a ref has none, the Runner sets `ref.agent = deps.agent`.
@@ -407,12 +427,13 @@ Review fixes (F1-F4):
   start; a character that was shown before gets its `session_end` with the hint's reason. Hints for already ended
   characters stay no-ops and are not kept.
 - Not in P5a: `SessionCore` and `tool-summary` (added in P5b, 4.0.2), `SidecarWatcher` (moved to P5c; its first
-  consumer is Grok, 4.6) and any Codex, Grok or Antigravity parsing (Grok: P5c, 4.6; Codex: P5d, 4.7).
+  consumer is Grok, 4.6) and any Codex, Grok or Antigravity parsing (Grok: P5c, 4.6; Codex: P5d, 4.7; Antigravity: P5e,
+  4.8).
 
 ### 4.0.2 SessionCore (공통 세션 코어)
 P5b is the shared core of ADAPTERS 3.2 for the three new adapters: `src/core/tool-summary.mjs`,
 `src/core/session-core.mjs` and its pure helper `src/core/session-items.mjs`. When P5b landed no adapter used it; since
-P5c the Grok adapter does (4.6), and since P5d the Codex adapter (4.7). `claude-code` keeps its `SessionState` (D9),
+P5c the Grok adapter does (4.6), since P5d the Codex adapter (4.7), and since P5e the Antigravity adapter (4.8). `claude-code` keeps its `SessionState` (D9),
 so the events built from Claude transcripts do not change. The Grok, Codex and Antigravity adapters (P5c-P5e) map
 their records to the normalized items below and feed them to `SessionCore`. Reuse instead of copies: `tool-summary`
 builds on `src/summarize.mjs` (`cleanText`, `truncate`, `hostOf`, `looksLikeUuid`, `ZERO_UUID`, and the newly exported
@@ -1230,6 +1251,305 @@ ordinals); `test/codex-mixed.test.mjs` a re-tasked child on attach (real descrip
 bin's `office-sim: agents claude-code,codex,grok` line. The only real-data use is a read-only check against `~/.codex` that prints counts only
 (events, unpaired tools, apply errors, privacy hits).
 
+### 4.8 Antigravity adapter (P5e)
+The Antigravity adapter reads the step transcripts of Google Antigravity's CLI (`agy`) and of the legacy Antigravity
+IDE. Scope (D6): those two only. The Antigravity desktop app (Antigravity.app 2.x, data root `<root>/antigravity/`) is
+out of scope: its conversations (`conversations/<uuid>.pb`) look encrypted (a distinct prefix per file, entropy 8.0
+bits/byte, no protobuf parse from offset 0) and are rewritten whole, and its brain folders hold no logs, so it has no
+tool events; nothing under `<root>/antigravity/` is listed, `stat`ed or opened, not even its task lists or its summary
+file. Format facts come from the structure-only study `docs/research/antigravity-format.json` (34 CLI transcripts and 2
+legacy IDE transcripts, about 16,800 lines, CLI language servers 1.3.5-1.4.2); the design is ADAPTERS 5.3, 6.1 and 6.2,
+and where this section differs from those proposals, this section wins. Agent id `antigravity`, default root `~/.gemini`
+(`--antigravity-root`, section 6). Code: `src/adapters/antigravity/`: `discover.mjs` (allowlist discovery, transcript
+file preference), `meta.mjs` (`AntigravityMeta`, the metadata watcher, and the summary, annotation and `task.md`
+parsers), `proto.mjs` (the protobuf wire-format reader), `records.mjs` (one step -> item pieces, pure), `tools.mjs` (the
+tool name table -> descriptors, pure), `session.mjs` (`AntigravitySession`: line positions, position pairing and the cwd
+fallback around SessionCore, the SessionLike API) and the descriptor `index.mjs`, registered in `src/adapters/index.mjs`;
+every file stays under 500 lines. Every cap, scrub, pairing, turn and plan rule of 4.0.2 applies. Claude, Grok and
+Codex behaviour does not change (4.1-4.7 and section 5 keep their rules).
+
+Discovery (allowlist, ADAPTERS 7.1; `discover.mjs`):
+- `<root>` (`~/.gemini`) is shared with the Gemini CLI and holds credentials and raw input history, so `<root>` itself
+  is never listed; only two app folders under it are entered: `<root>/antigravity-cli/` (the CLI) and
+  `<root>/antigravity-ide/` (the legacy IDE). In each, the only transcript paths accepted are
+  `<app>/brain/<uuid>/.system_generated/logs/transcript_full.jsonl` and
+  `<app>/brain/<uuid>/.system_generated/logs/transcript.jsonl`, with `<uuid>` the conversation id (a UUID folder name; it
+  equals the summary key and the `conversations/<uuid>.db` stem, 37/37). When the same uuid exists in both app folders,
+  the copy with the newer transcript mtime wins, then the larger transcripts, then `antigravity-cli`.
+- File preference (one file per conversation): `transcript_full.jsonl` holds every step with untruncated values and
+  native JSON arguments, and is preferred. `transcript.jsonl` holds the same steps with long `content`, `thinking` and
+  `tool_calls` cut (listed in `truncated_fields`) and every argument JSON-encoded as a string; it is used when the full
+  file is missing or holds fewer lines (one conversation's full file started at step 220: 44 lines against 118). The
+  comparison counts lines (newlines), never bytes. The counts are kept per path and extended by the bytes appended since
+  the last scan (from 0 again after an inode change or a shrink; opened with `O_NOFOLLOW`, read only when the opened file
+  is the `lstat`ed regular file), at most 64 MB of counting per rescan (`SCAN_LIMITS.countBytes`; the rest is counted at
+  the next rescans, and meanwhile a conversation keeps its previous file, else the full one). The two files are appended
+  one after the other, so they can differ by a few lines for a moment: a conversation that reads the full file moves to
+  `transcript.jsonl` only when that one has more than 16 lines more (`FULL_SLACK_LINES`), and any conversation reads the
+  full file again once it has at least as many lines.
+- The preferred file can change while a conversation runs (the full file appears late, or falls behind or catches up).
+  Then the Runner moves the character to the other file as it does for a Codex continuation piece (4.7): the old path is
+  detached without a `session_end`, the new file is attached and replayed from byte 0, the state is rebuilt from that
+  file alone, and the character keeps its id. Tool ids carry the line position (Records below), and the positions differ
+  between the two files (`transcript.jsonl` arguments are JSON-encoded), so a call still open at the switch gets a new
+  id: the Store closes the old id with `tool_end` `abandoned` right after the re-announce (section 6, relocation), and
+  the new id stays open until its result line.
+- Read, and nothing else: `lstat` of `<app>`, `brain/`, each conversation's `.system_generated/` and `logs/` (each must be
+  a real folder) and of the two transcript names (regular files only), the listing of `brain/` (UUID-named real
+  directories only), the line counts above, an attached transcript through the Tailer (3.6) with `noFollow` (opened with
+  `O_NOFOLLOW` and attached only when it is the regular file the scan `lstat`ed, its `ino`: a link or another file
+  planted between the scan and the attach is not read), and the metadata files below. Never opened, listed or `stat`ed: `<root>/antigravity/` (the desktop app, D6), `conversations/` (`*.db` with
+  `-wal` / `-shm`, `*.pb`), `conversation_summaries.db`, `implicit/`, the brain folders' `.system_generated/messages/`
+  (`*.json`, `read.json`), `steps/*/output.txt`, `tasks/*.log` and `logs/chunks/`, the brain artifacts other than
+  `task.md` (`walkthrough.md`, `implementation_plan.md`, `*.metadata.json`, `*.resolved*`, `scratch/`, `.git/`),
+  `history.jsonl` and every `history` folder or file (raw input; they also hold workspace keys and are still never
+  read), `cache/`, `log/`, `daemon/`, `presence/`, `browser_recordings/`, and the files of `<root>` itself:
+  `oauth_creds.json`, `google_accounts.json`, `settings*.json`, `state.json`, `trustedFolders.json`, `projects.json`,
+  `sandbox/`, `tmp/`, `config/`.
+- Symlinks are never followed: a linked app folder, `.system_generated/` or `logs/` counts as missing, a linked `brain/`
+  is an empty list, a linked conversation folder or transcript is no entry, and a linked `annotations/` folder counts as
+  missing (Metadata files below). ENOENT, ENOTDIR, EACCES, EPERM, ELOOP and
+  ENAMETOOLONG on a folder or a file skip that entry; a missing app folder or `brain/` is an empty list. A `brain/` that
+  exists but is not a folder or cannot be listed, or more than 50,000 conversation folders in one walk
+  (`SCAN_LIMITS.conversations`; the walk throws `SCAN_CAPPED` instead of returning a cut list), fails the scan, and the
+  Runner skips that rescan as for Grok and Codex (section 6, `scan failed`).
+- Active window (as 3.5 and section 6): a conversation is returned when the newer mtime of its two transcripts is inside
+  `--active`. Refs are returned in uuid order.
+- The root check of D3 (section 6) opens `<root>` itself, and `~/.gemini` exists for anyone who uses the Gemini CLI, so
+  the adapter can be on without any Antigravity install; its scan then finds no app folder and returns an empty list.
+
+Ids (D2, 4.0.1 F2):
+- Every conversation is a main: no structural subagent link exists in these files (summary db `parent_conversation_id`
+  null and `nesting_depth` 0 in 166/166 rows, `has_subtrajectory` 0 in every step). `kind: 'main'`, `charId` = `sid` =
+  `stem` = `antigravity-<uuid>`, `sessionId` = the uuid, `agent: 'antigravity'`; every ref passes the F2 guard. A ref
+  also carries `facts: { full, base }` (which file and which app folder), which the Runner passes to the session
+  constructor: `full` tells the session how argument values are written (Tools below).
+  `manage_subagents` and `browser_subagent` calls are the conversation's own tools (Tools below).
+
+Metadata files (`AntigravityMeta`, `meta.mjs`):
+- Three small files describe a conversation, all in its own app folder: the summaries file
+  (`antigravity-cli/jetbox_summaries_proto.pb` for a CLI conversation, `antigravity-ide/agyhub_summaries_proto.pb` for a
+  legacy IDE conversation, read when present), `<app>/annotations/<uuid>.pbtxt` and `<app>/brain/<uuid>/task.md`.
+- The summaries file lists every conversation of its app folder and is replaced whole on change (inode changed twice in
+  240 s), so it is not a per-session sidecar: the descriptor has no `sidecars(ref)` hook and hands the Runner an
+  `AntigravityMeta` as `deps.sidecarWatcher` (`check(ref)` / `forget(path)`, the slot the Codex titles use, 4.7). The
+  Runner calls `check` when a transcript is attached (after its replay, before the character is announced) and at each
+  rescan for every attached session, and passes what it returns to the session's `setInfo`; for a character the Store
+  has already ended only the state changes. `AntigravityMeta` is built on two `SidecarWatcher`s (4.6), so every file is
+  `lstat`ed, opened with `O_NOFOLLOW`, read only when it is the `lstat`ed regular file and only after its inode, size or
+  mtime changed: the summaries file once per file, not once per conversation, and parsed once per change (at most
+  8 MB, `SUMMARY_MAX_BYTES`), the annotation and `task.md` per conversation (at most 256 KB each,
+  `META_FILE_MAX_BYTES`). The `lstat` of a file does not cover its folders, so every check also `lstat`s them: nothing
+  is read when `<app>` is not a real folder, the annotation only when `<app>/annotations/` is a real folder, and
+  `task.md` only when `<app>/brain/` and `brain/<uuid>/` are; a linked folder counts as missing, so no file outside
+  `<app>/` (or under the desktop root `antigravity/`) is opened. A file that fails to parse is ignored until it changes.
+  It never throws.
+- `check` returns only the fields whose value changed since the last delivery to that transcript: `{ title?, cwd?,
+  branch?, status?, tasks? }`. Values never go back to empty: a file that disappears or no longer names the conversation
+  leaves what was delivered. `forget(path)` drops a transcript's state when it is detached or moves.
+- The study found `agyhub_summaries_proto.pb` only under the desktop app root `antigravity/`, which is never read (D6),
+  and no summaries file under `antigravity-ide/`; a legacy IDE conversation therefore usually has no summary entry, and
+  its title and cwd come from the fallbacks below.
+
+Summary protobuf (`proto.mjs`, `parseSummaries` in `meta.mjs`):
+- `proto.mjs` reads the protobuf wire format without a schema: varint (at most 10 bytes), 64-bit, length-delimited and
+  32-bit fields; a group or an unknown wire type stops the read. It reads one message flat and returns views into the
+  input (never a copy, never past the end); nested messages are decoded only along the fixed paths below, never by
+  guessing that a byte string looks like a message. It is bounded (`PROTO_LIMITS`: input 16 MB, 100,000 fields per
+  message, path depth 16) and never throws: a cut-off or malformed field ends the read of that message and the fields
+  before it stay. Text values must be strict UTF-8 without control characters other than tab and line breaks.
+- Field numbers are **inferred**, not published: they come from cross-checks of the study against the summary SQLite
+  columns and the repositories' git state (no schema exists; `unverified` in the research file). Of the entry whose key
+  is the conversation's uuid (keys that are not UUIDs are skipped; for a repeated key the last entry wins) only these
+  paths are kept:
+
+| path (inferred) | kept as | cross-check in the study |
+|---|---|---|
+| `1` (repeated) | one entry per conversation | 35-37 CLI entries, 64 IDE entries |
+| `1.1` | the entry key, the conversation uuid | equals the brain folder name |
+| `1.2.1` | `title` (a generated title, <= 1,000 chars) | equals the db preview in 61/64 and 32/35; equals the first prompt in 0/30 |
+| `1.2.5` | `status`: varint 1 = `idle`, 2 = `running` (other values are not used) | 1 with db IDLE (98), 2 with db RUNNING (1) |
+| `1.2.9.1` | `cwd`: the workspace `file://` URI as an absolute path (`fileURLToPath`: percent-decoded, `file://localhost/x` = `file:///x`, no trailing `/`; another host or scheme, an encoded `/`, a NUL or a relative result is dropped) | equals the db `workspace_uris[0]` in 48/48 and 34/34 |
+| `1.2.9.4` | `branch` (one line, <= 256 chars) | the repository's current branch in 35/41 and 26/29 checkable cases, never a sha |
+
+- Nothing else of an entry is kept: the step count (`1.2.2`), times (`1.2.7`, `1.2.10`), the git root (`1.2.9.2`), the
+  owner/repo and remote URL (`1.2.9.3`, never shown), the project id (`1.2.17.18`) and the unidentified fields (`1.2.3`,
+  `1.2.15`, `1.2.16`, `1.2.17`, `1.2.22`, `1.2.28`).
+
+Titles, cwd, branch, status:
+- Title: the annotation `title`, else the summary `1.2.1`, else the first prompt (the inner `USER_REQUEST`, <= 40,
+  4.0.2), else 8 chars of the id after `antigravity-`. Section 5 scrub, <= 80. The annotation is protobuf text format:
+  only a top-level `title` key whose value is one or more adjacent quoted strings is read (C-style escapes, strict
+  UTF-8); every other key (IDE annotations hold only `last_user_view_time`), nested block and comment is skipped.
+- Cwd: the summary workspace. When no workspace is known, the first absolute `Cwd` argument of a `run_command` call is
+  the cwd (it is read for this only and never shown). During the attach replay that `Cwd` is only remembered; when the
+  replay ends (the first `idle()`, which comes after the Runner's first metadata check, or the first live line) it is
+  applied if the metadata gave no workspace by then, so a conversation that has a summary entry gets the workspace as
+  its first cwd. After the replay the first such `Cwd` is applied at once while no cwd is known. The first cwd fixes the
+  floor (4.4): a new conversation whose summary entry appears only after a `run_command` gave its `Cwd` keeps the floor
+  of that `Cwd`, which can be a subfolder of the workspace. `history.jsonl` also maps conversations to workspaces and is
+  never read.
+- Branch: the summary `1.2.9.4` (`HEAD` -> `detached`, section 5 scrub, <= 60); none when the workspace is not a git
+  repository (absent in 6/35 CLI entries).
+- Status: a delivered `status` of `idle` ends the open turn at once (`turn_end` reason `end_turn`, instead of waiting for
+  the quiet time below) when that turn's last work was a closing answer (a final `say`) and no call waits for its
+  result. The summaries file is read at rescan and the transcript at poll, so `idle` can arrive before the closing
+  answer is read: it is then remembered, and the next closing answer ends the turn at once (after its `say`); a
+  `USER_INPUT`, a `PLANNER_RESPONSE` with calls (or with `tool_calls` that cannot be read) or a delivered `running`
+  forgets it. `running` changes nothing else. Status never ends a session: a main ends when its file leaves the active
+  window.
+
+Plan (`task.md`, D5):
+- A checklist line, at any indent and with a `-`, `*`, `+` or numbered (`1.`, `1)`) bullet, gives an item
+  `{ content, status }`: `[ ]` pending, `[/]` in_progress, `[x]` / `[X]` completed. Headings, plain bullets, other markers
+  and fenced code blocks give nothing; HTML comments, link targets and backticks are dropped from the content (the core
+  scrubs and caps the rest, 80 code points). Each raw line is cut at 1,000 chars, and at most 1,000 items are kept. A
+  file without a checklist item gives no list (the board stays as it was).
+- The list reaches the session as `setInfo({ tasks })`, and `AntigravitySession` turns it into a
+  `plan { items, source: 'tasks' }` item through the core (`SessionCore.setInfo` takes no plan), so the board shows the
+  whole list with source `tasks` and an identical snapshot emits nothing (4.0.2). An empty list only clears a board that
+  `task.md` filled. Before the attach replay has ended this builds state only (no events). The file is never sent as
+  markdown.
+  The study found no `task.md` in any CLI brain folder (and no checkbox in any CLI artifact), so in practice only legacy
+  IDE conversations fill the board; `manage_task` is background-job control, not a plan.
+
+Records (`records.mjs` and `tools.mjs` pure, `AntigravitySession` with the state):
+- One line is one step: `{ step_index, type, source, status, created_at, content?, thinking?, tool_calls?, error?,
+  exit_code?, ... }`. There is no message id, turn id, tool-call id or cwd in a record. A record without a string `type`
+  (`[A-Za-z0-9_]{1,64}`) is counted and skipped. `created_at` (ISO, the step's start) is the item `ts`; file order wins
+  (R12: a line is written when its step completes, so `created_at` is not monotonic with write order). `step_index` is
+  never used: it repeats (43 indexes appear twice, each time as a different step) and steps backwards around
+  compaction.
+- Positions: a line is known by its position in the file, counted by the session over the lines it receives: each
+  line's UTF-8 bytes plus its newline, from 0 at every attach (the attach replay starts at byte 0, and a re-attach or a
+  file switch builds a fresh session that counts from 0 again). The count uses the raw line when the caller passes it
+  (`apply(rec, { line })`); the Runner passes parsed records, so it is the byte length of the re-serialized record plus
+  one, a pseudo offset that is the same for the same lines whether replayed or read live, not the file offset (blank
+  and unparseable lines, which the Runner drops, are not counted). The position is the middle part of the line's tool
+  ids, never `step_index`. A caller that knows the real offset passes `{ offset }`, and a line that starts before the
+  position already reached is then a repeat and is skipped (the position is the dedupe key; the core's R9 rule also
+  ignores a second `tool_start` for an id that was ever opened).
+- Pairing is positional (the JSONL has no call id): the result lines that follow a `PLANNER_RESPONSE` with N calls, in
+  file order, are the results of its calls 0..N-1. A result line is a line of any type other than those named in the
+  table below (`GENERIC`, `RUN_COMMAND`, `VIEW_FILE`, `CODE_ACTION`, `GREP_SEARCH`, `LIST_DIRECTORY`, `MCP_TOOL`,
+  `ASK_QUESTION`, `SEARCH_WEB`, `READ_URL_CONTENT`, `GENERATE_IMAGE`, `BROWSER_SUBAGENT`, `KNOWLEDGE_ARTIFACTS` and
+  unknown future types). A `PLANNER_RESPONSE`, `USER_INPUT` or `ERROR_MESSAGE` line that arrives while calls are still
+  waiting closes each of them first with `tool_end` status `abandoned` (4.0.2; at least 51 of about 8,990 calls in the
+  study met a later step before a result). A `CHECKPOINT` (compaction marker) is not a closer: the result line of a
+  waiting call can still come after it, and then keeps its real outcome. `SYSTEM_MESSAGE` and `CONVERSATION_HISTORY`
+  lines are neither results nor closers. A result line with no waiting call is ignored (counted).
+- `tool_calls`: an array is the call list (at most 256 calls per line; every entry keeps its slot, also one that cannot
+  be read, which becomes a nameless `tool`). A string (a value cut in `transcript.jsonl`) is tried as a JSON array; when
+  it cannot be read the number of calls is unknown: no `tool_start` is shown for that line, its `say` is not `final`
+  (the line had calls), and the result lines after it are skipped until the next closer (a `CHECKPOINT` does not stop
+  the skipping).
+
+| Antigravity step (`type`) | normalized items (4.0.2) |
+|---|---|
+| `USER_INPUT` | the waiting calls end `abandoned`; `turn_start` (no id; the core closes a still-open previous turn: its open tools `abandoned`, then `turn_end { reason: 'next_turn' }`), then `prompt { text }` with the trimmed inner text of the first non-empty top-level `<USER_REQUEST>...</USER_REQUEST>` block only (a block cut by the truncation, without its closing tag, ends at the next tag). The opening tags are walked from the start and every other block (`ADDITIONAL_METADATA` environment context, `USER_SETTINGS_CHANGE`, `PLAN`) is jumped over to its own closing tag, so a `<USER_REQUEST>` written inside another block (a selection or a file excerpt in the environment context) is never read, as prompt or as title; another block that never closes holds the rest of the content (no prompt). A content without a top-level `USER_REQUEST` block, or with only empty ones (the legacy IDE template), gives no prompt (the turn still starts). The raw content always starts with `<` (201/201), so the block is taken out before the core's `<` skip of 4.0.2, which then applies to the extracted text |
+| `PLANNER_RESPONSE` | the waiting calls of an earlier planner line end `abandoned`; then `thinking { text, durationMs: null }` when `thinking` is non-empty (there is no duration field); `say { text, final }` when `content` is non-empty, with `final: true` when the line has no `tool_calls` (the turn's closing answer: it arms the core's 20 s `end_turn` fallback); then one `tool_start` per `tool_calls[i]` (Tools below) with the id `<conversation uuid>:<position>:<i>`, and those calls wait for their results. A line with neither text nor calls only closes |
+| a result line (above) while calls wait | `tool_end` for the oldest waiting call (End status below) |
+| `CHECKPOINT` | `system { kind: 'compact' }` (`content`, a long template, is never read; the core's fallback text `Conversation compacted`). Not a closer: the waiting calls keep waiting, and a result line after it is still their result. The turn goes on |
+| `ERROR_MESSAGE` | the waiting calls end `abandoned`; `system { kind: 'api_error' }` from the first line of `error`, else of `content` (the core reduces it: `sanitizeLine`, `cleanText`, <= 120; fallback `API error`). The turn is not ended: the agent retries (10 of 11 were followed by another `PLANNER_RESPONSE`) |
+| `SYSTEM_MESSAGE`, `CONVERSATION_HISTORY` | ignored (boilerplate system text, always-empty history marker); they do not touch the pairing |
+
+- Turns: a turn starts at `USER_INPUT`. There is no turn-end record: a `PLANNER_RESPONSE` with text and no calls is
+  the closing answer (`say` `final`), and 20 s of quiet after it end the turn `end_turn` (`END_TURN_IDLE_MS`, 4.0.2), or
+  earlier a summary `status` of `idle` (above); a `USER_INPUT` that comes first ends it `next_turn`. Calls still open
+  when a turn ends are `abandoned` (core, R27).
+- Timing: a step's line is written when the step completes, so nothing appears while the model generates: a planner
+  line lands 6-35 s after its start, a result line 0.25-2 s after its planner line. `tool_start` shows when the planner
+  line lands and `tool_end` when the result line lands.
+- A truncated last line (no newline yet) is kept by the Tailer for the next poll (3.6); a line over 8 MB is skipped and
+  counted, and a call whose result line was skipped stays waiting until a closer above ends it `abandoned` (or a later
+  result line takes its slot).
+
+Tools (`tools.mjs`):
+- Name: `tool_calls[i].name` (`[A-Za-z0-9_.:-]{1,128}`, else `tool`). The descriptor (4.0.2) is built from the argument
+  fields in the table only. In `transcript_full.jsonl` arguments are native JSON values (a string is taken as is); in
+  `transcript.jsonl` every argument value is a JSON-encoded string, and each allowed field is decoded on its own
+  (`JSON.parse` of that one value); a value that does not decode to a string (cut by the truncation) is dropped, and the
+  summary falls back to the tool name. The session knows the format from the ref's `facts.full`; without it a value
+  that starts with `"` is decoded and any other string is taken as is. Never read: `toolAction` and `toolSummary` (model-written labels on almost every call,
+  8,874/8,993, that can carry command text), `CodeContent`, `Content`, `TargetContent`, `ReplacementContent`,
+  `ReplacementChunks`, `Target`, `Replacement`, `Instruction`, `Description`, `ArtifactMetadata`, `Arguments`, `Prompt`, `TimerCondition`,
+  `DurationSeconds`, `Task`, `TaskName`, `TaskSummary`, `RecordingName`, `MediaPaths`, `CommandId`, `TaskId`, `Action`,
+  `domain`, `is_multi_select` and every other argument; `Cwd` only for the cwd fallback above. Old and new names are
+  both mapped (the 1.4.x CLI emits `read_file` / `write_file` where older versions emit `view_file` / `write_to_file`,
+  and adds `edit_file` with `Path`, `Target` and `Replacement`: found by the integration's real-data count, not in the
+  research file).
+  Rooms are the ADAPTERS 6.2 Antigravity column, through the core's hints (D4):
+
+| tool (`name`) | descriptor | room |
+|---|---|---|
+| `view_file` (older), `read_file` (1.4.x) | `kind: 'read'`, `path: AbsolutePath` (`read_file`: `Path`, else `AbsolutePath`) | archive |
+| `list_dir` | `kind: 'read'`, `path: DirectoryPath` | archive |
+| `grep_search` | `kind: 'search'`, `query: Query`, `path: SearchPath` | archive |
+| `find_by_name` | `kind: 'search'`, `query: Pattern`, `path: SearchDirectory` | archive |
+| `write_to_file` (older), `write_file` (1.4.x) | `kind: 'edit'`, `path: TargetFile` (`write_file`: `Path`, else `TargetFile`) | dev |
+| `edit_file` (1.4.x) | `kind: 'edit'`, `path: Path`, else `TargetFile` (`Target` and `Replacement`, the old and new text, are never read) | dev |
+| `replace_file_content`, `multi_replace_file_content` | `kind: 'edit'`, `path: TargetFile` | dev |
+| `run_command` | `kind: 'shell'`, `command: CommandLine` (a string; the summary is its program name via `programOf`, 3.1) | program rule of 3.1 (archive / research / server) |
+| `command_status`, `manage_task` | `kind: 'shell'` without a command (background command and task control; ids and actions are not read) | server |
+| `search_web` | `kind: 'web'`, `query` | research |
+| `read_url_content` | `kind: 'web'`, `url: Url` (host only) | research |
+| `call_mcp_tool` | `kind: 'web'`, `mcpServer: ServerName`, `mcpTool: ToolName`, so `tool` is `mcp__<server>__<tool>` (a uuid-looking server -> ZERO_UUID, section 5); `Arguments` is never read. Without both names: a plain web call | MCP names: none, the page classifies them (D4); without names: research |
+| `ask_question` | `kind: 'ask'`, `questions` (at most 50; the `question` and at most 4 `options` each, an option being a string or a `label`) -> `question` / `options` (R33, `askFields`); its result line ends it | desk |
+| `manage_subagents`, `browser_subagent` | `kind: 'agent'`, no argument read | here |
+| `generate_image` | `kind: 'other'`, no argument read | here |
+| `schedule` | `kind: 'other'`, no argument read; `AntigravitySession` puts the `lounge` room hint on its `tool_start` (as Codex `clock.sleep`, 4.7; the core has no lounge kind) | lounge |
+| `list_permissions` | hidden plumbing: no `tool_start` and no `tool_end`, but the call keeps its place in the pairing, so its result line is taken and gives nothing | - |
+| any other name (new tools) | `kind: 'other'`, no argument read, `tool` = the name | here |
+
+- End status (the result line). Error lines come only from structured fields; result bodies (`content` of a result
+  step, `steps/*/output.txt`) never reach an event:
+  - `status` `ERROR`, a non-empty `error`, or an integer `exit_code` (a number or a numeric string) other than 0 ->
+    `failed`. The error line is `Exit code <n>` for a non-zero exit code, else the first line of `error` (the core
+    reduces it: `sanitizeLine`, `cleanText`, <= 120).
+  - `status` `RUNNING` -> ok with `background` (R28): the command or timer went to the background, and the line is never
+    rewritten. Its later completion notice (`messages/<uuid>.json`) is never opened, so the call simply ends here.
+  - `DONE` or no status (with `exit_code` 0 or absent) -> ok; `INVALID` and any unknown status -> `failed` without an
+    error line (the core's fallback `failed`).
+  - `denied` and `interrupted` are never produced: the study found no structural marker for a user denial or a user
+    interrupt (permission decisions live only in the SQLite store, all granted).
+
+Floors (D1):
+- An ordinary workspace goes through the shared `projectKey` (4.4), so an Antigravity conversation and a Claude, Grok
+  or Codex session in the same folder share a floor; a project-local worktree (`.worktrees/<name>`,
+  `.claude/worktrees/<name>`) joins its repository's floor with a worktree badge, as for Claude. No Antigravity-managed
+  worktree exists in the study, so the descriptor has no `worktreeFloor` rule. The Antigravity Runner is therefore one
+  of the Runners without a floor rule: at the group's first rescan the Grok and Codex Runners also wait for its first
+  attach pass (4.6 startup order, at most `FIRST_PASS_WAIT_MS`), and it never waits itself.
+
+Descriptor and session end:
+- `src/adapters/antigravity/index.mjs`: `id: 'antigravity'`, `defaultRoot: '~/.gemini'` and `deps()`: the Runner bundle
+  `{ agent: 'antigravity', SessionState: AntigravitySession, Tailer, scan: a fresh createAntigravityScanner(),
+  sidecarWatcher: a fresh AntigravityMeta }`, one scanner (with its line counts and file choices) and one metadata
+  watcher (with its file signatures and parsed summaries) per Runner. No `sidecars(ref)` hook, no `readSubMeta` /
+  `readJournalLabels` (Claude-only), no `worktreeFloor` and no replay support (D12). `AntigravitySession` takes the
+  Runner's constructor options (`id`, `kind`, `parentId`, `agentType`, `now`, and `facts` for the argument format; the
+  Claude-only ones are ignored) and wraps `SessionCore`.
+- A main never idles out by itself (4.0.2); it ends when its file leaves the active window (section 6).
+
+Tests (the P5e end condition, ADAPTERS 9): synthetic fixtures shaped from the research file (`test/fixtures/antigravity.mjs`
+record builder, `test/fixtures/antigravity-tree.mjs` folder trees with both app folders), under temp roots only (never
+the real `~/.gemini`, `~/.codex`, `~/.grok` or `~/.claude`); tests that spawn the bin set `HOME` to a temp folder,
+because the bin fills the default `~/.gemini` root. Unit tests per module (`test/antigravity-discover.test.mjs`,
+`antigravity-meta`, `antigravity-proto`, `antigravity-records`, `antigravity-session`), the review fixes
+(`antigravity-fixes`: checkpoint pairing, top-level `USER_REQUEST`, early idle; `antigravity-symlinks`: linked metadata
+folders and the `noFollow` Tailer; `antigravity-switch`: open tools across a file switch; `antigravity-docs`: this
+section against the name table); the conformance harness (4.0.2)
+must run against the Antigravity adapter too. Fixtures must cover both tool vocabularies (`view_file` / `write_to_file` with
+`toolAction` / `toolSummary` bait, and `read_file` / `write_file`), both transcript forms (native and JSON-string
+arguments), the file preference and its switch, the allowlist (bait files such as `history.jsonl`, `oauth_creds.json`,
+`conversations/*.db`, `messages/*.json` and a desktop-app `antigravity/` folder are never opened, checked with an fs
+spy), the proto reader (malformed and oversized input, depth bounds, no throw), the metadata files (annotation, summary
+entry, `task.md` statuses, re-read only on change), every mapping row above (USER_REQUEST extraction, positional
+pairing, abandoned closes, `list_permissions`, `RUNNING` results, exit codes, quiet-time turn ends), a truncated last
+line, and a mixed start with Claude, Codex, Grok and Antigravity on one floor and the bin's `office-sim: agents
+claude-code,codex,grok,antigravity` line. The only real-data use is a read-only check against `~/.gemini` that prints
+counts only (events, unpaired tools, apply errors, privacy hits).
+
 ## 5. Privacy and rooms
 - Never put these into any event: Bash/Monitor `command`, terminal `command`/`cwd`, Write `content`, Edit
   `old_string`/`new_string`, Agent `prompt`, Workflow `script`/`args`, SendMessage `message`/`content`, ExitPlanMode raw
@@ -1244,6 +1564,15 @@ bin's `office-sim: agents claude-code,codex,grok` line. The only real-data use i
   front of a `## My request:` marker (active file, open tabs, mentioned files), `agent_message` task text, encrypted
   reasoning, and every `session_meta` field other than the ones 4.7 names (account and user ids above all).
   `history.jsonl` and the SQLite stores are never opened.
+- Antigravity (4.8) adds to that list: the `toolAction` / `toolSummary` labels, `run_command` `CommandLine` beyond the
+  program name and its `Cwd` (a cwd fallback only), file contents and replacement chunks (`CodeContent`, `Content`,
+  `TargetContent`, `ReplacementContent`, `ReplacementChunks`, `Instruction`, `Description`), `call_mcp_tool`
+  `Arguments`, the prompts of `schedule`, `generate_image` and `browser_subagent`, result step bodies and
+  `steps/*/output.txt`, the `USER_INPUT` blocks other than `USER_REQUEST` (`ADDITIONAL_METADATA`,
+  `USER_SETTINGS_CHANGE`, `PLAN`), `SYSTEM_MESSAGE`, `CHECKPOINT` and `CONVERSATION_HISTORY` content, and every summary
+  protobuf field other than the ones 4.8 names (the git remote URL and owner/repo above all). `history.jsonl`, the
+  background-message files (`messages/*.json`), the SQLite stores, the encrypted `.pb` conversations, the credential and
+  settings files of `~/.gemini` and the whole desktop-app folder `antigravity/` are never opened.
 - One scrub (`cleanText` in `summarize.mjs`) runs on every free-text field before it is truncated: `prompt.text`,
   `say.text`, `thinking.text`, `session.title`, `tool_start.summary` pieces, `question`, `options`, plan item
   `content` (ExitPlanMode items after the markdown links, HTML and backticks are stripped), `tool_end.error`,
@@ -1280,20 +1609,23 @@ bin's `office-sim: agents claude-code,codex,grok` line. The only real-data use i
   unknown id is a usage error, exit 2). It narrows the enabled set (D3); without it every implemented adapter whose root
   exists is on. `--codex-root <dir>`, `--grok-root <dir>` and `--antigravity-root <dir>` are accepted, `~`-expanded and
   stored in the `start()` option `roots`. `--grok-root` is live since P5c: it is the Grok root (default `~/.grok`, 4.6).
-  `--codex-root` is live since P5d: it is the Codex root (default `~/.codex`, 4.7). `--antigravity-root` is still
-  reserved for the upcoming adapter and unused. The bin fills the
+  `--codex-root` is live since P5d: it is the Codex root (default `~/.codex`, 4.7). `--antigravity-root` is live since
+  P5e: it is the Antigravity root (default `~/.gemini`; the adapter enters only its `antigravity-cli/` and
+  `antigravity-ide/` folders, 4.8). The bin fills the
   root of every implemented non-Claude adapter that has no flag with the descriptor's default
   (`roots: { ...defaultRoots(), ...flags }`); `start()` itself never falls back to a default root, so a `start()` call
-  without `roots.grok` (every test that does not pass one) never checks or reads `~/.grok`, and one without
-  `roots.codex` never checks or reads `~/.codex`. After the URL line the bin
+  without `roots.grok` (every test that does not pass one) never checks or reads `~/.grok`, one without
+  `roots.codex` never checks or reads `~/.codex`, and one without `roots.antigravity` never checks or reads `~/.gemini`.
+  After the URL line the bin
   prints `office-sim: agents <ids>` (the enabled ids, comma-separated in `KNOWN_AGENTS` order, e.g.
-  `office-sim: agents claude-code,codex,grok` when all three roots exist) or `office-sim: agents none`, then one line
-  `office-sim: <id> is not implemented yet` for each requested id that is known but not implemented (`antigravity`).
+  `office-sim: agents claude-code,codex,grok,antigravity` when all four roots exist) or `office-sim: agents none`, then
+  one line `office-sim: <id> is not implemented yet` for each requested id that is known but not implemented (since P5e
+  every known id is implemented, so this line no longer appears; the rule stays for a future id).
 - RunnerGroup: one Runner per enabled adapter, all sharing one Store and one HTTP layer. It forwards `startLoops`,
   `rescan`, `setInterval` (so `POST /config` reaches every Runner) and `close`, and sums `files.size`, `badLines`,
   `skippedLines` and `applyErrors` over its Runners. Its first `rescan` lets a Runner with a D1 floor rule (Grok,
-  Codex) scan only after the first rescans of the Runners without a rule are done, or after 10 s at most (4.6 Floors,
-  startup order, and 4.7 Floors); the result array keeps the Runner order. A missing or unreadable adapter root disables that adapter with
+  Codex) scan only after the first rescans of the Runners without a rule (Claude, Antigravity) are done, or after 10 s at
+  most (4.6 Floors, startup order, 4.7 Floors and 4.8 Floors); the result array keeps the Runner order. A missing or unreadable adapter root disables that adapter with
   one log line without the path (`<id>: root not found, adapter off` or `<id>: root not readable (<code>), adapter
   off`); the server still starts and serves an empty office. The root check runs before the server listens and gives
   up after 2 s (`ETIMEDOUT`), so a stalled root never keeps the server from starting. A disabled adapter that was
@@ -1316,7 +1648,15 @@ bin's `office-sim: agents claude-code,codex,grok` line. The only real-data use i
   code only (no root path); HTTP error log lines carry the request path without its query (no token).
 - Relocation: when a session's file moves to a new path with the same inode, its tail offset and partial line move
   with it (no replay, no re-announce, lines written during the move stream live). A copy (new inode) is attached again
-  from scratch; a subagent that ended while it moved still gets its `session_end`.
+  from scratch; a subagent that ended while it moved still gets its `session_end`. When the character was on the open
+  pages, the Store keeps the ids of the tools it had open there (`detachFile(path, { moved: true })`, at most 1,000
+  characters) and, right after the re-announce (`session` + `snapshotEvents()`), sends `tool_end` `abandoned` (the
+  core's shape, 4.0.2) for each of them that is not open in the new snapshot, so the pages hold exactly the server's
+  open tools and asks. Ids that come back unchanged and still open (Claude, Codex, Grok) get nothing; a tool that ended
+  during the move (its end was read only in the new file's replay) now closes `abandoned` instead of staying open on the
+  pages. Antigravity ids carry the line position, which differs between its two transcripts (4.8). A character that is
+  ended when announced gets only its `session_end`. Only a move is covered: a file attached again at the same path
+  (truncation, or a new inode at that path) is announced as before.
 - Attach = `Tailer.readAll` in replay mode, then emit `session` + `snapshotEvents()` live so open pages see the
   newcomer. Process attaches one at a time and yield, so a 60 MB file never blocks polling for long.
 - HTTP: `GET /` serves `public/office.html` wrapped in `<!doctype html><html lang="ko"><head><meta charset="utf-8">

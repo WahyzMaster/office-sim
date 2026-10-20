@@ -222,7 +222,7 @@ test('Claude session events are the same with or without the Grok adapter runnin
 });
 
 test('roots: start() never probes a default adapter root; defaultRoots() is what the bin passes', async () => {
-  assert.deepEqual(defaultRoots(), { codex: '~/.codex', grok: '~/.grok' });
+  assert.deepEqual(defaultRoots(), { codex: '~/.codex', grok: '~/.grok', antigravity: '~/.gemini' });
   const probed = [];
   const probe = async (root, id) => { probed.push([id, root]); return 'ENOENT'; };
   const logs = [];
@@ -236,7 +236,7 @@ test('roots: start() never probes a default adapter root; defaultRoots() is what
     await app.close();
   }
   const home = os.homedir();
-  assert.ok(!probed.some(([, r]) => typeof r === 'string' && r.startsWith(path.join(home, '.grok'))));
+  assert.ok(!probed.some(([, r]) => typeof r === 'string' && (r.startsWith(path.join(home, '.grok')) || r.startsWith(path.join(home, '.gemini')))));
   const sel = await selectAdapters({ agents: ['grok'], roots: {}, probe });
   assert.deepEqual([sel.enabled, sel.off, sel.notImplemented], [[], [], []]);
   const given = await selectAdapters({ agents: ['grok'], roots: { grok: '/tmp-fake/grok' }, probe: async () => null });
