@@ -1,12 +1,13 @@
-# office-sim server contract (P1-P3, P5a-P5c)
+# office-sim server contract (P1-P3, P5a-P5d)
 
 The server tails Claude Code session transcripts under `~/.claude/projects`, turns records into UI events,
 and streams them to the 3D office page (`public/`) over SSE. This file is the single source of truth for
 module boundaries, the event schema and the parsing rules. The format rules come from a corpus study of
 5,016 local transcript files (Claude Code 2.1.181 to 2.1.299, entrypoint `claude-desktop`).
-Since P5c two adapters are implemented: Claude Code and Grok (xAI Grok Build, 4.6); Codex and Antigravity are planned
-as separate adapters (see 4.0). The approved multi-agent design is `docs/ADAPTERS.md`; its shared groundwork (P5a) is in
-4.0.1, the shared session core for the new adapters (P5b) in 4.0.2 and the Grok adapter (P5c) in 4.6.
+Since P5d three adapters are implemented: Claude Code, Grok (xAI Grok Build, 4.6) and Codex (OpenAI Codex, all clients,
+4.7); Antigravity is planned as a separate adapter (see 4.0). The approved multi-agent design is `docs/ADAPTERS.md`; its
+shared groundwork (P5a) is in 4.0.1, the shared session core for the new adapters (P5b) in 4.0.2, the Grok adapter (P5c)
+in 4.6 and the Codex adapter (P5d) in 4.7.
 
 ## 0. Ground rules
 
@@ -49,25 +50,34 @@ src/adapters/grok/      the Grok adapter (P5c, 4.6), every file under 500 lines:
                         subagent linkage), `records.mjs` (one record -> item pieces, pure), `session.mjs`
                         (`GrokSession`: turn and tool state around SessionCore, the SessionLike API), and the
                         descriptor `index.mjs` (id `grok`, default root `~/.grok`, `sidecars(ref)`, `worktreeFloor`)
+src/adapters/codex/     the Codex adapter (P5d, 4.7), every file under 500 lines: `discover.mjs` (allowlist discovery,
+                        date-folder walk, continuation pieces, guardian hiding, parent chain), `line0.mjs` (line-0
+                        facts and their cache), `titles.mjs` (`CodexTitles`, the incremental `session_index.jsonl`
+                        reader), `records.mjs` (one record -> item pieces, pure), `exec.mjs` (code-mode `exec`, pure),
+                        `session.mjs` (`CodexSession`: turn, tool and inherited-context state around SessionCore) and
+                        the descriptor `index.mjs` (id `codex`, default root `~/.codex`, `worktreeFloor`)
 src/core/tool-summary.mjs normalized tool descriptor -> { tool, summary, room?, background? } (pure, 4.0.2)
 src/core/session-core.mjs SessionCore: normalized items -> UI events, the SessionLike API for the new adapters;
-                        used by the Grok adapter (4.0.2, 4.6)
+                        used by the Grok and Codex adapters (4.0.2, 4.6, 4.7)
 src/core/session-items.mjs pure shaping of normalized items into event fields for SessionCore (caps, scrub, plan view)
 src/core/sidecar.mjs    SidecarWatcher (P5c, ADAPTERS 3.3): at each rescan stats the small metadata files an adapter
                         declares (`sidecars(ref)`), re-reads one only when its mtime / size / inode changed (<= 1 MB,
-                        parse errors ignored) and passes the result to the session's setInfo (4.6)
+                        parse errors ignored) and passes the result to the session's setInfo (4.6). The Codex title
+                        index is not read by it (an incremental reader of its own, 4.7)
 src/server.mjs          start(): wires Store, RunnerGroup (one Runner per enabled adapter, defined here) and the
                         HTTP layer
 src/server-runner.mjs   Runner: poll / rescan / idle loops, attach, relocation, backoff; runs the SidecarWatcher at
-                        rescan only for an adapter that has the `sidecars(ref)` hook (Grok; Claude has none)
+                        rescan only for an adapter that has the `sidecars(ref)` hook (Grok; Claude has none), or in its
+                        place an adapter's own watcher `deps.sidecarWatcher` (`check(ref)` / `forget(path)`: the Codex
+                        titles, 4.7); passes a ref's scan-time `facts` to the session constructor (Codex)
 src/server-http.mjs     http: /, /js/*, /events (SSE), /state, /config, /healthz
 src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
 src/replay.mjs          ReplayRunner (extends Runner): --replay playback of one session (section 6.1)
 src/replay-timeline.mjs replay timeline: line times, cross-file merge, speed + gap cap, approval look-ahead (pure)
 test/*.test.mjs         unit + integration tests, synthetic fixtures under test/fixtures/ or generated
 test/fixtures/conformance.mjs adapter conformance harness (ADAPTERS 10, 4.0.2), run by test/adapter-conformance.test.mjs
-                        against the test-only core-fixture adapter (test/fixtures/core-adapter.mjs); the Grok adapter
-                        runs it too (4.6)
+                        against the test-only core-fixture adapter (test/fixtures/core-adapter.mjs); the Grok and
+                        Codex adapters run it too (4.6, 4.7)
 public/                 the browser app; owned by the browser module (public/js/*), server work does not edit it.
                         P3: js/detail.js (per-floor detail: hidden floors skip draw, matrices, labels, animation;
                         unfocused floors cast no shadows; CSS labels only for the focused floor), js/bench.js (#bench)
@@ -93,11 +103,11 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 | `system` | `kind`: `api_error` \| `compact` \| `refusal`, `text` |
 
 `session.agent` names the tool whose transcript the character comes from, so every character (main sessions and
-subagents alike) carries an agent id. It is on every `session` event, live and in snapshots. Ids: `claude-code` and
-`grok` (implemented, `grok` since P5c, 4.6), and `codex`, `antigravity` for the planned adapters. The page shows the
-labels `Claude Code`, `Codex`, `Grok`, `Antigravity`, and an unknown id as-is. The id flows from the file's
-`FileRef.agent` through its session object (`SessionState`, or the Grok session around `SessionCore`) and its Store
-entry (4.0.1).
+subagents alike) carries an agent id. It is on every `session` event, live and in snapshots. Ids: `claude-code`,
+`grok` and `codex` (implemented, `grok` since P5c, 4.6, `codex` since P5d, 4.7), and `antigravity` for the planned
+adapter. The page shows the labels `Claude Code`, `Codex`, `Grok`, `Antigravity`, and an unknown id as-is. The id flows
+from the file's `FileRef.agent` through its session object (`SessionState`, or the Grok or Codex session around
+`SessionCore`) and its Store entry (4.0.1).
 
 Wire messages on `/events` (each SSE `data:` line is one JSON object, every message has an `id:` line = seq):
 - `{ "type": "snapshot", "events": [ ...events ] }` first message on every connection (or replay, see 6).
@@ -283,10 +293,10 @@ entries whose agent is `claude-code`.
 ### 4.0 Adapter scope
 - Everything in 4.1-4.5 (R6-R36), together with the file layout in 3.5 and the record kinds in 3.3, is the Claude Code
   adapter: how Claude Code transcripts are found and read. Its `session` events carry `agent: 'claude-code'`.
-- Every other adapter (Grok since P5c, 4.6; Codex and Antigravity planned) brings its own log discovery and record
-  mapping, but must emit the same event schema (section 2) with its own `agent` id, and must send every free-text field
-  through the shared `cleanText` scrub and the privacy rules of section 5. The Store, the SSE wire format and the page
-  stay shared.
+- Every other adapter (Grok since P5c, 4.6; Codex since P5d, 4.7; Antigravity planned) brings its own log discovery
+  and record mapping, but must emit the same event schema (section 2) with its own `agent` id, and must send every
+  free-text field through the shared `cleanText` scrub and the privacy rules of section 5. The Store, the SSE wire
+  format and the page stay shared.
 
 ### 4.0.1 Multi-agent groundwork (P5a)
 The multi-agent design (`docs/ADAPTERS.md`) was approved on 2026-10-20 with every decision D1-D12 at its recommended
@@ -322,8 +332,8 @@ Adapter registry (`src/adapters/index.mjs`):
 - `KNOWN_AGENTS = ['claude-code', 'codex', 'grok', 'antigravity']`: every id the CLI accepts.
 - `AGENT_LABELS`: display labels, the same as `AGENT_LABEL` in `public/js/hud.js` (`Claude Code`, `Codex`, `Grok`,
   `Antigravity`).
-- `ADAPTERS = { 'claude-code': claudeCode, grok }`: the implemented adapters (P5a registered `claude-code` only; P5c
-  added `grok`, 4.6).
+- `ADAPTERS = { 'claude-code': claudeCode, codex, grok }`: the implemented adapters (P5a registered `claude-code` only;
+  P5c added `grok`, 4.6; P5d added `codex`, 4.7).
 - Selection (D3): an implemented adapter whose root exists is enabled. A requested list (`--agents`) narrows the set.
   A requested id that is in `KNOWN_AGENTS` but not implemented is reported as `not implemented yet` and skipped; an id
   outside `KNOWN_AGENTS` is an error. Every list (enabled, off, not implemented) follows `KNOWN_AGENTS` order without
@@ -336,7 +346,8 @@ Adapter registry (`src/adapters/index.mjs`):
   returning the bundle the server injected before P5a (`SessionState`, `Tailer`, `scan`, `readSubMeta`,
   `readJournalLabels`), and replay support (6.1, D12). It points at the existing modules in place (D8). The Grok
   descriptor (`src/adapters/grok/index.mjs`, P5c) has its own `deps()` and the optional `sidecars(ref)` hook, and no
-  replay support (4.6).
+  replay support (4.6). The Codex descriptor (`src/adapters/codex/index.mjs`, P5d) has its own `deps()` (with the
+  `sidecarWatcher` title reader, no `sidecars(ref)` hook) and `worktreeFloor`, and no replay support (4.7).
 
 Agent id flow:
 - `FileRef.agent` (string) is the adapter id. When a ref has none, the Runner sets `ref.agent = deps.agent`.
@@ -396,15 +407,16 @@ Review fixes (F1-F4):
   start; a character that was shown before gets its `session_end` with the hint's reason. Hints for already ended
   characters stay no-ops and are not kept.
 - Not in P5a: `SessionCore` and `tool-summary` (added in P5b, 4.0.2), `SidecarWatcher` (moved to P5c; its first
-  consumer is Grok, 4.6) and any Codex, Grok or Antigravity parsing (Grok: P5c, 4.6).
+  consumer is Grok, 4.6) and any Codex, Grok or Antigravity parsing (Grok: P5c, 4.6; Codex: P5d, 4.7).
 
 ### 4.0.2 SessionCore (공통 세션 코어)
 P5b is the shared core of ADAPTERS 3.2 for the three new adapters: `src/core/tool-summary.mjs`,
 `src/core/session-core.mjs` and its pure helper `src/core/session-items.mjs`. When P5b landed no adapter used it; since
-P5c the Grok adapter does (4.6). `claude-code` keeps its `SessionState` (D9), so the events built from Claude
-transcripts do not change. The Grok, Codex and Antigravity adapters (P5c-P5e) map their records to the normalized items
-below and feed them to `SessionCore`. Reuse instead of copies: `tool-summary` builds on `src/summarize.mjs` (`cleanText`,
-`truncate`, `hostOf`, `looksLikeUuid`, `ZERO_UUID`, and the newly exported `baseName`, `toolLabel`, `shellRoom`) and
+P5c the Grok adapter does (4.6), and since P5d the Codex adapter (4.7). `claude-code` keeps its `SessionState` (D9),
+so the events built from Claude transcripts do not change. The Grok, Codex and Antigravity adapters (P5c-P5e) map
+their records to the normalized items below and feed them to `SessionCore`. Reuse instead of copies: `tool-summary`
+builds on `src/summarize.mjs` (`cleanText`, `truncate`, `hostOf`, `looksLikeUuid`, `ZERO_UUID`, and the newly exported
+`baseName`, `toolLabel`, `shellRoom`) and
 `src/summarize-shell.mjs` (`programOf`, and the newly exported `lex`). `session-items` uses `firstSentence`, `firstLine`,
 `sanitizeLine`, `askFields` (`session-util.mjs`) and `applyUpdatePlan`, `emptyPlan`, `planFromMarkdown` (`plan.mjs`).
 `SessionCore` uses `buildSessionEvent` / `agentScopedId` (`session-identity.mjs`, which applies `projectKey` and the
@@ -867,8 +879,9 @@ Floors (D1):
   the badge). The floor is chosen once, the first time the Store sees that project (the first cwd), and does not move
   afterwards (4.4), so snapshots and live events agree.
 - Startup order: the choice must not depend on which adapter happens to attach first. At the group's first rescan a
-  Runner that has a floor rule (Grok) waits until every other Runner (Claude) has finished its first attach pass
-  (scan, replay, announce) before it scans and announces (`RunnerGroup.rescan`, the Runner's `gate`); its own rescan
+  Runner that has a floor rule (Grok; Codex too since P5d, 4.7) waits until every Runner without a rule (Claude) has
+  finished its first attach pass (scan, replay, announce) before it scans and announces (`RunnerGroup.rescan`, the
+  Runner's `gate`); its own rescan
   timer waits for the same promise, so a slow first Claude walk cannot be overtaken. The wait ends after
   `FIRST_PASS_WAIT_MS` (10 s) at most, so a stalled first walk never keeps Grok off. Runners without a rule never wait,
   later rescans run together, and an adapter switched on later (4.0.1 F1) does not wait either.
@@ -905,6 +918,318 @@ records, `exit_plan_mode`, MCP names); `test/grok-discover.test.mjs` also covers
 `SCAN_CAPPED` skip on a real server; `test/grok-docs.test.mjs` pins the 4.6 record rows and the package description. The only real-data
 use is a read-only check against `~/.grok` that prints counts only (events, unpaired tools, apply errors, privacy hits).
 
+### 4.7 Codex adapter (P5d)
+The Codex adapter reads OpenAI Codex rollouts. Every Codex client writes the same files, in the same folder and format:
+the desktop app (`originator` `Codex Desktop`, `codex_work_desktop`), the CLI (`codex_cli_rs`, `codex-tui`,
+`codex_exec`) and the IDE extension (`codex_vscode`), so one agent id covers them all. Format facts come from the
+structure-only study `docs/research/codex-format.json` (5,233 rollouts, 4,070,420 lines, cli 0.40 to 0.163-alpha); the
+design is ADAPTERS 5.1, 6.1-6.3 and D10, and where this section differs from those proposals, this section wins. Agent
+id `codex`, default root `~/.codex` (`--codex-root`, section 6). Code: `src/adapters/codex/`: `discover.mjs` (allowlist
+discovery, date-folder walk, continuation pieces, parent chain), `line0.mjs` (line-0 facts and their cache),
+`titles.mjs` (the incremental `session_index.jsonl` reader), `records.mjs` (one record -> item pieces, pure),
+`exec.mjs` (code-mode `exec`, pure), `session.mjs` (`CodexSession`: turn, tool and inherited-context state around
+SessionCore, the SessionLike API) and the descriptor `index.mjs`, registered in `src/adapters/index.mjs`. Every cap,
+scrub, pairing, turn and plan rule of 4.0.2 applies. Behaviour that depends on the version is keyed off each file's own
+`session_meta.cli_version`, never off the installed CLI (a rollout is written by whichever client ran the thread).
+Claude and Grok behaviour does not change (4.1-4.6 and section 5 keep their rules).
+
+Discovery (allowlist, ADAPTERS 7.1):
+- The only transcript paths accepted are `<root>/sessions/<YYYY>/<MM>/<DD>/rollout-<ts>-<uuid>.jsonl` and its rollback
+  continuation pieces `<root>/sessions/<YYYY>/<MM>/<DD>/rollout-<ts>-<uuid>_<uuid2>.jsonl`: `<YYYY>` four digits,
+  `<MM>` `01`-`12`, `<DD>` `01`-`31`, `<ts>` `YYYY-MM-DDTHH-MM-SS`, `<uuid>` (the thread id) and `<uuid2>` UUIDs in any
+  case (lowercased). Folder dates and `<ts>` are local time; record timestamps are UTC.
+- Read, and nothing else: listings of `sessions/` and its year, month and day folders, `lstat` of accepted names, line 0
+  of an accepted file (below), an attached file through the Tailer (3.6), and `<root>/session_index.jsonl` through the
+  title reader (Titles below). Every other name is passed over by its name, without a `stat`. Never opened: `*.jsonl.zst`
+  (Codex compresses a rollout in place after 7 days; Node 20 has no zstd, and a file inside the active window is plain),
+  `archived_sessions/`, `history.jsonl` (raw prompts), the auth and config files, the SQLite stores (`state_5.sqlite`,
+  `thread_history_1.sqlite`, `logs_2.sqlite`, `sqlite/`), `.codex-global-state.json`, `thread-writer-locks/`,
+  `external_agent_session_imports.json`, log files, and everything under `worktrees/` (a worktree path is only compared
+  as a cwd string, Floors below).
+- Symlinks are never followed: directory entries are taken by type (a symlinked folder or file is no entry), and a
+  `sessions/` that is a symlink counts as missing. A date folder that a scan lists or re-`lstat`s without a full walk
+  (the hot folders and the cold ones, below) is used only when every folder of its path (`sessions/`, year, month,
+  day) is a real folder by `lstat`, so the full and the hot walks treat a linked folder the same way and nothing
+  outside `<root>` is listed, `stat`ed, opened or tailed. An accepted file is `lstat`ed and must be a regular file, and
+  its line 0 is read through `O_NOFOLLOW` only when the opened file is the `lstat`ed one (inode and device).
+- Tolerant: ENOENT, ENOTDIR, EACCES, EPERM, ELOOP and ENAMETOOLONG on a folder or a file skip that entry; a missing
+  (or symlinked) `sessions/` is an empty list. Only a `sessions/` entry that exists but is not a folder or cannot be
+  read, or a cap (below), fails the scan, and the Runner skips that rescan (section 6, `scan failed`).
+- Caps (`SCAN_LIMITS` in `discover.mjs`): 20,000 date folders, 200,000 accepted names in one walk, a parent chain of
+  depth 16, 256 KB of line 0. A walk that would pass one of the first two throws `SCAN_CAPPED` instead of returning a
+  cut list: as for Grok (4.6) the Runner logs the code once, keeps every attached session and skips that rescan.
+- Date-folder walk (ADAPTERS 8.1 #17): a rescan does not walk every year. Every scan lists the hot date folders: the
+  local dates that can hold a file created inside the active window (one day of margin on both sides for time zones and
+  clock skew), when the last full walk saw that folder or the date is within the last two days (`RECENT_MS`; such a
+  folder may be newer than the walk), and only when its path is real folders (Symlinks above). Every date folder is listed (names only) at the first scan and then at most every
+  30 s (`FULL_WALK_MS`), and once early when a needed parent is not among the names of the last full walk. The rollouts
+  of the other folders keep their last `lstat`, except those inside the window, which are `lstat`ed again on every scan
+  while their folder path is still real folders; a folder that leaves the hot set joins them at once. So a thread started on an earlier day that is still being written
+  stays attached, and a thread that Codex decompressed back to `.jsonl` in its old date folder when it was resumed is
+  found within 30 s.
+- Active window (as 3.5 and section 6): a thread is returned when one of its pieces has an mtime inside `--active`, and
+  so is every ancestor of a returned sub, even outside the window (a parent waiting for its subagent writes nothing; as
+  Grok, 4.6). Order: by depth (mains first, then subs by depth); at the same depth a thread working in a Codex-managed
+  worktree (cwd under `<root>/worktrees/`, Floors below) comes after the others, then by uuid. The Runner attaches one
+  `sid` group at a time in this order, so a worktree main is attached after every plain main of the same scan.
+
+Line-0 facts (`line0.mjs`):
+- Of an accepted file only line 0 (`session_meta`, line 0 in 5,233/5,233 files) is read, at most 256 KB
+  (`LINE0_MAX_BYTES`). The facts are cached by path (at most 100,000 entries, pruned to the files of the last full
+  walk) and stay valid while the inode is the same and the file is not shorter than line 0 (rollouts only grow);
+  otherwise line 0 is read again. A line 0 that has no newline yet is read again at the next scan, and its thread (and a
+  sub whose ancestor is in that state) waits. A file whose line 0 is over the cap, is not valid JSON, is not a
+  `session_meta`, or whose `payload.id` is not the file name's `<uuid>` (5,233/5,233 match) is never returned; a file
+  that cannot be opened is tried again later.
+- Facts kept: the thread id, the guardian flag, the `/review` mark, the immediate parent
+  (`source.subagent.thread_spawn.parent_thread_id`, else `payload.parent_thread_id`, for a subagent source only),
+  `cwd` (an absolute path), `git.branch`, `cli_version`, `subagent_history_start_ordinal`, the sub's `agent_role` and
+  the line's ordinal (for continuation pieces). The session reads the same line again (Records below) and takes from it
+  only these and, for a sub, `agent_nickname` and the last segment of `agent_path` (a title fallback). No other field is
+  kept or sent: the account and user ids (`creator_user_id`, `creator_account_id`), `session_id`, `originator`,
+  `model_provider`, `base_instructions`, `git.repository_url`, `git.commit_hash`, `runtime_workspace_roots`,
+  `forked_from_id`, ... never reach an event.
+- Guardian threads (`source.subagent.other` = `'guardian'`, the automatic approval reviewer; 2,171 of 5,233 files, 41%,
+  D10a) and their descendants are hidden entirely: never returned, never tailed, no character; only line 0 was read.
+  The test reads `source`, never `thread_source` (guardian files carry `guardian_review`, `subagent` or no
+  `thread_source`).
+
+Ids and subagent linkage (D2, 4.0.1 F2):
+- Main: `kind: 'main'`, `charId` = `sid` = `stem` = `codex-<uuid>`, `sessionId` = the uuid. Every ref carries
+  `agent: 'codex'`, passes the F2 guard, and carries the rest of its line-0 facts (`facts`: `cwd`, `branch`,
+  `cliVersion`, `historyStart` and a sub's `agentType`), which the Runner passes to the session constructor as `facts`
+  (sessions that do not use it ignore it; `CodexSession` reads its own line 0 from the transcript as well).
+- Sub: a thread whose parent chain reaches at least one ancestor. `kind: 'sub'`, `charId` = `codex-<uuid>`, `parentId`
+  = `codex-<immediate parent>`, `sid` = `codex-<top of the chain>`, the root main whose floor the sub takes (4.4). The
+  chain is walked through each ancestor's line 0; an ancestor outside the window is found by its uuid among the rollout
+  names (names only) and only its line 0 is read. The chain stops at an ancestor without a plain rollout (only a `.zst`
+  is left, or it is archived) or with an unusable line 0: the last ancestor reached is the root main, and a thread whose
+  immediate parent cannot be reached is a main. A cycle or a chain deeper than 16 is not trusted and the thread counts
+  as a main. (`thread_spawn` children: 1,948 files, depth 1-3, every parent present in the study.)
+- `/review` threads (`source.subagent` = `'review'`, 77 files) are not hidden: they are ordinary subagents (D10d), a
+  sub under the parent that their line 0 names, with `agentType` `review`.
+- A thread whose own line 0 says it runs a parent's task (`thread_spawn` or `/review`) but that is attached as a main
+  (its parent cannot be reached) is marked `subagent: true` (4.0.2 Prompts): its human text is never a `prompt` or its
+  title.
+- The Store's `parentSessionId` is `parentId`. A child is published after its parent (`publishOrder`), and a child
+  whose end was read in its parent's file before the child is announced starts ended and is never shown (4.0.1 F4).
+
+Continuation pieces:
+- A rollback writes `rollout-<ts>-<uuid>_<uuid2>.jsonl` next to the thread's file (6 in the study). It is the same
+  thread (`<uuid>` = its `payload.id`), so the same character. Its line 0 is a `session_meta` whose ordinal is above 0,
+  and its records supersede the previous file's tail. Discovery returns one ref per thread, the winning piece: the
+  newest mtime, then the higher line-0 ordinal, then the continuation piece over the base file, then the later name. The
+  first piece in that order whose line 0 is usable wins (one whose line 0 is not complete yet gives way to an older
+  usable piece).
+- When another piece wins, the Runner moves the character to it like a relocation to a copy (section 6: the old path is
+  detached without a `session_end`, and the new piece is attached and replayed from its start). The state is rebuilt
+  from that piece alone and the character keeps its id.
+
+Titles and labels:
+- Title: `thread_name` from `<root>/session_index.jsonl` (lines `{ id, thread_name, updated_at }`, append-only; the last
+  line for an id wins), else for a main the first human prompt (<= 40, 4.0.2), for a sub its `agent_nickname`, else the
+  last segment of its `agent_path`; else 8 chars of the id after `codex-`. Only `id` and `thread_name` of the index are
+  used.
+- The index can grow large and is shared by every thread, so it is not read by a `SidecarWatcher` (which re-reads a
+  whole file of at most 1 MB per session, 4.6) but by `CodexTitles` (`titles.mjs`). The descriptor hands it to the
+  Runner as `deps.sidecarWatcher` (any object with `check(ref)` and `forget(path)`), and the Runner uses it in the place
+  of a `SidecarWatcher`: `check` runs when a transcript is attached, before the character is announced, and at each
+  rescan for every attached session, and its `{ title }` goes to the session's `setInfo` (a changed `session` event
+  follows; for a character the Store has already ended only the state changes).
+- Reading: one index reader per root, and checks within 250 ms share one refresh (`TITLE_REFRESH_MS`, so one read per
+  rescan). A refresh `lstat`s the file (a regular file only; opened with `O_NOFOLLOW` and read only when it is the
+  `lstat`ed file), reads only the bytes appended since the offset it remembers, at most 1 MB (`INDEX_READ_BYTES`; the
+  rest follows at the next refreshes), keeps a trailing partial line for the next read, and skips a line over 64 KB
+  whole and a line that is not valid JSON. An entry needs a UUID `id` and a non-empty `thread_name` of at most 1,000
+  chars; at most 100,000 ids are kept (the least recently updated is dropped first). A file with a new inode, or one
+  that got shorter, is read again from the start (the titles known so far are dropped). A missing index changes
+  nothing. A title is handed to a transcript only when it is new or changed for that path; the reader forgets a path
+  when its transcript is detached or moves.
+- Branch: `git.branch` (`HEAD` -> `detached`, section 5 scrub, <= 60; `git: null` -> no branch). Cwd: `payload.cwd`
+  (an absolute path; it never changed within a thread, 0/5,233), else the first absolute `turn_context.cwd`; the first
+  cwd fixes the floor (4.4, Floors below). A sub's `agentType` is its `agent_role` (`explorer`, `worker`, `default` or
+  a user-defined role), `review` for a `/review` thread; section 5 scrub, <= 60.
+
+Records (`src/adapters/codex/records.mjs` and `exec.mjs` pure, `src/adapters/codex/session.mjs` `CodexSession` with the
+state):
+- Envelope `{ timestamp, ordinal, type, payload, metadata? }`. `timestamp` (ISO, UTC, ms) is the item `ts`; `ordinal`
+  (the 0-based line index; a continuation piece starts higher) is the dedupe key (R9; at least the last 65,536 ordinals
+  are remembered and older ones fall below a floor: the set is rebuilt in one pass when it passes 131,072, keeping the
+  newest 65,536, so a line costs O(1) however long the file). The one legacy-mode file has no ordinals and is not deduped. File order
+  wins (R12): timestamps step backwards in 16 records. A line that is not an envelope is counted and skipped. Every
+  unknown `type`, `payload.type` and item `type` is ignored.
+- Text source: assistant text and reasoning summaries are written twice in most files (a `response_item` and an
+  `item_completed` item, ADAPTERS 8.1 #5), so each file reads them from one source only, chosen by its `cli_version`:
+  0.142.5 and newer (the code-mode era) read the `item_completed` items `AgentMessage` and `Reasoning` (which carry start
+  and end times); older, missing or unparsable versions read `response_item` `message` and `reasoning` (every version
+  writes them). One model message gives one `say`, one reasoning block one `thinking`.
+- Inherited context (subagent files, `subagent_history_start_ordinal` H): records whose ordinal is below H copy the
+  parent's context (another thread's `session_meta`, `compacted` records, messages). While the attach replay runs they
+  are applied provisionally (state only, no end hints). The first record at or above H drops that state (a fresh core,
+  with the file's own `meta` and the `setInfo` values applied again). When the replay ends (at the first `idle()`, which
+  the Runner calls before it announces the file, or at the first live record) and no record at or above H came: a file
+  whose `cli_version` is older than 0.154 (or missing or unparsable) keeps the provisional state as its own, because
+  older migrated files set H to the file's line count and skipping would leave nothing (research: every spawn file
+  without records after H is older than 0.154); a 0.154+ file drops that state and waits for its own records (a forked
+  child writes line 0 and the inherited block in a burst at birth, so an attach in between must not show the parent's
+  in-flight calls as the child's). Records below H that arrive after that are dropped.
+
+| Codex record | normalized items (4.0.2) |
+|---|---|
+| `session_meta` (the file's own, line 0) | `meta { cwd, branch }`; for a sub also `agentType` and the title fallback; for a main whose line names a parent's task, `subagent: true`. It also fixes the text source and H. A `session_meta` of another thread (inherited context) or a repeat changes nothing |
+| `turn_context` | `meta { cwd }` only when `session_meta` had no cwd (an absolute path); otherwise ignored |
+| `event_msg` `task_started` | `turn_start { id: turn_id }`; the core first closes a still-open previous turn as `next_turn`, its open tools `abandoned` (787 starts without an end in the study) |
+| `event_msg` `task_complete` | `turn_end { reason: 'end_turn' }`, the open tools `abandoned` (core). With `error`: `system { kind: 'api_error', text }` from the first line of `error.message` (fallback `API error`; the core reduces it), then `turn_end { reason: 'api_error' }`. One with an older turn id is ignored; one without an open turn (279 in the study) emits nothing (core) |
+| `event_msg` `turn_aborted` | every call still open ends `interrupted`, then `turn_end { reason: 'interrupt' }` (whatever its `reason`); one with an older turn id is ignored |
+| `event_msg` `item_completed` `UserMessage` | `prompt { text }` from the first text part (images are ignored). The desktop and IDE clients put context sections in front of the request (`# Context from my IDE setup:`, `# Files mentioned by the user:`, ...) and mark the request with `## My request:` (legacy and TUI: `## My request for Codex:`), a marker they write only after such a prefix: a text with the marker gives only the trimmed text after its last occurrence, and nothing after it gives no prompt (injected context is never a prompt, ADAPTERS 7). The core skips text that starts with `<` (R17-R19: heartbeats, browser context, question replies) and never sends a sub's prompt |
+| `response_item` `message` with role `user` or `developer` | ignored: injected context (`AGENTS.md`, `<environment_context>`, `<subagent_notification>`, permissions, ...), never a prompt |
+| assistant text: `item_completed` `AgentMessage` (text source `item`), or `response_item` `message` with role `assistant` (source `response`) | `say { text }` from the joined `Text` / `output_text` parts, with `final: true` when `phase` is `final_answer` (the turn's closing answer: the core's 20 s `end_turn` fallback closes a turn whose `task_complete` never comes) |
+| reasoning: `item_completed` `Reasoning` (source `item`), or `response_item` `reasoning` (source `response`) | `thinking { text, durationMs }`: the first non-empty summary entry (the core keeps its first sentence), `null` when every entry is empty; `durationMs` = the item's `completed_at_ms - started_at_ms` when both are there, else null. `encrypted_content`, `content` and `raw_content` are never read |
+| `response_item` `function_call`, `custom_tool_call` | `tool_start { id: call_id }` (Tools below). Hidden plumbing gives nothing, and neither does its output; a call whose id is already open is ignored (R9) |
+| `response_item` `function_call_output`, `custom_tool_call_output` | `tool_end { id: call_id, status, errorLine?, background? }` for an open call (End status below); an unknown, hidden or closed `call_id` is ignored. Pairing is by `call_id` only (R16: calls are often written back to back before their outputs) |
+| `event_msg` `item_completed` `CommandExecution`, `FileChange`, `McpToolCall`, `WebSearch`, `ImageView` | while a code-mode `exec` call is open: a visit (Code mode below). Otherwise ignored: before code mode the same work already has its own call line (`exec_command`, `apply_patch`, MCP calls), and a visit would show it twice |
+| `response_item` `web_search_call` (0.91-0.142.5; it has no output record) | a visit: the `tool_start` (`web_search`, `kind: 'web'`, the host of `action.url`, else `action.query` or the first of `action.queries`) and its `tool_end` at once (`failed` when the call's `status` is `failed`), keyed by the call's `id` (else `ws-<ordinal>`) |
+| `event_msg` `item_completed` `Plan` | `plan { markdown: text }` -> `exit_plan` (a plan-mode proposal, at most 6 items via `planFromMarkdown`) |
+| `event_msg` `item_completed` `SubAgentActivity` with kind `completed` or `interrupted` | `sub_end { childId: 'codex-<agent_thread_id>', reason: 'done' }`, the common end hint of 4.0.1 (an `agent_thread_id` that does not fit the D2 id rule is counted and skipped). The kinds `started` and `interacted` give nothing. While the attach replay runs (also when a file is attached again: a continuation switch or a truncation) no end hint is given: each child's last kind in the file is kept (at most 1,000 children), and when the replay ends the children whose last kind is `completed` or `interrupted` get the hint, before the Runner announces anything (a finished child still starts ended, 4.0.1 F4). So a child that was completed and then re-tasked (v2 multi-agent writes `interacted`, often without a new `started`) is not ended. After the replay a `completed` / `interrupted` ends the child at once; the Store's revive covers a later re-task |
+| `compacted` | `system { kind: 'compact' }` (its `message` is not read); inherited copies give nothing (above). `response_item` `compaction` and the `ContextCompaction` item describe the same compaction and are ignored |
+| ignored | `token_count`, `token_usage_record`, `world_state`, `thread_settings_applied`, `thread_goal_updated`, `inter_agent_communication_metadata`, `response_item` `agent_message` (a task between agents), `compaction`, `additional_tools`, `tool_search_call`, `tool_search_output`, `image_generation_call`, `retained_context`, the legacy `event_msg` `user_message` and `agent_message`, the items `ContextCompaction`, `Extension`, `CollabAgentToolCall`, `HookPrompt`, `EnteredReviewMode`, `ExitedReviewMode`, `DynamicToolCall`, and every unknown type |
+
+Tools:
+- Name: `name` (`[A-Za-z0-9_.:-]{1,128}`, else `tool`). A namespace other than `mcp__<server>` gives `<namespace>.<name>`
+  (`collaboration.spawn_agent`, `clock.sleep`, `web.run`), looked up by that full name, then by the bare name. Pairing
+  by `call_id` (opaque, the item `id`, R16). `arguments` is a JSON string; one that does not parse gives an empty
+  argument set (2 of 498,056 in the study).
+- The descriptor (4.0.2) is built from the argument fields in the table only. Every other argument (`workdir`,
+  `justification`, `sandbox_permissions`, `with_escalated_permissions`, `prefix_rule`, `message`, `task_name`,
+  `fork_context`, `explanation`, option `description`s, ...) is never read. Rooms come from the core's hints (D4):
+
+| tool (`name`) | descriptor | room |
+|---|---|---|
+| `exec_command` | `kind: 'shell'`, `command: cmd` (a string) | program rule of 3.1 (archive / research / server) |
+| `shell_command` | `kind: 'shell'`, `command` (a string) | program rule of 3.1 |
+| `shell` | `kind: 'shell'`, `command` (an argv array, as the study shows, or a string); a `[bash, -lc, <script>]` argv is unwrapped by the core | program rule of 3.1 |
+| `apply_patch` (custom tool, `*** Begin Patch` grammar) | `kind: 'edit'`, `patch: input` (only the file names in its headers are used, the body is discarded) | dev |
+| `view_image` | `kind: 'read'`, `path` | archive |
+| `web.run` | `kind: 'web'`, no argument read | research |
+| `request_user_input`, `request_user_input_async` | `kind: 'ask'`, `questions` (at most 50; `question` (the async form names it `title`) and at most 4 option `label`s each (the async form gives plain strings or null); `id`, `header` and option `description`s are not read) -> `question` / `options` (R33, `askFields`); its output ends it (`{ answers }`, or `{ accepted }` for the async form) | desk |
+| `update_plan` (until 0.146) | `kind: 'plan'`: no `tool_start`, no `tool_end`; `plan[{ step, status }]` (at most 1,000) -> `items` with source `update_plan` (`step` -> content, the same status words, D5), shown when its output ends it ok (R35) | - |
+| MCP: name `mcp__<server>__<tool>` (until 0.118), or namespace `mcp__<server>` with name `<tool>` (0.117 on) | `tool` `mcp__<server>__<tool>` through `tool-summary` (a uuid-looking server -> ZERO_UUID, section 5); arguments are never read | none, the page classifies MCP names (D4) |
+| `spawn_agent` (bare or `collaboration.`) | `kind: 'agent'`, `description: agent_type` (the summary is the agent type, such as `explorer`); its output ends it (async launch, R28) | here |
+| `wait_agent`, `close_agent`, `send_input`, `send_message`, `followup_task`, `list_agents`, `interrupt_agent` (bare or `collaboration.`) | `kind: 'agent'`, no argument read | here |
+| `clock.sleep` | `kind: 'other'`, no argument read; `CodexSession` puts the `lounge` room hint on its `tool_start` (ADAPTERS 6.2; the core has no lounge kind) | lounge |
+| `exec` (custom tool, code mode, 0.142.5 on) | Code mode below | from the first script tool |
+| `write_stdin`, `wait`, `search_tool_bm25`, `list_mcp_resources`, `list_mcp_resource_templates`, `get_goal` | hidden plumbing: no `tool_start`, no `tool_end` (`write_stdin` and `wait` only poll a command or cell that is already running) | - |
+| any other name (`codex_app.*`, other custom tools, new tools) | `kind: 'other'`, no argument read, `tool` = the name | here |
+
+- End status (the output). Error lines are fixed text or an exit code; command echoes, file contents, stdout, stderr
+  and every other part of an output never reach an event. The output text is the `output` string, or the first
+  `input_text` part of an array; only its first line (within 4,096 chars), the result header lines before `Output:`
+  (at most 12), or a JSON result's `metadata.exit_code` are read. In this order:
+  1. An exit code: `metadata.exit_code` of an object or JSON-string output (`shell` until 0.58, `apply_patch`), a first
+     line `Exit code: <n>` (`shell_command`, `apply_patch` text), or a header line `Process exited with code <n>`
+     (`exec_command`, `write_stdin`). `0` -> ok, else `failed` with error `Exit code <n>`. Another JSON object (answers,
+     MCP results) -> ok.
+  2. A header line `Process running with session ID` -> ok with `background` (R28): the command lives on in the
+     background, and the later `write_stdin` that reports its end is plumbing.
+  3. Fixed phrases of the first line: starts with `aborted by user` -> `interrupted` (`Aborted by user`); contains
+     `rejected by user`, `exec command rejected` or `patch rejected` -> `denied` (`Rejected by user`); contains
+     `approval required by policy` -> `denied` (`Approval required by policy`); contains `sandbox denied` or `failed in
+     sandbox` -> `denied` (`Sandbox denied`); starts with `command timed out` -> `failed` (`Command timed out`); starts
+     with `Script failed` / `Script error` -> `failed` (that phrase); `<name> failed` at the start (such as `collab
+     spawn failed`) -> `failed` with `<tool> failed`, where `<tool>` is the call's own name, never words of the output.
+  4. Anything else -> ok.
+- A call still open at `turn_aborted` ends `interrupted` (above); one still open at `task_complete` or at the next
+  `task_started` ends `abandoned` (core, R27). A line over the Tailer's 8 MB cap (Codex lines reach about 10 MB, mostly
+  large outputs) is skipped and counted (3.6); when it was an output, its call ends `abandoned` with its turn.
+
+Code mode (D10, ADAPTERS 6.3; `exec.mjs`):
+- From 0.142.5 Codex does almost everything through one custom tool `exec` whose input is a script that calls
+  `tools.<name>(...)` (108,303 calls). The inner calls have no call line of their own: they appear only as
+  `item_completed` items, written while the `exec` call is still open (78,579 of 101,051 `CommandExecution` items).
+- The `exec` call -> `tool_start { tool: 'exec' }`. Its summary and room come from the first `tools.<name>` (or
+  `tools?.<name>`) identifier in the first 64 KB of the script, read as an identifier only, by a small scanner that
+  tells code from string literals, template text, regex literals and comments (the code inside a template's `${...}`
+  is code; a `/` starts a regex after an operator, an opening bracket, `{`, `}`, `;`, the start of the script or a
+  keyword such as `return` or `typeof`, and divides after a name, a number, `)` or `]`). A bracket form such as
+  `tools["x"]` is a string and is not read; arguments and every other part of the script are never read. A script
+  whose scan ends inside an unclosed string, regex, template or comment, or meets a line break inside a string or
+  regex, is not JavaScript as far as the scanner can tell: it gives no name (a plain `exec`), except that a script cut
+  at the 64 KB limit keeps the names read before the cut. The names `update_plan`, `write_stdin`, `wait`, `tool_search`, `search_tool_bm25`,
+  `list_mcp_resources`, `list_mcp_resource_templates` and `get_goal` are passed over. The summary is that name (an MCP
+  name `mcp__<server>__<tool>` normalized as above), and its kind gives the room: `exec_command`, `shell`,
+  `shell_command` -> shell (no command, so server); `apply_patch` -> edit (dev); `view_image` -> read (archive);
+  `web_search`, `web_fetch` or an MCP name -> web (research); the agent names of the table -> agent (here); any other
+  name -> other (here). A script without such a name -> summary `exec`, kind other.
+- While an `exec` call is open, each inner item becomes a visit: a `tool_start` and its `tool_end` at once, keyed by
+  the item's own `id`:
+
+| inner item | visit `tool_start` | visit `tool_end` |
+|---|---|---|
+| `CommandExecution` (`command` is always `[zsh\|bash, -lc, <script>]`) | `exec_command`, `kind: 'shell'`, `command` = `parsed_cmd[0].cmd`, else the argv (the core unwraps the `-lc` script). `cwd`, `aggregated_output`, `stdout`, `stderr` and `formatted_output` are never read | `declined` -> `denied` (`Command declined`); a non-zero `exit_code` -> `failed` (`Exit code <n>`); `failed` -> `failed` (`Command failed`); else ok |
+| `FileChange` | `apply_patch`, `kind: 'edit'`, `paths` = the keys of `changes` (basenames; `content`, `unified_diff` and `move_path` are never read) | `failed` -> `failed` (`Patch failed`); `declined` -> `denied` (`Patch declined`); else ok |
+| `McpToolCall` | `mcp__<server>__<tool>` from `server` / `tool` (arguments, results and `error` are never read) | `failed` -> `failed` (`MCP tool error`); `declined` -> `denied` (`MCP call declined`); else ok |
+| `WebSearch` | `web_search`, `kind: 'web'`, the host of `action.url`, else `query` / `action.query` | `failed` -> `failed` (`Search failed`); `declined` -> `denied` (`Search declined`); else ok |
+| `ImageView` | `view_image`, `kind: 'read'`, `path` | ok |
+
+  The page's catch-up rule (the same room shows `외 N건`) absorbs a burst of visits.
+- `tools.update_plan(...)` calls inside a script are not shown (D10c): reading their argument would mean parsing
+  model-written JavaScript.
+- The `exec` output closes the outer tool from the start of its first line only (an `exec` output carries no exit
+  code): `Script failed` / `Script error` -> `failed`; `aborted by user` -> `interrupted`; `rejected by user`, `exec
+  rejected`, `approval required by policy`, `sandbox denied` -> `denied`; anything else -> ok. The error lines are fixed
+  text (`Script failed`, `Script error`, `Aborted by user`, `Rejected by user`, `Approval required by policy`, `Sandbox
+  denied`).
+
+Floors (D1):
+- An ordinary cwd goes through the shared `projectKey` (4.4), so a Codex session and a Claude or Grok session in the
+  same folder share a floor. A project-local worktree (`<repo>/.worktrees/<name>`, `<repo>/.claude/worktrees/<name>`;
+  218 cwds in the study) joins its repository's floor with a worktree badge, as for Claude.
+- A Codex-managed worktree, cwd `<root>/worktrees/<id>/<name>[/...]` with `<root>` the Codex root (152 cwds in the
+  study; the path does not name the repository, `<id>` is opaque): the session joins an existing floor whose
+  `projectLabel` equals `<name>`. Candidates are the floors of live (not ended) main sessions of any adapter, announced
+  or still attaching, except other tool-worktree floors. When none matches it gets its own floor keyed by
+  `<root>/worktrees/<id>/<name>` (label `<name>`). `worktree` is `<name>` in every case (a heuristic, so the HUD shows
+  the badge). The floor is chosen once, the first time the Store sees that project, and does not move afterwards (4.4).
+- Mechanism and startup order as for Grok (4.6): the descriptor's `worktreeFloor(project, root)` returns
+  `{ key, names: [name], badge: name }` or null, the Runner registers it with `store.setFloorRule('codex', fn)`, and at
+  the group's first rescan the Codex Runner waits for the Runners without a floor rule (Claude), at most
+  `FIRST_PASS_WAIT_MS` (10 s). The Grok and Codex Runners both have a rule and do not wait for each other, so at
+  startup a Codex worktree whose only match is a Grok floor (or the reverse) can depend on which attaches first.
+  Within one Codex rescan a worktree main is attached after the plain mains (the scan order above), so it joins a
+  plain Codex main of the same scan whatever their uuids.
+- Subs take the floor of their root main (`sid`), as patched.
+
+Descriptor and session end:
+- `src/adapters/codex/index.mjs`: `id: 'codex'`, `defaultRoot: '~/.codex'`, `worktreeFloor` (Floors above) and
+  `deps()`: the Runner bundle `{ agent: 'codex', SessionState: CodexSession, Tailer, scan: a fresh
+  createCodexScanner(), sidecarWatcher: a fresh CodexTitles, worktreeFloor }`, one scanner (with its date-folder and
+  line-0 caches) and one title reader (with its offset) per Runner. No `readSubMeta` / `readJournalLabels` (Claude-only),
+  no `sidecars(ref)` hook and no replay support (D12). `CodexSession` takes the Runner's constructor options (`id`,
+  `kind`, `parentId`, `agentType`, `now`; the Claude-only ones are ignored) and wraps `SessionCore`.
+- A main never idles out by itself (4.0.2); it ends when its file leaves the active window (section 6). A sub ends at
+  its parent's `SubAgentActivity` (above) or by the core's idle rule (R29, `SUB_IDLE_MS`). The writer lock files, the
+  SQLite thread catalog and its spawn edges are not used.
+
+Tests: synthetic fixtures shaped from the research file (`test/fixtures/codex.mjs` record builder,
+`test/fixtures/codex-tree.mjs` folder trees and title index), under temp roots only (never the real `~/.codex`,
+`~/.grok` or `~/.claude`); tests that spawn the bin set `HOME` to a temp folder, because the bin fills the default
+`~/.codex` and `~/.grok` roots. The conformance harness (4.0.2) runs against the Codex adapter. Fixtures cover both
+eras (ADAPTERS 9): files before code mode (`exec_command`, `shell`, `shell_command`, `apply_patch`, `update_plan`, MCP
+names, `response_item` text) and code-mode files (`exec` with inner items, `item_completed` text).
+`test/codex-discover.test.mjs` covers the allowlist (bait files such as `.zst`, `history.jsonl`, auth files, SQLite
+files and `archived_sessions/` are never opened, checked with an fs spy on a real server), the line-0 cap and cache,
+guardian hiding, `/review` threads, parent chains across date folders, continuation pieces, the hot and cold date
+folders, symlinked `sessions/`, year, month and day folders in the full and the hot walk, and the scan order (worktree
+mains after plain mains); `test/codex-titles.test.mjs` the incremental title index; `test/codex-records.test.mjs`,
+`test/codex-session.test.mjs` and `test/codex-exec.test.mjs` every mapping row above (text source by version, the
+inherited prefix with its reset, fallback and live drop, ordinal dedupe, the IDE request marker, failure, denial,
+interrupt and background rules, plumbing, code-mode visits, regex literals and template expressions in scripts,
+`update_plan` inside scripts, replay state equal to live state); `test/codex-session-attach.test.mjs` what the attach
+replay decides (the `SubAgentActivity` lifecycle, the 0.154+ wait instead of the fallback, the dedupe cost past 65,536
+ordinals); `test/codex-mixed.test.mjs` a re-tasked child on attach (real descriptor); `test/codex-floor.test.mjs` the D1 worktree floors, the startup order (also within one Codex scan) and the
+bin's `office-sim: agents claude-code,codex,grok` line. The only real-data use is a read-only check against `~/.codex` that prints counts only
+(events, unpaired tools, apply errors, privacy hits).
+
 ## 5. Privacy and rooms
 - Never put these into any event: Bash/Monitor `command`, terminal `command`/`cwd`, Write `content`, Edit
   `old_string`/`new_string`, Agent `prompt`, Workflow `script`/`args`, SendMessage `message`/`content`, ExitPlanMode raw
@@ -912,6 +1237,13 @@ use is a read-only check against `~/.grok` that prints counts only (events, unpa
   `*javascript_tool.text`, browser typed text, form values, firestore documents/filters, emails, PR urls,
   `__unparsedToolInput.raw`, tool_result content (except the short `error` first line), full file paths (basename only),
   full URLs (host only).
+- Codex (4.7) adds to that list: `exec` scripts (only the first `tools.<name>` identifier is read), `cmd` / `command`
+  strings and argv beyond the program name, `apply_patch` bodies, call arguments outside the descriptor table
+  (`justification`, `message`, ...), tool outputs (only exit codes and fixed phrases), `CommandExecution` output and
+  `cwd`, `FileChange` contents and diffs, `role: user` / `developer` messages, the IDE / desktop context sections in
+  front of a `## My request:` marker (active file, open tabs, mentioned files), `agent_message` task text, encrypted
+  reasoning, and every `session_meta` field other than the ones 4.7 names (account and user ids above all).
+  `history.jsonl` and the SQLite stores are never opened.
 - One scrub (`cleanText` in `summarize.mjs`) runs on every free-text field before it is truncated: `prompt.text`,
   `say.text`, `thinking.text`, `session.title`, `tool_start.summary` pieces, `question`, `options`, plan item
   `content` (ExitPlanMode items after the markdown links, HTML and backticks are stripped), `tool_end.error`,
@@ -948,18 +1280,20 @@ use is a read-only check against `~/.grok` that prints counts only (events, unpa
   unknown id is a usage error, exit 2). It narrows the enabled set (D3); without it every implemented adapter whose root
   exists is on. `--codex-root <dir>`, `--grok-root <dir>` and `--antigravity-root <dir>` are accepted, `~`-expanded and
   stored in the `start()` option `roots`. `--grok-root` is live since P5c: it is the Grok root (default `~/.grok`, 4.6).
-  `--codex-root` and `--antigravity-root` are still reserved for the upcoming adapters and unused. The bin fills the
+  `--codex-root` is live since P5d: it is the Codex root (default `~/.codex`, 4.7). `--antigravity-root` is still
+  reserved for the upcoming adapter and unused. The bin fills the
   root of every implemented non-Claude adapter that has no flag with the descriptor's default
   (`roots: { ...defaultRoots(), ...flags }`); `start()` itself never falls back to a default root, so a `start()` call
-  without `roots.grok` (every test that does not pass one) never checks or reads `~/.grok`. After the URL line the bin
-  prints `office-sim: agents <ids>` (the enabled ids, comma-separated, e.g. `office-sim: agents claude-code,grok` when
-  both roots exist) or `office-sim: agents none`, then one line `office-sim: <id> is not implemented yet` for each
-  requested id that is known but not implemented (`codex`, `antigravity`).
+  without `roots.grok` (every test that does not pass one) never checks or reads `~/.grok`, and one without
+  `roots.codex` never checks or reads `~/.codex`. After the URL line the bin
+  prints `office-sim: agents <ids>` (the enabled ids, comma-separated in `KNOWN_AGENTS` order, e.g.
+  `office-sim: agents claude-code,codex,grok` when all three roots exist) or `office-sim: agents none`, then one line
+  `office-sim: <id> is not implemented yet` for each requested id that is known but not implemented (`antigravity`).
 - RunnerGroup: one Runner per enabled adapter, all sharing one Store and one HTTP layer. It forwards `startLoops`,
   `rescan`, `setInterval` (so `POST /config` reaches every Runner) and `close`, and sums `files.size`, `badLines`,
-  `skippedLines` and `applyErrors` over its Runners. Its first `rescan` lets a Runner with a D1 floor rule (Grok) scan
-  only after the other Runners' first rescans are done, or after 10 s at most (4.6 Floors, startup order); the result
-  array keeps the Runner order. A missing or unreadable adapter root disables that adapter with
+  `skippedLines` and `applyErrors` over its Runners. Its first `rescan` lets a Runner with a D1 floor rule (Grok,
+  Codex) scan only after the first rescans of the Runners without a rule are done, or after 10 s at most (4.6 Floors,
+  startup order, and 4.7 Floors); the result array keeps the Runner order. A missing or unreadable adapter root disables that adapter with
   one log line without the path (`<id>: root not found, adapter off` or `<id>: root not readable (<code>), adapter
   off`); the server still starts and serves an empty office. The root check runs before the server listens and gives
   up after 2 s (`ETIMEDOUT`), so a stalled root never keeps the server from starting. A disabled adapter that was

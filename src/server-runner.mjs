@@ -36,8 +36,11 @@ export class Runner {
     this.badLines = 0;
     this.applyErrors = 0;
     this.scanErr = null; // 마지막 scan 실패 코드 (같은 오류는 한 번만 로그)
-    // ADAPTERS 3.3 메타 파일과 D1 도구 전용 워크트리 층: 어댑터의 deps 에 훅이 있을 때만 (Claude 는 없다)
-    this.sidecars = typeof deps.sidecars === 'function' ? new SidecarWatcher(deps.sidecars) : null;
+    // ADAPTERS 3.3 메타 파일과 D1 도구 전용 워크트리 층: 어댑터의 deps 에 훅이 있을 때만 (Claude 는 없다). sidecarWatcher 는
+    // check(ref)/forget(path) 를 가진 감시자 그대로 (Codex: 커지는 색인 파일을 이어 읽는다), sidecars 는 파일 목록 훅
+    const w = deps.sidecarWatcher;
+    if (typeof w?.check === 'function' && typeof w.forget === 'function') this.sidecars = w;
+    else this.sidecars = typeof deps.sidecars === 'function' ? new SidecarWatcher(deps.sidecars) : null;
     this.floorRule = typeof deps.worktreeFloor === 'function' && typeof deps.agent === 'string';
     if (this.floorRule) store.setFloorRule?.(deps.agent, (project) => deps.worktreeFloor(project, opts.root));
     this.gate = null; // D1: RunnerGroup 이 거는 약속. 첫 탐색은 다른 어댑터의 첫 붙이기가 끝난 뒤에 층을 고른다
@@ -339,7 +342,7 @@ export class Runner {
       state = new SessionState({
         id: id.charId, file: ref.path, kind: id.kind, stem: ref.stem ?? id.sid,
         parentId: this.store.parentFor(ref, meta), agentType: meta?.agentType ?? null,
-        subMeta: meta, journalLabel: label, agent: ref.agent,
+        subMeta: meta, journalLabel: label, agent: ref.agent, facts: ref.facts ?? null, // facts: 탐색 때 정한 사실 (Codex)
       });
     } catch (err) {
       this.log(`session init failed for ${path.basename(ref.path)}: ${errText(err)}`);

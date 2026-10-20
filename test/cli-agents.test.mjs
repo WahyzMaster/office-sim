@@ -100,7 +100,9 @@ test('bin --agents: one "is not implemented yet" line per requested unimplemente
   const root = await tmp();
   const mixed = await runBin(['--claude-root', root, '--agents', 'antigravity,claude-code,codex']);
   let lines = await linesUntil(mixed, (ls) => ls.includes('office-sim: antigravity is not implemented yet'));
-  assert.deepEqual(lines.slice(1, 4), ['office-sim: agents claude-code', 'office-sim: codex is not implemented yet', 'office-sim: antigravity is not implemented yet']);
+  // codex is implemented since P5d: its default root (~/.codex under the temp HOME) is missing, so it is off, not reported
+  assert.deepEqual(lines.slice(1, 3), ['office-sim: agents claude-code', 'office-sim: antigravity is not implemented yet']);
+  assert.ok(!lines.includes('office-sim: codex is not implemented yet'));
   const none = await runBin(['--claude-root', root, '--agents', 'antigravity', '--antigravity-root', path.join(root, 'nope')]);
   lines = await linesUntil(none, (ls) => ls.includes('office-sim: antigravity is not implemented yet'));
   assert.deepEqual(lines.slice(1, 3), ['office-sim: agents none', 'office-sim: antigravity is not implemented yet']);

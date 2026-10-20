@@ -94,12 +94,12 @@ test('an adapter left out by --agents is never re-probed or switched on', async 
   const logs = [];
   const probed = [];
   const probe = (r, id) => { probed.push(id); return fs.opendir(r).then((d) => d.close()).then(() => null, (e) => e.code); };
-  const app = await start({ ...FAST, root, agents: ['codex'], probe, log: (m) => logs.push(m) });
+  const app = await start({ ...FAST, root, agents: ['antigravity'], probe, log: (m) => logs.push(m) });
   try {
     await app.ready;
     await claudeRootAt(root);
     await sleep(200);
-    assert.deepEqual([app.agents, app.notImplemented], [[], ['codex']]);
+    assert.deepEqual([app.agents, app.notImplemented], [[], ['antigravity']]);
     assert.deepEqual((await health(app)).agents, []);
     assert.deepEqual(probed, [], 'claude-code was not selected, so its root is not checked at all');
     assert.deepEqual(logs, []);

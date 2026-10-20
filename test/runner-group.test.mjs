@@ -12,8 +12,10 @@ import { Runner } from '../src/server-runner.mjs';
 import { Store } from '../src/store.mjs';
 import { request } from './fixtures/sse.mjs';
 import { writeReplayFixture } from './fixtures/replay-fixture.mjs';
+import { claudeCode } from '../src/adapters/claude-code.mjs';
 
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
+const CLAUDE_ONLY = { 'claude-code': claudeCode };
 const tmpDirs = [];
 after(async () => {
   for (const d of tmpDirs) await fs.rm(d, { recursive: true, force: true });
@@ -143,16 +145,17 @@ test('server with an unreadable Claude root (a file) logs once and serves an emp
 
 test('server agents option: narrows the enabled set and reports requested ids that are not implemented', async () => {
   const root = await tmp();
-  const both = await start({ port: 0, root, publicDir: PUBLIC, agents: ['claude-code', 'codex'] });
+  const both = await start({ port: 0, root, publicDir: PUBLIC, agents: ['claude-code', 'antigravity'] });
   try {
-    assert.deepEqual([both.agents, both.notImplemented], [['claude-code'], ['codex']]);
+    assert.deepEqual([both.agents, both.notImplemented], [['claude-code'], ['antigravity']]);
   } finally {
     await both.close();
   }
   const codexOnly = await start({ port: 0, root, publicDir: PUBLIC, agents: ['codex', 'antigravity'] });
   try {
     await codexOnly.ready;
-    assert.deepEqual([codexOnly.agents, codexOnly.notImplemented], [[], ['codex', 'antigravity']]);
+    // codex is implemented since P5d but has no root here: skipped, not reported
+    assert.deepEqual([codexOnly.agents, codexOnly.notImplemented], [[], ['antigravity']]);
     assert.deepEqual(JSON.parse((await request(codexOnly.port, { path: '/healthz' })).body).agents, []);
   } finally {
     await codexOnly.close();
@@ -183,10 +186,10 @@ test('replay stays Claude-only (D12): agents claude-code whatever --agents says,
   const dir = await tmp('office-sim-group-replay-');
   const { mainPath } = await writeReplayFixture(dir);
   const root = await tmp();
-  const app = await start({ port: 0, root, publicDir: PUBLIC, replay: mainPath, speed: 1000, intervalMs: 50, agents: ['codex'] });
+  const app = await start({ port: 0, root, publicDir: PUBLIC, replay: mainPath, speed: 1000, intervalMs: 50, agents: ['antigravity'] });
   try {
     await app.ready;
-    assert.deepEqual([app.agents, app.notImplemented], [['claude-code'], ['codex']]);
+    assert.deepEqual([app.agents, app.notImplemented], [['claude-code'], ['antigravity']]);
     assert.deepEqual(JSON.parse((await request(app.port, { path: '/healthz' })).body).agents, ['claude-code']);
   } finally {
     await app.close();
@@ -198,13 +201,14 @@ test('replay reports notImplemented in KNOWN_AGENTS order, deduped, the same as 
   const { mainPath } = await writeReplayFixture(dir);
   const root = await tmp();
   for (const [agents, want] of [[['antigravity', 'codex', 'antigravity'], ['codex', 'antigravity']], [['antigravity', 'codex'], ['codex', 'antigravity']]]) {
-    const replay = await start({ port: 0, root, publicDir: PUBLIC, replay: mainPath, speed: 1000, intervalMs: 50, agents });
+    // a registry without codex (as before P5d), so two ids are unimplemented and their order shows
+    const replay = await start({ port: 0, root, publicDir: PUBLIC, replay: mainPath, speed: 1000, intervalMs: 50, agents, adapters: CLAUDE_ONLY });
     try {
       assert.deepEqual(replay.notImplemented, want, `replay ${agents}`);
     } finally {
       await replay.close();
     }
-    const live = await start({ port: 0, root, publicDir: PUBLIC, agents });
+    const live = await start({ port: 0, root, publicDir: PUBLIC, agents, adapters: CLAUDE_ONLY });
     try {
       assert.deepEqual(live.notImplemented, want, `live ${agents}`);
     } finally {
