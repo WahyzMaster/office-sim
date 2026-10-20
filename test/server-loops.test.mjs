@@ -11,7 +11,7 @@ const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
 const SID = '29292929-1111-4222-8333-444455556666';
 const SID2 = '29292929-2222-4222-8333-444455556666';
 const AGENT = 'a0000000000002901';
-const ROOT = '/nonexistent-claude-office-root/projects';
+const ROOT = '/nonexistent-office-sim-root/projects';
 const mainRef = (sid) => ({ path: `${ROOT}/-work-demo/${sid}.jsonl`, kind: 'main', stem: sid, sessionId: sid, size: 0, ino: 1 });
 const subRef = { path: `${ROOT}/-work-demo/${SID}/subagents/agent-${AGENT}.jsonl`, kind: 'sub', stem: AGENT, sessionId: SID, agentId: AGENT, size: 0, ino: 2 };
 

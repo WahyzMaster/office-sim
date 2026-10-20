@@ -1,20 +1,21 @@
-// bin/claude-office.mjs 의 인자 해석 (contract 6). 순수 함수라 테스트하기 쉽다.
+// bin/office-sim.mjs 의 인자 해석 (contract 6). 순수 함수라 테스트하기 쉽다.
 import { expandHome, DEFAULTS, LOOPBACK_HOSTS } from './server.mjs';
 import { MIN_INTERVAL, MAX_INTERVAL } from './server-http.mjs';
 
-export const USAGE = `Usage: claude-office [options]
+export const USAGE = `Usage: office-sim [options]
 
-  --port <n>       HTTP port (default ${DEFAULTS.port}, 0 = any free port)
-  --host <addr>    loopback address to bind (default ${DEFAULTS.host})
-  --interval <ms>  tail poll interval, ${MIN_INTERVAL}..${MAX_INTERVAL} (default ${DEFAULTS.intervalMs})
-  --active <min>   attach transcripts modified in the last N minutes (default ${DEFAULTS.activeMinutes})
-  --rescan <ms>    rescan for new transcript files every N ms (default ${DEFAULTS.rescanMs})
-  --root <dir>     projects root (default ~/.claude/projects)
-  --auth           require a per-run token: open the printed URL once, the browser then keeps a cookie
-  --replay <file>  replay one past session (<uuid>.jsonl plus its subagents) instead of tailing --root
-  --speed <x>      replay speed factor, 0.1..1000 (default 1)
-  --loop           replay again from the start when it ends
-  -h, --help       show this help
+  --port <n>           HTTP port (default ${DEFAULTS.port}, 0 = any free port)
+  --host <addr>        loopback address to bind (default ${DEFAULTS.host})
+  --interval <ms>      tail poll interval, ${MIN_INTERVAL}..${MAX_INTERVAL} (default ${DEFAULTS.intervalMs})
+  --active <min>       attach transcripts modified in the last N minutes (default ${DEFAULTS.activeMinutes})
+  --rescan <ms>        rescan for new transcript files every N ms (default ${DEFAULTS.rescanMs})
+  --claude-root <dir>  Claude Code transcripts root (default ~/.claude/projects)
+  --root <dir>         alias of --claude-root
+  --auth               require a per-run token: open the printed URL once, the browser then keeps a cookie
+  --replay <file>      replay one past session (<uuid>.jsonl plus its subagents) instead of tailing --claude-root
+  --speed <x>          replay speed factor, 0.1..1000 (default 1)
+  --loop               replay again from the start when it ends
+  -h, --help           show this help
 `;
 
 const SPEC = {
@@ -23,6 +24,8 @@ const SPEC = {
   interval: { key: 'intervalMs', kind: 'int', min: MIN_INTERVAL, max: MAX_INTERVAL },
   active: { key: 'activeMinutes', kind: 'num', min: 0.01, max: 60 * 24 * 365 },
   rescan: { key: 'rescanMs', kind: 'int', min: 100, max: 3_600_000 },
+  // Claude Code 기록 루트. --root 는 예전 이름이라 같은 옵션(root)으로 남겨 둔다.
+  'claude-root': { key: 'root', kind: 'path' },
   root: { key: 'root', kind: 'path' },
   auth: { key: 'auth', kind: 'flag' },
   replay: { key: 'replay', kind: 'path' },

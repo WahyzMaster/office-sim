@@ -26,7 +26,7 @@ export function clone(rec, overrides = {}) {
 export function createRecordBuilder(opts = {}) {
   const ctx = {
     sessionId: opts.sessionId ?? '11111111-1111-4111-8111-111111111111',
-    cwd: opts.cwd ?? '/tmp/claude-office-fixture/repo',
+    cwd: opts.cwd ?? '/tmp/office-sim-fixture/repo',
     gitBranch: opts.gitBranch ?? 'main',
     agentId: opts.agentId ?? null, // set for subagent files (isSidechain true)
     version: opts.version ?? '2.1.299',

@@ -88,5 +88,5 @@ if (benchMode) (await import('./bench.js')).installBench({ office, stage, frame:
 
 window.__officeReady = true;
 document.getElementById('boot').hidden = true;
-// 디버깅용: 콘솔에서 claudeOffice.emit({...}) 로 이벤트를 직접 넣어 볼 수 있다.
-window.claudeOffice = { office, emit, cfg };
+// 디버깅용: 콘솔에서 officeSim.emit({...}) 로 이벤트를 직접 넣어 볼 수 있다.
+window.officeSim = { office, emit, cfg };

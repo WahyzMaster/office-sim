@@ -19,7 +19,7 @@ const tmpDirs = [];
 after(async () => { for (const d of tmpDirs) await fs.rm(d, { recursive: true, force: true }); });
 
 async function withApp(fn, over = {}) {
-  const app = await start({ port: 0, root: '/nonexistent-claude-office-root', publicDir: PUBLIC, deps: DEPS, ...over });
+  const app = await start({ port: 0, root: '/nonexistent-office-sim-root', publicDir: PUBLIC, deps: DEPS, ...over });
   try {
     await app.ready;
     await fn(app);
@@ -40,7 +40,7 @@ test('--auth: the printed URL carries a fresh token; GET /?t= sets an HttpOnly S
     assert.equal(r.headers.location, '/');
     const cookie = r.headers['set-cookie']?.[0] ?? '';
     const parts = cookie.split(';').map((s) => s.trim());
-    assert.equal(parts[0], `co_${port}=${token}`);
+    assert.equal(parts[0], `osim_${port}=${token}`);
     for (const attr of ['HttpOnly', 'SameSite=Strict', 'Path=/']) assert.ok(parts.includes(attr), `${attr} in ${cookie}`);
     assert.equal(r.headers['cross-origin-resource-policy'], 'same-origin');
   }, { auth: true });
@@ -48,18 +48,18 @@ test('--auth: the printed URL carries a fresh token; GET /?t= sets an HttpOnly S
 
 test('--auth: every route answers 401 without the cookie, or with a wrong token or cookie; 200 with it', async () => {
   await withApp(async ({ port, token }) => {
-    const good = { cookie: `other=1; co_${port}=${token}` };
-    const bad = { cookie: `co_${port}=${token.slice(0, -1)}x` };
+    const good = { cookie: `other=1; osim_${port}=${token}` };
+    const bad = { cookie: `osim_${port}=${token.slice(0, -1)}x` };
     for (const p of ROUTES) {
       assert.equal((await request(port, { path: p })).status, 401, `${p} without a cookie`);
       assert.equal((await request(port, { path: p, headers: bad })).status, 401, `${p} with a wrong cookie`);
-      assert.equal((await request(port, { path: p, headers: { cookie: `co_${port + 1}=${token}` } })).status, 401, `${p} cookie of another port`);
+      assert.equal((await request(port, { path: p, headers: { cookie: `osim_${port + 1}=${token}` } })).status, 401, `${p} cookie of another port`);
       assert.equal((await request(port, { path: p, headers: good })).status, 200, `${p} with the cookie`);
     }
     assert.equal((await request(port, { path: '/?t=wrong' })).status, 401);
     assert.equal((await request(port, { path: `/?t=${token}x` })).status, 401);
     const denied = await request(port, { path: '/state' });
-    assert.match(denied.body, /open the URL printed by claude-office/);
+    assert.match(denied.body, /open the URL printed by office-sim/);
     assert.equal((await postConfig(port)).status, 401);
     assert.equal((await postConfig(port, good)).status, 200);
     const es = await sse(port, good);
@@ -92,14 +92,14 @@ test('parseArgs: --auth is a flag without a value', () => {
 });
 
 test('bin --auth prints the token URL; the cookie it sets opens the API', async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-office-auth-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'office-sim-auth-'));
   tmpDirs.push(root);
-  const child = spawn(process.execPath, [here('../bin/claude-office.mjs'), '--port', '0', '--root', root, '--auth'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [here('../bin/office-sim.mjs'), '--port', '0', '--claude-root', root, '--auth'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let out = '';
   child.stdout.on('data', (c) => { out += c; });
   const exited = new Promise((resolve) => child.on('exit', (code) => resolve(code)));
   try {
-    const m = await until(() => /http:\/\/127\.0\.0\.1:(\d+)\/\?t=([A-Za-z0-9_-]{43})\n/.exec(out), 5000);
+    const m = await until(() => /^office-sim: http:\/\/127\.0\.0\.1:(\d+)\/\?t=([A-Za-z0-9_-]{43})\n/.exec(out), 5000);
     const port = Number(m[1]);
     assert.equal((await request(port, { path: '/healthz' })).status, 401);
     const cookie = (await request(port, { path: `/?t=${m[2]}` })).headers['set-cookie'][0].split(';')[0];

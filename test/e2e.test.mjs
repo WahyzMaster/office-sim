@@ -41,7 +41,7 @@ after(async () => { for (const d of tmpDirs) await fs.rm(d, { recursive: true, f
 const line = (rec) => JSON.stringify(rec) + '\n';
 
 async function buildRoot() {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-office-e2e-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'office-sim-e2e-'));
   tmpDirs.push(root);
   const dir = path.join(root, '-work-invented-app');
   const subDir = path.join(dir, SID, 'subagents');
@@ -126,14 +126,14 @@ test('e2e: snapshot, live tail, subagents, privacy', async () => {
       `session:${W1}`, `tool_start:${W1}:toolu_w1`,
     ]);
     const [mainS, agentStart, subS, readStart, wfS, globStart] = snap.events;
-    assert.deepEqual(pick(mainS, { project: CWD, projectLabel: 'invented-app', title: 'Build the invented widget', branch: 'main', worktree: null, isSubagent: false, parentSessionId: null }),
-      { project: CWD, projectLabel: 'invented-app', title: 'Build the invented widget', branch: 'main', worktree: null, isSubagent: false, parentSessionId: null });
+    assert.deepEqual(pick(mainS, { agent: 'claude-code', project: CWD, projectLabel: 'invented-app', title: 'Build the invented widget', branch: 'main', worktree: null, isSubagent: false, parentSessionId: null }),
+      { agent: 'claude-code', project: CWD, projectLabel: 'invented-app', title: 'Build the invented widget', branch: 'main', worktree: null, isSubagent: false, parentSessionId: null });
     assert.deepEqual(pick(agentStart, { tool: 'Agent', summary: 'Survey the parser · Explore' }), { tool: 'Agent', summary: 'Survey the parser · Explore' });
-    assert.deepEqual(pick(subS, { project: CWD, projectLabel: 'invented-app', title: 'Survey the parser', isSubagent: true, parentSessionId: SID, agentType: 'Explore' }),
-      { project: CWD, projectLabel: 'invented-app', title: 'Survey the parser', isSubagent: true, parentSessionId: SID, agentType: 'Explore' });
+    assert.deepEqual(pick(subS, { agent: 'claude-code', project: CWD, projectLabel: 'invented-app', title: 'Survey the parser', isSubagent: true, parentSessionId: SID, agentType: 'Explore' }),
+      { agent: 'claude-code', project: CWD, projectLabel: 'invented-app', title: 'Survey the parser', isSubagent: true, parentSessionId: SID, agentType: 'Explore' });
     assert.deepEqual(pick(readStart, { tool: 'Read', summary: 'parser.mjs' }), { tool: 'Read', summary: 'parser.mjs' });
-    assert.deepEqual(pick(wfS, { project: CWD, title: 'Check invented edge cases', isSubagent: true, parentSessionId: SID, agentType: 'workflow-subagent' }),
-      { project: CWD, title: 'Check invented edge cases', isSubagent: true, parentSessionId: SID, agentType: 'workflow-subagent' });
+    assert.deepEqual(pick(wfS, { agent: 'claude-code', project: CWD, title: 'Check invented edge cases', isSubagent: true, parentSessionId: SID, agentType: 'workflow-subagent' }),
+      { agent: 'claude-code', project: CWD, title: 'Check invented edge cases', isSubagent: true, parentSessionId: SID, agentType: 'workflow-subagent' });
     assert.deepEqual(pick(globStart, { tool: 'Glob', summary: '**/*.mjs' }), { tool: 'Glob', summary: '**/*.mjs' });
     await expect('config', { intervalMs: 50, activeMinutes: 30 });
 

@@ -1,7 +1,8 @@
 // 화면 가장자리 패널: 엘리베이터(층 선택), 활동 기록, 범례, 직원 상세.
 import { ROOMS } from './rooms.js';
 
-const STORE = 'claude-office:v1';
+export const STORE = 'office-sim:v1';
+export const LEGACY_STORE = 'claude-office:v1'; // 이름을 바꾸기 전(claude-office) 키. 한 번만 옮겨 오고 지우지 않는다.
 const MODE = { idle: '대기', work: '작업 중', think: '생각 중', write: '계획 작성', ask: '질문 중', panic: '식은땀' };
 const SOURCE = {
   demo: '데모 데이터',
@@ -9,6 +10,9 @@ const SOURCE = {
   retry: '라이브 · 재연결 중',
   down: '서버 없음 · 데모 재생',
 };
+// session 이벤트의 agent(출처 id) -> 화면 이름. 모르는 id 는 그대로 보여 준다.
+const AGENT_LABEL = { 'claude-code': 'Claude Code', codex: 'Codex', grok: 'Grok', antigravity: 'Antigravity' };
+export const agentLabel = (id) => (Object.hasOwn(AGENT_LABEL, id) ? AGENT_LABEL[id] : id);
 
 // 재생 모드(--replay): 서버가 config 메시지에 싣는 replay { state, speed, loop, round, progress } 를 칩 문구로.
 function replayText(r) {
@@ -25,11 +29,30 @@ function replayText(r) {
 // 21:04:10 처럼 짧게(ko-KR 은 "21시 4분 10초"로 길어진다)
 const time = (d) => d.toLocaleTimeString('en-GB', { hour12: false });
 
-function loadPrefs() {
-  try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch { return {}; }
+// localStorage 는 꺼내는 순간에도 던질 수 있다(샌드박스 iframe, 차단된 사이트 데이터). storage 를 넘기면 그것을 쓴다(테스트용).
+const storeOf = (storage) => storage ?? globalThis.localStorage;
+
+// 새 키가 비어 있고 옛 키(claude-office:v1)가 있으면 옛 설정을 한 번 복사한다. 복사했으면 true.
+// 복사 뒤에는 새 키가 있으므로 다시 불러도 아무것도 하지 않는다. 옛 키는 그대로 둔다.
+export function migratePrefs(storage) {
+  try {
+    const s = storeOf(storage);
+    if (s.getItem(STORE) != null) return false;
+    const old = s.getItem(LEGACY_STORE);
+    if (old == null) return false;
+    s.setItem(STORE, old);
+    return true;
+  } catch { return false; }
+}
+export function loadPrefs(storage) {
+  migratePrefs(storage);
+  try {
+    const v = JSON.parse(storeOf(storage).getItem(STORE));
+    return v && typeof v === 'object' ? v : {};
+  } catch { return {}; }
 }
 function savePrefs(p) {
-  try { localStorage.setItem(STORE, JSON.stringify(p)); } catch { /* 저장 불가 환경 */ }
+  try { storeOf().setItem(STORE, JSON.stringify(p)); } catch { /* 저장 불가 환경 */ }
 }
 
 export class Hud {
@@ -147,7 +170,7 @@ export class Hud {
     this.el.source.dataset.state = state;
     this.el.source.querySelector('span').textContent = state === 'replay' ? replayText(this.replay) : SOURCE[state] || state;
     this.el.source.title = state === 'demo' || state === 'down'
-      ? '예시 세션을 재생하고 있어요. 로컬 서버를 실행하면 실제 Claude Code 세션이 보여요.'
+      ? '예시 세션을 재생하고 있어요. 로컬 서버를 실행하면 실제 에이전트 세션이 보여요.'
       : state === 'replay' ? '지난 세션 기록을 기록된 시간 간격대로 재생하고 있어요.'
         : '로컬 서버의 /events 스트림을 받고 있어요.';
   }
@@ -255,6 +278,7 @@ export class Hud {
       ['남은 일', `${a.queue.length}건`],
     ];
     if (a.isSub) rows.splice(1, 1, ['종류', `서브에이전트 · ${a.agentType}`]);
+    rows.splice(2, 0, ['에이전트', a.agent ? agentLabel(a.agent) : '-']); // 브랜치(또는 종류) 바로 다음
     const dl = box.querySelector('dl');
     dl.replaceChildren(...rows.flatMap(([k, val]) => {
       const dt = document.createElement('dt');

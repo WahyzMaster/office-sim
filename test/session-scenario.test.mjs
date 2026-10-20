@@ -4,10 +4,10 @@ import { SessionState, projectKey } from '../src/session.mjs';
 import { createRecordBuilder, clone } from './fixtures/records.mjs';
 
 const SID = '55555555-5555-4555-8555-555555555555';
-const REPO = '/tmp/co-fixture/demo-repo';
+const REPO = '/tmp/office-sim-fixture/demo-repo';
 
 function mainState(clock = { t: Date.UTC(2026, 0, 1, 2) }) {
-  return new SessionState({ id: SID, file: `/tmp/co-fixture/${SID}.jsonl`, kind: 'main', stem: SID, now: () => clock.t });
+  return new SessionState({ id: SID, file: `/tmp/office-sim-fixture/${SID}.jsonl`, kind: 'main', stem: SID, now: () => clock.t });
 }
 const of = (evs, type) => evs.filter((e) => e.type === type);
 
@@ -30,7 +30,7 @@ test('4.4 project comes from the FIRST cwd; worktree badge from the latest cwd o
   evs = s.apply(b.humanPrompt({ text: 'go' }));
   const first = of(evs, 'session')[0];
   assert.deepEqual([first.project, first.projectLabel, first.worktree], [REPO, 'demo-repo', 'feat-a']);
-  b.setCwd('/tmp/co-fixture/elsewhere');
+  b.setCwd('/tmp/office-sim-fixture/elsewhere');
   evs = s.apply(b.assistantText({ msgId: 'm1', text: 'moved' }));
   assert.deepEqual([of(evs, 'session')[0].project, of(evs, 'session')[0].worktree], [REPO, null]);
   const ws = { originalCwd: REPO, worktreePath: `${REPO}/.claude/worktrees/wt-b`, worktreeName: 'wt-b', sessionId: SID };

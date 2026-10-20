@@ -4,7 +4,7 @@ import { classifyRecord, contentText } from '../src/records.mjs';
 import { createRecordBuilder } from './fixtures/records.mjs';
 
 const SID = '22222222-2222-4222-8222-222222222222';
-const mk = (o = {}) => createRecordBuilder({ sessionId: SID, cwd: '/tmp/co-fixture/repo', gitBranch: 'feature/x', ...o });
+const mk = (o = {}) => createRecordBuilder({ sessionId: SID, cwd: '/tmp/office-sim-fixture/repo', gitBranch: 'feature/x', ...o });
 
 test('meta: uuid-less sidecars map to field/value', () => {
   const b = mk();
@@ -53,7 +53,7 @@ test('assistant: blocks normalized, server tools dropped, envelope fields kept',
   assert.deepEqual(c.blocks, [{ type: 'tool_use', id: 'toolu_1', name: 'Read', input: { file_path: '/tmp/a.txt' } }]);
   assert.equal(c.uuid, rec.uuid);
   assert.equal(c.ts, rec.timestamp);
-  assert.equal(c.cwd, '/tmp/co-fixture/repo');
+  assert.equal(c.cwd, '/tmp/office-sim-fixture/repo');
   assert.equal(c.gitBranch, 'feature/x');
   assert.equal(c.sessionId, SID);
   assert.equal(classifyRecord(b.advisorBlocks({ msgId: 'msg_A' })).blocks.length, 0);

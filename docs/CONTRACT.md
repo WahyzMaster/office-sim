@@ -1,9 +1,10 @@
-# claude-office server contract (P1-P3)
+# office-sim server contract (P1-P3)
 
 The server tails Claude Code session transcripts under `~/.claude/projects`, turns records into UI events,
 and streams them to the 3D office page (`public/`) over SSE. This file is the single source of truth for
 module boundaries, the event schema and the parsing rules. The format rules come from a corpus study of
 5,016 local transcript files (Claude Code 2.1.181 to 2.1.299, entrypoint `claude-desktop`).
+Claude Code is the only adapter today; Codex, Grok and Antigravity are planned as separate adapters (see 4.0).
 
 ## 0. Ground rules
 
@@ -12,7 +13,7 @@ module boundaries, the event schema and the parsing rules. The format rules come
 - Every source file stays under 500 lines. No `console.log` in `src/` (use the injected `log` callback); `bin/` may print.
 - Comments may be Korean or English; identifiers are English.
 - **Never read from or write to the real `~/.claude` in tests.** Tests build synthetic fixtures in a temp dir
-  (`fs.mkdtemp(os.tmpdir() + '/claude-office-')`). Fixture text must be invented, never copied from real transcripts.
+  (`fs.mkdtemp(os.tmpdir() + '/office-sim-')`). Fixture text must be invented, never copied from real transcripts.
 - The server binds `127.0.0.1` only and serves only to the local browser. It still sends **summaries, not content**
   (see section 5). Loopback is not per-user: without `--auth` any local process or other OS user can read `/state`
   and `/events`. `--auth` (section 6) closes that for other OS users and for web pages; it does not protect against
@@ -21,7 +22,7 @@ module boundaries, the event schema and the parsing rules. The format rules come
 ## 1. Layout
 
 ```
-bin/claude-office.mjs   CLI: parse args, start server, print URL
+bin/office-sim.mjs      CLI: parse args, start server, print URL
 src/cli-args.mjs        argv -> start() options (pure), USAGE text
 src/summarize.mjs       tool_use -> { summary, room? } (pure); cleanText, the one section 5 text scrub
 src/summarize-shell.mjs Bash/Monitor command -> program name (+ allow-listed subcommand) (pure)
@@ -29,7 +30,7 @@ src/plan.mjs            update_plan / task list / ExitPlanMode plan reconstructi
 src/records.mjs         one parsed jsonl record -> normalized items (pure)
 src/session.mjs         SessionState: ordered items -> UI events (stateful, per transcript file)
 src/session-util.mjs    tool_result status + error line, ask fields, public tool name, project key (pure)
-src/session-identity.mjs titles, branch/worktree/agentType labels, the `session` event (pure)
+src/session-identity.mjs titles, branch/worktree/agentType labels, the `session` event with its `agent` id (pure)
 src/session-plan.mjs    PlanBoard: plan/task whiteboard state for one SessionState
 src/discover.mjs        find transcript files + read subagent meta / workflow journal labels
 src/tailer.mjs          per-file byte-offset tail with partial-line buffer
@@ -55,7 +56,7 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 
 | type | fields |
 |---|---|
-| `session` | `project` (stable floor key, see 4.4), `projectLabel` (basename), `title` (<= 80), `branch` (<= 60, `HEAD` -> `detached`), `worktree` (name <= 60, or null), `isSubagent`, `parentSessionId` (null for main), `agentType` (subagent only, <= 60) |
+| `session` | `agent` (stable source id of the adapter, see below), `project` (stable floor key, see 4.4), `projectLabel` (basename), `title` (<= 80), `branch` (<= 60, `HEAD` -> `detached`), `worktree` (name <= 60, or null), `isSubagent`, `parentSessionId` (null for main), `agentType` (subagent only, <= 60) |
 | `session_end` | `reason`: `done` \| `idle` |
 | `prompt` | `text` (human prompt, <= 80 code points) |
 | `tool_start` | `toolUseId`, `tool` (raw name, except a connector-uuid mcp server segment, see 5), `summary`, `room` (optional hint, see 5), `question`, `options` (ask tools only), `background` (bool, optional), `awaitsApproval` (`true` only in replay mode, when the call waited for a human answer to a permission prompt, see 7) |
@@ -65,6 +66,11 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 | `plan` | `items`: `[{ content, status }]` with status `pending` \| `in_progress` \| `completed`, `source`: `update_plan` \| `tasks` \| `exit_plan`. Every `content` is scrubbed (section 5) and capped at 80 code points. `exit_plan` carries at most 6 items (`planFromMarkdown`, each raw line cut at 1000 chars before parsing); `update_plan` and `tasks` carry the whole list (no count cap) |
 | `turn_end` | `reason`: `stop_hook` \| `api_error` \| `interrupt` \| `wrap_up` \| `next_turn` \| `end_turn` |
 | `system` | `kind`: `api_error` \| `compact` \| `refusal`, `text` |
+
+`session.agent` names the tool whose transcript the character comes from, so every character (main sessions and
+subagents alike) carries an agent id. It is on every `session` event, live and in snapshots. Ids: `claude-code`
+(the only one today), and `codex`, `grok`, `antigravity` for the planned adapters. The page shows the labels
+`Claude Code`, `Codex`, `Grok`, `Antigravity`, and an unknown id as-is.
 
 Wire messages on `/events` (each SSE `data:` line is one JSON object, every message has an `id:` line = seq):
 - `{ "type": "snapshot", "events": [ ...events ] }` first message on every connection (or replay, see 6).
@@ -228,6 +234,14 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
 
 ## 4. Parsing rules (from the corpus study; R-numbers are referenced by tests)
 
+### 4.0 Adapter scope
+- Everything in this section (4.1-4.5, R6-R36), together with the file layout in 3.5 and the record kinds in 3.3, is
+  the Claude Code adapter: how Claude Code transcripts are found and read. Its `session` events carry
+  `agent: 'claude-code'`.
+- A future adapter (Codex, Grok, Antigravity) brings its own log discovery and record mapping, but must emit the same
+  event schema (section 2) with its own `agent` id, and must send every free-text field through the shared
+  `cleanText` scrub and the privacy rules of section 5. The Store, the SSE wire format and the page stay shared.
+
 ### 4.1 Framing and dedupe
 - R6 Read by byte offset, split on `\n`, buffer a trailing partial line, JSON.parse each line, skip blank or
   unparseable lines (count them, never throw). Lines can be up to ~2.7 MB.
@@ -359,11 +373,13 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
   uses it as a map key and shows `projectLabel` (or the basename of the key).
 - The browser classifies rooms with `public/js/rooms.js`; the server only sends `room` hints from 3.1.
 
-## 6. Server behaviour (`src/server.mjs`, `bin/claude-office.mjs`)
-- CLI flags: `--port 4317 --host 127.0.0.1 --interval 250 --active 30 --rescan 3000 --root ~/.claude/projects`,
+## 6. Server behaviour (`src/server.mjs`, `bin/office-sim.mjs`)
+- CLI flags: `--port 4317 --host 127.0.0.1 --interval 250 --active 30 --rescan 3000 --claude-root ~/.claude/projects`,
   and `--auth` (a switch without a value; `--auth=x` is an error). Replay (6.1): `--replay <file> --speed <x> --loop`;
   `--speed` (0.1..1000, default 1) and `--loop` (switch) are errors without `--replay`. `--interval` is the tail poll in ms (50..5000),
   `--active` the minutes of mtime window for attaching files, `--host` must be a loopback address.
+  `--claude-root <dir>` is the Claude Code transcripts root (default `~/.claude/projects`); `--root <dir>` is an alias
+  that sets the same option. Both set the `start()` option `root`.
 - Loops: every `interval` ms stat each attached file and read appended bytes; every `rescan` ms run `scan()` to attach
   new files and detach files outside the active window (emit `session_end` reason `idle` for them); every 1 s call
   `idle()` on each session. Loops never overlap (skip a tick while the previous one runs). The poll loop is a
@@ -394,9 +410,9 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
      header, when present, must be `http://` + one of those; else 403 (DNS rebinding and cross-origin guard).
   2. Path guard: `..` or encoded `.` / `/` / `\` in the raw path -> 400.
   3. `--auth` (when on): `GET /?t=<token>` with the right token -> 302 to `/` with
-     `Set-Cookie: co_<port>=<token>; HttpOnly; SameSite=Strict; Path=/` and `cache-control: no-store`. Every other
+     `Set-Cookie: osim_<port>=<token>; HttpOnly; SameSite=Strict; Path=/` and `cache-control: no-store`. Every other
      request, every route (`/`, `/index.html`, `/js/*`, `/events`, `/state`, `/config`, `/healthz`, 404s), needs that
-     cookie, else 401 `unauthorized: open the URL printed by claude-office`. The token is 32 random bytes (base64url)
+     cookie, else 401 `unauthorized: open the URL printed by office-sim`. The token is 32 random bytes (base64url)
      made in-process per run (never argv or env), compared in constant time; the cookie name carries the port.
   4. `/events`, `/state`, `/config`: a `Sec-Fetch-Site` header other than `same-origin` or `none` -> 403 (absent passes,
      for local tools).
@@ -416,9 +432,9 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
   without it `token` is null and `url` has no query.
 
 ### 6.1 Replay mode (`--replay <file> --speed <x> [--loop]`, P3)
-- Input: one main transcript (`<uuid>.jsonl`) plus its `<uuid>/subagents/**` files (`sessionRefs`). `--root`,
-  `--active` and `--rescan` do not apply. A main file renamed away from its uuid uses the first record's `sessionId`
-  as its stem, so R10 does not treat every line as fork history.
+- Input: one main transcript (`<uuid>.jsonl`) plus its `<uuid>/subagents/**` files (`sessionRefs`).
+  `--claude-root` (`--root`), `--active` and `--rescan` do not apply. A main file renamed away from its uuid uses the
+  first record's `sessionId` as its stem, so R10 does not treat every line as fork history.
 - Pipeline: `ReplayRunner` extends the live `Runner` and keeps `prepare` / `publish` / `onLine` / `detach`, so
   SessionState, Store, the SSE wire format, privacy (section 5) and the page are exactly the live ones. Only the line
   source differs: instead of tailing, every poll tick (`--interval`, default 250 ms) releases the lines that are due.

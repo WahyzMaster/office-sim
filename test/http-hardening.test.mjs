@@ -13,7 +13,7 @@ class NullTailer { async readAll() { return { offset: 0 }; } async poll() { retu
 const DEPS = { Tailer: NullTailer, scan: async () => [], readSubMeta: async () => null, readJournalLabels: async () => new Map() };
 
 async function withApp(fn, over = {}) {
-  const app = await start({ port: 0, root: '/nonexistent-claude-office-root', publicDir: PUBLIC, deps: DEPS, ...over });
+  const app = await start({ port: 0, root: '/nonexistent-office-sim-root', publicDir: PUBLIC, deps: DEPS, ...over });
   try {
     await app.ready;
     await fn(app);
