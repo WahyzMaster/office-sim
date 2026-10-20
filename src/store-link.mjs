@@ -2,6 +2,7 @@
 // 원본 레코드에서 "연결에 필요한 사실"만 싸게 뽑는다 (내용은 절대 꺼내지 않는다).
 import path from 'node:path';
 import { cleanText } from './summarize.mjs';
+import { CLAUDE_CODE_AGENT, agentScopedId } from './session-identity.mjs';
 
 // 서브에이전트를 띄우거나 이어 가는 도구만 색인한다 (메모리 절약).
 export const SPAWN_TOOLS = new Set(['Agent', 'Task', 'Workflow', 'SendMessage']);
@@ -25,8 +26,18 @@ function kindFromPath(p) {
   return parts[i + 1] === 'workflows' ? 'wf' : 'sub';
 }
 
-// FileRef -> { kind, sid, charId, runId, runDir }. 경로 구조(3.5)를 우선 믿고, 맞지 않으면 ref 필드를 쓴다.
+/** The adapter id of a FileRef (4.0.1): `ref.agent`, or 'claude-code' when the ref has none. */
+export function refAgent(ref) {
+  return typeof ref?.agent === 'string' && ref.agent !== '' ? ref.agent : CLAUDE_CODE_AGENT;
+}
+
+// FileRef -> { kind, sid, charId, runId, runDir }. Claude 파일은 경로 구조(3.5)를 우선 믿고, 맞지 않으면 ref 필드를 쓴다.
+// 다른 어댑터의 ref 는 경로를 해석하지 않는다: 그 어댑터의 탐색이 채운 kind/sid/charId/parentId 를 그대로 믿는다.
 export function refIdentity(ref) {
+  if (refAgent(ref) !== CLAUDE_CODE_AGENT) {
+    const sid = ref.sid ?? ref.sessionId ?? null;
+    return { kind: ref.kind ?? 'main', sid, charId: ref.charId ?? sid, runId: null, runDir: null, parentId: ref.parentId ?? null };
+  }
   const p = ref.path;
   const kind = ref.kind ?? kindFromPath(p);
   const base = path.basename(p, '.jsonl');
@@ -46,6 +57,20 @@ export function refIdentity(ref) {
     runId = ref.runId ?? path.basename(runDir);
   }
   return { kind, sid, charId: agentId, runId, runDir };
+}
+
+/**
+ * D2 at the Store boundary (F2, G2): a non-Claude ref may attach only when its charId, and its parentId and sid when
+ * present (not null/undefined), are ids of its own agent (agentScopedId), and a main ref's sid equals its charId.
+ * The sid is the owner and floor fallback of a sub, so a foreign sid would hand it another agent's parent or floor.
+ * Claude refs are not checked.
+ */
+export function refIdsOk(ref) {
+  const agent = refAgent(ref);
+  if (agent === CLAUDE_CODE_AGENT) return true;
+  const id = refIdentity(ref);
+  const own = (v) => v == null || agentScopedId(agent, v);
+  return agentScopedId(agent, id.charId) && own(id.parentId) && own(id.sid) && (id.kind !== 'main' || id.sid === id.charId);
 }
 
 function contentText(content) {

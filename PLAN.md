@@ -130,7 +130,14 @@ office-sim/
 | P2 (완료) | SSE, /state, /config, 라이브 모드 연결, 보안 헤더, `--auth` | 이 세션을 실제로 띄워 앱 브라우저에서 확인(밝은/어두운 테마, 데모 모드) |
 | P3 (완료, 소리 제외) | 재생 모드(`--replay 파일 --speed 4 --loop`), 권한 승인 대기 표시(재생 모드만, 라이브는 신호 없음), 층이 많을 때 성능. 소리는 하지 않았다 | `node --test` 394개 통과. 합성 세션으로 재생 모드를 앱 브라우저에서 확인(재생 칩, 반복, 서브에이전트, 승인 대기 말풍선, 콘솔 오류 없음). `#bench` 층 10개·직원 60명 측정 |
 | P4 | 스킬/플러그인 포장: `/office` 로 서버 시작과 브라우저 열기 | 새 세션에서 `/office` 실행 |
-| P5 | 멀티 에이전트 어댑터 (Codex, Grok, Antigravity). 도구마다 어댑터 하나를 더하고, Store, SSE, 화면은 그대로 같이 쓴다 | 어댑터마다 합성 픽스처로 `node --test`: 같은 이벤트 스키마(`docs/CONTRACT.md` 2절), 맞는 `agent` id, 개인정보 규칙(5절) 노출 0건 |
+| P5a (진행 중) | 멀티 에이전트 공통 분리: `store.mjs` 의 Claude 서브에이전트 연결을 `src/store-claude.mjs` 로 빼기, agent id 를 ref -> entry -> session 이벤트로 흐르게 하기, `Store.endCharacter` 와 `{ hint: 'end', charId }` 항목, 어댑터 등록표(`src/adapters/`)와 `RunnerGroup`, CLI `--agents`/`--codex-root`/`--grok-root`/`--antigravity-root`. 등록된 어댑터는 `claude-code` 하나 | 기존 `npm test` 전부 그대로 통과(테스트 수정 0개가 목표, import 경로만 예외). 새 테스트: agent id 흐름, 등록표, 루트가 없는 어댑터는 조용히 꺼짐. 실제 서버를 띄워 화면이 이전과 같은지 앱 브라우저로 확인 |
+| P5b | `SessionCore`(`src/core/session-core.mjs`)와 `src/core/tool-summary.mjs`. 아직 어떤 어댑터도 쓰지 않는다 | 정규화 항목만으로 만든 합성 입력에서 스키마, dedupe, 도구 짝, 턴, 계획, 개인정보 테스트 통과 |
+| P5c | Grok 어댑터: 탐색(모든 cwd 그룹, `subagents/` 연결), 정규화, `summary.json` 메타, `SidecarWatcher` | 공통 적합성 테스트 + Grok 전용 테스트. 합성 픽스처를 시간차로 덧붙여 라이브 화면 확인(Claude 와 Grok 직원이 같은 층에). 실제 Grok 세션 하나로 덧붙이는 단위 확인 |
+| P5d | Codex 어댑터: guardian 스레드 숨김, code-mode `exec`, 서브에이전트 문맥 건너뛰기, `session_index.jsonl` 제목 | P5c 와 같음. 0.142 이전과 이후(code-mode) 픽스처 둘 다 |
+| P5e | Antigravity CLI 어댑터: 위치 짝짓기, `USER_REQUEST` 꺼내기, 요약 proto 해석(데스크톱 앱은 범위 밖) | P5c 와 같음. 옛 도구 이름과 새 도구 이름 픽스처 둘 다 |
+| P5f | 문서: `docs/CONTRACT.md` 어댑터별 절, `README.md` 지원 표와 옵션, 이 문서의 진행 기록 | 문서와 `--help` 출력이 맞음 |
+
+P5 의 단계와 끝 조건은 `docs/ADAPTERS.md` 9절이 기준이다(선택 단계 P5g: Grok 라이브 승인 대기). 모든 단계는 Store, SSE, 화면을 그대로 같이 쓰고, 어댑터마다 합성 픽스처로 같은 이벤트 스키마(`docs/CONTRACT.md` 2절), 맞는 `agent` id, 개인정보 규칙(5절) 노출 0건을 확인한다.
 
 P5 어댑터가 각각 갖춰야 할 것:
 
@@ -139,7 +146,7 @@ P5 어댑터가 각각 갖춰야 할 것:
 - 에이전트 id: 모든 `session` 이벤트에 `agent` 를 붙인다(`codex`, `grok`, `antigravity`). 지금 Claude Code 어댑터는 `claude-code` 를 보낸다.
 - 개인정보: 모든 자유 텍스트를 공용 `cleanText`(`src/summarize.mjs`)로 거르고, 5절의 "보내지 않는 것" 규칙을 그대로 따른다.
 
-주의: Codex, Grok, Antigravity 의 기록 위치와 형식은 아직 조사하지 않았다. Claude Code 형식 조사(`docs/research/jsonl-format.json`)처럼, 구현 전에 각 도구의 기록 위치와 형식을 구조만 조사하는 단계가 먼저 필요하다.
+Codex, Grok, Antigravity 의 기록 위치와 형식은 Claude Code 형식 조사(`docs/research/jsonl-format.json`)처럼 구조만 조사했다(`docs/research/codex-format.json`, `grok-format.json`, `antigravity-format.json`). 그 결과로 만든 설계가 `docs/ADAPTERS.md` 이고, 2026-10-20 에 결정 D1~D12 를 모두 추천안대로 승인했다.
 
 ## 8. 진행 기록 (2026-10-19)
 
@@ -167,10 +174,17 @@ P5 어댑터가 각각 갖춰야 할 것:
 
   줄인 것: CSS 라벨은 초점 층만 계산(라벨 0.40 → 0.05 ms), 초점이 아닌 층은 그림자를 드리우지 않음, 숨은 층은 행렬 갱신, 몸짓, LED/지구본/문 애니메이션을 건너뜀(일의 진행은 계속). JS 힙은 18~30 MB(GC 시점에 따라 흔들림), 지오메트리 110, 텍스처 14, DOM 노드 1,326. 앱 브라우저 창이 가려져 있어 rAF 프레임 간격(fps)은 잴 수 없었다. 전체 보기는 모든 층이 보이는 화면이라 그대로 두었고, 2,860번의 그리기 호출(상자마다 메시 하나)이 남은 비용이다.
 
+## 8.2 P5 진행 기록 (2026-10-20)
+
+- 조사: Codex, Grok, Antigravity 의 기록 위치와 형식을 이 Mac 에서 읽기 전용으로 구조와 개수만 셌다(`docs/research/codex-format.json`, `grok-format.json`, `antigravity-format.json`). 세 도구 모두 덧붙여 쓰는 JSONL 기록이 있어 지금의 `Tailer` 로 따라 읽을 수 있다. Antigravity 데스크톱 앱만 대화 파일이 암호화된 것으로 보여 범위에서 뺐다.
+- 설계 승인: `docs/ADAPTERS.md` 의 결정 D1~D12 를 모두 추천안대로 승인했다. 승인된 결정은 `docs/CONTRACT.md` 4.0.1절에 한 줄씩 옮겼다. 구현 순서는 P5a 공통 분리, P5b `SessionCore`, P5c Grok, P5d Codex, P5e Antigravity CLI, P5f 문서다.
+- P5a 진행 중(브랜치 `feat/p5a-adapter-core`): `store.mjs` 의 Claude 서브에이전트 연결을 `src/store-claude.mjs` 로 빼고, agent id 를 `FileRef.agent` -> `entry.agent` -> `session.agent` 로 흐르게 하고, 공통 종료 규칙 `Store.endCharacter` 와 내부 항목 `{ hint: 'end', charId }`(Runner 가 걸러 내서 브라우저로는 가지 않는다)를 넣고, 어댑터 등록표(`src/adapters/index.mjs`, `claude-code.mjs`)와 어댑터마다 Runner 하나를 두는 `RunnerGroup` 을 넣는다. CLI 는 `--agents`(모르는 id 는 종료 코드 2)와 예약 옵션 `--codex-root`, `--grok-root`, `--antigravity-root` 를 받고, 시작할 때 `office-sim: agents <켜진 id>` 를 출력한다. `/healthz` 에 `agents` 가 더해진다. 등록된 어댑터는 `claude-code` 하나라 Claude 동작은 바뀌지 않는다. 재생 모드는 Claude 만(D12).
+- 범위 조정: 메타 파일을 바뀔 때만 다시 읽는 `SidecarWatcher` 는 P5a 에서 P5c 로 옮겼다. 처음 쓰는 곳이 Grok 의 `summary.json` 이다.
+
 ## 9. 남은 결정과 할 일
 
 1. 층 구분 키(`project`)에 작업 폴더 전체 경로가 들어간다. 로컬 브라우저에만 가지만, 해시로 바꿀지 결정 필요
 2. P3 에서 하지 않은 것: 소리. 라이브 모드의 권한 승인 대기는 기록에 신호가 생기기 전까지 보류(예: 사용자가 PermissionRequest/Notification 훅으로 옆 파일에 남기는 방식)
 3. 전체 보기에서 층이 많을 때: 가구 상자를 층마다 합치거나 인스턴싱하면 그리기 호출을 크게 줄일 수 있다(P3 범위 밖)
 4. P4: `/office` 스킬로 포장
-5. P5: Codex, Grok, Antigravity 어댑터. 먼저 각 도구의 기록 위치와 형식을 조사해야 한다
+5. P5: Codex, Grok, Antigravity 어댑터. 조사와 설계는 끝났고(`docs/ADAPTERS.md`, 승인됨), P5a 를 진행 중이다. 다음은 P5b(`SessionCore`), 그 뒤 Grok, Codex, Antigravity CLI 순서

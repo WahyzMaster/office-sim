@@ -220,7 +220,7 @@ test('POST /config validates, applies and broadcasts; /state and /healthz answer
     assert.equal(state.type, 'snapshot');
     assert.ok(Array.isArray(state.events));
     const health = JSON.parse((await request(port, { path: '/healthz' })).body);
-    assert.deepEqual(health, { ok: true, files: 0, sessions: 0, clients: 1 });
+    assert.deepEqual(health, { ok: true, files: 0, sessions: 0, clients: 1, agents: ['claude-code'] });
     es.close();
   } finally {
     await app.close();

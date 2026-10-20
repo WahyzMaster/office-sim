@@ -1,10 +1,11 @@
-# office-sim server contract (P1-P3)
+# office-sim server contract (P1-P3, P5a)
 
 The server tails Claude Code session transcripts under `~/.claude/projects`, turns records into UI events,
 and streams them to the 3D office page (`public/`) over SSE. This file is the single source of truth for
 module boundaries, the event schema and the parsing rules. The format rules come from a corpus study of
 5,016 local transcript files (Claude Code 2.1.181 to 2.1.299, entrypoint `claude-desktop`).
 Claude Code is the only adapter today; Codex, Grok and Antigravity are planned as separate adapters (see 4.0).
+The approved multi-agent design is `docs/ADAPTERS.md`; its shared groundwork (P5a) is in 4.0.1.
 
 ## 0. Ground rules
 
@@ -14,6 +15,7 @@ Claude Code is the only adapter today; Codex, Grok and Antigravity are planned a
 - Comments may be Korean or English; identifiers are English.
 - **Never read from or write to the real `~/.claude` in tests.** Tests build synthetic fixtures in a temp dir
   (`fs.mkdtemp(os.tmpdir() + '/office-sim-')`). Fixture text must be invented, never copied from real transcripts.
+  The same holds for the planned adapter roots `~/.codex`, `~/.grok` and `~/.gemini`: tests pass temp roots only.
 - The server binds `127.0.0.1` only and serves only to the local browser. It still sends **summaries, not content**
   (see section 5). Loopback is not per-user: without `--auth` any local process or other OS user can read `/state`
   and `/events`. `--auth` (section 6) closes that for other OS users and for web pages; it does not protect against
@@ -34,9 +36,16 @@ src/session-identity.mjs titles, branch/worktree/agentType labels, the `session`
 src/session-plan.mjs    PlanBoard: plan/task whiteboard state for one SessionState
 src/discover.mjs        find transcript files + read subagent meta / workflow journal labels
 src/tailer.mjs          per-file byte-offset tail with partial-line buffer
-src/store.mjs           registry of sessions, projects, subagent linking, event ring buffer, snapshot
+src/store.mjs           registry of sessions and projects, entry agent, event ring buffer, snapshot, announce, patch,
+                        since, endCharacter (4.0.1); calls store-claude.mjs only for entries whose agent is claude-code
+src/store-claude.mjs    Claude subagent linking (4.5, R28/R29, R36 forwarding), split out of store.mjs in P5a:
+                        observe, onResult, onNotification, subByToolUse, the Claude part of endAgent, task deltas,
+                        buffered sub meta and journal labels
 src/store-link.mjs      Store helpers: file identity, link facts, per-session index, ring lookup (pure)
-src/server.mjs          start(): wires Store, Runner and the HTTP layer
+src/adapters/index.mjs  adapter registry: KNOWN_AGENTS, AGENT_LABELS, ADAPTERS, enabled-adapter selection (4.0.1)
+src/adapters/claude-code.mjs the claude-code descriptor; points at the Claude modules where they are (D8)
+src/server.mjs          start(): wires Store, RunnerGroup (one Runner per enabled adapter, defined here) and the
+                        HTTP layer
 src/server-runner.mjs   Runner: poll / rescan / idle loops, attach, relocation, backoff
 src/server-http.mjs     http: /, /js/*, /events (SSE), /state, /config, /healthz
 src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
@@ -70,7 +79,8 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 `session.agent` names the tool whose transcript the character comes from, so every character (main sessions and
 subagents alike) carries an agent id. It is on every `session` event, live and in snapshots. Ids: `claude-code`
 (the only one today), and `codex`, `grok`, `antigravity` for the planned adapters. The page shows the labels
-`Claude Code`, `Codex`, `Grok`, `Antigravity`, and an unknown id as-is.
+`Claude Code`, `Codex`, `Grok`, `Antigravity`, and an unknown id as-is. The id flows from the file's `FileRef.agent`
+through its `SessionState` and its Store entry (4.0.1).
 
 Wire messages on `/events` (each SSE `data:` line is one JSON object, every message has an `id:` line = seq):
 - `{ "type": "snapshot", "events": [ ...events ] }` first message on every connection (or replay, see 6).
@@ -170,7 +180,7 @@ Every non-meta kind also carries `ts` (record timestamp), `cwd`, `gitBranch`, `s
 ```js
 export class SessionState {
   constructor({ id, file, kind /* 'main'|'sub'|'wf' */, stem, parentId = null, agentType = null, subMeta, journalLabel,
-                now = Date.now })
+                agent = 'claude-code', now = Date.now })
   apply(rec, { replay = false } = {}) // -> events[] (empty when replay); updates state in both modes
   idle(nowMs)                        // -> events[] for timeouts (abandoned tools, idle subagent end)
   setInfo(info)                      // late meta.json / journal label / custom title / parent project -> events[]
@@ -185,11 +195,14 @@ Responsibilities: dedupe by uuid (keep first copy; a replayed copy produces no e
 `sessionId` differs from `stem` for main files (fork history; still collect uuids), track pending tools keyed by
 tool_use id (store name, msgId), group assistant lines by `msgId`, plan + task state via `plan.mjs`, turn tracking
 via promptId, title per 4.3. In replay mode the state is built exactly as live, but nothing is emitted.
+`agent` is the adapter id of the `session` event: `buildSessionEvent` (`session-identity.mjs`) writes
+`s.agent ?? 'claude-code'`.
 
 ### 3.5 `src/discover.mjs`
 ```js
 export async function scan(root, { activeMs, nowMs }) // -> FileRef[] for files with mtime >= nowMs - activeMs
-// FileRef = { path, kind:'main'|'sub'|'wf', stem, sessionId, agentId, runId, projectDir, mtimeMs, size, ino }
+// FileRef = { path, kind:'main'|'sub'|'wf', stem, sessionId, agentId, runId, projectDir, mtimeMs, size, ino, agent }
+// agent: adapter id (string). When a ref has none, the Runner sets it from deps.agent (4.0.1).
 export async function readSubMeta(jsonlPath)        // agent-<id>.meta.json -> object | null (missing is normal)
 export async function readJournalLabels(runDir)     // journal.jsonl 'started' -> Map(agentId -> label)
 export async function sessionRefs(mainPath)         // replay: the main FileRef + its <stem>/subagents/** refs
@@ -220,8 +233,13 @@ Lines longer than `maxLineBytes` are skipped (count them). JSON parsing happens 
 ```js
 export class Store {
   constructor({ log, ringSize = 1000, seqStart = 0, now = Date.now }) // the server starts seq at Date.now()
-  attachFile(ref, sessionState)            // registers; links subagents (4.5)
+  attachFile(ref, sessionState)            // registers, entry.agent = ref.agent ?? 'claude-code'; links Claude subagents (4.5);
+                                           // null (not attached) for a non-Claude ref breaking D2 (4.0.1 F2)
   ingest(path, events)                     // assigns seq ids, pushes to ring, notifies listeners
+  endCharacter(charId, reason = 'done', agent = null) // common end hint (4.0.1): one session_end for a live, not-ended
+                                           // character; with `agent` only that adapter's character (F3), kept for a
+                                           // character not announced yet (F4)
+  stats()                                  // { rejectedRefs } (4.0.1 F2, a lower bound), merged into start().stats()
   subscribe(fn) / unsubscribe(fn)
   snapshot()                               // { seq, events } built from every live SessionState.snapshotEvents()
   since(seq)                               // events after seq if still in the ring, else null
@@ -231,6 +249,8 @@ export class Store {
 Outgoing subagent `session` events are patched by the Store: `parentSessionId` is the linked owner (validated as an
 id, `[A-Za-z0-9][A-Za-z0-9_-]{0,63}`, else the main session), `agentType` is `meta.agentType` through the section 5
 scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking only when it looks like an agent id.
+`agent` on a patched event is the event's own agent, else the entry's agent (else `claude-code`). The linking itself (4.5) runs in `store-claude.mjs`, and only for
+entries whose agent is `claude-code`.
 
 ## 4. Parsing rules (from the corpus study; R-numbers are referenced by tests)
 
@@ -241,6 +261,110 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
 - A future adapter (Codex, Grok, Antigravity) brings its own log discovery and record mapping, but must emit the same
   event schema (section 2) with its own `agent` id, and must send every free-text field through the shared
   `cleanText` scrub and the privacy rules of section 5. The Store, the SSE wire format and the page stay shared.
+
+### 4.0.1 Multi-agent groundwork (P5a)
+The multi-agent design (`docs/ADAPTERS.md`) was approved on 2026-10-20 with every decision D1-D12 at its recommended
+option. P5a is the shared groundwork from its section 9. `claude-code` is still the only registered adapter, and the
+events built from Claude transcripts are byte-for-byte the same as before P5a (the store split changes no Claude
+behaviour). What P5a adds at the server level is in section 6: `--agents`, the reserved roots, the printed agents
+lines, `/healthz` `agents`, and a missing root that turns its adapter off until the root can be opened (F1 below).
+
+Approved decisions (reasons and the alternatives not taken: ADAPTERS section 11):
+- D1 Floors: every adapter uses the same `projectKey`, so the same cwd is the same floor whatever the tool. A tool-only
+  worktree (`~/.codex/worktrees/<id>/<name>`, `~/.grok/worktrees/<repo>/<name>`) joins an existing floor whose basename
+  is `<name>` / `<repo>`, else gets its own floor (a heuristic, so the HUD shows a worktree badge).
+- D2 Character ids: Claude ids stay as they are; the other adapters prefix theirs with `codex-`, `grok-`,
+  `antigravity-` (a `:` would break the id rule `[A-Za-z0-9][A-Za-z0-9_-]{0,63}`).
+- D3 Enabling: every implemented adapter whose root exists is on; `--agents` narrows the set; the bin prints the
+  enabled ids at start.
+- D4 Rooms: the server puts a `room` hint on every new-adapter `tool_start` and names MCP calls `mcp__<server>__<tool>`;
+  the page does not change.
+- D5 `plan.source`: no new values. Full lists (Codex `update_plan`, Grok `plan`) are `update_plan`, markdown plan
+  proposals are `exit_plan`, the Antigravity `task.md` checklist is `tasks`.
+- D6 Antigravity scope: the CLI (`agy`) and old IDE transcripts only; the desktop app is out of scope (its
+  conversation files look encrypted).
+- D7 Grok live approval wait (`events.jsonl`): a separate, optional stage after the base Grok adapter; the contract
+  change it needs is decided then.
+- D8 No file moves: the Claude modules stay where they are; new code goes to `src/adapters/` (and later `src/core/`).
+- D9 Claude keeps its `SessionState`; whether it moves onto the shared `SessionCore` is decided after P5.
+- D10 Codex: guardian (auto-approval review) threads are hidden; code-mode `exec` shows a short visit per inner item;
+  `update_plan` calls inside scripts are not shown in the first version; `/review` threads are ordinary subagents.
+- D11 Order: Grok, then Codex, then Antigravity CLI.
+- D12 Replay (`--replay`, 6.1) stays Claude-only in P5.
+
+Adapter registry (`src/adapters/index.mjs`):
+- `KNOWN_AGENTS = ['claude-code', 'codex', 'grok', 'antigravity']`: every id the CLI accepts.
+- `AGENT_LABELS`: display labels, the same as `AGENT_LABEL` in `public/js/hud.js` (`Claude Code`, `Codex`, `Grok`,
+  `Antigravity`).
+- `ADAPTERS = { 'claude-code': claudeCode }`: the implemented adapters.
+- Selection (D3): an implemented adapter whose root exists is enabled. A requested list (`--agents`) narrows the set.
+  A requested id that is in `KNOWN_AGENTS` but not implemented is reported as `not implemented yet` and skipped; an id
+  outside `KNOWN_AGENTS` is an error. Every list (enabled, off, not implemented) follows `KNOWN_AGENTS` order without
+  duplicates, in live and replay mode alike. A root check that has not answered within 2 s (`PROBE_TIMEOUT_MS`, a
+  stalled network or FUSE mount) counts as unreadable with code `ETIMEDOUT`.
+- Descriptor (`src/adapters/claude-code.mjs`): `id: 'claude-code'`, `defaultRoot: '~/.claude/projects'`, `deps()`
+  returning the bundle the server injected before P5a (`SessionState`, `Tailer`, `scan`, `readSubMeta`,
+  `readJournalLabels`), and replay support (6.1, D12). It points at the existing modules in place (D8).
+
+Agent id flow:
+- `FileRef.agent` (string) is the adapter id. When a ref has none, the Runner sets `ref.agent = deps.agent`.
+- `Store.attachFile` records `entry.agent = ref.agent ?? 'claude-code'`; `Store.patch` keeps the event's own `agent`
+  and falls back to the entry's agent.
+- `SessionState` takes an `agent` option (default `'claude-code'`); `buildSessionEvent` writes `s.agent ?? 'claude-code'`.
+- `refIdentity(ref)` (`store-link.mjs`): when `ref.agent` is set and is not `claude-code`, the ref is trusted and the
+  path is not parsed: `kind` = `ref.kind` (default `main`), `sid` = `ref.sid` (or `ref.sessionId`), `charId` =
+  `ref.charId`, `parentId` = `ref.parentId`. Claude refs keep the path rules of 3.5.
+
+Common end hint (ADAPTERS 3.4):
+- `Store.endCharacter(charId, reason = 'done', agent = null)` emits `session_end` with that reason for a character that
+  is live and not yet ended, once. It is idempotent: a repeated call or an already ended character is a no-op. Without
+  `agent`, an unknown or not yet announced id is a no-op too; with `agent`, see F3 and F4 below.
+- A session object may put internal items `{ hint: 'end', charId }` into the arrays it returns from `apply()` and
+  `idle()` (a child whose end is written in its parent's file). The Runner strips them before ingesting the events and
+  forwards each one to `store.endCharacter(charId, reason, <its adapter id>)` (F3). They are not events: nothing with
+  a `hint` field ever reaches the ring, `/events`, `/state` or the browser.
+
+Store split and Runner:
+- The Claude-only subagent linking (4.5, R28/R29, R36 forwarding) lives in `src/store-claude.mjs`: `observe`,
+  `onResult`, `onNotification`, `subByToolUse`, the Claude part of `endAgent`, `taskDeltas`, `applyBufferedTasks`,
+  `setMeta`, `setLabel`, `pendingMeta`, `pendingLabels` and their helpers. `store.mjs` keeps the common parts
+  (registration, ring buffer, snapshot, announce, patch, since) and calls the Claude linking only for entries whose
+  agent is `claude-code`.
+- Runner `prepare()` reads subagent meta and workflow journal labels only when the adapter's deps have
+  `readSubMeta` / `readJournalLabels`.
+- RunnerGroup: one Runner per enabled adapter (its own deps and root) sharing one Store and one HTTP layer
+  (section 6).
+
+Review fixes (F1-F4):
+- F1 Late root: a selected implemented adapter whose root is missing or unreadable at start is probed again every
+  rescan period (same probe, same 2 s limit; no new check while the previous one has not answered); once the root can
+  be opened its Runner joins the running group (`KNOWN_AGENTS` order), the server logs `<id>: root found, adapter on`
+  (no path), and `/healthz` `agents` and `start().agents` include it from then on. Replay (D12) is unchanged.
+- F2 Ref guard (D2 ids, review gaps G1-G3): `Store.attachFile` (and `rekey`) refuse a non-Claude ref unless its
+  `charId`, and its `parentId` and `sid` (`ref.sid ?? ref.sessionId`) when present (not null/undefined; `''` counts as
+  present), match `[A-Za-z0-9][A-Za-z0-9_-]{0,63}` and start with `<agent>-`, and, for a main ref, its `sid` equals its
+  `charId` (G2: `sid` is a sub's owner and floor fallback, so a non-Claude sub never gets a `parentSessionId` or a floor
+  from another agent's character). A Runner whose `deps.agent` is set stamps every ref with that id; a ref that already
+  carries a different non-empty `agent` is refused before its identity is parsed (G3), on rescan and in `prepare` alike.
+  A Runner without `deps.agent` keeps the ref's own `agent` (else `claude-code`). The Runner checks first and builds no
+  session object for a refused ref. One log line per refused path, `<agent>: rejected ref with invalid id` or, for G3,
+  `<runner agent>: rejected ref with foreign agent` (no path, no id; the prefix is never the spoofed id). Refused paths
+  are remembered and never evicted, up to 1000 (G1): a remembered path is never logged or counted again; once 1000 are
+  remembered a new refused path is still refused but neither logged on its own nor remembered, and the first time that
+  happens the Store logs `<agent>: too many rejected refs, further ones not logged` (once per Store).
+  `stats().rejectedRefs` is the number of remembered paths: it stops at 1000, so it is a lower bound of the distinct
+  refused paths. Repeat scans of the same paths add no log line and no count. Claude refs are not id-checked.
+- F3 Agent-scoped end hints: the Runner forwards each hint with its adapter id (`deps.agent`), and `endCharacter`
+  with an `agent` only ends a character whose entry agent is that id; a mismatch is a no-op. Direct calls without an
+  agent behave as before.
+- F4 Pending end hints: an agent-scoped hint for a character that is not announced yet (its file is not attached yet,
+  or is attached later in the same rescan) is kept in a map keyed by agent + charId (only ids that fit that agent, at
+  most 1000, oldest dropped, cleared when used). When that character is announced it starts ended (with the 5 s tail
+  grace of R29) and is never shown, so a child that already finished in its parent's file does not appear at server
+  start; a character that was shown before gets its `session_end` with the hint's reason. Hints for already ended
+  characters stay no-ops and are not kept.
+- Not in P5a: `SessionCore`, `tool-summary`, `SidecarWatcher` (moved to P5c; its first consumer is Grok) and any Codex,
+  Grok or Antigravity parsing. Until those stages land, 4.1-4.5 describe the only adapter.
 
 ### 4.1 Framing and dedupe
 - R6 Read by byte offset, split on `\n`, buffer a trailing partial line, JSON.parse each line, skip blank or
@@ -380,6 +504,21 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
   `--active` the minutes of mtime window for attaching files, `--host` must be a loopback address.
   `--claude-root <dir>` is the Claude Code transcripts root (default `~/.claude/projects`); `--root <dir>` is an alias
   that sets the same option. Both set the `start()` option `root`.
+- Adapters (P5a, 4.0.1): `--agents <id,id>` is a comma list of adapter ids, each validated against `KNOWN_AGENTS`
+  (an unknown id is a usage error, exit 2). It narrows the enabled set (D3); without it every implemented adapter
+  whose root exists is on. `--codex-root <dir>`, `--grok-root <dir>` and `--antigravity-root <dir>` are accepted,
+  `~`-expanded and stored in the `start()` option `roots`; they are reserved for the upcoming adapters and unused in
+  P5a. After the URL line the bin prints `office-sim: agents <ids>` (the enabled ids, comma-separated) or
+  `office-sim: agents none`, then one line `office-sim: <id> is not implemented yet` for each requested id that is
+  known but not implemented.
+- RunnerGroup: one Runner per enabled adapter, all sharing one Store and one HTTP layer. It forwards `startLoops`,
+  `rescan`, `setInterval` (so `POST /config` reaches every Runner) and `close`, and sums `files.size`, `badLines`,
+  `skippedLines` and `applyErrors` over its Runners. A missing or unreadable adapter root disables that adapter with
+  one log line without the path (`<id>: root not found, adapter off` or `<id>: root not readable (<code>), adapter
+  off`); the server still starts and serves an empty office. The root check runs before the server listens and gives
+  up after 2 s (`ETIMEDOUT`), so a stalled root never keeps the server from starting. A disabled adapter that was
+  selected is checked again every rescan period and switched on when its root can be opened (4.0.1 F1), with one log
+  line `<id>: root found, adapter on`; the bin's `office-sim: agents` line shows the set at start only.
 - Loops: every `interval` ms stat each attached file and read appended bytes; every `rescan` ms run `scan()` to attach
   new files and detach files outside the active window (emit `session_end` reason `idle` for them); every 1 s call
   `idle()` on each session. Loops never overlap (skip a tick while the previous one runs). The poll loop is a
@@ -391,8 +530,10 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
   it is not detached while its subagents are live.
 - A file that fails to poll is retried with backoff (`interval * 2^n`, at most 30 s) and logged once per error code,
   with one `poll recovered` line; an attach that fails is rolled back (retried at the next rescan) and logged once per
-  path and error code. One file failing never skips the other files of the same rescan. Attach and poll log lines carry
-  the error code and the file basename; HTTP error log lines carry the request path without its query (no token).
+  path and error code. A failing `scan()` skips that rescan tick (nothing is detached) and is logged as
+  `scan failed: <code>` once per error code, with one `scan recovered` line. One file failing never skips the other
+  files of the same rescan. Attach and poll log lines carry the error code and the file basename, scan lines the error
+  code only (no root path); HTTP error log lines carry the request path without its query (no token).
 - Relocation: when a session's file moves to a new path with the same inode, its tail offset and partial line move
   with it (no replay, no re-announce, lines written during the move stream live). A copy (new inode) is attached again
   from scratch; a subagent that ended while it moved still gets its `session_end`.
@@ -405,7 +546,8 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
   `text/event-stream`, `cache-control: no-cache`, `connection: keep-alive`; write `retry: 2000`; if `Last-Event-ID`
   is in the ring send the missed events, else a `snapshot`; then live events with `id:` = seq; `: ping` every 15 s.
   `GET /state` -> snapshot JSON. `GET /config` / `POST /config {intervalMs}` (rules below, broadcast `config`).
-  `GET /healthz` -> `{ ok, files, sessions, clients }`. No CORS headers. Order of checks for every request:
+  `GET /healthz` -> `{ ok, files, sessions, clients, agents }` (`agents`: the enabled adapter ids, `files`: summed
+  over the Runners). No CORS headers. Order of checks for every request:
   1. Host guard: the `Host` header must be `localhost:<port>`, `127.0.0.1:<port>` or `[::1]:<port>`, and an `Origin`
      header, when present, must be `http://` + one of those; else 403 (DNS rebinding and cross-origin guard).
   2. Path guard: `..` or encoded `.` / `/` / `\` in the raw path -> 400.
@@ -426,15 +568,19 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
   'sha256-…' (one hash per inline <script> of the served page, recomputed when office.html changes); style-src 'self'
   'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:;
   connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`.
-- `start(options)` returns `{ url, token, port, store, ready, close(), stats() }` so tests can run it on port 0 against
-  a temp root. Replay options: `replay` (path), `speed`, `loop`, and the test hook `replayTiming`
-  (`{ maxGapMs, holdMs, restartMs, statusMs }`). With `auth: true`, `url` is `http://<host>:<port>/?t=<token>` (what the bin prints) and `token` is set;
+- `start(options)` returns `{ url, token, port, store, ready, close(), stats(), agents, notImplemented }` so tests can
+  run it on port 0 against a temp root (`agents`: the enabled adapter ids, read live so a late root (4.0.1 F1) shows
+  up; `stats()` adds the Store's `rejectedRefs` to the Runner counters; `notImplemented`: requested ids that are
+  known but not implemented, `KNOWN_AGENTS` order). Replay options: `replay` (path), `speed`, `loop`, and the test
+  hook `replayTiming` (`{ maxGapMs, holdMs, restartMs, statusMs }`). Adapter test hooks: `deps` (claude-code deps
+  override), `adapters` (registry override), `probe` (replaces the root check) and `probeTimeoutMs`. With `auth: true`, `url` is `http://<host>:<port>/?t=<token>` (what the bin prints) and `token` is set;
   without it `token` is null and `url` has no query.
 
 ### 6.1 Replay mode (`--replay <file> --speed <x> [--loop]`, P3)
 - Input: one main transcript (`<uuid>.jsonl`) plus its `<uuid>/subagents/**` files (`sessionRefs`).
   `--claude-root` (`--root`), `--active` and `--rescan` do not apply. A main file renamed away from its uuid uses the
   first record's `sessionId` as its stem, so R10 does not treat every line as fork history.
+  Replay is Claude-only (D12, 4.0.1).
 - Pipeline: `ReplayRunner` extends the live `Runner` and keeps `prepare` / `publish` / `onLine` / `detach`, so
   SessionState, Store, the SSE wire format, privacy (section 5) and the page are exactly the live ones. Only the line
   source differs: instead of tailing, every poll tick (`--interval`, default 250 ms) releases the lines that are due.
@@ -453,7 +599,9 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
 - End: without `--loop` the last state stays on screen (`state: done`), the server keeps serving. With `--loop`
   the final state is held 3 s, every character is detached with `session_end` reason `done` (the Store index for the
   session is dropped, so R9 uuid dedupe and the done keys start fresh), and 2 s later round N+1 starts.
-- The bin prints only the URL and `replay <speed>x[, loop]`; replay log lines carry error codes and basenames.
+- The bin prints the URL, the agents lines of section 6 (always `agents claude-code` in replay, D12, then one
+  `<id> is not implemented yet` line per requested unimplemented id), then `replay <speed>x[, loop]`; replay log lines
+  carry error codes and basenames.
 
 ## 7. Permission-approval wait (P3 finding)
 
