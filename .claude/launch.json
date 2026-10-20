@@ -6,6 +6,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["bin/claude-office.mjs", "--port", "4317"],
       "port": 4317
+    },
+    {
+      "name": "claude-office-replay",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["bin/claude-office.mjs", "--port", "4318", "--replay", "test/fixtures/replay/7e7e7e7e-1111-4222-8333-444455556666.jsonl", "--speed", "4", "--loop"],
+      "port": 4318
     }
   ]
 }

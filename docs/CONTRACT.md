@@ -1,4 +1,4 @@
-# claude-office server contract (P1/P2)
+# claude-office server contract (P1-P3)
 
 The server tails Claude Code session transcripts under `~/.claude/projects`, turns records into UI events,
 and streams them to the 3D office page (`public/`) over SSE. This file is the single source of truth for
@@ -39,6 +39,8 @@ src/server.mjs          start(): wires Store, Runner and the HTTP layer
 src/server-runner.mjs   Runner: poll / rescan / idle loops, attach, relocation, backoff
 src/server-http.mjs     http: /, /js/*, /events (SSE), /state, /config, /healthz
 src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
+src/replay.mjs          ReplayRunner (extends Runner): --replay playback of one session (section 6.1)
+src/replay-timeline.mjs replay timeline: line times, cross-file merge, speed + gap cap, approval look-ahead (pure)
 test/*.test.mjs         unit + integration tests, synthetic fixtures under test/fixtures/ or generated
 public/                 the browser app; owned by the browser module (public/js/*), server work does not edit it
 ```
@@ -54,7 +56,7 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 | `session` | `project` (stable floor key, see 4.4), `projectLabel` (basename), `title` (<= 80), `branch` (<= 60, `HEAD` -> `detached`), `worktree` (name <= 60, or null), `isSubagent`, `parentSessionId` (null for main), `agentType` (subagent only, <= 60) |
 | `session_end` | `reason`: `done` \| `idle` |
 | `prompt` | `text` (human prompt, <= 80 code points) |
-| `tool_start` | `toolUseId`, `tool` (raw name, except a connector-uuid mcp server segment, see 5), `summary`, `room` (optional hint, see 5), `question`, `options` (ask tools only), `background` (bool, optional) |
+| `tool_start` | `toolUseId`, `tool` (raw name, except a connector-uuid mcp server segment, see 5), `summary`, `room` (optional hint, see 5), `question`, `options` (ask tools only), `background` (bool, optional), `awaitsApproval` (`true` only in replay mode, when the call waited for a human answer to a permission prompt, see 7) |
 | `tool_end` | `toolUseId`, `ok` (bool), `errorKind`: `failed` \| `denied` \| `interrupted` \| `abandoned` (absent when ok), `error` (<= 120 code points, absent when ok) |
 | `thinking` | `text` (first sentence <= 100 code points, or `null` when the block is signature-only), `durationMs` (number or null) |
 | `say` | `text` (<= 100 code points) |
@@ -65,6 +67,9 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 Wire messages on `/events` (each SSE `data:` line is one JSON object, every message has an `id:` line = seq):
 - `{ "type": "snapshot", "events": [ ...events ] }` first message on every connection (or replay, see 6).
 - `{ "type": "config", "intervalMs": n, "activeMinutes": n }` after a config change and right after the snapshot.
+  In replay mode it also carries `replay: { state, speed, loop, round, progress }` (`state`: `loading` | `playing` |
+  `done` | `restart` | `error`; `progress` 0..1 by released lines) and is re-sent when the state changes and at most
+  once a second while the progress moves (section 6.1).
 - any event from the table above.
 
 ## 3. Pure module APIs
@@ -179,6 +184,7 @@ export async function scan(root, { activeMs, nowMs }) // -> FileRef[] for files 
 // FileRef = { path, kind:'main'|'sub'|'wf', stem, sessionId, agentId, runId, projectDir, mtimeMs, size, ino }
 export async function readSubMeta(jsonlPath)        // agent-<id>.meta.json -> object | null (missing is normal)
 export async function readJournalLabels(runDir)     // journal.jsonl 'started' -> Map(agentId -> label)
+export async function sessionRefs(mainPath)         // replay: the main FileRef + its <stem>/subagents/** refs
 ```
 Main = `<root>/<dir>/<uuid>.jsonl`. Sub = `<root>/<dir>/<sid>/subagents/agent-<id>.jsonl`. Wf =
 `<root>/<dir>/<sid>/subagents/workflows/<runId>/agent-<id>.jsonl`. Never treat `journal.jsonl`, `*.meta.json`,
@@ -353,7 +359,8 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
 
 ## 6. Server behaviour (`src/server.mjs`, `bin/claude-office.mjs`)
 - CLI flags: `--port 4317 --host 127.0.0.1 --interval 250 --active 30 --rescan 3000 --root ~/.claude/projects`,
-  and `--auth` (a switch without a value; `--auth=x` is an error). `--interval` is the tail poll in ms (50..5000),
+  and `--auth` (a switch without a value; `--auth=x` is an error). Replay (6.1): `--replay <file> --speed <x> --loop`;
+  `--speed` (0.1..1000, default 1) and `--loop` (switch) are errors without `--replay`. `--interval` is the tail poll in ms (50..5000),
   `--active` the minutes of mtime window for attaching files, `--host` must be a loopback address.
 - Loops: every `interval` ms stat each attached file and read appended bytes; every `rescan` ms run `scan()` to attach
   new files and detach files outside the active window (emit `session_end` reason `idle` for them); every 1 s call
@@ -402,5 +409,63 @@ scrub capped at 60, `title` per 4.3. `meta.parentAgentId` is used for linking on
   'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:;
   connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`.
 - `start(options)` returns `{ url, token, port, store, ready, close(), stats() }` so tests can run it on port 0 against
-  a temp root. With `auth: true`, `url` is `http://<host>:<port>/?t=<token>` (what the bin prints) and `token` is set;
+  a temp root. Replay options: `replay` (path), `speed`, `loop`, and the test hook `replayTiming`
+  (`{ maxGapMs, holdMs, restartMs, statusMs }`). With `auth: true`, `url` is `http://<host>:<port>/?t=<token>` (what the bin prints) and `token` is set;
   without it `token` is null and `url` has no query.
+
+### 6.1 Replay mode (`--replay <file> --speed <x> [--loop]`, P3)
+- Input: one main transcript (`<uuid>.jsonl`) plus its `<uuid>/subagents/**` files (`sessionRefs`). `--root`,
+  `--active` and `--rescan` do not apply. A main file renamed away from its uuid uses the first record's `sessionId`
+  as its stem, so R10 does not treat every line as fork history.
+- Pipeline: `ReplayRunner` extends the live `Runner` and keeps `prepare` / `publish` / `onLine` / `detach`, so
+  SessionState, Store, the SSE wire format, privacy (section 5) and the page are exactly the live ones. Only the line
+  source differs: instead of tailing, every poll tick (`--interval`, default 250 ms) releases the lines that are due.
+- Timeline: each file's lines keep file order (R12); a line's time is the latest timestamp seen so far in its file
+  (untimed leading sidecars take the first one), so time never runs backwards. Files are merged by that time, the
+  main file first on ties. A line is due `sum(min(gap_i / speed, maxGapMs))` after the start: gaps are divided by
+  `--speed` and every gap is capped at 5 s of real time (a one-hour break plays as 5 s). Lines over 8 MB are skipped
+  and counted like the tailer.
+- A file attaches (and its character is announced) when its first line is due, so a subagent appears when it really
+  started, after its parent's Agent call has been indexed. The first `session` event of a fresh main has no project
+  yet; the next one (first record with a `cwd`) has it.
+- Clock: record times only decide when lines are released. Time rules (R25 hold, R27, R29 idle ends, R30 end_turn)
+  keep running on the real clock as in live mode, so at 4x they last 4x longer in recorded time. Gaps longer than 5 s
+  are cut, so idle-based ends that would have fired inside a long recorded break may fire later or not at all; the
+  records that close turns and subagents (stop hook, parent results, notifications) still do.
+- End: without `--loop` the last state stays on screen (`state: done`), the server keeps serving. With `--loop`
+  the final state is held 3 s, every character is detached with `session_end` reason `done` (the Store index for the
+  session is dropped, so R9 uuid dedupe and the done keys start fresh), and 2 s later round N+1 starts.
+- The bin prints only the URL and `replay <speed>x[, loop]`; replay log lines carry error codes and basenames.
+
+## 7. Permission-approval wait (P3 finding)
+
+Question: can the page show "waiting for the user's permission" while a tool call waits for an approval prompt?
+Answer for live mode: **no certain signal exists, so live mode shows nothing.** Evidence, from a structure-only count
+over the local corpus (5,107 files, 929,610 lines, 225,155 paired tool_use/tool_result; counts in
+`docs/research/permission-decision.json`):
+
+- Nothing is written while a prompt is open. `permissionDecision {decision, source, reasonType}` exists only on the
+  tool_result record (32,065 results), i.e. after the decision and after the tool ran. Between a tool_use and a
+  result that a human decided, the only records are other assistant lines, sidecars (`custom-title`, `agent-name`,
+  `last-prompt`, `pr-link`, `queue-operation`, ...) and 2 PreToolUse hook attachments, which also appear before
+  calls that never prompted. There is no `permission_request` record and no PermissionRequest / Notification hook
+  attachment in the corpus.
+- `source` does not mean a click either: `user_permanent` (316, reasonType `rule`) is an allow-rule the user saved
+  earlier; its Read calls finish in p50 0.3 s. Only `user_temporary` (94) is a click in that moment, and 89 of those
+  are AskUserQuestion / ExitPlanMode, which already go to the desk (R33/R34). Ordinary tools: 5 (mcp).
+- A time threshold would be a guess: auto-approved calls already run long (`config` Bash p99 68.6 s, WebFetch p50
+  7.3 s, mcp p99 61 s) while the human-approved mcp calls took p50 38 s; the ranges overlap.
+- The corpus is mostly `permissionMode: auto` (4,957 of 5,182 user records), so prompts are rare here; in `default`
+  mode they would be common and still invisible in the transcript.
+
+What would make live mode possible: a record written when the prompt opens, e.g. a user-configured
+`PermissionRequest` / `Notification` hook that appends to a side file the server could tail.
+
+Replay mode can show it without guessing, because the result line is already on disk: a tool_start gets
+`awaitsApproval: true` when its result has `permissionDecision.source === 'user_temporary'` or is a user rejection
+(`toolDenialKind: 'user-rejected'`, or text starting `The user doesn't want to proceed`), and the tool is not
+AskUserQuestion / ExitPlanMode. `user_permanent`, `config` and `hook` decisions never set it. The page sends that
+character to 내 자리 with a `승인 대기 · <tool> <summary>` bubble (`허용` / `거절` chips) until the tool_end, then shows
+`승인됨`, `거절됨` (denied / interrupted) or the failure. The wait shown covers the prompt and the run of the tool,
+because the transcript does not record when the click happened.
+

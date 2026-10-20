@@ -1,0 +1,337 @@
+{
+ "about": "P3 permission-wait study (2026-10-20). Structure-only counts over the local transcript corpus: no content, paths or names. Tool names are built-in names; every mcp__* tool is bucketed as 'mcp'. Gaps are tool_use timestamp -> tool_result timestamp, in seconds [count, p50, p90, p99].",
+ "files": 5107,
+ "lines": 929610,
+ "paired_results": 225155,
+ "results_with_permissionDecision": 32065,
+ "decisions_decision_source_reasonType": {
+  "accept|config|classifier": 26888,
+  "accept|config|other": 1170,
+  "accept|config|subcommandResults": 1138,
+  "accept|config|None": 1088,
+  "accept|config|mode": 1056,
+  "accept|user_permanent|rule": 316,
+  "accept|config|rule": 231,
+  "accept|user_temporary|None": 94,
+  "reject|config|rule": 37,
+  "reject|hook|hook": 13,
+  "reject|config|safetyCheck": 12,
+  "accept|hook|hook": 11,
+  "reject|config|classifier": 6,
+  "reject|config|subcommandResults": 5
+ },
+ "permissionMode_on_user_records": {
+  "auto": 4957,
+  "plan": 223,
+  "acceptEdits": 2
+ },
+ "decisions_by_source_and_tool": {
+  "config|Bash": 25935,
+  "config|Read": 1460,
+  "config|Edit": 1112,
+  "config|StructuredOutput": 798,
+  "config|mcp": 708,
+  "config|Write": 569,
+  "config|WebFetch": 516,
+  "config|ToolSearch": 237,
+  "user_permanent|Read": 154,
+  "user_temporary|AskUserQuestion": 87,
+  "config|Workflow": 87,
+  "user_permanent|WebSearch": 87,
+  "config|WebSearch": 65,
+  "config|Monitor": 47,
+  "user_permanent|mcp": 42,
+  "user_permanent|WebFetch": 30,
+  "config|Skill": 25,
+  "config|Agent": 22,
+  "hook|mcp": 17,
+  "config|TaskStop": 16,
+  "config|SubagentHandback": 15,
+  "hook|Bash": 7,
+  "config|SendUserFile": 6,
+  "user_temporary|mcp": 5,
+  "config|CronList": 5,
+  "config|Artifact": 3,
+  "user_permanent|Bash": 3,
+  "user_temporary|ExitPlanMode": 2,
+  "config|SendMessage": 2,
+  "config|ScheduleWakeup": 1,
+  "config|ListAgents": 1,
+  "config|RemoteTrigger": 1
+ },
+ "gap_seconds_by_source_and_tool": {
+  "config|Bash": [
+   25935,
+   0.6,
+   4.8,
+   68.6
+  ],
+  "config|Read": [
+   1460,
+   0.1,
+   0.3,
+   0.6
+  ],
+  "config|Edit": [
+   1112,
+   0.9,
+   7.3,
+   20.0
+  ],
+  "config|StructuredOutput": [
+   798,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "config|mcp": [
+   708,
+   1.6,
+   7.5,
+   61.0
+  ],
+  "config|Write": [
+   569,
+   0.1,
+   1.1,
+   15.2
+  ],
+  "config|WebFetch": [
+   516,
+   7.3,
+   16.3,
+   75.9
+  ],
+  "config|ToolSearch": [
+   237,
+   0.0,
+   0.0,
+   5.1
+  ],
+  "user_permanent|Read": [
+   154,
+   0.3,
+   0.4,
+   3.9
+  ],
+  "user_temporary|AskUserQuestion": [
+   87,
+   252.4,
+   1781.5,
+   64826.3
+  ],
+  "config|Workflow": [
+   87,
+   0.4,
+   0.9,
+   23.5
+  ],
+  "user_permanent|WebSearch": [
+   87,
+   6.0,
+   8.7,
+   24.4
+  ],
+  "config|WebSearch": [
+   65,
+   8.8,
+   16.1,
+   36.9
+  ],
+  "config|Monitor": [
+   47,
+   0.4,
+   0.5,
+   6.7
+  ],
+  "user_permanent|mcp": [
+   42,
+   1.3,
+   11.7,
+   12.4
+  ],
+  "user_permanent|WebFetch": [
+   30,
+   5.8,
+   9.5,
+   11.0
+  ],
+  "config|Skill": [
+   25,
+   0.0,
+   0.0,
+   2.1
+  ],
+  "config|Agent": [
+   22,
+   0.4,
+   0.7,
+   138.3
+  ],
+  "hook|mcp": [
+   17,
+   0.0,
+   0.1,
+   0.1
+  ],
+  "config|TaskStop": [
+   16,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "config|SubagentHandback": [
+   15,
+   0.4,
+   0.6,
+   0.9
+  ],
+  "hook|Bash": [
+   7,
+   0.1,
+   0.1,
+   0.1
+  ],
+  "config|SendUserFile": [
+   6,
+   0.9,
+   0.9,
+   0.9
+  ],
+  "user_temporary|mcp": [
+   5,
+   38.0,
+   79.2,
+   79.2
+  ],
+  "config|CronList": [
+   5,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "config|Artifact": [
+   3,
+   1.3,
+   3.6,
+   3.6
+  ],
+  "user_permanent|Bash": [
+   3,
+   0.3,
+   0.3,
+   0.3
+  ],
+  "user_temporary|ExitPlanMode": [
+   2,
+   35.0,
+   35.0,
+   35.0
+  ],
+  "config|SendMessage": [
+   2,
+   0.6,
+   0.6,
+   0.6
+  ],
+  "config|ScheduleWakeup": [
+   1,
+   0.9,
+   0.9,
+   0.9
+  ],
+  "config|ListAgents": [
+   1,
+   0.3,
+   0.3,
+   0.3
+  ],
+  "config|RemoteTrigger": [
+   1,
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ "record_kinds_between_tool_use_and_a_user_decided_result": {
+  "assistant": 410,
+  "user/tool_result": 78,
+  "agent-name": 33,
+  "custom-title": 33,
+  "atis-latch": 33,
+  "last-prompt": 33,
+  "pr-link": 25,
+  "queue-operation": 14,
+  "bridge-session": 14,
+  "mode": 14,
+  "attachment/hook_additional_context/PreToolUse": 2,
+  "attachment/hook_success/PreToolUse": 2
+ },
+ "record_kinds_between_tool_use_and_a_config_decided_result": {
+  "assistant": 31655,
+  "user/tool_result": 2868,
+  "attachment/structured_output": 798,
+  "agent-name": 272,
+  "custom-title": 272,
+  "atis-latch": 272,
+  "last-prompt": 272,
+  "pr-link": 213,
+  "file-history-delta": 133,
+  "bridge-session": 98,
+  "mode": 98,
+  "attachment/hook_additional_context/PostToolUse": 19,
+  "queue-operation": 16,
+  "frame-link": 11,
+  "relocated": 9,
+  "attachment/hook_success/PostToolUse": 7,
+  "attachment/hook_success/PreToolUse": 1,
+  "artifact-comment-monitor": 1
+ },
+ "attachment_types_in_corpus": {
+  "total_tokens_reminder": 122171,
+  "deferred_tools_record": 17051,
+  "deferred_tools_delta": 8963,
+  "skill_listing": 5330,
+  "prompt_snapshot": 4785,
+  "mcp_instructions_delta": 3734,
+  "date": 3717,
+  "session_context": 3635,
+  "environment": 3487,
+  "structured_output": 3184,
+  "remote_session_change": 3007,
+  "instructions": 2899,
+  "queued_command": 2794,
+  "auto_mode": 2497,
+  "model": 2457,
+  "task_reminder": 2436,
+  "hook_success": 2114,
+  "advisor_tool": 2099,
+  "batching_reminder_sent": 1877,
+  "hook_additional_context": 1714,
+  "credential_org": 1694,
+  "plan_mode": 903,
+  "edited_text_file": 819,
+  "nested_memory": 579,
+  "silent_turn_reminder": 499,
+  "ultra_effort_enter": 406,
+  "agent_listing_delta": 211,
+  "file": 194,
+  "command_permissions": 164,
+  "read_truncation_notice": 123,
+  "compact_file_reference": 102,
+  "plan_mode_exit": 86,
+  "hook_non_blocking_error": 68,
+  "date_change": 56,
+  "invoked_skills": 51,
+  "plan_file_reference": 44,
+  "ultra_effort_exit": 40,
+  "dynamic_skill": 21,
+  "task_status": 13,
+  "thinking_drop": 10,
+  "skill_mention": 6,
+  "thinking_stripped": 5,
+  "hook_cancelled": 2,
+  "plan_mode_reentry": 1,
+  "ultrathink_effort": 1
+ }
+}
