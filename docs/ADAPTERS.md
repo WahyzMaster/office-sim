@@ -445,7 +445,7 @@ flowchart LR
   | 2.x 데스크톱 앱이 `~/.gemini/antigravity/brain/<id>/.system_generated/logs/` 를 쓰는지 | 미확인 그대로 | D6 대로 `antigravity/` 는 목록도 보지 않는다(조사의 mappingHints 는 혹시 모를 기록을 위해 이 폴더도 훑자고 했지만 따르지 않았다). 앱이 그곳에 기록을 쓰더라도 그 대화는 보이지 않는다 |
   | `.pb` 암호화 방식, 키, 스키마 | 미확인 그대로, 동작 영향 없음 | `.pb` 는 열지 않는다 |
   | SQLite 단계 상태 5, 6 과 `step_type` 28 의 뜻 | 미확인 그대로, 동작 영향 없음 | SQLite 는 열지 않는다(Node 20 에서 읽지 못하기도 한다) |
-  | 요약 proto 필드 번호(추정) | 미확인 그대로 | 남기는 경로는 `1.1`, `1.2.1`, `1.2.5`, `1.2.9.1`, `1.2.9.4` 뿐이고 문서에 추정이라고 적었다. 해석기는 한계 안에서만 읽고 예외를 던지지 않으며, 바이트 덩어리를 메시지로 짐작해 풀지 않고 정해진 경로로만 내려간다. 번호가 틀리면 제목, 작업 폴더, branch 가 틀릴 수 있으므로 제목은 `annotations` 가 이기고, 작업 폴더는 `file://` URI 를 풀어 절대 경로일 때만 쓰며, 없으면 첫 `run_command` 의 `Cwd` 로 대신한다. 상태(`1.2.5`)가 idle 이면 도구 없는 마지막 답 뒤의 열린 턴을 조용한 시간을 기다리지 않고 바로 끝낸다(틀린 값이면 그 턴이 조금 일찍 끝날 뿐이다) |
+  | 요약 proto 필드 번호(추정) | 미확인 그대로 | 남기는 경로는 `1.1`, `1.2.1`, `1.2.5`, `1.2.9.1`, `1.2.9.4` 뿐이고 문서에 추정이라고 적었다. 해석기는 한계 안에서만 읽고 예외를 던지지 않으며, 바이트 덩어리를 메시지로 짐작해 풀지 않고 정해진 경로로만 내려간다. 번호가 틀리면 제목, 작업 폴더, branch 가 틀릴 수 있으므로 제목은 `annotations` 가 이기고, 작업 폴더는 `file://` URI 를 풀어 절대 경로일 때만 쓰며, 없으면 첫 `run_command` 의 `Cwd` 로 대신한다. 상태(`1.2.5`)가 idle 이면 도구 없는 마지막 답 뒤의 열린 턴을 조용한 시간을 기다리지 않고 바로 끝낸다(틀린 값이면 그 턴이 조금 일찍 끝날 뿐이다). 닫는 답 없이 멈춘 턴(중단, 오류 뒤 포기)은 받은 idle 이 60초 동안 그대로이고 새 줄이 없으면 결과를 기다리던 호출을 `abandoned` 로 닫고 끝낸다(후속 작업, 2026-10-20). 틀린 값이면 아직 도는 호출이 `abandoned` 로 보이고 턴이 일찍 끝나지만, 다음 계획 줄이 턴을 다시 연다 |
   | 사용자 거절과 사용자 중단의 표현 | 미확인 그대로 | `denied` 와 `interrupted` 는 내지 않는다. 그런 호출은 결과 줄의 `status`, `error`, `exit_code` 에 따라 실패나 ok 로, 결과 줄이 없으면 다음 계획 줄, 입력, 오류 단계에서 `abandoned` 로 보인다(압축 표시는 닫지 않는다) |
   | 서브에이전트 레코드(`INVOKE_SUBAGENT`)와 부모 연결 | 미확인 그대로 | 모든 대화가 메인이다. 그런 단계가 생기면 모르는 종류라, 기다리는 호출이 있을 때는 결과 줄로, 없을 때는 무시된다. 자식 대화가 자기 `brain/<id>/` 를 가지면 따로 된 메인으로 보인다 |
   | 다른 버전의 CLI 할 일 목록 도구 | 미확인 그대로 | 계획판으로 바꾸는 도구는 없다(`manage_task` 는 백그라운드 작업 제어라 서버실). CLI 대화에도 `task.md` 가 생기면 같은 규칙으로 읽는다 |
@@ -469,6 +469,9 @@ Claude Code 칸은 지금 동작(CONTRACT 4절)이고, Grok 칸은 P5c 에서, C
 구현했다(기준은 CONTRACT 4.6절, 4.7절, 4.8절, 이 표와 달라진 점은 9절). "없음" 은 기록에 그 신호가 없다는 뜻이다.
 Antigravity 칸의 "세션 끝"에 적은 요약 proto 의 상태는 P5e 에서 세션 끝에 쓰지 않는다(메인은 활동 창을 벗어나면 끝난다).
 대신 상태가 idle 이 되면 도구 없는 마지막 답 뒤의 열린 턴을 바로 `end_turn` 으로 끝낸다(조사의 "idle 로 확인" 제안).
+닫는 답 없이 멈춘 턴(중단, 오류 뒤 포기)은 받은 idle 이 60초 동안 그대로이고 새 줄이 없을 때 열린 도구를 `abandoned` 로
+닫고 `end_turn` 으로 끝낸다(P5e 뒤 후속 작업. 실제 기록을 읽기 전용으로 개수만 세어 보니 36개 중 6개가 열린 채 남았고, 이 규칙으로
+4개가 닫힌다. 남은 2개는 idle 을 받지 못한다: 요약 상태가 running 인 것 1개, 요약 항목이 없는 것 1개).
 
 | 신호 | Claude Code (지금) | Codex | Grok | Antigravity CLI |
 |---|---|---|---|---|
@@ -490,7 +493,7 @@ Antigravity 칸의 "세션 끝"에 적은 요약 proto 의 상태는 P5e 에서 
 | `plan` | update_plan, Task 도구, ExitPlanMode | `update_plan.plan[{step,status}]` (0.146 까지), `Plan` 항목 -> `planFromMarkdown` | `plan` 레코드 (전체 목록), `exit_plan_mode` 계획 -> `planFromMarkdown` | 없음 (IDE 는 `task.md` 체크리스트) |
 | 질문 (`question`) | AskUserQuestion, ExitPlanMode | `request_user_input` | `ask_user_question`, `exit_plan_mode` | `ask_question` |
 | 턴 시작 | 새 `promptId` | `task_started` | `prompt_id` 가 바뀜 | `USER_INPUT` |
-| `turn_end` | stop hook, end_turn + 20 s 등 | `task_complete` (`end_turn`), `error` 면 `api_error`, `turn_aborted` (`interrupt`) | `turn_completed`: `end_turn` / `cancelled` -> `interrupt` / `error` -> `api_error` | 도구 없는 `PLANNER_RESPONSE` + 조용한 시간 (`end_turn`), 다음 입력 (`next_turn`) |
+| `turn_end` | stop hook, end_turn + 20 s 등 | `task_complete` (`end_turn`), `error` 면 `api_error`, `turn_aborted` (`interrupt`) | `turn_completed`: `end_turn` / `cancelled` -> `interrupt` / `error` -> `api_error` | 도구 없는 `PLANNER_RESPONSE` + 조용한 시간 (`end_turn`), 다음 입력 (`next_turn`), 닫는 답 없이 요약 상태 idle + 60초 (`end_turn`) |
 | `system compact` | `compact_boundary` | `compacted` 레코드 | `auto_compact_started` | `CHECKPOINT` |
 | `system api_error` | `api_error` | `task_complete.error` | `retry_state` | `ERROR_MESSAGE` (턴은 안 끝남) |
 | 승인 대기 | 재생 모드만 (7절) | 없음 (저장 안 됨) | `events.jsonl` 의 `permission_requested` (D7) | 없음 |

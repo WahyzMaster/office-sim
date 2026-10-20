@@ -529,10 +529,11 @@ then its plan follows the ask, 4.6).
 Semantics (they mirror the Claude rules of 4.2):
 - Text: every free-text field goes through `cleanText` with the section 2 caps: `prompt.text` 80, `say.text` 100,
   `thinking.text` the first sentence <= 100 or `null` (R14), `question` 160, `options` at most 4 of <= 30 each (R33,
-  `questions` -> `askFields` with ` (+N)`), plan item `content` 80. The `tool_end.error` (from `errorLine`) and the
-  `system.text` are the first non-empty line, reduced by `sanitizeLine` (a structured payload is cut, uuid tokens are
-  masked), <= 120, with a fallback (the status; `API error`, `Conversation compacted`, `응답 거절`). For `system` this is
-  stricter than Claude R31, which keeps the first line only.
+  `questions` -> `askFields`: the first question with text leads with its options, ` (+N)` only behind a lead, else
+  `null`), plan item `content` 80. The `tool_end.error` (from `errorLine`) and the `system.text` are the first non-empty
+  line, reduced by `sanitizeLine` (a structured payload is cut, uuid tokens are masked), <= 120, with a fallback (the
+  status; `API error`, `Conversation compacted`, `응답 거절`). For `system` this is stricter than Claude R31, which keeps
+  the first line only.
 - Prompts (R17-R19, section 5): a prompt whose text starts with `<` is skipped, also when invisible or control
   characters (format, control, separator, combining and default-ignorable code points such as U+200B, U+00AD, U+FEFF,
   ANSI escapes) or a fullwidth `<` come first. The first emitted prompt is the title fallback. A sub's prompt is the
@@ -674,9 +675,12 @@ registry hook accepts. It is not registered in `src/adapters/`; each real adapte
 - R31 system `api_error` -> `system` kind `api_error`, text `API 재시도 <attempt>/<max> (<status>)`. Synthetic
   `apiError` assistant -> `system` kind `api_error` with the first line of its text, then `turn_end`.
 - R32 `compact_boundary` -> `system` kind `compact`. A following compact summary record does not start a turn.
-- R33 AskUserQuestion: `tool_start` with `question` = first question text (<= 160) plus ` (+N)` when more,
-  `options` = first question's option labels (<= 4, each <= 30). Ended by its tool_result (answered -> ok,
-  rejected -> denied).
+- R33 AskUserQuestion: `tool_start` with `question` = the lead question's text (<= 160) plus ` (+N)` when there are
+  more questions (N = the other questions), `options` = the lead question's option labels (<= 4, each <= 30). The
+  lead is the first question whose text is not empty after the section 5 scrub (`cleanText`); when none has text,
+  `question` is `null` (never a bare ` (+N)`, section 2) and `options` are the first question's labels. This is the
+  shared `askFields` (`src/session-util.mjs`), so the Grok, Codex and Antigravity ask tools follow the same rule
+  (4.0.2). Ended by its tool_result (answered -> ok, rejected -> denied).
 - R34 ExitPlanMode: `tool_start` with `question` = `이 계획대로 진행할까요?`, `options` = `['승인', '수정 요청']`, and a
   `plan` event with `source: 'exit_plan'` from `planFromMarkdown(input.plan)`, emitted before the `tool_start` (live
   and in `snapshotEvents()`), so the board fills while the question waits. Approved = object `toolUseResult`.
@@ -1391,13 +1395,23 @@ Titles, cwd, branch, status:
   never read.
 - Branch: the summary `1.2.9.4` (`HEAD` -> `detached`, section 5 scrub, <= 60); none when the workspace is not a git
   repository (absent in 6/35 CLI entries).
-- Status: a delivered `status` of `idle` ends the open turn at once (`turn_end` reason `end_turn`, instead of waiting for
-  the quiet time below) when that turn's last work was a closing answer (a final `say`) and no call waits for its
+- Status: a delivered `status` of `idle` ends the open turn at once (`turn_end` reason `end_turn`, instead of waiting
+  for the quiet time below) when that turn's last work was a closing answer (a final `say`) and no call waits for its
   result. The summaries file is read at rescan and the transcript at poll, so `idle` can arrive before the closing
   answer is read: it is then remembered, and the next closing answer ends the turn at once (after its `say`); a
   `USER_INPUT`, a `PLANNER_RESPONSE` with calls (or with `tool_calls` that cannot be read) or a delivered `running`
-  forgets it. `running` changes nothing else. Status never ends a session: a main ends when its file leaves the active
-  window.
+  forgets it. `running` changes nothing else. A turn that ends without a closing answer (interrupted, or given up after
+  an `ERROR_MESSAGE`) has no end marker and used to stay open with its waiting calls (a read-only count of the real
+  files, numbers only: 6 of 36 conversations; this rule closes 4, and the other 2 never got an `idle`, one summary says
+  `running` and one conversation has no summary entry): when such a remembered `idle` has stood for 60 s
+  (`IDLE_STATUS_QUIET_MS`, counted from the later of the last transcript line and the server time the `idle` was
+  delivered, so also 60 s after an attach) and nothing forgot it, `idle()` closes the waiting calls `abandoned` and ends
+  the turn `end_turn`, once. 60 s is longer than the closing answer's 20 s and than the longest gap before a planner
+  line in the study (35 s), so an `idle` read while the model still writes its next step does not cut the turn; if it
+  does (a wrong or late status), the next planner line reopens the turn (4.0.2) and a late result line of a closed call
+  is ignored. The reason stays `end_turn`: the files hold no interrupt marker. A conversation without a summary entry
+  (the legacy IDE, usually) gets no status, so such a turn still stays open until the next `USER_INPUT`. Status never
+  ends a session: a main ends when its file leaves the active window.
 
 Plan (`task.md`, D5):
 - A checklist line, at any indent and with a `-`, `*`, `+` or numbered (`1.`, `1)`) bullet, gives an item
@@ -1455,7 +1469,8 @@ Records (`records.mjs` and `tools.mjs` pure, `AntigravitySession` with the state
 
 - Turns: a turn starts at `USER_INPUT`. There is no turn-end record: a `PLANNER_RESPONSE` with text and no calls is
   the closing answer (`say` `final`), and 20 s of quiet after it end the turn `end_turn` (`END_TURN_IDLE_MS`, 4.0.2), or
-  earlier a summary `status` of `idle` (above); a `USER_INPUT` that comes first ends it `next_turn`. Calls still open
+  earlier a summary `status` of `idle` (above); a turn without a closing answer ends `end_turn` when a delivered `idle`
+  has stood for 60 s with no new line (above); a `USER_INPUT` that comes first ends it `next_turn`. Calls still open
   when a turn ends are `abandoned` (core, R27).
 - Timing: a step's line is written when the step completes, so nothing appears while the model generates: a planner
   line lands 6-35 s after its start, a result line 0.25-2 s after its planner line. `tool_start` shows when the planner
@@ -1536,7 +1551,8 @@ record builder, `test/fixtures/antigravity-tree.mjs` folder trees with both app 
 the real `~/.gemini`, `~/.codex`, `~/.grok` or `~/.claude`); tests that spawn the bin set `HOME` to a temp folder,
 because the bin fills the default `~/.gemini` root. Unit tests per module (`test/antigravity-discover.test.mjs`,
 `antigravity-meta`, `antigravity-proto`, `antigravity-records`, `antigravity-session`), the review fixes
-(`antigravity-fixes`: checkpoint pairing, top-level `USER_REQUEST`, early idle; `antigravity-symlinks`: linked metadata
+(`antigravity-fixes`: checkpoint pairing, top-level `USER_REQUEST`, early idle; `antigravity-idle-status`: turns
+without a closing answer ended by a standing idle; `antigravity-symlinks`: linked metadata
 folders and the `noFollow` Tailer; `antigravity-switch`: open tools across a file switch; `antigravity-docs`: this
 section against the name table); the conformance harness (4.0.2)
 must run against the Antigravity adapter too. Fixtures must cover both tool vocabularies (`view_file` / `write_to_file` with
