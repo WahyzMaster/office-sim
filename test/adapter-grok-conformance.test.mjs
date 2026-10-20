@@ -3,14 +3,17 @@
 // against a synthetic ~/.grok-shaped temp root: a main and nested subs in three cwd groups, summary.json files, bait
 // files next to the transcripts, and privacy bait in every record field the adapter must never show. Records come from
 // test/fixtures/grok.mjs (shaped from docs/research/grok-format.json); invented content, temp roots only.
+// P5g: events.jsonl is read by GrokMeta (never by the scan or the Tailer). The grandchild waits on a permission prompt at
+// attach (its snapshot carries tool_start then tool_wait), the main gets a live wait (true, then false on the allow), and
+// every never-read events field carries BAIT_EV_ text.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { runConformance } from './fixtures/conformance.mjs';
-import { createGrokBuilder, out, textContent, diffContent } from './fixtures/grok.mjs';
-import { gid, charOf, groupOf, sessionDir, writeSession, appendLines, summaryJson } from './fixtures/grok-tree.mjs';
+import { createGrokBuilder, createGrokEventsBuilder, out, textContent, diffContent } from './fixtures/grok.mjs';
+import { gid, charOf, groupOf, sessionDir, writeSession, appendLines, summaryJson, eventsJsonl } from './fixtures/grok-tree.mjs';
 import { grok } from '../src/adapters/grok/index.mjs';
 import { ZERO_UUID } from '../src/summarize.mjs';
 
@@ -20,7 +23,7 @@ after(async () => {
 });
 
 const MCP_UUID = '3f2a9c4e-1b7d-4e8a-9c3f-5d6e7f8a9b0c';
-const ALL_TYPES = ['session', 'session_end', 'prompt', 'tool_start', 'tool_end', 'thinking', 'say', 'plan', 'turn_end', 'system'];
+const ALL_TYPES = ['session', 'session_end', 'prompt', 'tool_start', 'tool_end', 'tool_wait', 'thinking', 'say', 'plan', 'turn_end', 'system'];
 // Section 5 / ADAPTERS 7: none of these may reach the wire. Every one sits in a field the adapter must not show as such.
 const BAIT = [
   '/Users/bait-user/', 'bait-user/proj', 'bait.person@example.com', 'BAIT_QUERY_TOKEN', '?token=', 'rm -rf',
@@ -35,7 +38,11 @@ const BAIT = [
   // files next to the transcripts that the allowlist never opens
   'BAIT_HISTORY_PROMPT', 'BAIT_CHAT_HISTORY', 'BAIT_EVENTS', 'BAIT_PLAN_FILE', 'BAIT_META_PROMPT', 'BAIT_OUTPUT_JSON',
   'BAIT_AUTH_TOKEN', 'BAIT_CONFIG', 'BAIT_ACTIVE', 'BAIT_TERMINAL',
+  // events.jsonl fields GrokMeta never reads (model_id, cancellation_context, mcp_* strings, extra keys, tool_completed)
+  'BAIT_EV_',
 ];
+const callMs = (rec) => rec.params._meta.agentTimestampMs;
+const appendEvents = (dir, lines) => fsp.appendFile(path.join(dir, 'events.jsonl'), eventsJsonl(lines));
 
 const CWD = '/work/conf-grok';
 const CWD_B = '/work/conf-grok/.worktrees/sub-a';
@@ -152,7 +159,17 @@ async function fixture() {
     done: await writeSession(root, { group: gA, id: gid(4), items: done, summary: subSummary(CWD, 'Finished helper', 'general-purpose') }),
   };
   const dirs = [sessionDir(root, gA, gid(1)), sessionDir(root, gB, gid(2)), sessionDir(root, gC, gid(3)), sessionDir(root, gA, gid(4))];
+  // the scan and the Tailer never open events.jsonl (it stays in neverOpen); GrokMeta reads it after the BAIT_EVENTS line
   const neverOpen = await writeBaitFiles(root, dirs);
+  // the main: bait in every never-read field (no request is open: nothing on the wire)
+  const em = createGrokEventsBuilder({ startMs, sessionId: gid(1) });
+  await appendEvents(dirs[0], [em.mcpStarting(), em.mcpFailed(), em.turnStarted(), em.started('todo_write'),
+    em.toolCompleted('todo_write', { id: 'BAIT_EV_COMPLETED_ID' }), em.turnEnded({ outcome: 'cancelled' })]);
+  // the grandchild waits on a permission prompt for its open list_dir (about 30 s old at attach)
+  const ec = createGrokEventsBuilder({ startMs: callMs(grand[2]) - 1000, sessionId: gid(3) });
+  ids.listReqMs = callMs(grand[2]) + 6;
+  await appendEvents(dirs[2], [ec.mcpFailed(), ec.turnStarted(), ec.started('list_dir', { ms: callMs(grand[2]) + 3 }),
+    ec.phase('permission_prompt'), ec.requested('list_dir', { ms: ids.listReqMs })]);
   return { root, m, b, files, dirs, ids, neverOpen };
 }
 
@@ -235,6 +252,23 @@ function liveSteps(f) {
     await appendLines(files.main, recs);
     await rewrite(dirs[0], gid(1), mainSummary('Grok conformance main 2'));
     await waitFor(isSession(charOf(1), 'Grok conformance main 2'));
+    // P5g live wait: the call first (its tool_start on the wire), then its permission prompt in events.jsonl, 2 s old.
+    // The main's events.jsonl has a tool_started only for its first call, so this pairs by resync (unique open shell).
+    const waitCall = m.toolCall({ name: 'run_terminal_command', input: { command: 'npm publish --token=BAIT_QUERY_TOKEN', description: 'BAIT_DESCRIPTION' },
+      ms: Date.now() - 2000 });
+    ids.wait = m.lastToolId;
+    await appendLines(files.main, [waitCall]);
+    const mine = (type) => (ev) => ev.type === type && ev.sessionId === charOf(1) && ev.toolUseId === ids.wait;
+    await waitFor(mine('tool_start'));
+    const ew = createGrokEventsBuilder({ startMs: callMs(waitCall) + 3, sessionId: gid(1) });
+    ids.waitReqMs = callMs(waitCall) + 6;
+    await appendEvents(dirs[0], [ew.turnStarted(), ew.started('run_terminal_command', { ms: callMs(waitCall) + 3 }),
+      ew.phase('permission_prompt'), ew.requested('run_terminal_command', { ms: ids.waitReqMs })]);
+    await waitFor((ev) => mine('tool_wait')(ev) && ev.waiting === true);
+    await appendEvents(dirs[0], [ew.resolved('run_terminal_command', { ms: Date.now(), waitMs: 2500 }), ew.phase('tool_execution')]);
+    await waitFor((ev) => mine('tool_wait')(ev) && ev.waiting === false);
+    await appendLines(files.main, [m.toolInput({ id: ids.wait }), m.toolDone({ id: ids.wait, output: out.bash({ output: 'BAIT_STDOUT' }) })]);
+    await waitFor(mine('tool_end'));
     await appendLines(files.sub, [
       b.toolDone({ id: ids.grep, output: out.grep() }),
       b.message('Found it in /Users/bait-user/proj/src/a.js'),
@@ -293,7 +327,21 @@ test('conformance: the real grok adapter passes the shared harness (nested subs 
     [ids.shell]: 'failed', [ids.spawnL]: 'ok', [ids.read]: 'interrupted', [ids.edit]: 'ok', [ids.write]: 'denied',
     [ids.web]: 'denied', [ids.mcp]: 'ok', [ids.mcpBad]: 'failed', [ids.bg]: 'ok', [ids.monitor]: 'ok', [ids.taskOut]: 'ok',
     [ids.search]: 'ok', [ids.missing]: 'failed', [ids.sched]: 'ok', [ids.planOk]: 'ok', [ids.planNo]: 'denied', [ids.planMode]: 'denied',
+    [ids.wait]: 'ok',
   });
+  // P5g: the main's live wait (true at the request ts, false on the allow, then its tool_end), and the grandchild's wait
+  // that was open at attach (in its snapshot right after its tool_start, and still in /state); nothing else waits
+  const waits = s.filter((e) => e.type === 'tool_wait');
+  assert.deepEqual(waits.map((e) => [e.sessionId, e.toolUseId, e.waiting]),
+    [[charOf(3), ids.list, true], [charOf(1), ids.wait, true], [charOf(1), ids.wait, false]]);
+  assert.equal(waits[0].ts, new Date(ids.listReqMs).toISOString());
+  assert.equal(waits[1].ts, new Date(ids.waitReqMs).toISOString());
+  const at = (type, sid, id) => s.findIndex((e) => e.type === type && e.sessionId === sid && e.toolUseId === id);
+  assert.equal(at('tool_wait', charOf(3), ids.list), at('tool_start', charOf(3), ids.list) + 1, 'the attach snapshot order');
+  assert.ok(at('tool_start', charOf(1), ids.wait) < at('tool_wait', charOf(1), ids.wait));
+  const stateWaits = res.state.filter((e) => e.type === 'tool_wait');
+  assert.deepEqual(stateWaits.map((e) => [e.sessionId, e.toolUseId, e.waiting]), [[charOf(3), ids.list, true]]);
+  assert.equal(JSON.stringify(stateWaits[0]), JSON.stringify(waits[0]));
   const err = (id) => s.find((e) => e.type === 'tool_end' && e.toolUseId === id).error;
   assert.deepEqual([ids.shell, ids.write, ids.web, ids.mcpBad, ids.missing, ids.planNo, ids.planMode].map(err), [
     'Exit code 1', 'Hook denied', 'Tool web_fetch was not executed: Denied by permission policy', 'MCP tool error', 'FileNotFound',

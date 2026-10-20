@@ -190,3 +190,71 @@ test('conformanceProblems: schema, caps, D2 ids, pairing, snapshot, bait and hin
   ];
   for (const w of want) assert.ok(problems.some((p) => p.includes(w)), `expected a problem mentioning ${JSON.stringify(w)}\n${problems.join('\n')}`);
 });
+
+// ---- P5g tool_wait: stream and /state rules of the checker (no server) ------------------------------------------
+
+const W = (id, waiting, o = {}) => E('tool_wait', { toolUseId: id, waiting, ...o });
+const T = (id, o = {}) => E('tool_start', { toolUseId: id, tool: 'run_terminal_command', summary: 'npm', room: 'server', ...o });
+const ASK = E('tool_start', { toolUseId: 'q', tool: 'ask_user_question', summary: 'ask', room: 'desk', question: 'Q?', options: ['y'] });
+
+test('conformanceProblems: a clean stream with tool_wait (allow, deny, still waiting) has no problems', () => {
+  const stream = [S(), T('a'), W('a', true), W('a', false), E('tool_end', { toolUseId: 'a', ok: true }),
+    T('d'), W('d', true), E('tool_end', { toolUseId: 'd', ok: false, errorKind: 'denied', error: 'denied' }),
+    T('b'), T('c'), W('c', true, { ts: '2026-10-20T10:00:03.000Z' }), ASK];
+  const state = [S(), T('b'), T('c'), W('c', true, { ts: '2026-10-20T10:00:03.000Z' }), ASK];
+  assert.deepEqual(conformanceProblems({ agent: 'grok', stream, state, mustSee: ['session', 'tool_wait'] }), []);
+});
+
+test('conformanceProblems: tool_wait stream violations are reported', () => {
+  const cases = [
+    [[S(), W('x', true)], 'tool_wait grok-m1|x has no open tool_start'],
+    [[S(), T('a'), E('tool_end', { toolUseId: 'a', ok: true }), W('a', true)], 'tool_wait grok-m1|a has no open tool_start'],
+    [[S(), ASK, W('q', true)], 'tool_wait grok-m1|q is for an ask tool'],
+    [[S(), T('a'), W('a', 'yes')], 'waiting is not a boolean'],
+    [[S(), T('a'), W('a', true, { extra: 1 })], 'field extra not allowed'],
+    [[S(), T('a'), W('a', true), W('a', true)], 'tool_wait grok-m1|a: a second waiting:true'],
+    [[S(), T('a'), W('a', true), W('a', false), W('a', true)], 'tool_wait grok-m1|a: a second waiting:true'],
+    [[S(), T('a'), W('a', false)], 'tool_wait grok-m1|a: waiting:false without an open waiting:true'],
+    [[S(), T('a'), W('a', true), W('a', false), W('a', false)], 'tool_wait grok-m1|a: waiting:false without an open waiting:true'],
+    [[S(), T('a'), W('a', true), E('session_end', { reason: 'idle' }), W('a', false)], 'tool_wait grok-m1|a has no open tool_start'],
+  ];
+  for (const [stream, want] of cases) {
+    const ended = stream.some((e) => e.type === 'session_end');
+    const open = stream.filter((e) => e.type === 'tool_start' && !stream.some((x) => x.type === 'tool_end' && x.toolUseId === e.toolUseId));
+    const problems = conformanceProblems({ agent: 'grok', stream, state: ended ? [] : [S(), ...open] });
+    assert.ok(problems.some((p) => p.includes(want)), `expected ${JSON.stringify(want)}\n${problems.join('\n')}`);
+  }
+});
+
+test('conformanceProblems: /state must carry exactly the open waits, identical, right after their tool_start', () => {
+  const stream = [S(), T('a'), W('a', true), T('b'), W('b', true), W('b', false), T('c'), W('c', true),
+    E('tool_end', { toolUseId: 'c', ok: true })];
+  const check = (state) => conformanceProblems({ agent: 'grok', stream, state });
+  assert.deepEqual(check([S(), T('a'), W('a', true), T('b')]), [], 'the matching /state');
+  const cases = [
+    [[S(), T('a'), T('b')], 'open wait grok-m1|a missing from /state'],
+    [[S(), T('a'), W('a', true, { ts: '2026-10-20T10:00:09.000Z' }), T('b')], 'open wait grok-m1|a differs in /state'],
+    [[S(), T('a'), W('a', false), T('b')], 'open wait grok-m1|a differs in /state'],
+    [[S(), T('a'), W('a', true), T('b'), W('b', true)], '/state tool_wait grok-m1|b is not an open wait on the wire'],
+    [[S(), T('a'), W('a', true), T('b'), W('c', true)], '/state tool_wait grok-m1|c is not an open wait on the wire'],
+    [[S(), T('a'), T('b'), W('a', true)], '/state tool_wait grok-m1|a does not follow its tool_start'],
+    [[S(), T('a'), W('a', true), W('a', true), T('b')], '/state has tool_wait grok-m1|a twice'],
+  ];
+  for (const [state, want] of cases) {
+    const problems = check(state);
+    assert.ok(problems.some((p) => p.includes(want)), `expected ${JSON.stringify(want)}\n${problems.join('\n')}`);
+  }
+});
+
+test('conformanceProblems: a re-announce may repeat the open tool_start and its waiting:true; tool_wait is Grok only', () => {
+  // a same-path re-attach announces the character again (CONTRACT 2): session, the open tool_start, its tool_wait copy
+  const stream = [S(), T('a'), W('a', true), S(), T('a'), W('a', true), W('a', false), E('tool_end', { toolUseId: 'a', ok: true })];
+  assert.deepEqual(conformanceProblems({ agent: 'grok', stream, state: [S()] }), []);
+  // Claude, Codex and Antigravity never send tool_wait (CONTRACT 2): the shared harness says so for every other agent
+  for (const agent of ['codex', 'antigravity']) {
+    const sid = `${agent}-m1`;
+    const evs = [S({ agent }), T('a'), W('a', true)].map((e) => ({ ...e, sessionId: sid }));
+    const problems = conformanceProblems({ agent, stream: evs, state: evs });
+    assert.deepEqual(problems, ['tool_wait', '/state tool_wait'].map((w) => `${w} ${sid}: tool_wait is live Grok only (CONTRACT 2)`));
+  }
+});

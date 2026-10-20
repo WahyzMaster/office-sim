@@ -274,3 +274,85 @@ export function createGrokBuilder(opts = {}) {
   };
   return b;
 }
+
+// ------------------------------------------------------------------------------------------------- events.jsonl
+// Synthetic events.jsonl lines ({ type, ts: ISO with ms and Z, ... }) shaped like grok-format.json's events topics.
+// Each builder takes { ms } for an exact time (pairing tests need tool_started within 50 ms of the tool_call's
+// agentTimestampMs); otherwise the clock advances by `stepMs`. Text fields the adapter never reads (model_id,
+// cancellation_context.reason, the mcp_* strings, an extra key on permission_requested) carry BAIT_EV_* text, so a leak
+// shows in any BAIT_ scan. The mcp bait also holds the quoted type names, which JSON escapes (\"tool_started\"),
+// so the quoted-type prefilter never lets such a line through.
+//   const ev = createGrokEventsBuilder({ startMs: t });
+//   const lines = [ev.turnStarted(), ...ev.prompt('run_terminal_command', { waitMs: 2000 }), ev.turnEnded()];
+//   await writeSession(root, { group, id, items, events: lines });
+export const EVENTS_BAIT = Object.freeze({
+  model: 'BAIT_EV_MODEL_ID', reason: 'BAIT_EV_CANCEL_REASON', extra: 'BAIT_EV_EXTRA_KEY',
+  mcpError: 'BAIT_EV_MCP_ERROR "tool_started" "permission_requested" "turn_ended"', mcpServer: 'BAIT_EV_MCP_SERVER',
+  mcpTarget: '/Users/bait-user/BAIT_EV_MCP_TARGET',
+});
+
+export function createGrokEventsBuilder(opts = {}) {
+  const ctx = { clock: opts.startMs ?? DEFAULT_START, stepMs: opts.stepMs ?? 1, sessionId: opts.sessionId ?? GROK_SESSION, turn: 0 };
+  const ts = (ms) => {
+    const t = ms ?? ctx.clock;
+    ctx.clock = t + ctx.stepMs;
+    return new Date(t).toISOString();
+  };
+  const b = {
+    get clockMs() { return ctx.clock; },
+    /** Move the clock (e.g. a wait) without writing a line. */
+    advance(ms) { ctx.clock += ms; return ctx.clock; },
+
+    started(name = 'run_terminal_command', { ms } = {}) {
+      return { ts: ts(ms), type: 'tool_started', tool_name: name };
+    },
+    phase(phase = 'permission_prompt', { ms } = {}) {
+      return { ts: ts(ms), type: 'phase_changed', phase };
+    },
+    /** permission_requested; `extra` adds a never-read key (bait by default). */
+    requested(name = 'run_terminal_command', { ms, extra = { request_note: EVENTS_BAIT.extra } } = {}) {
+      return { ts: ts(ms), type: 'permission_requested', tool_name: name, ...extra };
+    },
+    resolved(name = 'run_terminal_command', { decision = 'allow', waitMs = 0, ms } = {}) {
+      return { ts: ts(ms), type: 'permission_resolved', tool_name: name, decision, wait_ms: waitMs };
+    },
+    yoloToggled(enabled = true, { ms } = {}) {
+      return { ts: ts(ms), type: 'yolo_toggled', enabled };
+    },
+    turnStarted({ yolo = false, ms, sessionId = ctx.sessionId, modelId = EVENTS_BAIT.model } = {}) {
+      ctx.turn += 1;
+      return { ts: ts(ms), type: 'turn_started', session_id: sessionId, turn_number: ctx.turn, model_id: modelId,
+        conversation_message_count: 2 * ctx.turn, session_relationship: 'primary', yolo_mode: yolo, schema_version: '1.0' };
+    },
+    /** turn_ended; outcome cancelled gets cancellation_category (mid_turn_abort by default) and a bait context. */
+    turnEnded({ outcome = 'completed', category = 'mid_turn_abort', reason = EVENTS_BAIT.reason, ms } = {}) {
+      const r = { ts: ts(ms), type: 'turn_ended', outcome };
+      if (outcome === 'cancelled') {
+        r.cancellation_category = category;
+        r.cancellation_context = { trigger: 'esc', tool_name: 'run_terminal_command', reason };
+      }
+      return r;
+    },
+    toolCompleted(name = 'run_terminal_command', { id = 'call-bait-completed', outcome = 'success', ms } = {}) {
+      return { ts: ts(ms), type: 'tool_completed', tool_name: name, tool_call_id: id, outcome, duration_ms: 12 };
+    },
+    mcpFailed({ server = EVENTS_BAIT.mcpServer, message = EVENTS_BAIT.mcpError, ms } = {}) {
+      return { ts: ts(ms), type: 'mcp_server_failed', server_name: server, error_message: message };
+    },
+    mcpStarting({ server = EVENTS_BAIT.mcpServer, target = EVENTS_BAIT.mcpTarget, ms } = {}) {
+      return { ts: ts(ms), type: 'mcp_server_starting', server_name: server, target };
+    },
+    /**
+     * One permission prompt: tool_started, phase permission_prompt, permission_requested, then (unless decision is
+     * null) permission_resolved `waitMs` later and phase tool_execution. { ms } is the tool_started time.
+     */
+    prompt(name = 'run_terminal_command', { decision = 'allow', waitMs = 0, ms } = {}) {
+      const lines = [b.started(name, { ms }), b.phase('permission_prompt'), b.requested(name)];
+      if (decision === null) return lines;
+      b.advance(waitMs);
+      lines.push(b.resolved(name, { decision, waitMs }), b.phase('tool_execution'));
+      return lines;
+    },
+  };
+  return b;
+}

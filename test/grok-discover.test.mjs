@@ -263,6 +263,8 @@ function spyFs() {
   return { calls, restore: () => { for (const [obj, name, orig] of saved) obj[name] = orig; } };
 }
 
+// P5g: each session's events.jsonl moved from the bait list to the read set on purpose (GrokMeta reads it for the approval
+// wait). It may only be lstat-ed and opened (the reads go through that file handle), never listed, readFile-d or streamed.
 test('allowlist: bait files next to the transcripts are never opened, listed by path or stat-ed (fs spy, real server)', async () => {
   const root = await tmp('office-sim-grok-allow-');
   const g = groupOf('/work/allow');
@@ -277,12 +279,13 @@ test('allowlist: bait files next to the transcripts are never opened, listed by 
     path.join(root, 'auth.json'), path.join(root, 'config.toml'), path.join(root, 'active_sessions.json'),
     path.join(root, 'worktrees.db'), path.join(root, 'sessions', 'session_search.sqlite'),
     path.join(root, 'sessions', g, 'prompt_history.jsonl'), path.join(root, 'sessions', g, '.cwd'),
-    path.join(dir, 'prompt_history.jsonl'), path.join(dir, 'chat_history.jsonl'), path.join(dir, 'events.jsonl'),
+    path.join(dir, 'prompt_history.jsonl'), path.join(dir, 'chat_history.jsonl'),
     path.join(dir, 'plan.json'), path.join(dir, 'plan.md'), path.join(dir, 'plan_mode.json'), path.join(dir, 'updates.jsonl.lock'),
     path.join(dir, 'summary.json.lock'), path.join(dir, 'subagents', gid(2), 'meta.json'), path.join(dir, 'subagents', gid(2), 'output.json'),
-    path.join(dir, 'terminal', 'out-1.txt'), path.join(sessionDir(root, g2, gid(2)), 'events.jsonl'),
+    path.join(dir, 'terminal', 'out-1.txt'),
   ];
-  for (const b of bait) {
+  const events = [path.join(dir, 'events.jsonl'), path.join(sessionDir(root, g2, gid(2)), 'events.jsonl')];
+  for (const b of [...bait, ...events]) {
     await fsp.mkdir(path.dirname(b), { recursive: true });
     await fsp.writeFile(b, '{"secret":"BAIT_SECRET_TOKEN","prompt":"BAIT_RAW_PROMPT"}\n');
   }
@@ -310,10 +313,16 @@ test('allowlist: bait files next to the transcripts are never opened, listed by 
   }
   const under = spy.calls.filter((c) => c.path.startsWith(root));
   for (const b of bait) assert.ok(!under.some((c) => c.path === b), `bait touched: ${path.relative(root, b)}`);
-  // what was read under the root: transcripts (Tailer) and summary.json (sidecar) only
+  // what was read under the root: transcripts (Tailer), summary.json (sidecar) and events.jsonl (GrokMeta, P5g) only
   const read = new Set(under.filter((c) => /^(open|readFile|createReadStream)(Sync)?$/.test(c.fn)).map((c) => path.relative(root, c.path)));
-  assert.deepEqual([...read].sort(), [main, child, path.join(dir, 'summary.json'), path.join(sessionDir(root, g2, gid(2)), 'summary.json')]
+  assert.deepEqual([...read].sort(), [main, child, path.join(dir, 'summary.json'), path.join(sessionDir(root, g2, gid(2)), 'summary.json'), ...events]
     .map((p) => path.relative(root, p)).sort());
+  for (const e of events) {
+    const fns = new Set(under.filter((c) => c.path === e).map((c) => c.fn));
+    assert.deepEqual([...fns].sort(), ['lstat', 'open'], `${path.relative(root, e)}: only lstat-ed and opened`);
+  }
+  // never listed: the folders that hold an events.jsonl are never read as a directory listing
+  assert.ok(!under.some((c) => /^(readdir|opendir)/.test(c.fn) && events.some((e) => path.dirname(e) === c.path)), 'never listed');
   // nothing outside the temp root that looks like a real Grok or Claude folder
   const home = os.homedir();
   assert.ok(!spy.calls.some((c) => c.path.startsWith(path.join(home, '.grok')) || c.path.startsWith(path.join(home, '.claude'))));

@@ -25,6 +25,11 @@ const ROOM_HINTS = {
 const SHELL_TOOLS = new Set(['exec_command', 'run_terminal_command', 'run_command']);
 const ARCHIVE_PROGRAMS = new Set(['grep', 'rg', 'find', 'ls', 'cat', 'head', 'tail', 'sed', 'wc', 'jq']);
 
+// 승인 대기(Grok 라이브, P5g): 권한 창이 열린 뒤 tool_wait true 가 오기까지의 틈(초, 서버는 1초 넘게 열린 것만 보낸다)과
+// 사람이 거절했을 때 Grok 어댑터가 보내는 고정 문구(records.mjs denialLine, CONTRACT 4.6).
+const WAIT_LAG = 1;
+const USER_DENIAL = 'User rejected the execution';
+
 function roomHint(agent, tool, summary) {
   if (agent === 'claude-code') return undefined; // 페이지가 Claude 도구 이름으로 나눈다
   if (SHELL_TOOLS.has(tool)) {
@@ -77,8 +82,11 @@ const SCENARIOS = [
       ['plan', [['규칙 사용처 조사', 2], ['만료 검증 추가', 1], ['규칙 테스트', 0]]],
       ['tool', 'read_file', 'firestore.rules'],
       ['tool', 'search_replace', 'firestore.rules'],
-      ['tool', 'run_terminal_command', 'firebase', { dur: 2.4, fail: '사용자가 실행을 거절함', kind: 'denied' }],
-      ['say', '규칙 세 곳에 만료 검증을 추가했어요.'],
+      // 승인 대기 둘: 테스트는 내 자리에서 허용을 받고 서버실로 돌아가 돌리고, 배포는 내 자리에서 거절된다.
+      ['tool', 'run_terminal_command', 'npm test', { approval: 5, dur: 2.4 }],
+      ['plan', [['규칙 사용처 조사', 2], ['만료 검증 추가', 2], ['규칙 테스트', 2]]],
+      ['tool', 'run_terminal_command', 'firebase', { approval: 6, deny: true }],
+      ['say', '규칙 세 곳에 만료 검증을 추가했어요. 배포는 승인받지 못했어요.'],
       ['end'],
     ],
   },
@@ -200,6 +208,18 @@ export class MockSource {
         const dur = o.dur ?? 1.4 + Math.random() * 1.2;
         const room = roomHint(agent, step[1], step[2]);
         out.push([t, { type: 'tool_start', sessionId: sid, toolUseId: id, tool: step[1], summary: step[2], ...(room ? { room } : {}) }]);
+        if (o.approval) {
+          // approval: 승인을 기다린 초. 허용은 tool_wait false 뒤에 실행하고, 거절은 tool_end denied 만 온다(false 없음).
+          const asked = t + WAIT_LAG;
+          out.push([asked, { type: 'tool_wait', sessionId: sid, toolUseId: id, waiting: true }]);
+          t = asked + o.approval;
+          if (o.deny) {
+            out.push([t, { type: 'tool_end', sessionId: sid, toolUseId: id, ok: false, error: USER_DENIAL, errorKind: 'denied' }]);
+            t += 0.5;
+            continue;
+          }
+          out.push([t, { type: 'tool_wait', sessionId: sid, toolUseId: id, waiting: false }]);
+        }
         out.push([t + dur, { type: 'tool_end', sessionId: sid, toolUseId: id, ok: !o.fail, error: o.fail, errorKind: o.fail ? (o.kind || 'failed') : undefined }]);
         t += dur + 0.5;
       } else if (kind === 'ask') {

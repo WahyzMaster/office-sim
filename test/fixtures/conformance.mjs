@@ -12,13 +12,15 @@ import { request, sse, until } from './sse.mjs';
 
 const PUBLIC = fileURLToPath(new URL('../../public', import.meta.url));
 
-// CONTRACT 2: per-type fields besides type/sessionId/ts. awaitsApproval is replay-only (section 7), so never live.
+// CONTRACT 2: per-type fields besides type/sessionId/ts. awaitsApproval is replay-only (section 7), so never live; a live
+// approval wait is its own tool_wait event (P5g).
 const FIELDS = {
   session: { required: ['agent', 'project', 'projectLabel', 'title', 'branch', 'worktree', 'isSubagent', 'parentSessionId'], optional: ['agentType'] },
   session_end: { required: ['reason'], optional: [] },
   prompt: { required: ['text'], optional: [] },
   tool_start: { required: ['toolUseId', 'tool', 'summary'], optional: ['room', 'question', 'options', 'background'] },
   tool_end: { required: ['toolUseId', 'ok'], optional: ['errorKind', 'error'] },
+  tool_wait: { required: ['toolUseId', 'waiting'], optional: [] },
   thinking: { required: ['text', 'durationMs'], optional: [] },
   say: { required: ['text'], optional: [] },
   plan: { required: ['items', 'source'], optional: [] },
@@ -75,6 +77,11 @@ function eventProblems(ev, agent) {
       if ('options' in ev && !(Array.isArray(ev.options) && ev.options.length <= 4 && ev.options.every((o) => text(o, 30)))) bad('options');
       break;
     }
+    case 'tool_wait':
+      if (agent !== 'grok') bad('tool_wait is live Grok only (CONTRACT 2)');
+      if (!text(ev.toolUseId, 256)) bad('toolUseId');
+      if (typeof ev.waiting !== 'boolean') bad('waiting is not a boolean');
+      break;
     case 'tool_end':
       if (typeof ev.ok !== 'boolean') bad('ok');
       else if (ev.ok && ('errorKind' in ev || 'error' in ev)) bad('error fields on an ok tool_end');
@@ -98,6 +105,50 @@ function eventProblems(ev, agent) {
 
 const toolKey = (ev) => `${ev.sessionId}|${ev.toolUseId}`;
 
+// P5g stream rules of one tool_wait: only for an open, non-ask tool_start; one waiting:true per id and announce (a
+// re-announced tool_start may be followed by its tool_wait copy again); false only while that true is open. Updates
+// `waits` / `waited`.
+function waitProblems(ev, open, waits, waited) {
+  const k = toolKey(ev);
+  const start = open.get(k);
+  if (!start) return [`tool_wait ${k} has no open tool_start`];
+  if ('question' in start) return [`tool_wait ${k} is for an ask tool`];
+  if (ev.waiting === true) {
+    const repeat = waited.has(k);
+    waited.add(k);
+    waits.set(k, ev);
+    return repeat ? [`tool_wait ${k}: a second waiting:true`] : [];
+  }
+  if (ev.waiting === false) {
+    const was = waits.has(k);
+    waits.delete(k);
+    return was ? [] : [`tool_wait ${k}: waiting:false without an open waiting:true`];
+  }
+  return [];
+}
+
+// P5g /state rule: every open tool whose last wire tool_wait is true has an identical copy right after its tool_start;
+// /state holds no other tool_wait.
+function stateWaitProblems(state, waits, ended) {
+  const out = [];
+  const seen = new Map();
+  state.forEach((ev, i) => {
+    if (ev?.type !== 'tool_wait') return;
+    const k = toolKey(ev);
+    const prev = state[i - 1];
+    if (prev?.type !== 'tool_start' || toolKey(prev) !== k) out.push(`/state tool_wait ${k} does not follow its tool_start`);
+    if (seen.has(k)) out.push(`/state has tool_wait ${k} twice`);
+    seen.set(k, ev);
+  });
+  for (const [k, ev] of waits) {
+    if (ended.has(ev.sessionId)) continue;
+    if (!seen.has(k)) out.push(`open wait ${k} missing from /state`);
+    else if (JSON.stringify(seen.get(k)) !== JSON.stringify(ev)) out.push(`open wait ${k} differs in /state`);
+  }
+  for (const k of seen.keys()) if (!waits.has(k)) out.push(`/state tool_wait ${k} is not an open wait on the wire`);
+  return out;
+}
+
 /**
  * The pure conformance checks. Returns the list of problems ([] = conformant).
  * @param {{ agent: string, stream: object[], state: object[], raw?: string[], bait?: string[], mustSee?: string[] }} o
@@ -108,6 +159,8 @@ export function conformanceProblems({ agent, stream, state, raw = [], bait = [],
   const out = [];
   const announced = new Set();
   const open = new Map(); // toolKey -> tool_start event
+  const waits = new Map(); // toolKey -> the open tool's last tool_wait, while it is waiting:true (P5g)
+  const waited = new Set(); // toolKeys that had waiting:true since their last tool_start (a latch: one per id and announce)
   const ended = new Set();
   for (const ev of stream) {
     out.push(...eventProblems(ev, agent));
@@ -118,13 +171,19 @@ export function conformanceProblems({ agent, stream, state, raw = [], bait = [],
     } else if (!announced.has(ev.sessionId)) {
       out.push(`${ev.type} ${ev.sessionId}: event before the character's session event`);
     }
-    if (ev.type === 'tool_start') open.set(toolKey(ev), ev);
-    else if (ev.type === 'tool_end') {
+    if (ev.type === 'tool_start') {
+      open.set(toolKey(ev), ev);
+      waited.delete(toolKey(ev)); // a re-announce repeats the open tool_start and its tool_wait copy
+    } else if (ev.type === 'tool_end') {
       if (!open.has(toolKey(ev))) out.push(`tool_end ${toolKey(ev)} has no earlier tool_start`);
       open.delete(toolKey(ev));
+      waits.delete(toolKey(ev));
+    } else if (ev.type === 'tool_wait') {
+      out.push(...waitProblems(ev, open, waits, waited));
     } else if (ev.type === 'session_end') {
       ended.add(ev.sessionId);
       for (const k of [...open.keys()]) if (k.startsWith(`${ev.sessionId}|`)) open.delete(k);
+      for (const k of [...waits.keys()]) if (k.startsWith(`${ev.sessionId}|`)) waits.delete(k);
     }
   }
   for (const t of mustSee) if (!stream.some((ev) => ev?.type === t)) out.push(`no ${t} event on the wire`);
@@ -137,6 +196,7 @@ export function conformanceProblems({ agent, stream, state, raw = [], bait = [],
     else if (JSON.stringify(stateTools.get(k)) !== JSON.stringify(ev)) out.push(`open tool ${k} differs in /state`);
   }
   for (const k of stateTools.keys()) if (!open.has(k)) out.push(`/state tool ${k} already ended (or never started) on the wire`);
+  out.push(...stateWaitProblems(state, waits, ended));
   for (const ev of state) {
     if (ev?.sessionId && ended.has(ev.sessionId)) out.push(`/state has ended character ${ev.sessionId}`);
     else if (ev?.sessionId && !announced.has(ev.sessionId)) out.push(`/state has character ${ev.sessionId} never announced on the wire`);

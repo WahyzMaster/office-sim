@@ -22,7 +22,8 @@ async function fileStat(p) {
 async function readCapped(p, max, st) {
   let fh = null;
   try {
-    fh = await fsp.open(p, FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0));
+    // O_NONBLOCK: lstat 뒤에 바꿔 놓은 FIFO 에서 open 이 막히지 않는다 (아래 일반 파일 검사가 거른다)
+    fh = await fsp.open(p, FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) | (FS.O_NONBLOCK ?? 0));
     const now = await fh.stat();
     if (!now.isFile() || now.ino !== st.ino || now.dev !== st.dev) return null;
     const buf = Buffer.alloc(max + 1);

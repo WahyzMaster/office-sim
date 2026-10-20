@@ -249,6 +249,11 @@ export class Agent {
           this.mode = 'idle';
           break;
         }
+        if (it.live && it.answered) { // 라이브 승인 대기: 걸어오는 사이에 답이 왔다. 열린 질문(칩) 대신 결과만 보인다
+          this.mode = 'idle';
+          if (!it.denied && !it.error) this.bubble('info', '승인됨', 1.8);
+          break;
+        }
         this.mode = 'ask';
         this.bubble('ask', it, Infinity);
         this.office.onAsk(this, true);
@@ -285,6 +290,17 @@ export class Agent {
       case 'error': return it.t >= 1.6;
       default: return true;
     }
+  }
+
+  // 라이브 승인 대기가 허용됐다(approval.js waitEnd): 자리에 있으면 지금부터 1.2 s 승인됨을 보인 뒤 도구 방으로 간다.
+  // 아직 걸어오는 중이면 도착할 때 보인다(onArrive).
+  showAllowed(it) {
+    it.t = 0;
+    if (it !== this.current || !it.arrived) return;
+    this.mode = 'idle';
+    this.bubble('info', '승인됨', 1.8);
+    this.office.onAsk(this, false);
+    this.refreshTag();
   }
 
   finish(it) {

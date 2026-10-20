@@ -1,6 +1,7 @@
 // Grok (xAI Grok Build) 어댑터 설명자 (ADAPTERS 3.1, 5.2, CONTRACT 4.0.1). 탐색은 discover.mjs, 기록 정규화와 세션 상태는
-// records.mjs / session.mjs (GrokSession, SessionCore 위에 선다). deps() 는 Runner 가 쓰는 묶음이고 GrokSession 은 처음
-// 쓸 때 불러온다 (등록표를 import 하는 것만으로 세션 모듈을 읽지 않는다, claude-code 설명자와 같은 방식).
+// records.mjs / session.mjs (GrokSession, SessionCore 위에 선다), 메타 파일(summary.json)과 승인 대기(events.jsonl, P5g)는
+// meta.mjs (GrokMeta) / events.mjs / approval.mjs. deps() 는 Runner 가 쓰는 묶음이고 GrokSession 과 GrokMeta 는 처음 쓸 때
+// 불러온다 (등록표를 import 하는 것만으로 세션 모듈을 읽지 않는다, claude-code 설명자와 같은 방식).
 import path from 'node:path';
 import { GROK_AGENT, createGrokScanner } from './discover.mjs';
 
@@ -61,8 +62,10 @@ export const grok = Object.freeze({
   sidecars: grokSidecars,
   worktreeFloor,
   /**
-   * The Runner deps: { agent, SessionState: GrokSession, Tailer, scan, sidecars, worktreeFloor }. `over` (test hook)
-   * replaces any part. `scan` is a fresh stateful scanner per call (one per Runner, for the link grace).
+   * The Runner deps: { agent, SessionState: GrokSession, Tailer, scan, sidecars, sidecarWatcher: GrokMeta,
+   * worktreeFloor }. `over` (test hook) replaces any part. `scan` and `sidecarWatcher` are fresh per call (one per
+   * Runner: the link grace, the events.jsonl offsets). GrokMeta reads `sidecars` (summary.json) and, for the approval
+   * wait (P5g), the events.jsonl next to each transcript; the Runner prefers it to a plain SidecarWatcher of `sidecars`.
    */
   async deps(over = {}) {
     const deps = { ...over };
@@ -70,6 +73,7 @@ export const grok = Object.freeze({
     if (!deps.Tailer) deps.Tailer = (await import('../../tailer.mjs')).Tailer;
     deps.scan ??= createGrokScanner();
     deps.sidecars ??= grokSidecars;
+    if (!deps.sidecarWatcher) deps.sidecarWatcher = new (await import('./meta.mjs')).GrokMeta(deps.sidecars);
     deps.worktreeFloor ??= worktreeFloor;
     deps.agent ??= GROK_AGENT;
     return deps;

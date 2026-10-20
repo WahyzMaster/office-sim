@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SidecarWatcher, SIDECAR_MAX_BYTES } from '../src/core/sidecar.mjs';
 import { parseSummary, grokSidecars, grok } from '../src/adapters/grok/index.mjs';
+import { GrokMeta } from '../src/adapters/grok/meta.mjs';
 import { claudeCode } from '../src/adapters/claude-code.mjs';
 import { Runner } from '../src/server-runner.mjs';
 import { Store } from '../src/store.mjs';
@@ -193,6 +194,13 @@ test('Runner: the sidecar hook is used only when the deps have it (Claude has no
   assert.equal(claude.sidecars, null);
   const g = new Runner({ opts: { ...opts }, deps: await grokTestAdapter().deps(), store, log: () => {} });
   assert.ok(g.sidecars instanceof SidecarWatcher);
+  // P5g: the Grok watcher is GrokMeta (summary.json through SidecarWatcher, plus events.jsonl), fresh per deps call
+  assert.ok(g.sidecars instanceof GrokMeta);
+  assert.equal(g.sidecars.list, grokSidecars, 'GrokMeta watches the same summary.json hook');
+  assert.notEqual((await grok.deps()).sidecarWatcher, (await grok.deps()).sidecarWatcher, 'one watcher per Runner');
+  const own = new GrokMeta(grokSidecars);
+  assert.equal((await grok.deps({ sidecarWatcher: own })).sidecarWatcher, own, 'the test hook replaces it');
+  assert.equal(grok.sidecars, grokSidecars);
   assert.deepEqual([...store.floorRules.keys()], ['grok'], 'only the grok Runner registers a D1 floor rule');
 });
 
