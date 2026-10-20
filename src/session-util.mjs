@@ -134,14 +134,24 @@ export function firstLine(text) {
   return text.split(/\r?\n/).map((l) => l.trim()).find((l) => l !== '') || '';
 }
 
-/** R33: first question (<= 160) + ' (+N)', first question's option labels (<= 4, each <= 30). */
+/**
+ * R33: the lead question's text (<= 160) + ' (+N)' for the other questions, the lead's option labels (<= 4, each <= 30).
+ * The lead is the first question whose cleaned text is not empty; with none, the question is null (never a bare
+ * ' (+N)', CONTRACT 2) and the options are the first question's.
+ */
 export function askFields(input) {
   const qs = input && Array.isArray(input.questions) ? input.questions.filter((q) => q && typeof q === 'object') : [];
   if (qs.length === 0) return { question: null, options: [] };
-  const q0 = qs[0];
-  let question = cleanText(q0.question, 160);
-  if (qs.length > 1) question = `${question} (+${qs.length - 1})`;
-  const opts = Array.isArray(q0.options) ? q0.options : [];
+  let lead = qs[0];
+  let question = '';
+  for (const q of qs) {
+    const text = cleanText(q.question, 160);
+    if (text === '') continue;
+    lead = q;
+    question = qs.length > 1 ? `${text} (+${qs.length - 1})` : text;
+    break;
+  }
+  const opts = Array.isArray(lead.options) ? lead.options : [];
   const options = opts.slice(0, 4)
     .map((o) => cleanText(typeof o === 'string' ? o : o && o.label, 30))
     .filter((o) => o !== '');

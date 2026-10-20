@@ -17,6 +17,9 @@
 //   ERROR_MESSAGE     -> calls still waiting end abandoned, system api_error (the turn goes on: the agent retries)
 //   SYSTEM_MESSAGE, CONVERSATION_HISTORY -> nothing (they take no result slot)
 //   unknown types     -> a result line while calls wait, else nothing
+//   (no end marker)   -> a final say + 20 s of quiet ends the turn (core), a summary status idle ends it at once after
+//                        a final say, and an idle that has stood IDLE_STATUS_QUIET_MS with no new line ends a turn
+//                        without a closing answer (interrupted, given up after an error): its calls end abandoned
 //
 // Line position (the dedupe key and the tool ids). Antigravity records carry no call id, and step_index repeats and
 // goes backwards (43 repeats, 19 backward jumps), so a line is known by its position in the file, never by step_index.
@@ -40,6 +43,15 @@ import {
 } from './records.mjs';
 import { callStartOf, cwdOfCall } from './tools.mjs';
 
+/**
+ * A turn without a closing answer (interrupted, or given up after an error) has no end marker. Once a summary status
+ * `idle` has been delivered for the open turn, this much quiet (no new line, no `running`, counted from the later of the
+ * last line and that delivery) ends it: the waiting calls end abandoned, then turn_end end_turn. Longer than the closing
+ * answer's END_TURN_IDLE_MS (20 s) and than the longest gap before a planner line in the study (35 s), so an idle read
+ * while the model still writes its next step does not cut the turn.
+ */
+export const IDLE_STATUS_QUIET_MS = 60_000;
+
 function byteLength(rec) {
   try {
     return Buffer.byteLength(JSON.stringify(rec), 'utf8') + 1;
@@ -62,6 +74,7 @@ export class AntigravitySession {
   } = {}) {
     this.agent = typeof agent === 'string' && agent !== '' ? agent : ANTIGRAVITY_AGENT;
     this.core = new SessionCore({ id, agent: this.agent, kind, parentId, agentType, now });
+    this._now = typeof now === 'function' ? now : Date.now;
     const prefix = `${this.agent}-`;
     const sid = typeof id === 'string' ? id : '';
     this._conv = sid.startsWith(prefix) && sid.length > prefix.length ? sid.slice(prefix.length) : sid || this.agent;
@@ -77,6 +90,7 @@ export class AntigravitySession {
     this._cwdFallback = null; // replay 중에 본 첫 run_command Cwd
     this._final = false; // 열린 턴의 마지막 일이 도구 없는 말이다 (요약 상태 idle 이 턴을 닫을 수 있다)
     this._idleSeen = false; // 닫는 답보다 먼저 읽힌 요약 상태 idle: 그 답이 오면 턴을 바로 닫는다 (finding 7)
+    this._idleAt = 0; // 그 idle 을 받은 서버 시각: 닫는 답 없이 IDLE_STATUS_QUIET_MS 가 지나면 턴을 닫는다
     this._tasksShown = false;
     this._format = isObj(facts) && typeof facts.full === 'boolean' ? (facts.full ? 'full' : 'truncated') : null;
   }
@@ -129,6 +143,7 @@ export class AntigravitySession {
     const out = [];
     this._settle(out);
     for (const ev of this.core.idle(nowMs)) out.push(this._patch(ev));
+    this._idleEnd(nowMs, out);
     return out;
   }
 
@@ -140,7 +155,9 @@ export class AntigravitySession {
    * while the open turn's last work was a final say ends that turn now (turn_end end_turn, instead of waiting for the
    * quiet time). An 'idle' read before that answer (the summaries file and the transcript are read by separate loops) is
    * remembered: the next final say ends the turn at once, unless a USER_INPUT, a planner line with calls or a 'running'
-   * status comes first (P5e review finding 7). Before the attach replay has ended this builds state only (no events).
+   * status comes first (P5e review finding 7); when no closing answer comes, idle() ends the turn once that idle has
+   * stood for IDLE_STATUS_QUIET_MS without a new line (_idleEnd). Before the attach replay has ended this builds state
+   * only (no events).
    */
   setInfo(info) {
     const out = [];
@@ -157,7 +174,8 @@ export class AntigravitySession {
       this._idleSeen = false;
       this._feed([{ k: 'turn_end', reason: 'end_turn' }], !this._settled, out);
     } else if (status === 'idle') {
-      this._idleSeen = true; // 아직 닫는 답 전이다: 그 답이 오면 닫는다
+      if (!this._idleSeen) this._idleAt = this._now();
+      this._idleSeen = true; // 아직 닫는 답 전이다: 그 답이 오면 닫고, 오지 않으면 _idleEnd 가 닫는다
     } else if (status === 'running') {
       this._idleSeen = false;
     }
@@ -195,6 +213,22 @@ export class AntigravitySession {
   // schedule: the core has no lounge kind, so its tool_start gets the lounge room hint here (ADAPTERS 6.2)
   _patch(ev) {
     return ev.type === 'tool_start' && this._lounge.has(ev.toolUseId) ? { ...ev, room: 'lounge' } : ev;
+  }
+
+  // A turn that ends without a closing answer (interrupted, given up after an error): the delivered idle has stood for
+  // IDLE_STATUS_QUIET_MS and no line came since. The waiting calls end abandoned (_close), then turn_end end_turn; on a
+  // closed turn the core emits nothing for it. Once: the flag is cleared. A later line reopens the turn as usual (4.0.2).
+  _idleEnd(nowMs, out) {
+    if (!this._idleSeen || !Number.isFinite(nowMs)) return;
+    const since = Math.max(this.core.lastActivityMs, this._idleAt);
+    if (since <= 0 || nowMs - since < IDLE_STATUS_QUIET_MS) return;
+    this._idleSeen = false;
+    this._final = false;
+    const items = [];
+    const push = (item) => { items.push({ ...item, ts: nowMs }); };
+    this._close(push);
+    push({ k: 'turn_end', reason: 'end_turn' });
+    this._feed(items, false, out);
   }
 
   // End of the attach replay: the run_command Cwd fallback, when the metadata gave no workspace. Through setInfo, so it
