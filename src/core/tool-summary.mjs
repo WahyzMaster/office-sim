@@ -88,32 +88,9 @@ function innerScript(tokens) {
   return sawC && i < tokens.length ? tokens[i] : null;
 }
 
-/**
- * Does a bare option ('-n', '--project', no '=') sit between the program and its subcommand? Then the "subcommand" may be
- * that option's value ('kubectl -n prod-ns get' -> 'prod-ns'). Looks at the first segment holding both; not found -> true.
- */
-function optionBeforeSub(cmd, { program, sub }) {
-  for (const tokens of lex(cmd.slice(0, MAX_SCAN))) {
-    const p = tokens.findIndex((t) => baseName(t.replace(/^[({]+/, '')) === program);
-    const k = p < 0 ? -1 : tokens.indexOf(sub, p + 1);
-    if (k < 0) continue;
-    return tokens.slice(p + 1, k).some((t) => t.startsWith('-') && !t.includes('='));
-  }
-  return true;
-}
-
-/**
- * programOf (Claude Bash rule) plus one core-only rule: a subcommand after a bare option is dropped, because it may be the
- * option's value (a project, profile, namespace or host). Fail closed: 'git --no-pager log' shows only 'git'.
- */
-function programOfSafe(cmd) {
-  const parsed = programOf(cmd);
-  if (!parsed || !parsed.sub || !optionBeforeSub(cmd, parsed)) return parsed;
-  return { program: parsed.program, sub: '' };
-}
-
+// 값 없는 옵션 뒤의 하위 명령을 버리는 규칙은 programOf 자체에 있다 (CONTRACT 3.1): Claude Bash 와 같은 함수를 쓴다
 function fromString(cmd, depth) {
-  const parsed = programOfSafe(cmd);
+  const parsed = programOf(cmd);
   if (!parsed || depth >= MAX_UNWRAP || !SHELLS.has(parsed.program)) return parsed;
   // 'cd x && bash -lc "grep y"' 처럼 셸이 실제 프로그램일 때만 그 셸의 -c 문자열을 다시 본다
   for (const tokens of lex(cmd.slice(0, MAX_SCAN))) {
@@ -152,14 +129,14 @@ function fromArgv(argv) {
     if (joined.length > MAX_SCAN) break;
     joined += (joined ? ' ' : '') + shellQuote(t);
   }
-  return programOfSafe(joined);
+  return programOf(joined);
 }
 
 /**
  * Shell descriptor -> programOf result `{ program, sub } | null`. `argv` (array) wins over `command` (string, or an
  * array treated as argv; a one-element array with whitespace is a command string). `bash|sh|zsh [-l] -c "<script>"` is
- * unwrapped to programOf(script) (at most twice). Stricter than programOf: no program when argv[0] is not one, and no
- * subcommand after a bare option (optionBeforeSub).
+ * unwrapped to programOf(script) (at most twice). Stricter than programOf only for argv: no program when argv[0] is not
+ * one. A subcommand after a bare option is dropped by programOf itself (the same rule as Claude Bash).
  */
 export function shellProgram(desc) {
   if (desc === null || typeof desc !== 'object') return null;

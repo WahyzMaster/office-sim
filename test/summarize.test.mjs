@@ -76,8 +76,10 @@ describe('Bash', () => {
     ['export PATH=/opt/tools/bin:$PATH && make build', 'make build', 'server'],
     ['set -e; source .venv/bin/activate && pytest -q', 'pytest', 'server'],
     ['cd /Users/alice/proj || exit 1; dart analyze lib', 'dart analyze', 'server'],
-    ['git -C /Users/alice/repo log --oneline', 'git log', 'server'],
-    ['git -c user.name=alice commit -m "invented secret message"', 'git commit', 'server'],
+    // 값 없는 옵션(-C, -c) 뒤의 하위 명령은 버린다 (CONTRACT 3.1, 5). 예전 기대값 'git log' / 'git commit' 은 값에 '/' 나
+    // '=' 가 있어 걸러졌을 때만 맞았고, 같은 규칙이 'git -C repo log' 에서는 디렉터리 이름(경로)을 하위 명령으로 보여 줬다.
+    ['git -C /Users/alice/repo log --oneline', 'git', 'server'],
+    ['git -c user.name=alice commit -m "invented secret message"', 'git', 'server'],
     ['git "status"', 'git status', 'server'],
     ['git /Users/alice/repo', 'git', 'server'],
     ['git', 'git', 'server'],
