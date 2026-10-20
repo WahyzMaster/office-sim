@@ -124,7 +124,8 @@ export const ZERO_UUID                // '00000000-0000-0000-0000-000000000000',
   `mcp__claude-in-chrome__tabs_context_mcp|list_connected_browsers`, `mcp__Claude_Browser__tabs_context|preview_list`.
 - Summaries (all truncated by code point, never raw content):
   Bash/Monitor: `description` (<= 60) else program name (+ subcommand) after stripping leading `cd <dir> &&`
-  and `VAR=val` tokens and dropping tokens containing `/` or `=`. Read/Edit/Write/NotebookEdit: basename of
+  and `VAR=val` tokens and dropping tokens containing `/` or `=`; a subcommand after a bare option is dropped (rule
+  below). Read/Edit/Write/NotebookEdit: basename of
   `file_path` (Read adds ` L<offset>-<offset+limit>` when both numeric). Grep: `pattern` (<= 40) + basename(path).
   Glob: `pattern`. WebFetch/`*navigate`/preview_start: host. WebSearch/tavily_search: `query` (<= 60).
   Agent: `description` (+ ` · <subagent_type>` for built-ins general-purpose/Explore/Plan). Workflow:
@@ -140,6 +141,14 @@ export const ZERO_UUID                // '00000000-0000-0000-0000-000000000000',
   substitutions stay inside one token; heredoc bodies (`<<WORD`, `<<-WORD`, quoted or escaped delimiters, not `<<<`)
   are dropped, and a missing terminator drops the rest (fail closed); `<<` inside `$(( ))` or before a digit or `=`
   is a shift; an unquoted `#` at the start of a word starts a comment up to the newline.
+  Subcommand (only for the allow-listed CLIs): the first argument that is not a flag and holds no `/`, `\` or `=`.
+  A bare option before it (starts with `-`, no `=`: `-n`, `-C`, `--project`, also an attached `-nVALUE`) drops the
+  subcommand, because it may be that option's value (a project, account, profile, namespace, host or path):
+  `gcloud --project p run` -> `gcloud`, `kubectl -n ns get` -> `kubectl`, `git -C repo status` -> `git`, `npm --prefix
+  dir install` -> `npm`. Fail closed: `git --no-pager log` and `git -C /abs/repo log` also show only `git`. An option with
+  `=` keeps it (`kubectl --context=prod get` -> `kubectl get`), and so do options after it (`kubectl get -n ns` ->
+  `kubectl get`). Wrapper options are not in between (`sudo -u root git status` -> `git status`). This is the one shell
+  rule: the core `tool-summary` (4.0.2) calls the same `programOf`.
   `__unparsedToolInput` -> `<tool> (unparsed input)`. Unknown tools -> tool name.
 - `room` hint (only where the tool name alone is ambiguous): Bash/Monitor by program name: `grep rg ag find fd ls tree
   cat head tail less wc sed awk jq file stat du` -> `archive`; `curl wget http` -> `research`; anything else -> `server`.
@@ -425,12 +434,13 @@ Tool descriptor (`tool-summary`):
   <= 60 (search: `query` <= 40 `·` basename, like Claude Grep); `description` <= 60 (it wins for shell, agent, ask and
   other); every piece goes through `cleanText`. Command arguments, file contents, full paths, full URLs and patch
   bodies never reach it.
-- Shell rules stricter than Claude Bash (core only; `programOf` and Claude summaries are unchanged): a subcommand that
-  follows a bare option (`-n`, `--project`, no `=`) is dropped, because it may be that option's value (`kubectl -n
-  prod-ns get` -> `kubectl`, `gcloud --project p run` -> `gcloud`, also `git --no-pager log` -> `git`); `argv[0]` must be
-  a program (a non-empty string without whitespace, a program-like basename, not a shell keyword), otherwise there is no
-  program and the summary falls back to `description`, then the tool label, so an argument never takes its place; a
-  one-element `argv` that holds a whole command line is read as a command string.
+- Shell rules: a subcommand that follows a bare option (`-n`, `--project`, no `=`) is dropped, because it may be that
+  option's value (`kubectl -n prod-ns get` -> `kubectl`, `gcloud --project p run` -> `gcloud`, also `git --no-pager log`
+  -> `git`). That rule lives in `programOf` (3.1), so Claude Bash and the core share one function. Stricter than Claude
+  Bash (core only, for `argv`): `argv[0]` must be a program (a non-empty string without whitespace, a program-like
+  basename, not a shell keyword), otherwise there is no program and the summary falls back to `description`, then the
+  tool label, so an argument never takes its place; a one-element `argv` that holds a whole command line is read as a
+  command string.
 - `room` hint by `kind`: `read` / `search` -> `archive`, `edit` -> `dev`, `web` -> `research`, `ask` -> `desk`, `agent`
   -> `here`, `other` -> `here`. `shell` uses the program-name rule of Claude Bash (3.1): `grep`, `cat`, ... ->
   `archive`, `curl`, `wget`, `http` -> `research`, anything else -> `server`. MCP calls carry no room hint (the page
@@ -552,8 +562,8 @@ Review fixes (P5b review, each with a regression test that failed first; the API
 - R29 replay: an untimed item adds no growth; a malformed work item no longer revives an ended sub.
 - R28 `background` no longer turns an explicit failed / denied / interrupted `tool_end` into ok.
 - Section 5: injected prompts behind invisible characters are skipped; shell option values and arguments behind a
-  non-program `argv[0]` no longer become the summary (core-only rules above; the same option-value gap in Claude Bash
-  `programOf` is a follow-up in PLAN.md 9, because fixing it there changes Claude summaries).
+  non-program `argv[0]` no longer become the summary (rules above). The option-value rule first lived only in the core;
+  it now lives in `programOf` (3.1) and also covers Claude Bash/Monitor (`test/privacy-shell-options.test.mjs`).
 
 Tests: `test/core-tool-summary.test.mjs` and `test/core-session.test.mjs` hold one unit test per rule above, named after
 the rule; `test/core-session-fixes.test.mjs` holds the regression tests of the P5b review (turn order R30, system first

@@ -232,14 +232,23 @@ function parseSegment(tokens) {
   if (/[\\/]/.test(program)) program = baseName(program);
   if (!PROGRAM_RE.test(program)) return null;
   if (SETUP_PROGRAMS.has(program)) return { setup: program };
-  let sub = '';
-  if (SUB_PROGRAMS.has(program.toLowerCase())) {
-    // '/', '\', '=' 가 들어간 토큰은 버린 뒤 첫 번째 비플래그 토큰만 하위 명령 후보로 본다
-    const rest = tokens.slice(i + 1).filter((t) => !/[\\/=]/.test(t));
-    const cand = rest.find((t) => !t.startsWith('-'));
-    if (cand !== undefined && SUB_RE.test(cand)) sub = cand;
+  return { program, sub: SUB_PROGRAMS.has(program.toLowerCase()) ? subOf(tokens.slice(i + 1)) : '' };
+}
+
+/**
+ * Subcommand among the arguments: the first non-flag token without '/', '\' or '='. A bare option before it ('-n',
+ * '--project', '-C', no '=') drops it, because it may be that option's value (a project, profile, namespace, host or
+ * path; CONTRACT 3.1). Fail closed: 'git --no-pager log' has no subcommand either.
+ */
+function subOf(args) {
+  for (const t of args) {
+    if (t.startsWith('-')) {
+      if (!t.includes('=')) return '';
+    } else if (!/[\\/=]/.test(t)) {
+      return SUB_RE.test(t) ? t : '';
+    }
   }
-  return { program, sub };
+  return '';
 }
 
 /**
