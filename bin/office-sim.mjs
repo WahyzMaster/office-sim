@@ -28,6 +28,9 @@ try {
 }
 
 process.stdout.write(`office-sim: ${app.url}\n`);
+// 켜진 어댑터 (contract 4.0.1, D3). --agents 로 요청했지만 아직 없는 어댑터는 한 줄씩 알린다.
+process.stdout.write(`office-sim: agents ${app.agents.length ? app.agents.join(',') : 'none'}\n`);
+for (const id of app.notImplemented) process.stdout.write(`office-sim: ${id} is not implemented yet\n`);
 if (args.replay) process.stdout.write(`office-sim: replay ${args.speed ?? 1}x${args.loop ? ', loop' : ''}\n`);
 
 let stopping = false;

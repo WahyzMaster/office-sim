@@ -6,7 +6,7 @@ import { PlanBoard, UPDATE_PLAN } from './session-plan.mjs';
 import {
   projectKey, resultStatus, isUserRejected, firstSentence, firstLine, toolStart, systemFields, iso,
 } from './session-util.mjs';
-import { buildSessionEvent } from './session-identity.mjs';
+import { buildSessionEvent, CLAUDE_CODE_AGENT } from './session-identity.mjs';
 
 export { projectKey };
 
@@ -25,9 +25,10 @@ const FINAL_STOPS = new Set(['end_turn', 'stop_sequence', 'refusal']);
 export class SessionState {
   constructor({
     id, file = null, kind = 'main', stem = null, parentId = null, agentType = null, now = Date.now,
-    subMeta = null, journalLabel = null, fileTitle = null, parentProject = null,
+    subMeta = null, journalLabel = null, fileTitle = null, parentProject = null, agent = CLAUDE_CODE_AGENT,
   } = {}) {
     this.id = id;
+    this.agent = agent; // session.agent (4.0.1): the adapter id, 'claude-code' unless the Runner says otherwise
     this.file = file;
     this.kind = kind;
     this.stem = stem;
@@ -108,7 +109,7 @@ export class SessionState {
 
   sessionEvent() {
     return buildSessionEvent({
-      id: this.id, kind: this.kind, stem: this.stem, parentId: this.parentId, agentType: this.agentType,
+      id: this.id, agent: this.agent, kind: this.kind, stem: this.stem, parentId: this.parentId, agentType: this.agentType,
       info: this._info, meta: this._meta, firstPrompt: this._firstPrompt, firstCwd: this._firstCwd,
       lastCwd: this._lastCwd, branch: this._branch, worktreeState: this._worktreeState,
       worktreeSticky: this._worktreeSticky, ts: this._lastTs || iso(this._now()),

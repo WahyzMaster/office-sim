@@ -14,6 +14,9 @@ function errCode(err) {
 
 const MAX_POLL_BACKOFF_MS = 30_000; // 계속 실패하는 파일도 이 간격으로는 다시 읽어 본다
 
+// 세션 객체가 apply()/idle() 결과에 섞어 낸 내부 힌트 (4.0.1): { hint: 'end', charId }. 이벤트가 아니다.
+const isHint = (ev) => !!ev && typeof ev === 'object' && ev.hint !== undefined;
+
 export class Runner {
   constructor({ opts, deps, store, log }) {
     this.opts = opts;
@@ -31,6 +34,7 @@ export class Runner {
     this.closed = false;
     this.badLines = 0;
     this.applyErrors = 0;
+    this.scanErr = null; // 마지막 scan 실패 코드 (같은 오류는 한 번만 로그)
   }
 
   // 겹침 방지 + close 가 기다릴 수 있게 진행 중인 tick 을 기록한다.
@@ -107,7 +111,7 @@ export class Runner {
     } catch (err) {
       if (this.applyErrors++ < 20) this.log(`apply failed in ${path.basename(f.ref.path)}: ${errText(err)}`);
     }
-    if (!replay && Array.isArray(evs) && evs.length) this.store.ingest(f.ref.path, evs);
+    this.deliver(f, evs, !replay);
     try {
       this.store.observe(f.ref.path, rec);
       // R36: 서브의 TaskCreate/TaskUpdate 는 메인과 같은 작업 목록이다 (replay 에서도 상태로 넘긴다)
@@ -118,6 +122,42 @@ export class Runner {
     }
   }
 
+  // 세션 객체가 낸 배열을 나눈다: 이벤트는 (live 일 때) Store 로, 힌트는 빼서 Store 의 공통 끝 규칙으로 (4.0.1).
+  // 힌트는 replay 중에도 넘긴다 (다른 직원에 대한 사실이라 observe 와 같다). 힌트가 없으면 예전과 똑같이 ingest 한다.
+  deliver(f, evs, live) {
+    if (!Array.isArray(evs) || !evs.length) return;
+    if (!evs.some(isHint)) {
+      if (live) this.store.ingest(f.ref.path, evs);
+      return;
+    }
+    let batch = [];
+    for (const ev of evs) {
+      if (!isHint(ev)) {
+        batch.push(ev);
+        continue;
+      }
+      if (live && batch.length) this.store.ingest(f.ref.path, batch); // 배열 순서를 지킨다: 앞선 이벤트 먼저
+      batch = [];
+      if (ev.hint === 'end') this.store.endCharacter(ev.charId, ev.reason, this.deps.agent); // F3: 이 어댑터의 직원만
+    }
+    if (live && batch.length) this.store.ingest(f.ref.path, batch);
+  }
+
+  // FileRef.agent (4.0.1): 탐색이 채우지 않았으면 이 Runner 의 어댑터 id 를 적는다.
+  stamp(ref) {
+    if (ref && (typeof ref.agent !== 'string' || ref.agent === '') && typeof this.deps.agent === 'string') ref.agent = this.deps.agent;
+    return ref;
+  }
+
+  // G3: deps.agent 가 있는 Runner 는 모든 ref 에 그 id 를 적고, 다른 어댑터 id 를 단 ref 는 그 어댑터로 해석하지 않고
+  // 거절한다 (Store 의 거절 경로: 경로마다 한 줄, 경로 없이, 로그 앞머리는 이 Runner 의 id). deps.agent 가 없으면 예전 그대로.
+  admit(ref) {
+    this.stamp(ref);
+    const own = this.deps.agent;
+    if (typeof own !== 'string' || own === '' || ref?.agent === own) return true;
+    return this.store.rejectRef(ref, own, 'foreign agent');
+  }
+
   async rescanOnce() {
     const { scan } = this.deps;
     const nowMs = Date.now();
@@ -125,10 +165,19 @@ export class Runner {
     try {
       refs = await scan(this.opts.root, { activeMs: this.opts.activeMinutes * 60_000, nowMs });
     } catch (err) {
-      this.log(`scan failed: ${errText(err)}`); // 부분 목록으로 분리(detach)하지 않도록 이번 tick 은 통째로 건너뛴다
+      // 부분 목록으로 분리(detach)하지 않도록 이번 tick 은 통째로 건너뛴다. 로그는 poll 처럼 코드만, 코드가 바뀔 때만
+      // (루트 경로가 든 메시지를 rescan 마다 남기지 않는다).
+      const code = errCode(err);
+      if (code !== this.scanErr) this.log(`scan failed: ${code}`);
+      this.scanErr = code;
       return;
     }
+    if (this.scanErr) {
+      this.log('scan recovered');
+      this.scanErr = null;
+    }
     if (this.closed) return;
+    refs = refs.filter((ref) => this.admit(ref)); // G3: 다른 어댑터를 내세운 ref 는 신원도 해석하지 않는다
     const incoming = new Map();
     const pathByChar = new Map(); // 같은 캐릭터가 두 경로에 있으면 처음 것만
     for (const ref of refs) {
@@ -214,22 +263,24 @@ export class Runner {
     return true;
   }
 
-  // meta 는 jsonl 보다 늦게 생길 수 있고, wf 의 journal label 도 늦을 수 있다 (4.5)
+  // meta 는 jsonl 보다 늦게 생길 수 있고, wf 의 journal label 도 늦을 수 있다 (4.5). 읽는 함수는 Claude 어댑터의
+  // deps 에만 있고, Store 의 pendingMeta/pendingLabels 도 Claude 파일만 돌려준다.
   async retryMeta() {
-    for (const p of this.store.pendingMeta()) {
+    const { readSubMeta, readJournalLabels } = this.deps;
+    for (const p of typeof readSubMeta === 'function' ? this.store.pendingMeta() : []) {
       if (this.closed) return;
-      const meta = await this.deps.readSubMeta(p).catch(() => null);
+      const meta = await readSubMeta(p).catch(() => null);
       if (meta) this.store.setMeta(p, meta);
     }
     const byRun = new Map();
-    for (const item of this.store.pendingLabels()) {
+    for (const item of typeof readJournalLabels === 'function' ? this.store.pendingLabels() : []) {
       if (!item.runDir) continue;
       if (!byRun.has(item.runDir)) byRun.set(item.runDir, []);
       byRun.get(item.runDir).push(item);
     }
     for (const [runDir, items] of byRun) {
       if (this.closed) return;
-      const labels = await this.deps.readJournalLabels(runDir).catch(() => null);
+      const labels = await readJournalLabels(runDir).catch(() => null);
       for (const item of items) {
         const label = labels?.get?.(item.charId);
         if (label) this.store.setLabel(item.path, label);
@@ -242,12 +293,15 @@ export class Runner {
   // f.ready 는 publish 전까지 false: poll/idle 루프가 반쯤 만든 상태를 먼저 알리지 않게 한다.
   async prepare(ref) {
     const { SessionState, readSubMeta, readJournalLabels } = this.deps;
+    // G3 다른 어댑터를 내세운 ref, D2 (F2/G2) id 규칙을 어긴 ref: 세션 객체도 만들지 않는다. 로그와 카운터는 Store 가
+    if (!this.admit(ref) || !this.store.acceptsRef(ref)) return null;
     const id = this.store.identity(ref);
     this.tailer.forget(ref.path);
     let meta = null;
     let label = null;
-    if (id.kind !== 'main') meta = await readSubMeta(ref.path).catch(() => null);
-    if (id.kind === 'wf' && id.runDir && !meta?.name && !meta?.description) {
+    // 서브 meta.json 과 workflow journal label 은 Claude 어댑터만 읽는다 (deps 에 읽는 함수가 있을 때만)
+    if (id.kind !== 'main' && typeof readSubMeta === 'function') meta = await readSubMeta(ref.path).catch(() => null);
+    if (id.kind === 'wf' && id.runDir && !meta?.name && !meta?.description && typeof readJournalLabels === 'function') {
       label = (await readJournalLabels(id.runDir).catch(() => null))?.get?.(id.charId) ?? null;
     }
     if (this.closed) return null;
@@ -256,7 +310,7 @@ export class Runner {
       state = new SessionState({
         id: id.charId, file: ref.path, kind: id.kind, stem: ref.stem ?? id.sid,
         parentId: this.store.parentFor(ref, meta), agentType: meta?.agentType ?? null,
-        subMeta: meta, journalLabel: label,
+        subMeta: meta, journalLabel: label, agent: ref.agent,
       });
     } catch (err) {
       this.log(`session init failed for ${path.basename(ref.path)}: ${errText(err)}`);
@@ -266,7 +320,10 @@ export class Runner {
     this.files.set(ref.path, f);
     let res;
     try {
-      this.store.attachFile(ref, state, { meta, label });
+      if (!this.store.attachFile(ref, state, { meta, label })) { // 거절: 등록 없이 읽으면 이벤트가 주인 없이 나간다
+        this.files.delete(ref.path);
+        return null;
+      }
       // R7: 파일 전체를 replay 모드로 한 번 읽어 상태와 seen-uuid 를 만든다. 잘린 뒤 다시 붙이는 파일은 잘림을 본 순간의
       // 크기까지만 replay 하고, 그 뒤에 덧붙은 줄은 다음 poll 이 라이브로 낸다.
       const end = this.replayUntil.get(ref.path);
@@ -305,7 +362,7 @@ export class Runner {
   publish(f) {
     if (this.closed || this.files.get(f.ref.path) !== f) return;
     try {
-      f.state.idle(Date.now());
+      this.deliver(f, f.state.idle(Date.now()), false); // 이 파일의 이벤트는 버리고, 다른 직원에 대한 힌트만 넘긴다
     } catch (err) {
       if (this.applyErrors++ < 20) this.log(`idle failed in ${path.basename(f.ref.path)}: ${errText(err)}`);
     }
@@ -385,7 +442,7 @@ export class Runner {
       } catch (err) {
         if (this.applyErrors++ < 20) this.log(`idle failed in ${path.basename(f.ref.path)}: ${errText(err)}`);
       }
-      if (Array.isArray(evs) && evs.length) this.store.ingest(f.ref.path, evs);
+      this.deliver(f, evs, true);
     }
   }
 

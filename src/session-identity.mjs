@@ -51,8 +51,13 @@ export function publicSessionId(value) {
   return typeof value === 'string' && SESSION_ID_RE.test(value) ? value : null;
 }
 
-// 세션을 만든 코딩 에이전트의 고정 id. 이 모듈은 Claude Code 어댑터라 늘 'claude-code' 다
-// (다른 어댑터는 'codex', 'grok', 'antigravity' 를 보낸다. 화면 이름은 브라우저가 붙인다).
+/** D2: an id of a non-Claude adapter must fit the id rule and start with '<agent>-' (codex-, grok-, antigravity-). */
+export function agentScopedId(agent, value) {
+  return publicSessionId(value) !== null && typeof agent === 'string' && agent !== '' && value.startsWith(`${agent}-`);
+}
+
+// 세션을 만든 코딩 에이전트의 id. Claude Code 어댑터는 'claude-code' 이고, 이 값이 기본값이다
+// (다른 어댑터는 'codex', 'grok', 'antigravity' 를 s.agent 로 넘긴다. 화면 이름은 브라우저가 붙인다).
 export const CLAUDE_CODE_AGENT = 'claude-code';
 
 /** The `session` event from a plain view of SessionState fields. */
@@ -66,7 +71,7 @@ export function buildSessionEvent(s) {
     type: 'session',
     sessionId: s.id,
     ts: s.ts,
-    agent: CLAUDE_CODE_AGENT,
+    agent: s.agent ?? CLAUDE_CODE_AGENT,
     project,
     projectLabel: basename(project),
     title: isSub ? subTitle(s) : mainTitle(s),

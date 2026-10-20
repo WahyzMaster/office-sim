@@ -1,6 +1,7 @@
 # 멀티 에이전트 어댑터 설계안 (P5)
 
-- 상태: 설계안. 사용자 승인 전이며, 이 문서를 쓰면서 코드는 바꾸지 않았다.
+- 상태: 승인됨(2026-10-20). 11절의 결정 D1~D12 를 모두 추천안대로 승인했다. 구현은 9절 순서로 하고, 지금은
+  P5a(공통 분리)를 진행 중이다. 승인된 결정과 P5a 범위는 `docs/CONTRACT.md` 4.0.1절에 옮겼다.
 - 작성일: 2026-10-20
 - 기준 문서: `docs/CONTRACT.md` 2절(이벤트 스키마), 4.0절(어댑터 범위), 5절(개인정보)
 - 조사 근거: `docs/research/codex-format.json`, `docs/research/grok-format.json`, `docs/research/antigravity-format.json`
@@ -24,8 +25,8 @@
   셋은 "도구별 정규화 함수 + 공통 `SessionCore`" 로 만든다(3.2절).
 - 먼저 할 일: Store 에 섞인 Claude 서브에이전트 연결을 빼내는 리팩터(P5a). `store.mjs` 가 500줄 상한까지 4줄 남아
   있어서, 이것 없이는 어떤 어댑터도 붙일 수 없다.
-- 사용자가 정할 것: 11절 D1~D12. 가장 큰 것은 같은 폴더면 도구가 달라도 같은 층인지(D1), Antigravity 범위(D6),
-  Codex 의 자동 승인 검토 스레드와 code-mode 처리(D10), 구현 순서(D11)다.
+- 결정: 11절 D1~D12 는 2026-10-20 에 모두 추천안대로 승인됐다. 가장 큰 것은 같은 폴더면 도구가 달라도 같은 층인지(D1),
+  Antigravity 범위(D6), Codex 의 자동 승인 검토 스레드와 code-mode 처리(D10), 구현 순서(D11)다.
 
 ## 1. 범위와 전제
 
@@ -42,6 +43,8 @@
 - 범위 밖: Gemini CLI(`~/.gemini/tmp`, `~/.gemini/history`)는 Antigravity 와 다른 도구다. 필요하면 나중에 어댑터를 더한다.
 
 ## 2. 지금 구조: Claude 전용과 공통의 경계
+
+이 절의 줄 수와 분류는 P5a 전(master `7624a25`) 기준이다.
 
 이미 이음매가 하나 있다. `src/server.mjs` 의 `loadDeps()` 가 `{ SessionState, Tailer, scan, readSubMeta,
 readJournalLabels }` 를 `Runner` 에 주입한다. 어댑터 하나는 사실상 "이 deps 묶음 + agent id + 기록 루트"다.
@@ -211,7 +214,7 @@ flowchart LR
 | 선행 | `store.mjs` (496줄) | Claude 연결 메서드(`observe`, `onResult`, `onNotification`, `subByToolUse`, `endAgent` 일부, `taskDeltas`, `applyBufferedTasks`, `setMeta`, `setLabel`, `pendingMeta`, `pendingLabels`)를 `src/store-claude.mjs` 로 빼서 500줄 상한 여유를 만든다. 동작은 그대로(기존 테스트로 확인) |
 | 선행 | `session-identity.mjs` | `buildSessionEvent` 가 `s.agent ?? CLAUDE_CODE_AGENT` 를 쓰게 한다. `store.mjs patch()` 도 entry 의 agent 를 쓴다 |
 | 선행 | `store-link.mjs` `refIdentity` | ref 에 `agent` 가 있고 `claude-code` 가 아니면 ref 의 kind/sid/charId 를 그대로 쓴다 |
-| 선행 | `server-runner.mjs` | `prepare()` 의 meta/label 읽기를 `deps.readMeta` 가 있을 때만, `onLine` 은 그대로, rescan 끝에 `SidecarWatcher` 확인(3.3절), 어댑터가 낸 서브 종료 힌트를 Store 로 넘김(3.4절) |
+| 선행 | `server-runner.mjs` | `prepare()` 의 meta/label 읽기를 `deps.readMeta` 가 있을 때만, `onLine` 은 그대로, rescan 끝에 `SidecarWatcher` 확인(3.3절, P5c 로 옮김, 9절), 어댑터가 낸 서브 종료 힌트를 Store 로 넘김(3.4절) |
 | 선행 | `server.mjs`, `cli-args.mjs` | 어댑터 등록표, `RunnerGroup`, `--codex-root`, `--grok-root`, `--antigravity-root`, `--agents <id,...>`. `--root`/`--claude-root` 는 그대로 |
 | 새 파일 | `src/adapters/index.mjs`, `src/adapters/claude-code.mjs` | 등록표와 Claude 설명자 |
 | 새 파일 | `src/core/session-core.mjs`, `src/core/tool-summary.mjs`, `src/core/sidecar.mjs` | 3.2, 3.3절 |
@@ -482,13 +485,18 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 
 | 단계 | 내용 | 끝 조건 (검증) |
 |---|---|---|
-| P5a 공통 분리 | 4절 "선행" 줄 전부. `store.mjs` 에서 Claude 연결을 빼고, agent id 를 ref -> entry -> session 이벤트로 흐르게 하고, `RunnerGroup` 과 어댑터 등록표를 넣되 등록된 어댑터는 `claude-code` 하나. CLI 옵션은 받기만 한다 | 기존 `npm test` 전부 그대로 통과(테스트 수정 0개가 목표, 경로 import 가 바뀌는 곳만 예외). 새 테스트: agent id 흐름, 등록표, 루트가 없는 어댑터는 조용히 꺼짐. 실제 서버를 띄워 화면이 이전과 같은지 앱 브라우저로 확인 |
+| P5a 공통 분리 (진행 중) | 4절 "선행" 줄 전부(`SidecarWatcher` 는 빼고 P5c 로). `store.mjs` 에서 Claude 연결을 빼고, agent id 를 ref -> entry -> session 이벤트로 흐르게 하고, `RunnerGroup` 과 어댑터 등록표를 넣되 등록된 어댑터는 `claude-code` 하나. CLI 옵션은 받기만 한다 | 기존 `npm test` 전부 그대로 통과(테스트 수정 0개가 목표, 경로 import 가 바뀌는 곳만 예외). 새 테스트: agent id 흐름, 등록표, 루트가 없는 어댑터는 조용히 꺼짐. 실제 서버를 띄워 화면이 이전과 같은지 앱 브라우저로 확인 |
 | P5b `SessionCore` | `src/core/session-core.mjs`, `src/core/tool-summary.mjs` 와 그 단위 테스트(정규화 항목 -> 이벤트). 아직 어떤 어댑터도 쓰지 않는다 | 정규화 항목만으로 만든 합성 입력에서 스키마, dedupe, 도구 짝, 턴, 계획, 개인정보 테스트 통과 |
-| P5c Grok | 5.2절. 탐색(모든 cwd 그룹, `subagents/` 연결) + 정규화 + `summary.json` 메타 + 설명자 등록 | 10절의 공통 적합성 테스트 + Grok 전용 테스트. 지어낸 픽스처를 시간차로 덧붙이는 스크립트로 라이브 화면 확인(Claude 와 Grok 직원이 같은 층에 섞여 보임). 실제 Grok 세션 하나를 띄워 덧붙이는 단위 확인(8.1절 11번) |
+| P5c Grok | 5.2절. 탐색(모든 cwd 그룹, `subagents/` 연결) + 정규화 + `summary.json` 메타 + 설명자 등록. `SidecarWatcher`(`src/core/sidecar.mjs`, 3.3절)도 이 단계에서 만든다 | 10절의 공통 적합성 테스트 + Grok 전용 테스트. 지어낸 픽스처를 시간차로 덧붙이는 스크립트로 라이브 화면 확인(Claude 와 Grok 직원이 같은 층에 섞여 보임). 실제 Grok 세션 하나를 띄워 덧붙이는 단위 확인(8.1절 11번) |
 | P5d Codex | 5.1절, 6.3절. guardian 숨김, code-mode, 서브에이전트 문맥 건너뛰기, `session_index.jsonl` 제목 | P5c 와 같음. 추가로 0.142 이전(`exec_command`, `update_plan`)과 이후(code-mode) 픽스처 둘 다 |
 | P5e Antigravity CLI | 5.3절. 위치 짝짓기, `USER_REQUEST` 꺼내기, 요약 proto varint 해석(결정 D6 범위 안에서) | P5c 와 같음. 옛 도구 이름과 새 도구 이름 픽스처 둘 다 |
 | P5f 문서 | `CONTRACT.md` 에 어댑터별 절, `README.md` 지원 표와 옵션, `PLAN.md` 진행 기록 | 문서와 `--help` 출력이 맞음 |
 | (선택) P5g Grok 승인 대기 | `events.jsonl` 을 함께 읽어 라이브 승인 대기(결정 D7) | CONTRACT 7절 갱신 + 순서 짝짓기 회귀 테스트 |
+
+- `SidecarWatcher`(3.3절)는 P5a 에서 P5c 로 옮겼다(2026-10-20). 처음 쓰는 곳이 Grok 의 `summary.json` 이고, P5a 에는
+  등록된 어댑터가 `claude-code` 하나뿐이라 다시 읽을 메타 파일이 없다.
+- P5a 의 정확한 범위(등록표, 설명자, agent id 흐름, `Store.endCharacter`, `{ hint: 'end', charId }` 항목, CLI 옵션과
+  출력)는 `docs/CONTRACT.md` 4.0.1절과 6절이 기준이다. 3.1절의 설명자 모양과 3.4절의 종료 힌트 모양은 그 전의 제안이다.
 
 ## 10. 테스트 전략
 
@@ -511,11 +519,12 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 - 화면 확인: 지어낸 픽스처를 시간차로 임시 파일에 덧붙이는 작은 스크립트(테스트 도우미)로 라이브 모드를 흉내 내고,
   앱 브라우저에서 HUD 의 `에이전트` 칸과 방 이동을 본다.
 
-## 11. 승인할 결정 목록
+## 11. 결정 목록 (승인됨)
 
-각 결정에 추천을 적었다. 승인되면 CONTRACT 에 옮기고 P5a 를 시작한다.
+2026-10-20 에 모든 결정을 추천안대로 승인했다. 승인된 결정은 `docs/CONTRACT.md` 4.0.1절에 옮겼고 P5a 를 시작했다.
+대안 칸은 채택하지 않은 안을 기록으로 남긴 것이다.
 
-| # | 결정 | 추천 | 대안 |
+| # | 결정 | 승인된 결정 (추천안) | 대안 (채택 안 함) |
 |---|---|---|---|
 | D1 | 같은 작업 폴더면 도구가 달라도 같은 층인가. 도구 전용 워크트리(`~/.codex/worktrees/<id>/<name>`, Grok 문서의 `~/.grok/worktrees/<repo>/<name>`)는 어느 층인가 | 같은 층. `projectKey` 를 모든 어댑터가 같이 쓴다. 도구 전용 워크트리는 이름(`<name>`, `<repo>`)과 basename 이 같은 층이 이미 있으면 그 층, 없으면 자기 층(어림 규칙이라 HUD 에 워크트리 배지) | 도구마다 층을 따로(같은 저장소가 여러 층) |
 | D2 | 직원 id 가 도구끼리 겹치지 않게 하는 방법 | Claude 는 그대로, 나머지는 `codex-`, `grok-`, `antigravity-` 접두사(`:` 는 id 규칙에 안 맞는다) | 모든 도구에 접두사(Claude 도 바뀌어 예전 링크와 테스트가 깨진다) |
