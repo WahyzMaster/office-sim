@@ -38,6 +38,7 @@ if (benchMode) {
   // partial: 서버가 아직 파일을 붙이는 중이라 빠진 세션이 있을 수 있다는 표시(있으면 퇴근시키지 않는다).
   source.onSnapshot = (events, msg) => office.applySnapshot(events, { partial: !!msg?.partial });
   source.onConfig = (msg) => hud.applyConfig(cfg, msg);
+  source.onObserve = (msg) => hud.observe.apply(msg); // 기록 관찰 상태(서버가 기능을 켰을 때만 온다)
   source.onBatch = (n) => hud.flashTail(n);
   hud.setLive(true);
   hud.setSource('retry');

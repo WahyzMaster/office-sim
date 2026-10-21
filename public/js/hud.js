@@ -1,5 +1,6 @@
-// 화면 가장자리 패널: 엘리베이터(층 선택), 활동 기록, 범례, 직원 상세.
+// 화면 가장자리 패널: 엘리베이터(층 선택), 활동 기록, 범례, 직원 상세, 기록 관찰(observe-panel.js).
 import { ROOMS } from './rooms.js';
+import { ObservePanel } from './observe-panel.js';
 
 export const STORE = 'office-sim:v1';
 export const LEGACY_STORE = 'claude-office:v1'; // 이름을 바꾸기 전(claude-office) 키. 한 번만 옮겨 오고 지우지 않는다.
@@ -67,6 +68,8 @@ export class Hud {
     this.pings = new Map();
     this.statT = 0;
     this.buildLegend();
+    // 라이브 서버가 observe 메시지를 보내기 전에는 숨어 있다(데모·벤치에서는 끝까지 숨는다).
+    this.observe = new ObservePanel($('toggle-observe'), $('observe'), { announce: $('observe-announce') });
   }
 
   bind(office, cfg, getSource) {
@@ -145,7 +148,10 @@ export class Hud {
     });
   }
 
-  setLive(live) { this.el.speed.hidden = live; }
+  setLive(live) {
+    this.el.speed.hidden = live;
+    this.observe.setLive(live);
+  }
 
   // 서버가 알려 준 tail 간격을 입력칸과 부제에 반영한다(저장된 개인 설정보다 서버 값이 우선).
   applyConfig(cfg, msg) {
@@ -167,6 +173,7 @@ export class Hud {
 
   setSource(state) {
     if (state === 'live' && this.replay) state = 'replay';
+    this.observe.setConnected(state !== 'retry'); // 기록 관찰: 끊긴 동안 받은 상태는 낡았다(시계와 버튼을 세운다)
     this.el.source.dataset.state = state;
     this.el.source.querySelector('span').textContent = state === 'replay' ? replayText(this.replay) : SOURCE[state] || state;
     this.el.source.title = state === 'demo' || state === 'down'
@@ -303,6 +310,7 @@ export class Hud {
     this.statT -= realDt;
     if (this.statT > 0) return;
     this.statT = 0.5;
+    this.observe.tick();
     this.floorStats(office);
     if (office.selected) this.inspect(office.selected, office);
   }

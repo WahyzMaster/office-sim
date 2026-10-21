@@ -10,8 +10,10 @@ import { createHttp, validInterval, MIN_INTERVAL, MAX_INTERVAL } from './server-
 import { Runner } from './server-runner.mjs';
 import { newToken } from './server-guard.mjs';
 import { ADAPTERS, KNOWN_AGENTS, checkAgents, isKnownAgent, probeRoot, probeWithin, selectAdapters } from './adapters/index.mjs';
+import { ObserveControl } from './observe/control.mjs';
 
 const CLAUDE = 'claude-code';
+const OBSERVED = Object.freeze(['grok', 'codex']); // 기록 관찰이 보는 어댑터 (observe-spec)
 /** D1 startup order: how long a Runner with a floor rule waits for the other Runners' first rescan at most. */
 export const FIRST_PASS_WAIT_MS = 10_000;
 
@@ -19,7 +21,7 @@ export const DEFAULTS = Object.freeze({
   port: 4317, host: '127.0.0.1', intervalMs: 250, activeMinutes: 30, rescanMs: 3000,
   idleMs: 1000, pingMs: 15000, ringSize: 1000, auth: false, replay: null, speed: 1, loop: false,
   root: path.join(os.homedir(), '.claude', 'projects'),
-  agents: null, roots: null,
+  agents: null, roots: null, observeDir: null,
   publicDir: fileURLToPath(new URL('../public/', import.meta.url)),
 });
 export const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -50,6 +52,7 @@ function validate(o) {
   if (o.replay !== null && (typeof o.replay !== 'string' || o.replay === '')) throw new RangeError('replay must be a file path');
   if (!(Number.isFinite(o.speed) && o.speed >= 0.1 && o.speed <= 1000)) throw new RangeError('speed must be 0.1..1000');
   if (typeof o.loop !== 'boolean') throw new RangeError('loop must be a boolean');
+  if (o.observeDir !== null && (typeof o.observeDir !== 'string' || o.observeDir === '')) throw new RangeError('observeDir must be a folder path');
   if (o.agents !== null) checkAgents(o.agents); // 모르는 id 는 RangeError
   if (o.roots !== null) {
     if (typeof o.roots !== 'object' || Array.isArray(o.roots)) throw new RangeError('roots must be an object { <agent id>: <dir> }');
@@ -70,7 +73,8 @@ const agentRank = (id) => {
 /**
  * One Runner per enabled adapter (ADAPTERS.md 3.5), all sharing one Store and one HTTP layer. Forwards the loop
  * controls to every Runner and sums their counters. With no Runner it is an empty office.
- * `late` (F1, optional): { waiting: [{ id, root }], probe, probeTimeoutMs, rescanMs, activate(id, root) -> Runner, log }.
+ * `late` (F1, optional): { waiting: [{ id, root }], probe, probeTimeoutMs, rescanMs, activate(id, root) -> Runner, log,
+ * onEnabled?(id) (called once the new Runner is in the group) }.
  * Every rescan period the waiting roots are checked again (same probe and time limit as at start); a root that can be
  * opened now gets its Runner, in KNOWN_AGENTS order, with the loops already running.
  */
@@ -167,6 +171,11 @@ export class RunnerGroup {
         runner.startLoops();
         void runner.rescan();
       }
+      try {
+        this.late.onEnabled?.(w.id); // 기록 관찰: 볼 수 있는 루트가 늘었다
+      } catch {
+        // 알림 실패는 어댑터 켜기를 막지 않는다
+      }
       on.push(w.id);
     }
     if (!this.waiting.length) this.stopRecheck();
@@ -211,7 +220,7 @@ function rootsFor(opts, adapters) {
 }
 
 // 켤 어댑터를 고르고 (D3) Runner 를 만든다. 각 Runner 는 자기 루트와 자기 opts 복사본을 가진다.
-async function createRunners({ opts, store, log, onStatus }) {
+async function createRunners({ opts, store, log, onStatus, onEnabled }) {
   const adapters = opts.adapters ?? ADAPTERS; // 테스트 훅: 등록표를 바꿔 끼운다
   if (opts.replay) {
     // 재생(6.1)은 Claude Code 만 (D12): 루트를 확인하지 않고 (--claude-root 는 재생에 쓰지 않는다) --agents 와 무관하다
@@ -242,9 +251,26 @@ async function createRunners({ opts, store, log, onStatus }) {
   for (const { id, root } of sel.enabled) entries.push({ id, runner: await activate(id, root) });
   const late = {
     waiting: sel.off.map(({ id }) => ({ id, root: roots[id] })),
-    probe, probeTimeoutMs: opts.probeTimeoutMs, rescanMs: opts.rescanMs, activate, log,
+    probe, probeTimeoutMs: opts.probeTimeoutMs, rescanMs: opts.rescanMs, activate, log, onEnabled,
   };
   return { group: new RunnerGroup(entries, late), notImplemented: sel.notImplemented };
+}
+
+// 기록 관찰이 볼 루트: 지금 켜진 grok / codex Runner 의 루트 (Runner 가 쓰는 절대 경로, 늦게 켜진 어댑터 포함 F1).
+// 재생 모드의 묶음은 Claude Code 뿐이라 비어 있다 (available false).
+function observeRoots(group) {
+  const out = {};
+  for (const { id, runner } of group.entries) {
+    if (OBSERVED.includes(id) && typeof runner?.opts?.root === 'string') out[id] = runner.opts.root;
+  }
+  return out;
+}
+
+// 시험 훅 observeTiming { intervalMs, rescanMs, notifyMs }: 숫자인 것만 ObserveControl 에 넘긴다
+function observeTiming(t) {
+  const out = {};
+  for (const k of ['intervalMs', 'rescanMs', 'notifyMs']) if (Number.isFinite(t?.[k]) && t[k] > 0) out[k] = t[k];
+  return out;
 }
 
 /**
@@ -253,9 +279,11 @@ async function createRunners({ opts, store, log, onStatus }) {
  *   agents (adapter ids to enable, default: every implemented adapter whose root exists), roots ({ <agent id>: dir }
  *   for the non-Claude adapters; one without a root here is not started, the bin passes defaultRoots()), auth (opt-in
  *   per-run token: every route then needs the cookie that GET /?t=<token> sets), replay (a main transcript path: replay it instead of tailing --root), speed (replay factor), loop (replay
- *   again). Test hooks: deps (claude-code deps override; a fake scan also skips the root check), adapters (registry
- *   override), probe ((root, id) => error code | null, replaces the root check), probeTimeoutMs (root check time
- *   limit, default 2000), replayTiming ({ maxGapMs, holdMs, restartMs, statusMs }).
+ *   again), observeDir (live log observation output folder: turns on GET/POST /observe and the `observe` SSE message;
+ *   absent = feature off, nothing changes). Test hooks: deps (claude-code deps override; a fake scan also skips the
+ *   root check), adapters (registry override), probe ((root, id) => error code | null, replaces the root check),
+ *   probeTimeoutMs (root check time limit, default 2000), replayTiming ({ maxGapMs, holdMs, restartMs, statusMs }),
+ *   observeTiming ({ intervalMs, rescanMs, notifyMs } of the observation loop).
  * @returns {Promise<{ url: string, token: string|null, port: number, store: Store, ready: Promise, close: () => Promise<void>,
  *   agents: string[], notImplemented: string[], stats: () => object }>}
  *   With auth, `url` is the one to open: http://<host>:<port>/?t=<token>. `agents`: the enabled adapter ids, read
@@ -268,13 +296,23 @@ export async function start(options = {}) {
   opts.root = path.resolve(expandHome(opts.root));
   opts.publicDir = path.resolve(expandHome(opts.publicDir));
   if (typeof opts.replay === 'string' && opts.replay !== '') opts.replay = path.resolve(expandHome(opts.replay));
+  if (typeof opts.observeDir === 'string' && opts.observeDir !== '') opts.observeDir = path.resolve(expandHome(opts.observeDir));
   validate(opts);
   const log = typeof opts.log === 'function' ? opts.log : () => {};
   // seq 는 시각에서 시작한다: 서버를 다시 띄워도 예전 Last-Event-ID 가 새 링과 겹치지 않는다
   const store = new Store({ log, ringSize: opts.ringSize, seqStart: opts.seqStart ?? Date.now() });
   // 재생 모드(P3): tail 루프 대신 지난 세션 파일을 기록 시각대로 흘려보내는 Runner. 상태가 바뀌면 config 로 알린다.
   let httpLayer = null;
-  const { group, notImplemented } = await createRunners({ opts, store, log, onStatus: () => httpLayer?.broadcastConfig() });
+  let observe = null;
+  const { group, notImplemented } = await createRunners({
+    opts, store, log, onStatus: () => httpLayer?.broadcastConfig(),
+    // 늦게 켜진 grok / codex 루트는 관찰 상태(available, agents)를 바꾼다: 열린 페이지에 바로 알린다
+    onEnabled: (id) => { if (observe && OBSERVED.includes(id)) httpLayer?.broadcastObserve(observe.status()); },
+  });
+  // 기록 관찰 (observe-spec): observeDir 이 있을 때만 켠다. 없으면 /observe 경로도 observe 메시지도 없다 (예전 그대로).
+  if (opts.observeDir) {
+    observe = new ObserveControl({ roots: () => observeRoots(group), dir: opts.observeDir, ...observeTiming(opts.observeTiming) });
+  }
   const replayRunner = opts.replay ? group.runners[0] : null;
   const config = () => ({
     intervalMs: opts.intervalMs, activeMinutes: opts.activeMinutes, ...(replayRunner ? { replay: replayRunner.replayStatus() } : {}),
@@ -294,8 +332,11 @@ export async function start(options = {}) {
     },
     stats: () => ({ files: group.fileCount, sessions: store.sessionCount, agents: group.ids }),
     authToken: token,
+    observe,
     log,
   });
+  // 시작, 끝, 진행(바뀌었을 때 1초에 한 번까지)을 SSE 로 알린다. config 처럼 제어 메시지라 Store 와 링에는 없다.
+  if (observe) observe.onChange = (status) => httpLayer.broadcastObserve(status);
   const server = http.createServer(httpLayer.handler);
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -312,7 +353,8 @@ export async function start(options = {}) {
   let closing = null;
   const close = () => {
     closing ??= (async () => {
-      await group.close();
+      // 관찰 중이면 요약을 쓰고 닫는다. 끝 상태는 아직 붙어 있는 페이지에 알린 뒤 SSE 를 닫는다.
+      await Promise.all([observe ? observe.close().catch(() => {}) : null, group.close()]);
       httpLayer.closeAll();
       await new Promise((resolve) => {
         server.close(() => resolve());
