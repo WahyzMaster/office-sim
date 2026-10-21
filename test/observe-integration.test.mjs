@@ -131,7 +131,12 @@ async function runBin(args) {
   let out = '';
   child.stdout.on('data', (b) => { out += b; });
   const exited = new Promise((resolve) => child.on('exit', (code) => resolve(code)));
-  await until(() => /office-sim: agents /.test(out), 5000);
+  try {
+    await until(() => /office-sim: agents /.test(out), 5000);
+  } catch (err) {
+    child.kill('SIGKILL'); // 남겨 두면 그 파이프가 테스트 파일을 끝나지 못하게 붙잡는다 (느린 러너에서 멈춤)
+    throw err;
+  }
   const port = Number(/^office-sim: http:\/\/127\.0\.0\.1:(\d+)\//m.exec(out)[1]);
   return { port, stop: async () => { child.kill('SIGINT'); return exited; } };
 }
