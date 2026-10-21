@@ -170,12 +170,17 @@ test('deletion errors are skipped per file and never break the start; a folder l
   await b.ctl.stop();
 });
 
-test('a retention step stuck on a stalled folder is waited for at most stopWaitMs', async () => {
+test('a retention step stuck on a stalled folder is waited for at most stopWaitMs', { timeout: 10_000 }, async () => {
   const dir = path.join(await T.tmp(), '.observe');
   let release;
+  let entered;
+  const stalled = new Promise((r) => { entered = r; });
   const fsImpl = Object.assign(Object.create(null), fsp, {
     readdir: async (p, ...a) => {
-      if (String(p) === dir) await new Promise((r) => { release = r; });
+      if (String(p) === dir) {
+        entered();
+        await new Promise((r) => { release = r; });
+      }
       return fsp.readdir(p, ...a);
     },
   });
@@ -183,7 +188,9 @@ test('a retention step stuck on a stalled folder is waited for at most stopWaitM
   const { ctl } = await control(dir, { fsImpl, timers });
   let done = false;
   const starting = ctl.start().then((s) => { done = true; return s; });
-  for (let i = 0; i < 50 && timers.pending < 1; i++) await new Promise((r) => setImmediate(r));
+  // 정해진 횟수만큼 돌며 기다리지 않는다 (느린 러너에서는 그 사이 start 의 파일 작업이 끝나지 않는다): 보관 단계가
+  // 폴더 목록에 들어온 때를 기다린다. _settle 의 타이머는 그와 같은 동기 흐름에서 걸린다.
+  await stalled;
   assert.deepEqual(timers.delays, [1500], 'only the bounded wait: the first tick comes after the retention step');
   assert.equal(done, false);
   await timers.fire(); // 기다림의 끝
