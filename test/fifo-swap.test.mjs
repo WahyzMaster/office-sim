@@ -14,6 +14,7 @@ import { SidecarWatcher } from '../src/core/sidecar.mjs';
 import { SessionIndex, INDEX_FILE } from '../src/adapters/codex/titles.mjs';
 import { readLine0 } from '../src/adapters/codex/line0.mjs';
 import { createLineCounter } from '../src/adapters/antigravity/discover.mjs';
+import { Tailer } from '../src/tailer.mjs';
 
 const SKIP = process.platform === 'win32' ? 'no mkfifo on Windows' : false;
 const tmpDirs = [];
@@ -99,4 +100,42 @@ test('Codex SessionIndex, readLine0 and the Antigravity line counter: a swapped-
   const lc = await setup('transcript.jsonl');
   lc.swap();
   assert.deepEqual(await settles(lc.target, () => createLineCounter().count(lc.target, lc.st, 1024)), { lines: null, used: 0 });
+});
+
+// the shared Tailer (every adapter's transcript): readAll of a path that is a FIFO by then, and poll when the FIFO takes
+// the place of the attached file between its stat and its open (O_NONBLOCK on both opens, the follow-up of finding 9)
+test('Tailer (all adapters): a FIFO at the path at attach, or swapped in between poll stat and open, does not block', { skip: SKIP }, async () => {
+  for (const noFollow of [false, true]) {
+    const at = await setup('updates.jsonl');
+    at.swap();
+    const lines = [];
+    const r = await settles(at.target, () => new Tailer({ noFollow }).readAll({ path: at.target, ino: at.st.ino }, (l) => lines.push(l)));
+    assert.notEqual(r, 'blocked', `readAll noFollow=${noFollow}`);
+    assert.deepEqual(lines, [], 'nothing read from the FIFO');
+    if (noFollow) assert.equal(r.gone, true, 'noFollow: not the regular file the scan saw');
+
+    const p = await setup('updates.jsonl');
+    const t = new Tailer({ noFollow });
+    const seen = [];
+    await t.readAll({ path: p.target, ino: p.st.ino }, (l) => seen.push(l));
+    await fsp.appendFile(p.target, '{"k":"more"}\n'); // grown: poll will open it
+    const orig = fsp.stat;
+    let done = false;
+    fsp.stat = async function raced(q, ...rest) {
+      const st = await orig.call(this, q, ...rest);
+      if (q === p.target && !done) {
+        done = true;
+        p.swap();
+      }
+      return st;
+    };
+    try {
+      const pr = await settles(p.target, () => t.poll({ path: p.target }, (l) => seen.push(l)));
+      assert.notEqual(pr, 'blocked', `poll noFollow=${noFollow}`);
+      assert.equal(pr.reset, true, 'another inode at the path: reset, nothing read');
+    } finally {
+      fsp.stat = orig;
+    }
+    assert.equal(seen.length, 1, 'only the line read at attach');
+  }
 });

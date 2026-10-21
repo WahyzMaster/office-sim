@@ -10,12 +10,16 @@
 // - noFollow (opt-in, the Antigravity deps; off by default, so Claude, Codex and Grok read as before): readAll() opens
 //   with O_NOFOLLOW and attaches only the regular file the scan lstat-ed (ref.ino when the ref has one); a link or
 //   another file at the path is `gone`. poll() needs no change: it only reads the inode readAll() attached.
+// - Both opens add O_NONBLOCK: a FIFO put at the path (before an attach, or between poll's stat and open) would block
+//   open(2) with no writer and hang the read. Regular-file reads do not change; a FIFO opens at once and reads
+//   nothing (size 0, another inode: reset; noFollow: not a regular file, gone).
 
 import { constants as FS } from 'node:fs';
 import fsp from 'node:fs/promises';
 import { setImmediate as yieldToLoop } from 'node:timers/promises';
 
 const NL = 0x0a;
+const READ = FS.O_RDONLY | (FS.O_NONBLOCK ?? 0);
 
 function isThenable(v) {
   return v !== null && (typeof v === 'object' || typeof v === 'function') && typeof v.then === 'function';
@@ -99,7 +103,7 @@ export class Tailer {
       this.#files.delete(p);
       let fh;
       try {
-        fh = await fsp.open(p, this.#noFollow ? FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) : 'r');
+        fh = await fsp.open(p, this.#noFollow ? READ | (FS.O_NOFOLLOW ?? 0) : READ);
       } catch (err) {
         if (err && err.code === 'ENOENT') return { offset: 0, skipped: 0, gone: true };
         if (this.#noFollow && (err?.code === 'ELOOP' || err?.code === 'EMLINK')) return { offset: 0, skipped: 0, gone: true };
@@ -149,7 +153,7 @@ export class Tailer {
       if (st.size === state.offset) return { bytes: 0 };
       let fh;
       try {
-        fh = await fsp.open(p, 'r');
+        fh = await fsp.open(p, READ);
       } catch (err) {
         if (err && err.code === 'ENOENT') return { gone: true };
         throw err;
