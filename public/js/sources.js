@@ -1,7 +1,8 @@
 // 이벤트 공급원. 둘 다 같은 이벤트 스키마를 emit(ev) 로 흘려보낸다.
 // - MockSource: 아티팩트용 가짜 세션(모든 경로/이름/내용은 예시 데이터). 네 에이전트(Claude Code, Codex, Grok,
 //   Antigravity)가 섞여 일한다. 도구 이름과 방은 각 어댑터가 실제로 보내는 것(CONTRACT 4.6~4.8 도구 표)을 따른다.
-// - LiveSource: 로컬 서버의 GET /events (SSE) 와 POST /config.
+// - LiveSource: 로컬 서버의 GET /events (SSE) 와 POST /config. SSE 의 observe 메시지는 onObserve 로 넘긴다
+//   (기록 관찰 패널, observe-panel.js 가 POST /observe 를 보낸다).
 
 const STATUS = ['pending', 'in_progress', 'completed'];
 
@@ -304,6 +305,7 @@ export class LiveSource {
         if (this.onSnapshot) this.onSnapshot(msg.events || [], msg);
         else for (const ev of msg.events || []) this.emit({ ...ev, replay: true });
       } else if (msg.type === 'config') this.onConfig?.(msg);
+      else if (msg.type === 'observe') this.onObserve?.(msg); // 기록 관찰 상태: config 처럼 제어 메시지라 사무실로 보내지 않는다
       else {
         this.emit(msg);
         this.count(1);

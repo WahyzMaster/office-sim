@@ -11,6 +11,9 @@ const JS_RE = /^\/js\/([a-z0-9_-]+)\.js$/;
 const MAX_BODY = 4096;
 const DRAIN_LIMIT = 1024 * 1024; // 413 뒤에 버리며 읽는 상한: 넘게 보내면 연결을 끊는다
 const DATA_ROUTES = new Set(['/events', '/state', '/config']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
+const OBSERVE_ROUTES = new Set([...DATA_ROUTES, '/observe']); // 기록 관찰이 켜졌을 때만
+const OBSERVE_ACTIONS = new Set(['start', 'stop']);
+const ERROR_CODE_RE = /^E[A-Z0-9_]{1,31}$/;
 const MAX_BUFFERED = 8 * 1024 * 1024; // 느린 클라이언트는 끊고 Last-Event-ID 로 다시 붙게 한다
 export const MIN_INTERVAL = 50;
 export const MAX_INTERVAL = 5000;
@@ -72,12 +75,15 @@ function readBody(req, limit) {
 
 /**
  * @param {{ store, publicDir: string, pingMs: number, getPort: () => number,
- *           getConfig: () => object, setConfig: (patch) => object, stats: () => object, log: Function }} o
+ *           getConfig: () => object, setConfig: (patch) => object, stats: () => object, log: Function,
+ *           observe?: { status(): object, start(): Promise<object>, stop(): Promise<object> } | null }} o
+ *   observe: the live log observation control (ObserveControl). null = feature off: no /observe route, no observe frame.
  */
-export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, stats, authToken = null, log = () => {} }) {
+export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, stats, authToken = null, observe = null, log = () => {} }) {
   const clients = new Set();
   const auth = createAuth(authToken, getPort);
   const csp = cspCache();
+  const dataRoutes = observe ? OBSERVE_ROUTES : DATA_ROUTES;
 
   function hostAllowed(req) {
     const port = getPort();
@@ -149,6 +155,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
       write(sseFrame(snap.seq, { type: 'snapshot', events: snap.events }));
     }
     write(sseFrame(store.seq, { type: 'config', ...getConfig() }));
+    if (observe) write(sseFrame(store.seq, { type: 'observe', ...observe.status() }));
     if (client.closed) return;
     store.subscribe(listener);
     clients.add(client);
@@ -159,13 +166,20 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     res.on('error', drop);
   }
 
-  function broadcastConfig() {
-    const frame = sseFrame(store.seq, { type: 'config', ...getConfig() });
+  // 제어 메시지 (config, observe): Store 와 링에 넣지 않고 지금 붙어 있는 페이지에만 보낸다
+  function broadcast(msg) {
+    const frame = sseFrame(store.seq, msg);
     for (const c of [...clients]) {
       if (c.closed) continue;
       c.res.write(frame);
       if (c.res.writableLength > MAX_BUFFERED) c.drop();
     }
+  }
+
+  const broadcastConfig = () => broadcast({ type: 'config', ...getConfig() });
+
+  function broadcastObserve(status = observe?.status()) {
+    if (observe && status) broadcast({ type: 'observe', ...status });
   }
 
   // 설정 변경은 같은 출처에서만: Origin 이 있으면 Host 헤더와 같은 출처(http://<Host>)여야 한다.
@@ -176,27 +190,53 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     return String(origin).toLowerCase() === `http://${String(req.headers.host ?? '').toLowerCase()}`;
   }
 
-  async function postConfig(req, res) {
-    if (!sameOrigin(req)) return sendJson(res, 403, { error: 'cross-origin request' });
+  // POST 본문의 공통 검사 (/config, /observe): 같은 출처, JSON 형식, 크기, 파싱. 통과하면 { body }, 아니면 답을 보내고 null.
+  async function jsonBody(req, res) {
+    const refuse = (status, error) => {
+      sendJson(res, status, { error });
+      return null;
+    };
+    if (!sameOrigin(req)) return refuse(403, 'cross-origin request');
     const ctype = String(req.headers['content-type'] ?? '').toLowerCase();
-    if (!ctype.startsWith('application/json')) return sendJson(res, 415, { error: 'content-type must be application/json' });
+    if (!ctype.startsWith('application/json')) return refuse(415, 'content-type must be application/json');
     if (Number(req.headers['content-length']) > MAX_BODY) { // 읽기 전에 거절한다
       discardRest(req);
-      return sendJson(res, 413, { error: 'body too large' });
+      return refuse(413, 'body too large');
     }
-    let body;
     try {
-      body = JSON.parse(await readBody(req, MAX_BODY));
+      return { body: JSON.parse(await readBody(req, MAX_BODY)) };
     } catch (err) {
-      return sendJson(res, err?.status ?? 400, { error: err?.status === 413 ? 'body too large' : 'invalid json' });
+      return refuse(err?.status ?? 400, err?.status === 413 ? 'body too large' : 'invalid json');
     }
-    const v = body?.intervalMs;
+  }
+
+  async function postConfig(req, res) {
+    const got = await jsonBody(req, res);
+    if (!got) return;
+    const v = got.body?.intervalMs;
     if (!validInterval(v)) {
       return sendJson(res, 400, { error: `intervalMs must be an integer ${MIN_INTERVAL}..${MAX_INTERVAL}` });
     }
     const cfg = setConfig({ intervalMs: v });
     broadcastConfig();
     sendJson(res, 200, { type: 'config', ...cfg });
+  }
+
+  // 기록 관찰 켜고 끄기: { action: 'start' | 'stop' }. 이미 그 상태면 아무것도 하지 않고 상태를 돌려준다.
+  // 시작 실패는 오류 코드만 답한다 (오류 문구와 폴더 경로는 보내지 않는다).
+  async function postObserve(req, res) {
+    const got = await jsonBody(req, res);
+    if (!got) return;
+    const action = got.body?.action;
+    if (!OBSERVE_ACTIONS.has(action)) return sendJson(res, 400, { error: 'action must be "start" or "stop"' });
+    let status;
+    try {
+      status = action === 'start' ? await observe.start() : await observe.stop();
+    } catch (err) {
+      const code = typeof err?.code === 'string' && ERROR_CODE_RE.test(err.code) ? err.code : 'EUNKNOWN';
+      return sendJson(res, 500, { error: `observe ${action} failed`, code });
+    }
+    sendJson(res, 200, { type: 'observe', ...status });
   }
 
   async function route(req, res) {
@@ -218,10 +258,15 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
         return send(res, 401, 'unauthorized: open the URL printed by office-sim\n', undefined, { 'cache-control': 'no-store' });
       }
     }
-    if (DATA_ROUTES.has(rawPath) && crossSiteFetch(req)) return send(res, 403, 'cross-site request');
+    if (dataRoutes.has(rawPath) && crossSiteFetch(req)) return send(res, 403, 'cross-site request');
     if (rawPath === '/config') {
       if (m === 'POST') return postConfig(req, res);
       if (isGet) return sendJson(res, 200, { type: 'config', ...getConfig() });
+      return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD, POST' });
+    }
+    if (observe && rawPath === '/observe') {
+      if (m === 'POST') return postObserve(req, res);
+      if (isGet) return sendJson(res, 200, { type: 'observe', ...observe.status() });
       return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD, POST' });
     }
     if (!isGet) return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD' });
@@ -259,5 +304,5 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     clients.clear();
   }
 
-  return { handler, clients, broadcastConfig, closeAll };
+  return { handler, clients, broadcastConfig, broadcastObserve, closeAll };
 }

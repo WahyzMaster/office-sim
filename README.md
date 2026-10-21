@@ -97,6 +97,36 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 
 화면 위쪽 칩에 `재생 · 4× · 37%` 가 보입니다. 재생에서는 결과 줄을 미리 읽을 수 있어서, 사람이 권한 창에서 허용하거나 거절한 도구 호출은 직원이 '내 자리'로 와서 `승인 대기` 말풍선을 띄웁니다. Claude Code 라이브 모드는 승인 창이 열려 있는 동안 기록에 아무것도 쓰이지 않아 이 표시를 하지 않습니다(Codex, Antigravity 도 같습니다). Grok 은 권한 창이 열릴 때 `events.jsonl` 에 기록이 남아 라이브에서도 같은 말풍선을 보입니다(`docs/CONTRACT.md` 7절).
 
+## 기록 관찰
+
+평소처럼 Grok Build 와 Codex 를 쓰는 동안 기록 파일이 어떤 단위로 덧붙는지 세는 기능입니다. 실행 중인 세션이 기록을 덧붙이는 단위, Grok 권한 창이 열려 있는 동안 `events.jsonl` 이 언제 써지는지, `~/.grok/active_sessions.json` 의 행 모양처럼 아직 실제 세션으로 확인하지 못한 것(`docs/ADAPTERS.md` 5.1, 5.2절)을 평소 쓰는 모습 그대로 확인하려고 만들었습니다. 모델을 따로 부르지 않으므로 사용량이 더 들지 않고, 기록의 내용은 남기지 않고 개수와 모양만 셉니다.
+
+시작부터 끝까지 사무실 화면에서 합니다.
+
+1. `npm start` 로 띄운 라이브 화면의 위쪽 바에서 `기록 관찰` 버튼을 눌러 패널을 엽니다. 데모 화면(`#demo`, 아티팩트)과 재생 모드에는 이 버튼이 없습니다. Grok 이나 Codex 기록 폴더가 켜져 있어야 시작할 수 있고, 둘 다 꺼져 있으면 패널이 그 이유를 알려 줍니다.
+2. `관찰 시작` 을 누르고 평소처럼 Grok, Codex 로 일합니다. 버튼에 `관찰 중 · 12:03` 처럼 걸린 시간이 보이고, 패널의 체크리스트가 차오릅니다.
+
+   | 항목 | 목표 |
+   |---|---|
+   | Grok 작업 기록(updates) 덧붙음 | 20번 |
+   | Grok 권한 창 1초 넘게 기다림 | 1번. 권한 창이 뜨면 1초 넘게 기다렸다가 답해 주세요(Grok 이 권한을 묻는 모드일 때만 창이 뜹니다) |
+   | Grok 실행 중 세션 목록 읽기 | 1번(`active_sessions.json` 에 행이 하나 이상 있을 때) |
+   | Codex 작업 기록(rollout) 덧붙음 | 20번 |
+
+   켜지지 않은 에이전트의 항목은 `건너뜀` 으로 보이고 끝내는 데 걸리지 않습니다.
+3. 다 모이면 위쪽 버튼이 `충분히 모였어요` 로 바뀌고 패널의 `관찰 끝내기` 버튼이 강조됩니다. 그 버튼을 누르면 끝납니다. 다 모이기 전에도 `지금 끝내기` 로 끝낼 수 있고, 그때까지 모인 만큼 저장됩니다. 채팅으로 "관찰 끝" 이라고 말할 필요는 없습니다.
+4. 끝나면 패널에 저장한 파일 이름과 개수 요약(파일 수, 덧붙음 횟수, 채운 체크리스트 항목 수)이 보입니다.
+
+결과는 `<저장소>/.observe/observe-<YYYYMMDD-HHMMSS>.jsonl` 에 저장됩니다(같은 초에 두 번 시작하면 이름 끝에 `-2` 가 붙습니다). 폴더는 0700, 파일은 0600 으로 만들고, `.observe/` 는 `.gitignore` 에 있어 커밋되지 않습니다. 관찰하는 동안 기록이 생기는 대로 덧붙이고(쓰다가 실패하면 다음 차례에 못 쓴 곳부터 이어 씁니다), 끝낼 때 요약 한 줄을 마지막에 붙입니다. 관찰 중에 서버를 끄면(Ctrl-C) 요약을 쓰고 닫습니다. `npm start` 에서는 Ctrl-C 한 번이 신호 두 번으로 오므로 0.5초 안에 온 같은 신호는 한 번으로 칩니다(그 뒤에 한 번 더 누르면 바로 끝납니다). 기록 폴더가 응답하지 않는 마운트에 있어도 끝내기는 1.5초까지만 기다리고 요약을 씁니다. 터미널 창을 닫는 것처럼 서버가 갑자기 꺼지면 그 파일에는 요약이 없을 수 있고, 패널은 연결이 끊긴 동안 시계와 버튼을 멈추고 그렇다고 알립니다.
+
+끝낸 뒤 Claude Code 에게 "관찰 결과 반영해 줘" 라고 하면, Claude 가 `.observe/` 의 가장 새 파일을 읽어 `docs/ADAPTERS.md` 5.1, 5.2절과 `docs/CONTRACT.md` 에 반영합니다. 패널의 마지막 줄도 이것을 알려 줍니다.
+
+- 남기는 것: 파일마다 덧붙은 크기(바이트), 끝난 줄 수, 덧붙음이 줄 중간에서 시작하거나 끝났는지, 가장 긴 줄의 길이, 기록 시각과 서버가 본 시각의 차이(ms), 해석하지 못한 줄 수, 정해진 필드의 종류 값(Grok 의 `method` 와 `sessionUpdate`, Grok 이벤트의 `type`, `phase`, `decision`, Codex 의 `type` 과 `payload.type`), `active_sessions.json` 행의 키 이름과 값의 타입, 파일 오류 코드. 파일과 세션은 관찰마다 `f1`, `s1` 같은 번호로만 적습니다.
+- 남기지 않는 것: 경로, 파일과 폴더 이름, 세션 id, 작업 폴더, 제목, 프롬프트, 메시지, 명령, 도구 이름과 인자, MCP 서버 이름, 모델 id, 오류 문구, 그 밖의 모든 글. 종류 값도 정해진 모양(`/^[A-Za-z0-9_.:-]{1,64}$/`)이 아니거나 id 처럼 보이면 `?` 로 적습니다. `session_index.jsonl` 은 줄 수와 길이만 셉니다.
+- 보는 파일은 Grok 의 `sessions/<작업 폴더>/<세션>/updates.jsonl` 과 `events.jsonl`, `active_sessions.json`, Codex 의 `rollout-*.jsonl`(오늘과 어제, 시작할 때 10분 안에 바뀐 파일이 있던 날짜 폴더, 그리고 30초마다 모든 날짜 폴더를 다시 훑어 찾은, 관찰 중에 이어 쓴 오래된 스레드)과 `session_index.jsonl` 뿐이고, 읽기만 합니다. 심볼릭 링크는 따라가지 않고, 인증과 설정 파일, 원문 입력 기록, SQLite, `summary.json` 은 열지 않습니다. 시작할 때 이미 있던 파일은 그때 크기부터, 새로 덧붙는 것만 셉니다.
+
+기록 형식, 요약의 모양, 서버 규칙(`GET`/`POST /observe`, SSE 의 `observe` 메시지)은 `docs/CONTRACT.md` 6.2절에 있습니다.
+
 ## 성능 측정
 
 `http://127.0.0.1:4317/#bench` 를 열면 층 10개, 직원 60명의 합성 부하가 돕니다. 콘솔에서 `__officeBench.burn({ frames: 300, focus: 9 })` 나 `await __officeBench.measure({ seconds: 5, focus: 'all' })` 로 프레임 시간, 그리기 호출, 라벨 수, 힙을 잽니다. 초점이 아닌 층은 그림자와 라벨을 끄고, 숨은 위층은 행렬 갱신과 애니메이션도 건너뜁니다.
@@ -110,6 +140,7 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 - `src/adapters/codex/`: Codex 어댑터(날짜 폴더 탐색과 첫 줄 사실, 제목 색인 읽기, 레코드 정규화와 code-mode `exec` 방문, 설명자 `index.mjs`)
 - `src/adapters/antigravity/`: Antigravity 어댑터(두 앱 폴더의 허용 목록 탐색과 파일 고르기, 요약 protobuf 해석기 `proto.mjs`, 메타 파일, 단계 정규화와 위치 짝짓기, 설명자 `index.mjs`)
 - `src/core/`: 새 어댑터가 같이 쓰는 부품. 세션 코어(`session-core.mjs`, `session-items.mjs`), 도구 요약(`tool-summary.mjs`), 바뀔 때만 다시 읽는 메타 파일 감시(`sidecar.mjs`)
+- `src/observe/`: 기록 관찰(파일 감시 `observer.mjs`, 범주 값 추출 `records.mjs`, 집계와 체크리스트 `summary.mjs`, 시작과 끝 `control.mjs`). 화면 쪽은 `public/js/observe-panel.js`
 - `skills/office/`: `/office` Claude Code 스킬. `scripts/install-skill.mjs` 가 설치하고, `src/open-url.mjs` 는 `--open` 의 브라우저 열기입니다
 - `public/`: three.js 사무실 화면. localhost에서 열면 라이브, 그 밖에서는 데모 데이터로 동작합니다(`#demo`로 강제 가능).
 - `docs/CONTRACT.md`: 모듈 경계, 이벤트 형식, 파싱 규칙
@@ -125,6 +156,7 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 - Grok 기록 폴더에서는 정해진 파일(`updates.jsonl`, `summary.json`, 승인 대기를 위한 `events.jsonl`)만 엽니다. `events.jsonl` 에서는 네 필드(기록 종류, 시각, 같은지 비교에만 쓰는 도구 이름, 허용/거절)만 읽고, MCP 오류 문구, 모델 id, 취소 사유 같은 나머지 필드는 읽지도 보내지도 않습니다. 원문 프롬프트 기록(`prompt_history.jsonl`, `chat_history.jsonl`), 계획 파일, 인증과 설정 파일은 열지 않습니다(`docs/CONTRACT.md` 4.6절).
 - Codex 기록 폴더에서는 정해진 파일(`sessions/` 아래 날짜 폴더의 `rollout-*.jsonl`, `session_index.jsonl`)만 엽니다. 압축된 기록(`.jsonl.zst`), `archived_sessions/`, 원문 프롬프트 기록(`history.jsonl`), 인증과 설정 파일, SQLite 파일, 로그, `worktrees/` 안은 열지 않고, 심볼릭 링크인 폴더는 따라가지 않습니다. 세션 첫 줄의 계정 id 는 보내지 않고, 데스크톱 앱과 IDE 확장이 요청 앞에 붙이는 문맥(열린 파일, 탭, 언급한 파일)은 프롬프트로 보내지 않으며, code-mode 스크립트는 처음 부르는 `tools.<이름>` 의 이름만 봅니다(문자열, 정규식, 주석 안은 읽지 않음, `docs/CONTRACT.md` 4.7절).
 - Antigravity 기록 폴더(`~/.gemini`)는 Gemini CLI 와 같이 쓰는 폴더라 인증 파일과 원문 입력 기록이 함께 있습니다. 그래서 `antigravity-cli/` 와 `antigravity-ide/` 아래의 정해진 파일(대화 기록 `transcript_full.jsonl` / `transcript.jsonl`, 요약 protobuf, `annotations/<대화>.pbtxt`, `task.md`)만 열고, 인증과 설정 파일(`oauth_creds.json`, `google_accounts.json`, `settings*.json` 등), 원문 입력 기록(`history.jsonl`, `history`), SQLite 대화 저장소, 암호화된 `.pb`, 백그라운드 알림(`messages/`), 도구 출력 파일, 데스크톱 앱 폴더 `antigravity/` 는 열지 않으며, 심볼릭 링크는 따라가지 않습니다. 모델이 도구 호출마다 붙이는 짧은 설명(`toolAction`, `toolSummary`)과 프롬프트 앞뒤의 환경 정보 블록(`ADDITIONAL_METADATA` 등)은 그 안에 적힌 내용까지 보내지 않고, 요약 protobuf 의 저장소 주소도 읽지 않습니다(`docs/CONTRACT.md` 4.8절).
+- 기록 관찰(앞의 `기록 관찰` 절)의 결과 파일, 상태, SSE 메시지에는 개수, 번호, 정해진 종류 값, 오류 코드, 결과 파일 이름만 들어갑니다. 경로, 세션 id, 내용은 남기지 않습니다(`docs/CONTRACT.md` 5절, 6.2절). 관찰하는 동안에만 Grok 의 `active_sessions.json` 도 열어 행의 키 이름과 값의 타입만 셉니다(값은 읽어도 남기지 않습니다).
 
 ## 테스트
 

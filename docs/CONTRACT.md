@@ -88,7 +88,16 @@ src/server-runner.mjs   Runner: poll / rescan / idle loops, attach, relocation, 
                         place an adapter's own watcher `deps.sidecarWatcher` (`check(ref)` / `forget(path)`: the Grok
                         `GrokMeta`, 4.6 P5g, the Codex titles, 4.7, and the Antigravity metadata, 4.8); passes a ref's
                         scan-time `facts` to the session constructor (Codex, Antigravity)
-src/server-http.mjs     http: /, /js/*, /events (SSE), /state, /config, /healthz
+src/server-http.mjs     http: /, /js/*, /events (SSE), /state, /config, /observe (only with `observeDir`, 6.2), /healthz
+src/observe/            live log observation ("기록 관찰", 6.2), every file under 500 lines, read-only on the adapter
+                        roots: `records.mjs` (the categorical extractors, VALUE_RE with the id-like guard and the Grok
+                        `method` allowlist, record times and lag, the `LineFrame` line framing, the active_sessions.json
+                        shape; pure), `observer.mjs` (`Observer`: the file watcher, no timers; the caller drives `rescan()`
+                        and `poll()`), `days.mjs` (the Codex day folder keys: today and yesterday, local time; pure),
+                        `codex-walk.mjs` (the Codex day folder walk: start scan, hot days, the 30 s full walk),
+                        `summary.mjs` (`Tally`, `summarize(records)`, `progress()` and the checklist; pure)
+                        and `control.mjs` (`ObserveControl`: start / stop, the poll and rescan timers, the output file,
+                        the status object, change notices)
 src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
 src/replay.mjs          ReplayRunner (extends Runner): --replay playback of one session (section 6.1)
 src/replay-timeline.mjs replay timeline: line times, cross-file merge, speed + gap cap, approval look-ahead (pure)
@@ -100,6 +109,9 @@ public/                 the browser app; owned by the browser module (public/js/
                         P3: js/detail.js (per-floor detail: hidden floors skip draw, matrices, labels, animation;
                         unfocused floors cast no shadows; CSS labels only for the focused floor), js/bench.js (#bench).
                         P5g: js/approval.js (live `tool_wait` -> the character's desk visit and back, pure; section 7)
+                        기록 관찰: js/observe-panel.js (the top-bar button and panel of 6.2: DOM-free helpers for labels,
+                        times, status reading, the view model and POST /observe, then the `ObservePanel` DOM class)
+.observe/               the observation output folder of the bin (6.2); in .gitignore, created 0700 at the first start
 ```
 
 ## 2. Event schema (server -> browser)
@@ -141,6 +153,15 @@ Wire messages on `/events` (each SSE `data:` line is one JSON object, every mess
   In replay mode it also carries `replay: { state, speed, loop, round, progress }` (`state`: `loading` | `playing` |
   `done` | `restart` | `error`; `progress` 0..1 by released lines) and is re-sent when the state changes and at most
   once a second while the progress moves (section 6.1).
+- `{ "type": "observe", ...status }` only when the server runs with `observeDir` (live log observation, 6.2; without
+  it this message never exists). `status` is `{ available, agents: { grok, codex }, running, startedAt, elapsedMs,
+  checklist: [{ id, have, need, done, off }], ready, totals: { files, appends }, last }` with `last` = `{ file,
+  endedAt, elapsedMs, ready, checklist, totals }` of the latest ended observation or null (6.2 has every field). It
+  is sent right after `config` on every connection (the snapshot path and the Last-Event-ID path alike, with the same
+  `id:` line as that `config`), at once on start and stop, while running at most once a second when anything but
+  `elapsedMs` changed, and when a grok or codex root switches on late (4.0.1 F1). Like `config` it is a control
+  message: it is never in the Store, the ring, a snapshot or `/state`. LiveSource hands it to `onObserve` (the panel,
+  `public/js/observe-panel.js`), never to the office or the tail counter.
 - any event from the table above.
 
 ## 3. Pure module APIs
@@ -1741,6 +1762,22 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   `/events`; on a shared machine use `--auth`. Raw `/state` or SSE output carries these paths, so check it before you
   share it.
 - The browser classifies rooms with `public/js/rooms.js`; the server only sends `room` hints from 3.1.
+- Live log observation (6.2): the output file, every status object (GET / POST `/observe`) and every `observe` SSE
+  message hold only numbers, booleans, ISO times, the per-observation ids `f#` / `s#`, the agent ids, the file kinds,
+  the checklist ids, fs error codes (`/^E[A-Z0-9_]{1,31}$/`, else `?`), the output file's own name (never its folder)
+  and categorical values read from these fields only: Grok `updates.jsonl` `method` and `params.update.sessionUpdate`;
+  Grok `events.jsonl` `type`, `phase` (`phase_changed` only) and `decision` (`permission_resolved` only); Codex rollout
+  `type` and `payload.type`; the key names and JSON value types (never the values) of `active_sessions.json` rows.
+  Each such value must match `/^[A-Za-z0-9_.:-]{1,64}$/` (`VALUE_RE`) and must not look like an id (a uuid shape, or
+  16 or more hex characters in a row), else it is written as `?`. `method` is the exception to the regex: both real
+  values contain `/`, so only the two known values `session/update` and `_x.ai/session/update` (constants of
+  `src/observe/records.mjs`, not file content) are written as they are, any other value is `?`. Never written: paths,
+  file or folder names, session ids, uuids, cwd, titles, prompts, messages, commands, tool names, tool arguments, MCP
+  server names, model ids, error text, or any other string value. `session_index.jsonl` lines are counted and measured,
+  never parsed; the top-level keys of an `active_sessions.json` object (possibly session ids) are never written. The
+  observer opens only the files 6.2 names (never auth, config, history, `prompt_history.jsonl`, `chat_history.jsonl`,
+  SQLite or `summary.json`). `test/observe-privacy.test.mjs` and `test/observe-server.test.mjs` put BAIT strings in
+  every free-text field and check the file, every status and every frame.
 
 ## 6. Server behaviour (`src/server.mjs`, `bin/office-sim.mjs`)
 - CLI flags: `--port 4317 --host 127.0.0.1 --interval 250 --active 30 --rescan 3000 --claude-root ~/.claude/projects`,
@@ -1769,7 +1806,9 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   skill and `test/skill-commands.test.mjs`: `GET /healthz` -> 200 `{ ok: true, files, sessions, clients, agents }`; with
   `--auth` every request without the cookie, `/healthz` included, gets 401 with the body `unauthorized: open the URL
   printed by office-sim`; stdout starts with `office-sim: <url>` then `office-sim: agents <ids|none>`; SIGTERM stops the
-  server (exit 0, forced after 3 s); a failed listen prints one `office-sim: <message>` line (EADDRINUSE with a
+  server (exit 0, forced after 3 s; a repeat SIGINT / SIGTERM within 500 ms of the first is the same keystroke and is
+  ignored, because `npm start` delivers one Ctrl-C twice, from the terminal and from npm, 1-2 ms apart; a later one
+  exits 130 at once); a failed listen prints one `office-sim: <message>` line (EADDRINUSE with a
   `(port in use: ...)` hint) and exits 1. The skill starts `node <repo>/bin/office-sim.mjs --port <4317|0> [--auth]`
   with the absolute bin path and stops only processes whose argv is exactly that (`node <repo>/bin/...`; on Windows the
   same rule as a case-insensitive regex). It does not pass `--open`: it runs the platform opener itself, waits at most
@@ -1801,7 +1840,9 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   off`); the server still starts and serves an empty office. The root check runs before the server listens and gives
   up after 2 s (`ETIMEDOUT`), so a stalled root never keeps the server from starting. A disabled adapter that was
   selected is checked again every rescan period and switched on when its root can be opened (4.0.1 F1), with one log
-  line `<id>: root found, adapter on`; the bin's `office-sim: agents` line shows the set at start only.
+  line `<id>: root found, adapter on`; the bin's `office-sim: agents` line shows the set at start only. The late
+  object may carry `onEnabled(id)`, called once the new Runner is in the group (a throw is ignored); the server uses it
+  to broadcast a fresh `observe` status when a grok or codex root switches on (6.2).
 - Loops: every `interval` ms stat each attached file and read appended bytes; every `rescan` ms run `scan()` to attach
   new files and detach files outside the active window (emit `session_end` reason `idle` for them); every 1 s call
   `idle()` on each session. Loops never overlap (skip a tick while the previous one runs). The poll loop is a
@@ -1837,6 +1878,8 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   `text/event-stream`, `cache-control: no-cache`, `connection: keep-alive`; write `retry: 2000`; if `Last-Event-ID`
   is in the ring send the missed events, else a `snapshot`; then live events with `id:` = seq; `: ping` every 15 s.
   `GET /state` -> snapshot JSON. `GET /config` / `POST /config {intervalMs}` (rules below, broadcast `config`).
+  `GET /observe` / `POST /observe {action}` only with `observeDir` (6.2; without it GET and HEAD are 404 and POST is
+  405, as for any unknown path).
   `GET /healthz` -> `{ ok, files, sessions, clients, agents }` (`agents`: the enabled adapter ids, `files`: summed
   over the Runners). No CORS headers. Order of checks for every request:
   1. Host guard: the `Host` header must be `localhost:<port>`, `127.0.0.1:<port>` or `[::1]:<port>`, and an `Origin`
@@ -1844,15 +1887,17 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   2. Path guard: `..` or encoded `.` / `/` / `\` in the raw path -> 400.
   3. `--auth` (when on): `GET /?t=<token>` with the right token -> 302 to `/` with
      `Set-Cookie: osim_<port>=<token>; HttpOnly; SameSite=Strict; Path=/` and `cache-control: no-store`. Every other
-     request, every route (`/`, `/index.html`, `/js/*`, `/events`, `/state`, `/config`, `/healthz`, 404s), needs that
+     request, every route (`/`, `/index.html`, `/js/*`, `/events`, `/state`, `/config`, `/observe`, `/healthz`, 404s), needs that
      cookie, else 401 `unauthorized: open the URL printed by office-sim`. The token is 32 random bytes (base64url)
      made in-process per run (never argv or env), compared in constant time; the cookie name carries the port.
-  4. `/events`, `/state`, `/config`: a `Sec-Fetch-Site` header other than `same-origin` or `none` -> 403 (absent passes,
-     for local tools).
-  5. `POST /config`: `Origin`, when present, must equal `http://` + the request's own `Host` (403 `{error:'cross-origin
+  4. `/events`, `/state`, `/config`, and `/observe` when the feature is on: a `Sec-Fetch-Site` header other than
+     `same-origin` or `none` -> 403 (absent passes, for local tools).
+  5. `POST /config` and `POST /observe`: `Origin`, when present, must equal `http://` + the request's own `Host` (403 `{error:'cross-origin
      request'}`); `Content-Type` must be `application/json` (415); the body is at most 4096 bytes (a larger
      `Content-Length` or body -> 413 `{error:'body too large'}`, the rest is drained up to 1 MiB so the client gets the
-     413, beyond that the socket is closed); invalid JSON -> 400; `intervalMs` must be an integer 50..5000 (400).
+     413, beyond that the socket is closed); invalid JSON -> 400; `/config`: `intervalMs` must be an integer
+     50..5000 (400); `/observe`: `action` must be `"start"` or `"stop"` (400 `{error}`), nothing starts on a refused
+     request.
 - Response headers: every response (pages, data, errors, SSE) carries `x-content-type-options: nosniff`,
   `referrer-policy: no-referrer`, `cross-origin-resource-policy: same-origin`. `GET /` and `/index.html` also send
   `x-frame-options: DENY` and `Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net
@@ -1867,7 +1912,11 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   override), `adapters` (registry override), `probe` (replaces the root check) and `probeTimeoutMs`. `roots` gives the
   root of each non-Claude adapter (an adapter without one is not started, see above). With `auth: true`, `url` is
   `http://<host>:<port>/?t=<token>` (what the bin prints) and `token` is set; without it `token` is null and `url` has
-  no query.
+  no query. `observeDir` (a folder path, `~`-expanded and resolved; default null) turns on the live log observation
+  (6.2): `/observe` and the `observe` SSE message exist only then. The bin passes `<repo>/.observe` in live mode and
+  nothing in replay mode. Test hook `observeTiming` (`{ intervalMs, rescanMs, notifyMs }` of the observation loop,
+  defaults 100, 2000, 1000). `close()` stops a running observation and writes its summary record (the open pages get
+  the ended status) before the SSE connections are closed; it runs alongside the Runners' close.
 
 ### 6.1 Replay mode (`--replay <file> --speed <x> [--loop]`, P3)
 - Input: one main transcript (`<uuid>.jsonl`) plus its `<uuid>/subagents/**` files (`sessionRefs`).
@@ -1895,6 +1944,145 @@ counts only (events, unpaired tools, apply errors, privacy hits).
 - The bin prints the URL, the agents lines of section 6 (always `agents claude-code` in replay, D12, then one
   `<id> is not implemented yet` line per requested unimplemented id), then `replay <speed>x[, loop]`; replay log lines
   carry error codes and basenames.
+
+### 6.2 Live log observation ("기록 관찰", `/observe`)
+Why: the open items of ADAPTERS 5.1 / 5.2 and PLAN section 9 item 5 ask in what unit Grok `updates.jsonl` and Codex
+rollouts grow while a session runs, when Grok writes `events.jsonl` lines while a permission prompt is open, and what
+`~/.grok/active_sessions.json` rows look like. The observation watches the user's normal Grok and Codex work (no extra
+model use) and records counts and shapes only, never content. Approved 2026-10-21: (1) start and stop from a page
+button and panel, served by `/observe` with the `/config` guards; (2) a checklist shows progress and the panel says
+when everything is collected (`충분히 모였어요`); the user ends it with the panel's button (not by saying so in chat);
+(3) results go to `<repo>/.observe/`, the page shows a counts-only summary, and Claude reads the newest file when the
+user asks (`관찰 결과 반영해 줘`); (4) the status shows only in the panel (Runner, Store and characters unchanged).
+- Switch: the `start()` option `observeDir` (6). Without it nothing of this section exists and the wire is
+  byte-identical to a server without the feature. One `ObserveControl` per server. Its roots are read at each
+  `start()` and `status()` from the RunnerGroup: the root of the `grok` Runner and of the `codex` Runner when that
+  adapter is on now (the absolute root the Runner uses; a late root, 4.0.1 F1, counts and is announced with a fresh
+  `observe` message through `late.onEnabled`). Neither on -> `available: false`; `start` is then a 200 no-op that
+  returns `running: false` and makes no folder.
+- Watched, read-only (`src/observe/observer.mjs`): Grok `<grok>/sessions/<group>/<session>/updates.jsonl` and
+  `events.jsonl` (group and session folders are listed; a session folder's own entries are not, only those two names
+  are lstat-ed; subagent children are their own session folders) and `<grok>/active_sessions.json`; Codex
+  `<codex>/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl` in today's and yesterday's local day folders plus every day
+  folder that held a rollout modified within 10 minutes at the start scan, and `<codex>/session_index.jsonl`. Every
+  30 s (the Codex adapter's `FULL_WALK_MS`) all day folders are walked again (`src/observe/codex-walk.mjs`): a day with
+  a rollout modified after the start (a resumed old thread, a `.jsonl` decompressed again) joins the watched days, and
+  that file is watched from its size at that walk, even when it was born after the start (so an old thread's content
+  is never counted as one append). Links
+  are never followed (Dirent / lstat: only real folders and regular files); a file is opened `O_RDONLY | O_NOFOLLOW |
+  O_NONBLOCK` and the handle must be a regular file with the lstat-ed inode (the `src/adapters/grok/events.mjs`
+  pattern), so a link, a FIFO or a file swapped in between is never read and never blocks. Those two guard the last
+  name only, so before every read of a watched file (each poll) and before a rescan keeps a file its walk did not find,
+  every folder between the root and the file (`sessions`, the group, the session; `sessions`, `YYYY`, `MM`, `DD`) is
+  lstat-ed again and must still be a real folder (the `realFolders` rule of `src/adapters/codex/discover.mjs`; one
+  lstat per folder per pass). A folder that became a link, or is gone, makes the file `gone`; it is never read through
+  the link and never `reset`. Nothing else in the roots is opened (section 5).
+- Per file: a file that existed before the start starts at its size at the start scan (only new appends count); a file
+  that appears later starts at 0, and so does a file the start scan finds whose birth time is in a later millisecond
+  than the start (created while the scan was still walking; without a birth time a file found by the start scan counts
+  as existing, so an old file appended to in that window is not reread from 0); a file modified more than 10 minutes
+  before the start sleeps until a rescan sees its size, mtime or
+  inode move and is then read from its size at that moment (the bytes in between are not counted as one append, which
+  would skew the per-append numbers). Inode change or shrink -> a `reset` record and 0 of the new file; a vanished file
+  -> `gone`. When a watched start falls inside a line, the rest of that line counts in `lines` when it ends, but it is
+  never parsed and is left out of `maxLineBytes` (the byte before the start is read through the same safe open).
+- Loop (`src/observe/control.mjs`): one `setTimeout` chain (handles `unref`-ed): each tick runs `rescan()` when 2000
+  ms have passed, then `poll()`, then appends the tick's records to the output file, every 100 ms; ticks never
+  overlap, and start, stop and close run one after another. `start()` resolves once the start record is written,
+  before the first rescan (so the totals in its reply are 0 and a slow mount cannot hang `POST /observe`). `stop()`
+  and the server's `close()` cancel the loop, wait for a step still running at most 1500 ms (`STOP_WAIT_MS`: an fs
+  call on a stalled mount cannot be aborted, so the stop button, later `POST /observe` calls and the shutdown never
+  hang on it; the step left behind writes nothing, its later records are dropped), append the `summary` record (from
+  the in-memory tally) and close the file.
+- Output file: `<observeDir>/observe-<YYYYMMDD-HHMMSS>.jsonl` (local time of the start; `-2` .. `-99` before `.jsonl`
+  when that name is taken), folder mode 0700, file mode 0600, opened `O_CREAT | O_EXCL | O_NOFOLLOW`; a link or a
+  non-folder at `observeDir` refuses the start with an error code. A failed or short write is resumed at the next tick
+  (or by the stop) from its first unwritten byte, so no record is cut, glued to the next one or written twice; up to
+  20,000 records (`MAX_PENDING`) wait behind a failing write and past that the oldest waiting ones are dropped. The
+  status and the summary stay right (they come from the in-memory tally); a summary whose own write fails at the stop
+  is lost. Nothing else is ever written there. One JSON object
+  per line; `t` is ms since the start, `f#` / `s#` number the files and sessions per observation (a Grok session's
+  two files share one `s#`, every Codex rollout has its own, the index has none):
+  - `start` `{ type, v: 1, startedAt, intervalMs, rescanMs, platform, agents: { grok, codex } }` (first).
+  - `file` `{ type, t, file, session, agent, kind, event }`: `kind` `grok-updates` | `grok-events` | `codex-rollout` |
+    `codex-index`, `event` `watch` (seen at the start scan or woken) | `new` (appeared later) | `reset` | `gone`.
+  - `append` `{ type, t, file, bytes, lines, partialTail, midLineStart, maxLineBytes, kinds, lagMs, bad, oversize,
+    perm? }` per file per poll that saw growth: `lines` = complete lines that ended in these bytes (a line begun in an
+    earlier append counts here); `partialTail` = the bytes do not end with `\n`; `midLineStart` = the byte before them
+    was not `\n`; `kinds` = `{ "<field>:<value>": n }` over the parsed complete lines (section 5 lists the fields, e.g.
+    `sessionUpdate:tool_call`); `lagMs` = `{ min, max }` of observed time minus record time over those lines (Grok
+    updates: the top-level `timestamp`, the write time in whole seconds (ms tolerated, like the adapter), so these
+    lags read 0..999 ms long; `params._meta.agentTimestampMs` only when there is no `timestamp`, because it is the
+    agent's clock: ADAPTERS 5.2 found it a median 18.8 s before the permission decision on the first
+    `tool_call_update`; Grok events `ts`; Codex `timestamp`; negative values kept) or null when none parse; `bad` = blank lines, unparsable lines and JSON that is
+    not an object; `oversize` = lines over 4 MB (counted once, never buffered whole); `perm` (Grok events only, when
+    any) = `[{ ev: 'req' | 'res', lagMs }]` for the `permission_requested` / `permission_resolved` lines in line order
+    (`kinds` loses the order inside one append; the summary pairs them FIFO). `session_index.jsonl` lines are never
+    buffered or parsed: no kinds, `lagMs` null, `bad` 0.
+  - `active` `{ type, t, shape, rows, keys }` when `active_sessions.json` exists at the start scan and when a rescan sees
+    its mtime, size or inode move (read at most 1 MB; nothing when it disappears). `shape` `array` | `object` |
+    `other`; for an array `rows` = elements and `keys` = the union of the object elements' keys; for an object `rows` =
+    entries and `keys` = the union of the keys of its object values (its own top-level keys are never written); `keys`
+    maps each name to its JSON value type (`string`, `number`, `boolean`, `null`, `object`, `array`; several types
+    sorted and joined with `|`). Never a value.
+  - `error` `{ type, t, kind, file, code }`: `kind` a file kind or `grok-scan`, `codex-scan`, `grok-active`; `file` the
+    `f#` or null; one record each time a target's error code changes. ENOENT and ENOTDIR are not errors.
+  - `summary` (last, at stop or server close): `{ type, t, endedAt, agents, totals: { files, appends, bytes, lines },
+    kinds, errors, grokPermission, active, checklist, ready }`. `kinds` per file kind (every kind of an enabled agent,
+    sorted): `{ files, appends, lines, bytes, linesPerAppend: { '0', '1', '2', '3-5', '6+' }, partialTail,
+    midLineStart, lagMin, lagMax, resets, gone, bad, oversize, values }` where `bytes`, `lagMin` (over each append's
+    min) and `lagMax` (over each append's max) are distributions `{ n, p50, p90, max }` (nearest rank, null when
+    empty) and `values` sums the `kinds` keys. `errors` = `{ <kind>: { <code>: n } }`. `grokPermission` = `{ requested,
+    resolved, unmatched, unresolved, dropped, waits, waitsAtLeastMs: 1000, longWaits, sinceToolCall, lagRequested,
+    lagResolved }`: per Grok session each request waits FIFO for the next resolution; `waits` = the `t` of the append
+    that showed the resolution minus the `t` of the one that showed the request (observation times, poll grain);
+    `sinceToolCall` = the request's `t` minus the `t` of that session's latest `updates.jsonl` append with a
+    `sessionUpdate:tool_call`; a `reset` of that `events.jsonl` drops the open requests (`dropped`). `active` = `{
+    reads, withRows, shapes: [{ shape, keys, reads, maxRows }] }`. `checklist` and `ready` as below, at the stop.
+- Checklist (ids on the wire, Korean labels only on the page): `grok-updates` (Grok `updates.jsonl` appends, need
+  20), `grok-wait` (Grok permission waits with an observed gap of 1000 ms or more, need 1), `grok-active`
+  (`active_sessions.json` reads with at least 1 row, need 1), `codex-rollout` (Codex rollout appends, need 20). Each
+  item is `{ id, have, need, done, off }`; an item of an agent that is not on is `off` (have 0, done false) and does
+  not block `ready`; `ready` = at least one item is on and every on item is done.
+- Status (the `observe` message of section 2 and the HTTP replies): `{ available, agents: { grok, codex }, running,
+  startedAt: ISO | null, elapsedMs, checklist, ready, totals: { files, appends }, last }`. While running `agents` are
+  the run's own; while stopped they are the adapters on now and the checklist shows have 0. `last` = `{ file, endedAt,
+  elapsedMs, ready, checklist, totals }` of the latest ended observation (`file` is the output file name only, never
+  its folder) or null.
+- HTTP (guards: section 6 order of checks, like `/config`): `GET` / `HEAD /observe` -> 200 `{ type: 'observe',
+  ...status }`; `POST /observe {"action":"start"|"stop"}` -> 200 `{ type: 'observe', ...status }` (start while running
+  and stop while stopped are no-ops); any other action -> 400; a start whose output file cannot be made -> 500
+  `{ error: 'observe start failed', code }` (`code` a plain `E...` code, else `EUNKNOWN`; never the message or the
+  folder); other methods -> 405 with `allow: GET, HEAD, POST`.
+- Page (`public/js/observe-panel.js`, `#toggle-observe` and `#observe` in `office.html`): the top-bar button `기록
+  관찰` stays hidden until a live `observe` message arrives (so never in `#demo`, the artifact or `#bench`, and never
+  on a server without the feature). While running it reads `관찰 중 · mm:ss` (the clock runs on the page between
+  messages); when `ready` it turns into the accent `충분히 모였어요`. The button only opens and closes the panel (its
+  tooltips say so; ending is the panel's button). Its accessible name stays `기록 관찰` (`기록 관찰, 관찰 중`,
+  `기록 관찰, 충분히 모였어요`; never the ticking clock), and a visually hidden `aria-live` line outside the panel
+  (`#observe-announce`) announces the start, `ready` and the end while the panel is closed (an open panel's own
+  `aria-live` state line speaks instead). The panel shows the one-line explanation, the
+  checklist with Korean labels and have/need bars (off items greyed with the reason), the `grok-wait` hint (answer a
+  permission prompt after more than one second; it needs a Grok permission mode that asks), and one start / end button:
+  `관찰 시작`, then `지금 끝내기` with the note that ending now keeps what was collected, or `관찰 끝내기` as the primary
+  action once ready. Ending is this button; nothing has to be said in chat. After an end it shows the saved file name,
+  a counts-only line (files, appends, checklist items filled) and `Claude 에게 '관찰 결과 반영해 줘' 라고 하면 이 파일을
+  읽어 문서에 반영해요`. A failed POST shows a short line in the panel (a 500 shows its error code). While a POST is in
+  flight, or while the live connection is lost, the panel's button is `aria-disabled` (still focusable, clicks
+  ignored) rather than `disabled`, so the keyboard focus stays on it. When the live source reports `retry` (the SSE
+  connection dropped) the status is stale: the clock stops, the button is inert and the state line says
+  `서버와 연결이 끊겼어요. 다시 연결되면 상태를 새로 받아요.`; the next `observe` message replaces it, and if the
+  observation was running before and the server now has no observation and no `last` (it was restarted), the panel
+  says `앞의 관찰은 서버가 꺼지면서 끝났어요. 결과 파일에 요약이 없을 수 있어요.` At 720 px and narrower the panel
+  is bounded to its own grid row (`align-self: stretch`, at most 45vh, scrolls inside), so the legend, the log and the
+  inspector below never cover its button. `available: false`
+  keeps the button so the panel can say that no Grok or Codex log folder is on (start disabled). The page keeps only
+  the known fields of a status (`readStatus`) and shows a file name only when it has no `/`. The open / closed state
+  of the panel is not saved.
+- Hand-off: the user tells Claude `관찰 결과 반영해 줘`; Claude reads the newest `observe-*.jsonl` in `<repo>/.observe/`
+  (its summary record first; a file cut off by a hard kill of the server has none, and `summarize(records)` of
+  `src/observe/summary.mjs` rebuilds it from the records) and updates ADAPTERS 5.1 / 5.2 and the CONTRACT sections the numbers settle. The file
+  holds only what section 5 allows, so it can be read without exposing content.
 
 ## 7. Permission-approval wait (P3 finding, Grok live in P5g)
 

@@ -5,3 +5,6 @@ node_modules/
 # 로컬 도구 상태
 .serena/
 .playwright-mcp/
+
+# 기록 관찰 결과 (로컬 전용)
+.observe/

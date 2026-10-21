@@ -6,6 +6,7 @@
   항목과 의미는 4.0.2절에, Grok 어댑터의 탐색, id, 매핑은 4.6절에, Codex 어댑터는 4.7절에, Antigravity 어댑터는 4.8절에
   옮겼다. 이로써 P5 의 필수 단계는 모두 끝났다. 선택 단계 P5g(Grok 라이브 승인 대기)도 끝났다(2026-10-21, 기준은
   `docs/CONTRACT.md` 4.6절의 Approval wait 와 7.1절, 결과는 5.2절 끝과 11절 D7). 남은 것은 9절에 적은 실제 세션 확인이다.
+  Grok 과 Codex 의 실제 세션 확인은 사무실 화면의 `기록 관찰`(CONTRACT 6.2절, 2026-10-21)로 한다(5.1절과 5.2절 끝).
 - 작성일: 2026-10-20
 - 기준 문서: `docs/CONTRACT.md` 2절(이벤트 스키마), 4.0절(어댑터 범위), 5절(개인정보)
 - 조사 근거: `docs/research/codex-format.json`, `docs/research/grok-format.json`, `docs/research/antigravity-format.json`
@@ -336,6 +337,11 @@ flowchart LR
   폴더에 다시 풀린 `.jsonl` 이 느린 전체 탐색 주기 안에 붙는 동안 화면이 늦는 정도, 실행 중인 Codex 세션의 덧붙이는
   단위(8.1절 11번).
 
+  확인 경로(2026-10-21): 실행 중인 Codex 세션의 덧붙이는 단위(rollout 과 `session_index.jsonl`)는 사무실 화면의
+  `기록 관찰`(CONTRACT 6.2절)로 본다. 평소처럼 Codex 를 쓰는 동안 덧붙음마다 바이트, 끝난 줄 수, 줄 중간에서 시작하거나
+  끝났는지, 기록 시각과 본 시각의 차이와 `type` / `payload.type` 개수만 `<저장소>/.observe/` 에 남기고, 체크리스트의
+  `codex-rollout` 20번이 차면 패널에서 끝낸다. 결과는 사용자가 "관찰 결과 반영해 줘" 라고 할 때 이 표에 반영한다.
+
 ### 5.2 Grok (`docs/research/grok-format.json`)
 
 - 제품: xAI 공식 Grok Build(`grok --help` 첫 줄 "Grok Build TUI", Rust, github.com/xai-org/grok-build). 커뮤니티
@@ -429,6 +435,13 @@ flowchart LR
   권한 창이 부모 TUI 에서 사람에게 보이는지, Grok Build 1.0.62 뒤의 판에서도 `tool_started` -> `permission_prompt` ->
   `permission_requested` 가 이어지는지(바뀌면 보이지 않을 뿐이고 놓침 수만 는다). 측정해서 풀린 것: 가장 큰 `events.jsonl` 은
   약 10.0 MB 라 붙을 때 한 번에 다 읽지 못하고(8 MB 상한) 다음 rescan 에서 따라잡는다.
+- 확인 경로(2026-10-21): 위의 실행 중 덧붙이는 단위(`updates.jsonl`), 권한 창이 열린 동안 `events.jsonl` 이 써지는
+  단위와 때, `active_sessions.json` 행 모양은 사무실 화면의 `기록 관찰`(CONTRACT 6.2절)로 본다. 평소처럼 Grok 을 쓰는 동안
+  덧붙음마다 바이트, 끝난 줄 수, 줄 중간에서 시작하거나 끝났는지, 기록 시각과 본 시각의 차이, 정해진 종류 값의 개수, 권한
+  요청과 결정을 본 시각의 차이(같은 세션 FIFO), `active_sessions.json` 의 모양(행 수, 키 이름, 값의 타입)만
+  `<저장소>/.observe/` 에 남긴다. 체크리스트(`grok-updates` 20번, 1초 넘게 기다린 권한 창 `grok-wait` 1번, 행 있는
+  `grok-active` 1번)가 차면 패널에서 끝내고, 결과는 사용자가 "관찰 결과 반영해 줘" 라고 할 때 위의 미확인 표와 이 줄에
+  반영한다. 누가 답하는지와 서브에이전트 권한 창이 사람에게 보이는지는 이 관찰로도 알 수 없다(기록에 그 필드가 없다).
 
 ### 5.3 Antigravity (`docs/research/antigravity-format.json`)
 
