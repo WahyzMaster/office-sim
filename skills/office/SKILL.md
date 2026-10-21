@@ -6,7 +6,7 @@ argument-hint: "[start|stop|status|demo|auth]"
 
 # /office
 
-Office Sim is a local Node 20 server with no dependencies. It tails coding-agent session logs and serves a three.js office at `http://127.0.0.1:4317/`. This skill starts or reuses it, opens the page, reports its status, or stops it. Run each command with the Bash tool. Reply in the user's language (Korean when they write Korean).
+Office Sim is a local Node 24 server with no dependencies. It tails coding-agent session logs and serves a three.js office at `http://127.0.0.1:4317/`. This skill starts or reuses it, opens the page, reports its status, or stops it. Run each command with the Bash tool. Reply in the user's language (Korean when they write Korean).
 
 Rules:
 - Never read, print or open session log content (`~/.claude/projects`, `~/.codex`, `~/.grok`, `~/.gemini`). Read only `/healthz` answers and the server's own `office-sim:` lines.

@@ -124,7 +124,7 @@ test('a file born after the start but before the start scan reaches it is new: r
   const root = await tmp();
   await fsp.mkdir(path.join(root, 'sessions'), { recursive: true });
   const { ob, recs } = observe({ grok: root });
-  await sleep(5);
+  await sleep(30); // a birth time can lag the wall clock by a kernel tick (Linux): stay well past the start
   const first = line(upd('user_message_chunk'));
   const s = await grokSession(root, 'g', '01920000-0000-7000-8000-00000000000d', first);
   if (!((await fsp.lstat(s.file)).birthtimeMs > 0)) return t.skip('no birth time on this file system');
@@ -192,6 +192,8 @@ test('Codex: an old thread in a day folder outside today/yesterday is found by t
   await ob.rescan();
   assert.equal(filesOf(recs).filter((r) => r.kind === 'codex-rollout').length, 0, 'an old day is not watched at the start');
   await fsp.appendFile(file, line(cx())); // the thread is resumed
+  const resumed = new Date(clock.t + 1000); // the resume's mtime, set explicitly (no file system clock in the test)
+  await fsp.utimes(file, resumed, resumed);
   clock.t += 5000;
   await ob.rescan();
   assert.equal(filesOf(recs).filter((r) => r.kind === 'codex-rollout').length, 0, 'no full walk before 30 s');
@@ -228,4 +230,23 @@ test('Codex: an old rollout decompressed again after the start is not read from 
   await fsp.appendFile(file, line(cx()));
   await ob.poll();
   assert.deepEqual(appendsOf(recs).map((r) => r.lines), [1]);
+});
+
+test('Codex: a resume stamped a little before the start by a coarse file clock is still found by the full walk', async () => {
+  // Linux stamps file times from a coarse kernel clock, a few ms behind Date.now(); the full walk allows 2 s of slack
+  const root = await tmp();
+  const day = await oldCodexDay(root);
+  const file = path.join(day, 'rollout-2025-01-02T10-00-00-coarse.jsonl');
+  await fsp.writeFile(file, line(cx()));
+  const old = new Date(Date.now() - 30 * 86_400_000);
+  await fsp.utimes(file, old, old);
+  const clock = { t: Date.now() };
+  const { ob, recs } = observe({ codex: root }, { startMs: clock.t, now: () => clock.t });
+  await ob.rescan();
+  await fsp.appendFile(file, line(cx()));
+  const stamped = new Date(clock.t - 5); // written after the start, stamped 5 ms "before" it
+  await fsp.utimes(file, stamped, stamped);
+  clock.t += 31_000;
+  await ob.rescan();
+  assert.deepEqual(filesOf(recs).filter((r) => r.kind === 'codex-rollout').map((r) => r.event), ['watch']);
 });

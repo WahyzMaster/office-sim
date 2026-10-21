@@ -1,4 +1,5 @@
-# node --test test/ 를 Node 20 에서 돌린다 (의존성 없음, 합성 데이터만 쓰는 테스트).
+# npm test (node --test test/*.test.mjs) 를 Node 22 와 24 에서 돌린다 (의존성 없음, 합성 데이터만 쓰는 테스트).
+# 지원 하한은 Node 24(package.json engines, .nvmrc)이고, 22 는 호환성 확인용이다.
 name: test
 
 on:
@@ -13,10 +14,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
       - run: node --version
       - run: npm test

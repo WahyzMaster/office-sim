@@ -14,6 +14,9 @@ export { FULL_WALK_MS };
 export const INDEX = 'session_index.jsonl';
 export const QUIET = new Set(['ENOENT', 'ENOTDIR']); // 없는 것은 오류가 아니다
 const ROLLOUT_RE = /^rollout-.*\.jsonl$/;
+// 전체 훑기의 "시작 뒤에 바뀜" 여유. 파일 시각은 커널의 거친 시계로 찍혀 Date.now() 보다 한 틱(몇 ms) 이를 수 있다
+// (Linux). 이 여유 안에 걸린 파일도 그때 크기부터 보므로 덧붙이기 수에는 영향이 없다.
+const MTIME_SLACK_MS = 2000;
 
 /**
  * Adds the Codex files to look at to `found` (path -> { kind, agent, sessionKey, st?, late? }). `o` is the Observer
@@ -64,7 +67,7 @@ async function codexDay(o, found, key, near, initial) {
     return;
   }
   // 시작 훑기는 시작 10분 전부터, 전체 훑기는 시작 뒤에 바뀐 파일이 있으면 그 날을 hot 에 더한다
-  const since = initial ? o.startMs - o.recentMs : o.startMs;
+  const since = initial ? o.startMs - o.recentMs : o.startMs - MTIME_SLACK_MS;
   const seen = [];
   let recent = false;
   for (const p of files) {

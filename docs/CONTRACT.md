@@ -12,7 +12,9 @@ adapter (P5e) in 4.8.
 
 ## 0. Ground rules
 
-- Node 20 (`node -v` = 20.20), ESM (`.mjs`), **zero npm dependencies**. Tests use `node:test` + `node:assert/strict`.
+- Node 24 or later (`package.json` engines, `.nvmrc`; CI also runs Node 22), ESM (`.mjs`), **zero npm dependencies**.
+  Tests use `node:test` + `node:assert/strict` and run as `node --test test/*.test.mjs` (fixture modules under
+  `test/fixtures/` are not test files).
   Run all tests with `node --test test/`.
 - Every source file stays under 500 lines. No `console.log` in `src/` (use the injected `log` callback); `bin/` may print.
 - Comments may be Korean or English; identifiers are English.
