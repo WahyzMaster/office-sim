@@ -1,26 +1,36 @@
 #!/usr/bin/env node
 // Dev helper (not a test): writes a synthetic Codex thread (code mode) into a temp Codex root over time, so the live
 // office can be watched with the Codex adapter. The records come from test/fixtures/codex.mjs (shaped from
-// docs/research/codex-format.json, invented content). It never touches the real ~/.codex.
+// docs/research/codex-format.json, invented content). It never touches the real ~/.codex: a --root inside it is refused,
+// also through a link or in another letter case, and so is a --root with a link into it where the thread is written
+// (the real paths and the folders' identities are compared, scripts/fake-root-guard.mjs).
 //
 //   node scripts/fake-codex-append.mjs [--root <dir>] [--cwd <project dir>] [--step-ms <ms>] [--loop]
 //   then, in another terminal:  node bin/office-sim.mjs --codex-root <the printed root>
 //
-// --root: an empty or earlier fake root (default: a new temp folder, removed again on Ctrl+C). --cwd: the project folder
-// the thread works in (default: the current folder, so a Claude session in the same folder shares its floor).
+// --root: an empty or earlier fake root (default: a new temp folder, removed again on Ctrl+C or SIGTERM). --cwd: the
+// project folder the thread works in (default: the current folder, so a Claude session in the same folder shares its
+// floor).
 // --step-ms: pause between steps (default 1500). --loop: start a new turn after the last one, until Ctrl+C.
 // One turn: a prompt, a thought, a plan proposal, code-mode exec calls whose inner commands visit several rooms (a read,
 // an edit, a failed test, a web search, a declined command), a subagent with its own file that the parent reports
 // completed, an ask at the desk, a passing test and the closing answer.
 import crypto from 'node:crypto';
-import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createCodexBuilder, out, NEW_VERSION } from '../test/fixtures/codex.mjs';
 import { dayKey } from '../src/adapters/codex/discover.mjs';
+import { refuseRealRoot, refuseWrites, stopOnSignals } from './fake-root-guard.mjs';
 
-const USAGE = 'usage: node scripts/fake-codex-append.mjs [--root <dir>] [--cwd <project dir>] [--step-ms <ms>] [--loop]';
+const USAGE = [
+  'usage: node scripts/fake-codex-append.mjs [--root <dir>] [--cwd <project dir>] [--step-ms <ms>] [--loop]',
+  '  --root     a temp folder for the fake Codex root (default: a new one); never the real ~/.codex,',
+  '             also not through a link or in another letter case',
+  '  --cwd      the project folder the thread works in (default: the current folder)',
+  '  --step-ms  pause between steps (default 1500)',
+  '  --loop     start a new turn after the last one, until Ctrl+C',
+].join('\n');
 
 function parse(argv) {
   const o = { root: null, cwd: process.cwd(), stepMs: 1500, loop: false };
@@ -52,22 +62,12 @@ try {
   process.exit(2);
 }
 
-// The real ~/.codex (also through a link): refused, the fake thread would mix with real ones.
-const real = (p) => {
-  try {
-    return fs.realpathSync(p);
-  } catch {
-    return path.resolve(p);
-  }
-};
-const inside = (p, dir) => p === dir || p.startsWith(`${dir}${path.sep}`);
+// The real ~/.codex, also through a link or in another letter case: refused, the fake thread would mix with real ones.
 const realCodex = path.join(os.homedir(), '.codex');
-if (opts.root && (inside(opts.root, realCodex) || inside(real(opts.root), real(realCodex)))) {
-  console.error('refusing to write into the real ~/.codex: pass a temp folder (or no --root)');
-  process.exit(2);
-}
+refuseRealRoot(opts.root, realCodex, '~/.codex');
 const created = !opts.root;
 const root = opts.root ?? await fsp.mkdtemp(path.join(os.tmpdir(), 'office-sim-fake-codex-'));
+const io = stopOnSignals(root, created); // Ctrl+C or SIGTERM: the writes under way finish, then the temp root goes away
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // a UUIDv7-shaped id (Codex thread ids are UUIDv7)
@@ -98,9 +98,10 @@ function stamp(rec) {
   }
   return rec;
 }
-const append = (file, recs) => fsp.appendFile(file, recs.map((r) => `${JSON.stringify(stamp(r))}\n`).join(''));
-const indexTitle = (id, name) => fsp.appendFile(path.join(root, 'session_index.jsonl'),
-  `${JSON.stringify({ id, thread_name: name, updated_at: new Date().toISOString() })}\n`);
+const append = (file, recs) => io(() => fsp.appendFile(file, recs.map((r) => `${JSON.stringify(stamp(r))}\n`).join('')));
+const indexFile = path.join(root, 'session_index.jsonl');
+const indexTitle = (id, name) => io(() => fsp.appendFile(indexFile,
+  `${JSON.stringify({ id, thread_name: name, updated_at: new Date().toISOString() })}\n`));
 
 const mainId = uuid7();
 const mainFile = rolloutFile(mainId);
@@ -126,7 +127,8 @@ async function subagent(round) {
   const c = createCodexBuilder({ threadId: childId, cliVersion: NEW_VERSION, cwd: opts.cwd, branch: 'fake/codex-demo', stepMs: 1 });
   await exec('await tools.spawn_agent({ agent_type: "explorer", message: "invented task" });', [],
     out.script(`spawned ${childId}`));
-  await fsp.mkdir(path.dirname(file), { recursive: true });
+  refuseWrites([path.dirname(file)], realCodex, '~/.codex'); // a new day's folder
+  await io(() => fsp.mkdir(path.dirname(file), { recursive: true }));
   await append(file, [c.sessionMeta({ sub: { parent: mainId, role: 'explorer', nickname: `Scout ${round}`, path: '/root/scout' } })]);
   await step(file, [c.taskStarted(), c.userMessage('Find every caller of format()'), ...c.think('Search the source tree.')]);
   await step(file, [c.exec('await tools.exec_command({ cmd: "rg -n format src" });')]);
@@ -163,13 +165,9 @@ async function turn(n) {
   await step(mainFile, [...m.say('Done: the helpers are tidied and the tests pass.', { phase: 'final_answer' }), m.taskComplete()]);
 }
 
-process.on('SIGINT', async () => {
-  if (created) await fsp.rm(root, { recursive: true, force: true }).catch(() => {});
-  console.log(created ? '\nstopped; the temp root was removed' : '\nstopped');
-  process.exit(0);
-});
-
-await fsp.mkdir(path.dirname(mainFile), { recursive: true });
+// A link planted in a temp --root (sessions, a day folder, session_index.jsonl) would lead the writes into ~/.codex.
+refuseWrites([path.dirname(mainFile), indexFile], realCodex, '~/.codex');
+await io(() => fsp.mkdir(path.dirname(mainFile), { recursive: true }));
 await append(mainFile, [m.sessionMeta(), m.turnContext()]);
 console.log(`fake Codex root: ${root}`);
 console.log(`run:  node bin/office-sim.mjs --codex-root ${root}`);

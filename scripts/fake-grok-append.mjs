@@ -2,7 +2,8 @@
 // Dev helper (not a test): writes a synthetic Grok Build session into a temp Grok root over time, so the live office can
 // be watched with the Grok adapter. The records come from test/fixtures/grok.mjs (shaped from
 // docs/research/grok-format.json, invented content). It never touches the real ~/.grok: a --root inside it is refused,
-// also through a link or in another letter case (the real paths are compared).
+// also through a link or in another letter case, and so is a --root with a link into it where the session is written
+// (the real paths and the folders' identities are compared, scripts/fake-root-guard.mjs).
 // Next to each updates.jsonl it also writes the session's events.jsonl (P5g): every tool call gets tool_started,
 // phase_changed permission_prompt and permission_requested with the call's own clock, auto-approved in the same write,
 // except one test run per turn whose prompt stays open for --wait-ms before it is allowed (or denied with --deny, or
@@ -11,8 +12,9 @@
 //   node scripts/fake-grok-append.mjs [--root <dir>] [--cwd <project dir>] [--step-ms <ms>] [--wait-ms <ms>] [--deny | --cancel] [--loop]
 //   then, in another terminal:  node bin/office-sim.mjs --grok-root <the printed root>
 //
-// --root: an empty or earlier fake root (default: a new temp folder, removed again on Ctrl+C). --cwd: the project folder
-// the session works in (default: the current folder, so a Claude session in the same folder shares its floor).
+// --root: an empty or earlier fake root (default: a new temp folder, removed again on Ctrl+C or SIGTERM). --cwd: the
+// project folder the session works in (default: the current folder, so a Claude session in the same folder shares its
+// floor).
 // --step-ms: pause between steps (default 1500). --wait-ms: how long the one approval prompt per turn stays open
 // (default 6000; 0 answers it at once like the rest). --deny: that prompt is denied instead of allowed, as auto mode
 // does in most long real denials (no tool_completed; the call ends with the auto-mode denial line and the turn goes on).
@@ -21,11 +23,11 @@
 // the waiting call ends interrupted.
 // --loop: start a new turn after the last one, until Ctrl+C.
 import crypto from 'node:crypto';
-import { realpathSync } from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createGrokBuilder, out } from '../test/fixtures/grok.mjs';
+import { refuseRealRoot, refuseWrites, stopOnSignals } from './fake-root-guard.mjs';
 
 const USAGE = [
   'usage: node scripts/fake-grok-append.mjs [--root <dir>] [--cwd <project dir>] [--step-ms <ms>] [--wait-ms <ms>] [--deny | --cancel] [--loop]',
@@ -72,31 +74,12 @@ try {
   console.error(`${err.message}\n${USAGE}`);
   process.exit(2);
 }
-// The real path of p, through its nearest existing folder (a root that does not exist yet keeps its last parts), with
-// the letter case folded where the file system usually ignores it (APFS, NTFS): a link to ~/.grok or ~/.GROK is ~/.grok.
-function realOf(p) {
-  const rest = [];
-  let cur = p;
-  for (;;) {
-    try {
-      const real = path.join(realpathSync.native(cur), ...rest);
-      return process.platform === 'darwin' || process.platform === 'win32' ? real.toLowerCase() : real;
-    } catch {
-      const up = path.dirname(cur);
-      if (up === cur) return p;
-      rest.unshift(path.basename(cur));
-      cur = up;
-    }
-  }
-}
-const within = (p, base) => p === base || p.startsWith(`${base}${path.sep}`);
+// The real ~/.grok, also through a link or in another letter case: refused, the fake session would mix with real ones.
 const realGrok = path.join(os.homedir(), '.grok');
-if (opts.root && (within(opts.root, realGrok) || within(realOf(opts.root), realOf(realGrok)))) {
-  console.error('refusing to write into the real ~/.grok: pass a temp folder (or no --root)');
-  process.exit(2);
-}
+refuseRealRoot(opts.root, realGrok, '~/.grok');
 const created = !opts.root;
 const root = opts.root ?? await fsp.mkdtemp(path.join(os.tmpdir(), 'office-sim-fake-grok-'));
+const io = stopOnSignals(root, created); // Ctrl+C or SIGTERM: the writes under way finish, then the temp root goes away
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // a UUIDv7-shaped id (Grok names session folders with UUIDv7)
@@ -111,15 +94,17 @@ function uuid7() {
 const group = encodeURIComponent(opts.cwd);
 const mainId = uuid7();
 const mainDir = path.join(root, 'sessions', group, mainId);
+// A link planted in a temp --root (sessions, the cwd group folder) would lead the writes into ~/.grok.
+refuseWrites([mainDir], realGrok, '~/.grok');
 
 async function writeSummary(dir, id, { title = null, kind = null, agent = 'grok-build-plan' } = {}) {
   const body = {
     info: { id, cwd: opts.cwd }, ...(title ? { generated_title: title, session_summary: title } : {}), head_branch: 'fake/grok-demo',
     current_model_id: 'grok-4.6', agent_name: agent, ...(kind ? { session_kind: kind } : {}), chat_format_version: 1,
   };
-  await fsp.writeFile(path.join(dir, 'summary.json'), JSON.stringify(body));
+  await io(() => fsp.writeFile(path.join(dir, 'summary.json'), JSON.stringify(body)));
 }
-const append = (file, recs) => fsp.appendFile(file, recs.map((r) => `${JSON.stringify(r)}\n`).join(''));
+const append = (file, recs) => io(() => fsp.appendFile(file, recs.map((r) => `${JSON.stringify(r)}\n`).join('')));
 
 const now = () => Date.now();
 const m = createGrokBuilder({ sessionId: mainId, startMs: now(), stepMs: 1 });
@@ -202,13 +187,13 @@ async function step(file, b, make, prompt = null) {
 
 async function subagent(type, title) {
   const childId = uuid7();
-  await fsp.mkdir(path.join(mainDir, 'subagents', childId), { recursive: true }); // the link first: never a main
+  await io(() => fsp.mkdir(path.join(mainDir, 'subagents', childId), { recursive: true })); // the link first: never a main
   const dir = path.join(root, 'sessions', group, childId);
-  await fsp.mkdir(dir, { recursive: true });
+  await io(() => fsp.mkdir(dir, { recursive: true }));
   await writeSummary(dir, childId, { title, kind: 'subagent', agent: type });
   const file = path.join(dir, 'updates.jsonl');
-  await fsp.writeFile(file, '');
-  await fsp.writeFile(eventsFile(file), '');
+  await io(() => fsp.writeFile(file, ''));
+  await io(() => fsp.writeFile(eventsFile(file), ''));
   return { childId, file, b: createGrokBuilder({ sessionId: childId, startMs: now(), stepMs: 1 }) };
 }
 
@@ -266,16 +251,10 @@ async function turn(n) {
     b.turnCompleted(), b.hook({ event: 'stop' })]);
 }
 
-process.on('SIGINT', async () => {
-  if (created) await fsp.rm(root, { recursive: true, force: true }).catch(() => {});
-  console.log(created ? '\nstopped; the temp root was removed' : '\nstopped');
-  process.exit(0);
-});
-
-await fsp.mkdir(mainDir, { recursive: true });
+await io(() => fsp.mkdir(mainDir, { recursive: true }));
 await writeSummary(mainDir, mainId);
-await fsp.writeFile(mainFile, `${JSON.stringify(m.hook({ event: 'session_start' }))}\n`);
-await fsp.writeFile(eventsFile(mainFile), '');
+await io(() => fsp.writeFile(mainFile, `${JSON.stringify(m.hook({ event: 'session_start' }))}\n`));
+await io(() => fsp.writeFile(eventsFile(mainFile), ''));
 console.log(`fake Grok root: ${root}`);
 console.log(`run:  node bin/office-sim.mjs --grok-root ${root}`);
 const waitNote = `test-run prompt open ${opts.waitMs} ms, then ${opts.cancel ? 'its turn cancelled' : opts.deny ? 'denied' : 'allowed'}`;
