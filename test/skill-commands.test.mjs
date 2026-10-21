@@ -13,6 +13,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { start } from '../src/server.mjs';
 import { until } from './fixtures/sse.mjs';
+import { assertHealthShape } from './fixtures/healthz.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
 const SKILL = readFileSync(new URL('../skills/office/SKILL.md', import.meta.url), 'utf8');
@@ -83,7 +84,9 @@ test('probe snippet: 200 office-sim JSON, 401 with --auth, down ECONNREFUSED, an
   try {
     const ok = await probe(open.port);
     assert.match(ok, /^200 \{"ok":true,/);
-    assert.deepEqual(Object.keys(JSON.parse(ok.slice(4))).sort(), ['agents', 'clients', 'files', 'ok', 'sessions']);
+    const body = JSON.parse(ok.slice(4)); // the whole body fits in the probe's slice: it parses
+    assertHealthShape(body); // the old five keys first, then version, commit, counters and runners
+    assert.equal(body.commit, null, 'start() without build: commit unknown');
     assert.equal(await probe(auth.port), '401 unauthorized: open the URL printed by office-sim');
     assert.equal(await probe(other.address().port), '200 hello');
   } finally {

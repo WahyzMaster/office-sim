@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { Store } from './store.mjs';
 import { createHttp, validInterval, MIN_INTERVAL, MAX_INTERVAL } from './server-http.mjs';
 import { Runner } from './server-runner.mjs';
+import { COMMIT_RE, createHealth, packageVersion } from './server-health.mjs';
 import { newToken } from './server-guard.mjs';
 import { ADAPTERS, KNOWN_AGENTS, checkAgents, isKnownAgent, probeRoot, probeWithin, selectAdapters } from './adapters/index.mjs';
 import { ObserveControl } from './observe/control.mjs';
@@ -21,7 +22,7 @@ export const DEFAULTS = Object.freeze({
   port: 4317, host: '127.0.0.1', intervalMs: 250, activeMinutes: 30, rescanMs: 3000,
   idleMs: 1000, pingMs: 15000, ringSize: 1000, auth: false, replay: null, speed: 1, loop: false,
   root: path.join(os.homedir(), '.claude', 'projects'),
-  agents: null, roots: null, observeDir: null,
+  agents: null, roots: null, observeDir: null, build: null,
   publicDir: fileURLToPath(new URL('../public/', import.meta.url)),
 });
 export const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -54,6 +55,10 @@ function validate(o) {
   if (typeof o.loop !== 'boolean') throw new RangeError('loop must be a boolean');
   if (o.observeDir !== null && (typeof o.observeDir !== 'string' || o.observeDir === '')) throw new RangeError('observeDir must be a folder path');
   if (o.agents !== null) checkAgents(o.agents); // 모르는 id 는 RangeError
+  // /healthz 의 commit: bin 이 구한 짧은 sha 이거나 없음. 경로나 다른 글이 본문에 들어가지 않게 모양을 확인한다
+  if (o.build !== null && (typeof o.build !== 'object' || Array.isArray(o.build))) throw new RangeError('build must be an object { commit }');
+  const commit = o.build?.commit;
+  if (commit != null && !(typeof commit === 'string' && COMMIT_RE.test(commit))) throw new RangeError('build.commit must be a hex commit id or null');
   if (o.roots !== null) {
     if (typeof o.roots !== 'object' || Array.isArray(o.roots)) throw new RangeError('roots must be an object { <agent id>: <dir> }');
     for (const [id, dir] of Object.entries(o.roots)) {
@@ -280,7 +285,8 @@ function observeTiming(t) {
  *   for the non-Claude adapters; one without a root here is not started, the bin passes defaultRoots()), auth (opt-in
  *   per-run token: every route then needs the cookie that GET /?t=<token> sets), replay (a main transcript path: replay it instead of tailing --root), speed (replay factor), loop (replay
  *   again), observeDir (live log observation output folder: turns on GET/POST /observe and the `observe` SSE message;
- *   absent = feature off, nothing changes). Test hooks: deps (claude-code deps override; a fake scan also skips the
+ *   absent = feature off, nothing changes), build ({ commit }: the short git sha of the checkout, shown by GET /healthz;
+ *   the bin passes it, absent = commit null). Test hooks: deps (claude-code deps override; a fake scan also skips the
  *   root check), adapters (registry override), probe ((root, id) => error code | null, replaces the root check),
  *   probeTimeoutMs (root check time limit, default 2000), replayTiming ({ maxGapMs, holdMs, restartMs, statusMs }),
  *   observeTiming ({ intervalMs, rescanMs, notifyMs } of the observation loop).
@@ -292,6 +298,7 @@ function observeTiming(t) {
  *   implemented yet.
  */
 export async function start(options = {}) {
+  const startedAt = Date.now(); // /healthz startedAt, uptimeMs
   const opts = pick(options);
   opts.root = path.resolve(expandHome(opts.root));
   opts.publicDir = path.resolve(expandHome(opts.publicDir));
@@ -330,7 +337,8 @@ export async function start(options = {}) {
       group.setInterval(intervalMs);
       return config();
     },
-    stats: () => ({ files: group.fileCount, sessions: store.sessionCount, agents: group.ids }),
+    // version 은 여기서 한 번 읽는다 (요청마다 fs 를 부르지 않는다)
+    health: createHealth({ group, store, build: { version: packageVersion(), commit: opts.build?.commit ?? null }, startedAt }),
     authToken: token,
     observe,
     log,

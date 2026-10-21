@@ -75,11 +75,11 @@ function readBody(req, limit) {
 
 /**
  * @param {{ store, publicDir: string, pingMs: number, getPort: () => number,
- *           getConfig: () => object, setConfig: (patch) => object, stats: () => object, log: Function,
+ *           getConfig: () => object, setConfig: (patch) => object, health: (clients: number) => object, log: Function,
  *           observe?: { status(): object, start(): Promise<object>, stop(): Promise<object> } | null }} o
  *   observe: the live log observation control (ObserveControl). null = feature off: no /observe route, no observe frame.
  */
-export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, stats, authToken = null, observe = null, log = () => {} }) {
+export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, log = () => {} }) {
   const clients = new Set();
   const auth = createAuth(authToken, getPort);
   const csp = cspCache();
@@ -279,7 +279,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
       const snap = store.snapshot();
       return sendJson(res, 200, { type: 'snapshot', seq: snap.seq, events: snap.events });
     }
-    if (rawPath === '/healthz') return sendJson(res, 200, { ok: true, ...stats(), clients: clients.size });
+    if (rawPath === '/healthz') return sendJson(res, 200, health(clients.size)); // 본문은 server-health.mjs (처음 다섯 키는 예전 그대로)
     const js = JS_RE.exec(rawPath);
     if (js) return serveJs(res, js[1]);
     return send(res, 404, 'not found');

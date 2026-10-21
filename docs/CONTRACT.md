@@ -89,7 +89,11 @@ src/server-runner.mjs   Runner: poll / rescan / idle loops, attach, relocation, 
                         rescan only for an adapter that has the `sidecars(ref)` hook (Claude has none), or in its
                         place an adapter's own watcher `deps.sidecarWatcher` (`check(ref)` / `forget(path)`: the Grok
                         `GrokMeta`, 4.6 P5g, the Codex titles, 4.7, and the Antigravity metadata, 4.8); passes a ref's
-                        scan-time `facts` to the session constructor (Codex, Antigravity)
+                        scan-time `facts` to the session constructor (Codex, Antigravity); keeps the per-Runner
+                        error counters and the last scan time that /healthz reports
+src/server-health.mjs   the GET /healthz body builder (version, commit, start time, summed counters, one entry per
+                        Runner; numbers and error codes only, no fs call per request) and the error text / code
+                        helpers the Runner logs with
 src/server-http.mjs     http: /, /js/*, /events (SSE), /state, /config, /observe (only with `observeDir`, 6.2), /healthz
 src/observe/            live log observation ("기록 관찰", 6.2), every file under 500 lines, read-only on the adapter
                         roots: `records.mjs` (the categorical extractors, VALUE_RE with the id-like guard and the Grok
@@ -1805,7 +1809,10 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   already running browser instead. The token is still per run, and `--auth` without `--open` is unchanged. Tests
   replace the opener through `PATH` (fake `open` / `xdg-open` scripts); there is no test hook in the code.
 - The `/office` skill (P4, `skills/office/SKILL.md`) depends on these server facts, so changing one means changing the
-  skill and `test/skill-commands.test.mjs`: `GET /healthz` -> 200 `{ ok: true, files, sessions, clients, agents }`; with
+  skill and `test/skill-commands.test.mjs`: `GET /healthz` -> 200 JSON that starts `{"ok":true,` and has an `agents`
+  array (the probe prints at most the first 2000 characters; the whole body is shorter, `test/skill-file.test.mjs`
+  checks a four-adapter body with large counters), and `/office status` reports `agents`, `sessions`, `clients`,
+  `version`, `commit` and, only when one is non-zero or set, the counters and each `runners.<id>.scanErr`; with
   `--auth` every request without the cookie, `/healthz` included, gets 401 with the body `unauthorized: open the URL
   printed by office-sim`; stdout starts with `office-sim: <url>` then `office-sim: agents <ids|none>`; SIGTERM stops the
   server (exit 0, forced after 3 s; a repeat SIGINT / SIGTERM within 500 ms of the first is the same keystroke and is
@@ -1857,7 +1864,12 @@ counts only (events, unpaired tools, apply errors, privacy hits).
 - A file that fails to poll is retried with backoff (`interval * 2^n`, at most 30 s) and logged once per error code,
   with one `poll recovered` line; an attach that fails is rolled back (retried at the next rescan) and logged once per
   path and error code. A failing `scan()` skips that rescan tick (nothing is detached) and is logged as
-  `scan failed: <code>` once per error code, with one `scan recovered` line. One file failing never skips the other
+  `scan failed: <code>` once per error code, with one `scan recovered` line. A loop tick that throws (poll, rescan or
+  idle) is counted every time (`loopErrors` in /healthz) and logged as `<loop> loop failed: <message>` only when the
+  message differs from the last one logged for that loop (there is no recovered line), so a tick that fails the same
+  way on every period writes one line. A record whose link step (`store.observe`, sub task deltas) throws is counted
+  every time (`linkErrors`) and only the first 20 are logged (`link failed in <basename>: <message>`), like the
+  session `apply` / `idle` / `setInfo` throws counted in `applyErrors`. One file failing never skips the other
   files of the same rescan. Attach and poll log lines carry the error code and the file basename, scan lines the error
   code only (no root path); HTTP error log lines carry the request path without its query (no token).
 - Relocation: when a session's file moves to a new path with the same inode, its tail offset and partial line move
@@ -1882,8 +1894,35 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   `GET /state` -> snapshot JSON. `GET /config` / `POST /config {intervalMs}` (rules below, broadcast `config`).
   `GET /observe` / `POST /observe {action}` only with `observeDir` (6.2; without it GET and HEAD are 404 and POST is
   405, as for any unknown path).
-  `GET /healthz` -> `{ ok, files, sessions, clients, agents }` (`agents`: the enabled adapter ids, `files`: summed
-  over the Runners). No CORS headers. Order of checks for every request:
+  `GET /healthz` -> `{ ok, files, sessions, agents, clients, version, commit, startedAt, uptimeMs, badLines,
+  skippedLines, applyErrors, loopErrors, linkErrors, rejectedRefs, runners }`, keys in this order (built by
+  `src/server-health.mjs`; maintenance PR 2 added every key after `clients`, the first five keep their order and
+  meaning). `ok`: true; `files`: attached files summed over the Runners; `sessions`: characters in the Store; `agents`:
+  the enabled adapter ids (`KNOWN_AGENTS` order, a late adapter from when it turns on, F1); `clients`: open SSE
+  connections. `version`: the `package.json` `version`, read once by `start()` (null when unreadable). `commit`: the
+  `start()` option `build.commit`, the short sha of the checkout the server runs from; the bin runs
+  `git rev-parse --short=12 HEAD` once in its repo root (2 s limit, git's output and errors are not shown, stdout lines
+  unchanged) and any failure gives null, as does a `start()` without the option. It asks git only when the repo root
+  is itself a checkout (`<root>/.git`, a folder, or a file for a worktree or submodule), with every inherited `GIT_*`
+  variable removed and `GIT_CEILING_DIRECTORIES` set to the root's parent: a copy that is not a checkout (an unpacked
+  download, a folder vendored inside another repository) gives null, and an inherited `GIT_DIR` (a server started from
+  another repository's hook) cannot put that repository's sha there. `start()` refuses a commit that is not
+  7-40 lowercase hex digits (RangeError), so no path or text can get there. `startedAt` (ISO) and `uptimeMs`: since
+  `start()` was called. Counters, each the sum over `runners`: `badLines` (lines that are not JSON, R6), `skippedLines`
+  (lines over the Tailer's line limit), `applyErrors` (session `apply` / `idle` / `setInfo` throws), `loopErrors` (loop
+  ticks that threw), `linkErrors` (link steps that threw); then `rejectedRefs` (the Store's ref guard count, 4.0.1 F2, a
+  lower bound). Non-zero counters mean records are being read wrongly or not at all (a format change, a broken
+  parser), which an idle office does not show. `runners`: one entry per enabled adapter, keyed by id in `agents` order:
+  `{ files, lastScanMs, lastScanAt, scanErr, badLines, skippedLines, applyErrors, loopErrors, linkErrors }`.
+  `lastScanMs` (integer ms, timed on the monotonic clock, so a wall clock step during a scan cannot make it negative
+  or hours long) and `lastScanAt` (ISO, wall clock) are the duration and end of the last `scan()` call that returned
+  (null before the first one, and always in replay mode, which has no scan); a scan that throws keeps them and sets
+  `scanErr` to its error code until a scan returns again: an uppercase identifier of 2-32 characters (`EACCES`,
+  `ERR_...`, the adapters' scan cap `SCAN_CAPPED`), `EUNKNOWN` when the error has no code or one of another shape (it
+  could carry a path); never its message.
+  The body holds only numbers, ISO times, adapter ids, the version, the sha and error codes (no path, file name,
+  session id or message text), and building it reads in-memory fields only (no fs call per request). No CORS headers.
+  Order of checks for every request:
   1. Host guard: the `Host` header must be `localhost:<port>`, `127.0.0.1:<port>` or `[::1]:<port>`, and an `Origin`
      header, when present, must be `http://` + one of those; else 403 (DNS rebinding and cross-origin guard).
   2. Path guard: `..` or encoded `.` / `/` / `\` in the raw path -> 400.
@@ -1908,8 +1947,10 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`.
 - `start(options)` returns `{ url, token, port, store, ready, close(), stats(), agents, notImplemented }` so tests can
   run it on port 0 against a temp root (`agents`: the enabled adapter ids, read live so a late root (4.0.1 F1) shows
-  up; `stats()` adds the Store's `rejectedRefs` to the Runner counters; `notImplemented`: requested ids that are
-  known but not implemented, `KNOWN_AGENTS` order). Replay options: `replay` (path), `speed`, `loop`, and the test
+  up; `stats()` adds the Store's `rejectedRefs` to the Runner counters, keys unchanged by maintenance PR 2: the newer
+  `loopErrors`, `linkErrors` and scan times are read from /healthz; `notImplemented`: requested ids that are
+  known but not implemented, `KNOWN_AGENTS` order). `build` (`{ commit }`, default null): the build identity /healthz
+  reports (above). Replay options: `replay` (path), `speed`, `loop`, and the test
   hook `replayTiming` (`{ maxGapMs, holdMs, restartMs, statusMs }`). Adapter test hooks: `deps` (claude-code deps
   override), `adapters` (registry override), `probe` (replaces the root check) and `probeTimeoutMs`. `roots` gives the
   root of each non-Claude adapter (an adapter without one is not started, see above). With `auth: true`, `url` is

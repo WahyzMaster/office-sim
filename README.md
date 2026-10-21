@@ -84,10 +84,12 @@ npm run skill:uninstall                # 우리 링크일 때만 지움
 | `/office` (또는 `/office start`) | 4317 포트에 office-sim 이 떠 있으면 그대로 쓰고, 없으면 백그라운드로 띄운 뒤 화면을 엽니다. 4317 을 다른 프로그램이 쓰고 있으면 빈 포트에 띄웁니다 |
 | `/office demo` | 같은 방식으로 띄우고 데모 화면(`#demo`)을 엽니다 |
 | `/office auth` | `--auth` 로 띄우고 토큰 주소를 엽니다. Linux 에서 앱 안의 브라우저가 없으면 토큰이 브라우저 프로세스 인자에 남지 않도록 열지 않고 주소만 알려 줍니다 |
-| `/office status` | `/healthz` 로 실행 여부, 켜진 에이전트, 세션 수, 접속 수를 알려 줍니다 |
+| `/office status` | `/healthz` 로 실행 여부, 켜진 에이전트, 세션 수, 접속 수, 서버의 버전과 커밋을 알려 줍니다. 오류 카운터나 탐색 오류가 있을 때만 "기록을 읽다 문제가 생겼어요" 와 함께 에이전트별 숫자를 덧붙입니다 |
 | `/office stop` | 이 저장소의 `bin/office-sim.mjs` 를 절대 경로로 실행한 서버만 멈춥니다(`npm start` 로 터미널에서 띄운 서버는 그대로 둡니다) |
 
 "사무실 열어 줘", "에이전트들 뭐 하는지 보여 줘" 처럼 말로 해도 됩니다. 앱 안의 브라우저가 있으면 그곳에서, 없으면 OS 의 여는 명령(`open`, `xdg-open`, `cmd /c start`)을 직접 실행해 기본 브라우저로 열고, 열지 못하면 그렇다고 말하고 직접 열 주소를 알려 줍니다. 이미 4317 에 떠 있던 서버를 다시 쓸 때는 그 서버가 이 저장소에서 `/office` 로 띄운 것인지 확인해, 아니면(`npm start` 로 터미널에서 띄운 서버, 다른 체크아웃) 띄운 곳에서 Ctrl-C 로 멈추라고 알려 줍니다. 스킬은 `/healthz` 응답과 서버가 출력한 `office-sim:` 줄만 읽고, 세션 기록은 열지 않습니다.
+
+`/healthz` 는 사무실이 조용한 것(에이전트가 쉬는 중)과 기록을 읽지 못하는 것(형식이 바뀌었거나 탐색이 막힘)을 가르는 숫자도 줍니다. `version` 과 `commit` 은 지금 떠 있는 서버가 어느 빌드인지(`git pull` 뒤에도 예전 서버가 계속 돌 수 있습니다, `commit` 은 git 으로 알 수 없거나, 이 폴더가 git 체크아웃이 아니면(내려받아 푼 사본, 다른 저장소 안에 넣어 둔 사본) `null`), `badLines` 는 JSON 이 아닌 줄, `skippedLines` 는 너무 길어 건너뛴 줄, `applyErrors` 는 세션 해석이 실패한 줄, `loopErrors` 는 탐색/읽기 루프가 실패한 횟수, `linkErrors` 는 직원 연결이 실패한 줄, `rejectedRefs` 는 규칙에 맞지 않아 거절한 기록 파일 수입니다. `runners` 에는 에이전트별로 같은 숫자와 마지막 탐색에 걸린 시간(`lastScanMs`), 그 시각(`lastScanAt`), 탐색 오류 코드(`scanErr`, 예: 읽을 권한이 없는 `EACCES`, 기록 폴더가 너무 많아 탐색을 멈춘 `SCAN_CAPPED`)가 있습니다. 숫자, 시각, 오류 코드만 들어가고 경로, 파일 이름, 세션 id, 오류 문구는 없습니다(`docs/CONTRACT.md` 6절).
 
 ## 재생 모드
 
@@ -133,7 +135,7 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 
 ## 구조
 
-- `src/`: 탐색(discover), tail(tailer), 레코드 분류(records), 세션 상태(session), 계획 복원(plan), 요약(summarize), 저장소와 SSE 서버(store, server), 재생 모드(replay, replay-timeline)
+- `src/`: 탐색(discover), tail(tailer), 레코드 분류(records), 세션 상태(session), 계획 복원(plan), 요약(summarize), 저장소와 SSE 서버(store, server), `/healthz` 본문(server-health), 재생 모드(replay, replay-timeline)
 - `src/store-claude.mjs`: Claude Code 서브에이전트 연결(저장소에서 Claude 전용 부분을 떼어 낸 것)
 - `src/adapters/`: 어댑터 등록표(`index.mjs`)와 Claude Code 설명자(`claude-code.mjs`). Claude 모듈은 제자리에 두고 설명자가 가리킵니다
 - `src/adapters/grok/`: Grok 어댑터(탐색, 레코드 정규화, 설명자 `index.mjs`)

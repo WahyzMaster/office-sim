@@ -29,7 +29,7 @@ Take the first argument, lowercased: none or `start` -> start; `stop`; `status`;
 ## 3. Probe (status and start use it)
 
 ```bash
-node -e 'const t=setTimeout(()=>{console.log("down Timeout");process.exit(0)},1500);fetch("http://127.0.0.1:4317/healthz",{signal:AbortSignal.timeout(1000)}).then(async r=>console.log(r.status,(await r.text()).slice(0,300))).catch(e=>console.log("down",e.cause?.code||e.name)).finally(()=>clearTimeout(t))'
+node -e 'const t=setTimeout(()=>{console.log("down Timeout");process.exit(0)},1500);fetch("http://127.0.0.1:4317/healthz",{signal:AbortSignal.timeout(1000)}).then(async r=>console.log(r.status,(await r.text()).slice(0,2000))).catch(e=>console.log("down",e.cause?.code||e.name)).finally(()=>clearTimeout(t))'
 ```
 
 - `200` with JSON that has `"ok":true` and an `agents` array: office-sim, open mode.
@@ -39,7 +39,9 @@ node -e 'const t=setTimeout(()=>{console.log("down Timeout");process.exit(0)},15
 
 ## status
 
-Probe and report one of: running (URL `http://127.0.0.1:4317/`, `agents`, `sessions`, `clients`), running with `--auth` (stats need the browser cookie), not running, or port 4317 used by another program. Start nothing.
+Probe and report one of: running (URL `http://127.0.0.1:4317/`, `agents`, `sessions`, `clients`, and the build as `version` and `commit`, where `null` means unknown), running with `--auth` (stats need the browser cookie), not running, or port 4317 used by another program. Start nothing.
+
+When running, also check the counters `badLines`, `skippedLines`, `applyErrors`, `loopErrors`, `linkErrors`, `rejectedRefs` and each `runners.<agent>.scanErr`. Only if one is non-zero or set, add one line "기록을 읽다 문제가 생겼어요" (in the user's language) with the non-zero counters and `scanErr` of each agent from `runners` (`rejectedRefs` has no agent). All zero and null: say nothing about them.
 
 ## start, demo, auth
 
