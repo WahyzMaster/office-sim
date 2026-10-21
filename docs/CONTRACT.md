@@ -294,6 +294,10 @@ Lines longer than `maxLineBytes` are skipped (count them). JSON parsing happens 
 with `O_NOFOLLOW` and attaches it only when the opened file is a regular file whose inode is the ref's `ino` (when the
 ref has one); a link (`ELOOP` / `EMLINK`), another kind of file or another inode at the path returns `{ gone: true }`
 without a line, and the next rescan decides again. `poll` is unchanged: it only reads the inode `readAll` attached.
+Both opens (`readAll` and `poll`) add `O_NONBLOCK`, in every mode. A FIFO at the path would otherwise block `open(2)`
+with no writer and hang the read. A FIFO there at attach opens at once and reads nothing; with `noFollow` it is
+`{ gone: true }` (not a regular file). A FIFO swapped in between `poll`'s `stat` and its `open` has another inode, so
+the poll returns `{ reset: true }`. Reads of regular files do not change (`test/fifo-swap.test.mjs`).
 
 ### 3.7 `src/store.mjs`
 ```js
