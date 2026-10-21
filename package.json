@@ -8,11 +8,11 @@
     "office-sim": "bin/office-sim.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "start": "node bin/office-sim.mjs",
-    "test": "node --test test/",
+    "test": "node --test test/*.test.mjs",
     "skill:install": "node scripts/install-skill.mjs",
     "skill:uninstall": "node scripts/install-skill.mjs --uninstall"
   }
