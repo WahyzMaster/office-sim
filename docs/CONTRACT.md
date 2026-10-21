@@ -734,6 +734,7 @@ registry hook accepts. It is not registered in `src/adapters/`; each real adapte
 - `project` = projectKey, `projectLabel` = its basename. `worktree` = worktree name when the latest cwd is inside a
   worktree (or `worktree-state` is non-null), else null.
 - Subagents inherit the parent's project (subagent cwd can be a worktree of the same repo).
+- `project` goes on the wire as the full path, unhashed (decision 2026-10-21, see section 5).
 
 ### 4.5 Subagent linking
 - Plain sub: `meta.toolUseId` is the Agent tool_use id in the main file (depth 1) or in a sibling
@@ -1724,7 +1725,17 @@ counts only (events, unpaired tools, apply errors, privacy hits).
 - `tool_start.tool` is the raw tool name except that an mcp server segment that looks like a uuid (strict, one-char
   typos, 24+ hex, bare `mcp__<uuid>` too) becomes `ZERO_UUID`; human server names are never masked.
 - `session.project` is the one field that carries a full path: it is the floor key (4.4), the first cwd. The browser
-  uses it as a map key and shows `projectLabel` (or the basename of the key).
+  uses it as a map key and shows `projectLabel` (or the basename of the key); the full path is shown only as the
+  tooltip of the floor button (`public/js/hud.js`).
+- Decision (2026-10-21): `session.project` stays the full path. Considered and declined:
+  - A hash keyed by a secret made at each server start (HMAC). It hides the path, but it changes the wire. The key
+    changes on every restart, so an open page must reload (the page never removes a floor). It also loses the tooltip
+    that tells apart two repos with the same basename.
+  - A plain hash without a secret. It hides little: the basename is already on the wire as `projectLabel`, and the
+    parent folders are easy to guess, so hashing candidate paths finds it.
+  The exposure is the one in section 0. Without `--auth`, other OS users and local processes can read `/state` and
+  `/events`; on a shared machine use `--auth`. Raw `/state` or SSE output carries these paths, so check it before you
+  share it.
 - The browser classifies rooms with `public/js/rooms.js`; the server only sends `room` hints from 3.1.
 
 ## 6. Server behaviour (`src/server.mjs`, `bin/office-sim.mjs`)
