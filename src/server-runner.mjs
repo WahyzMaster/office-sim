@@ -3,15 +3,7 @@
 import path from 'node:path';
 import { setImmediate as yieldToLoop } from 'node:timers/promises';
 import { SidecarWatcher } from './core/sidecar.mjs';
-
-function errText(err) {
-  return err?.message ?? String(err);
-}
-
-// 로그에는 경로가 든 전체 메시지 대신 오류 코드만 (EACCES, EIO ...). 코드가 없으면 메시지.
-function errCode(err) {
-  return typeof err?.code === 'string' ? err.code : errText(err);
-}
+import { errCode, errText } from './server-health.mjs';
 
 const MAX_POLL_BACKOFF_MS = 30_000; // 계속 실패하는 파일도 이 간격으로는 다시 읽어 본다
 
@@ -35,7 +27,12 @@ export class Runner {
     this.closed = false;
     this.badLines = 0;
     this.applyErrors = 0;
+    this.loopErrors = 0; // 실패한 루프 tick (/healthz): 모두 센다. 로그는 그 루프의 문구가 지난 로그와 다를 때만
+    this.loopErr = {}; // 루프 이름 -> 마지막으로 로그한 오류 문구
+    this.linkErrors = 0; // store.observe (연결) 가 던진 줄: 모두 세고 처음 20개만 로그
     this.scanErr = null; // 마지막 scan 실패 코드 (같은 오류는 한 번만 로그)
+    this.lastScanMs = null; // 마지막으로 끝난 scan() 호출의 걸린 시간 (ms) 과 끝난 시각 (epoch ms). 실패한 scan 은 바꾸지 않는다
+    this.lastScanAt = null;
     // ADAPTERS 3.3 메타 파일과 D1 도구 전용 워크트리 층: 어댑터의 deps 에 훅이 있을 때만 (Claude 는 없다). sidecarWatcher 는
     // check(ref)/forget(path) 를 가진 감시자 그대로 (Codex: 커지는 색인 파일을 이어 읽는다), sidecars 는 파일 목록 훅
     const w = deps.sidecarWatcher;
@@ -54,7 +51,10 @@ export class Runner {
       try {
         await fn();
       } catch (err) {
-        this.log(`${name} loop failed: ${errText(err)}`);
+        this.loopErrors += 1;
+        const text = errText(err);
+        if (this.loopErr[name] !== text) this.log(`${name} loop failed: ${text}`); // 실패마다 쓰면 로그가 끝없이 자란다
+        this.loopErr[name] = text;
       } finally {
         this.running[name] = false;
       }
@@ -127,7 +127,7 @@ export class Runner {
       const deltas = f.kind === 'main' ? null : f.state.takeTaskDeltas?.();
       if (deltas?.length) this.store.taskDeltas(f.ref.path, deltas);
     } catch (err) {
-      this.log(`link failed in ${path.basename(f.ref.path)}: ${errText(err)}`);
+      if (this.linkErrors++ < 20) this.log(`link failed in ${path.basename(f.ref.path)}: ${errText(err)}`);
     }
   }
 
@@ -175,6 +175,7 @@ export class Runner {
     if (this.closed) return;
     const { scan } = this.deps;
     const nowMs = Date.now();
+    const t0 = performance.now(); // 걸린 시간은 단조 시계로 (벽시계가 scan 중에 바뀌어도 음수나 몇 시간이 되지 않게)
     let refs;
     try {
       refs = await scan(this.opts.root, { activeMs: this.opts.activeMinutes * 60_000, nowMs });
@@ -186,6 +187,8 @@ export class Runner {
       this.scanErr = code;
       return;
     }
+    this.lastScanAt = Date.now();
+    this.lastScanMs = Math.round(performance.now() - t0); // scan() 호출만 잰다 (붙이기와 읽기는 빼고)
     if (this.scanErr) {
       this.log('scan recovered');
       this.scanErr = null;

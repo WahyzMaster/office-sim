@@ -16,6 +16,7 @@ import { ADAPTERS } from '../src/adapters/index.mjs';
 import { createRecordBuilder, toJsonl } from './fixtures/records.mjs';
 import { request, sse, until } from './fixtures/sse.mjs';
 import { FakeAgentSession, fakeAdapter, line } from './fixtures/fake-adapter.mjs';
+import { assertHealthShape, oldHealth } from './fixtures/healthz.mjs';
 
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
 const SID = '5a5a5a5a-1111-4222-8333-444455556666';
@@ -214,7 +215,8 @@ test('server: a second adapter runs next to claude-code on one Store; agent ids 
 
     // RunnerGroup: one count over both Runners
     const health = JSON.parse((await request(app.port, { path: '/healthz' })).body);
-    assert.deepEqual(health, { ok: true, files: 3, sessions: 3, clients: 1, agents: ['claude-code', 'grok'] });
+    assert.deepEqual(oldHealth(health), { ok: true, files: 3, sessions: 3, clients: 1, agents: ['claude-code', 'grok'] });
+    assertHealthShape(health);
     assert.deepEqual(app.stats(), { files: 3, badLines: 0, skippedLines: 0, applyErrors: 0, rejectedRefs: 0 });
   } finally {
     es?.close();

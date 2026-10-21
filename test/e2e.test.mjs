@@ -10,6 +10,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { start } from '../src/server.mjs';
 import { createRecordBuilder, clone, toJsonl } from './fixtures/records.mjs';
 import { request, sse } from './fixtures/sse.mjs';
+import { assertHealthShape, oldHealth } from './fixtures/healthz.mjs';
 
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
 const SID = '5e5e5e5e-1111-4222-8333-444455556666';
@@ -263,7 +264,8 @@ test('e2e: snapshot, live tail, subagents, privacy', async () => {
     assert.deepEqual(st.events.map((e) => `${e.type}:${e.sessionId}`), [`session:${SID}`, `plan:${SID}`]);
     assert.deepEqual(st.events[1].items, items);
     const health = JSON.parse((await request(app.port, { path: '/healthz' })).body);
-    assert.deepEqual(health, { ok: true, files: 4, sessions: 4, clients: 1, agents: ['claude-code'] });
+    assert.deepEqual(oldHealth(health), { ok: true, files: 4, sessions: 4, clients: 1, agents: ['claude-code'] });
+    assertHealthShape(health); // the keys after the first five (version, counters, runners): presence and types
 
     // ---- privacy: no frame and no /state body carries content, commands or fixture paths -------
     const realRoot = await fs.realpath(paths.root);

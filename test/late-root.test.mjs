@@ -14,6 +14,7 @@ import { ADAPTERS } from '../src/adapters/index.mjs';
 import { createRecordBuilder, toJsonl } from './fixtures/records.mjs';
 import { request, until } from './fixtures/sse.mjs';
 import { fakeAdapter, line } from './fixtures/fake-adapter.mjs';
+import { assertHealthShape, oldHealth } from './fixtures/healthz.mjs';
 
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
 const SID = '1a7e1a7e-1111-4222-8333-444455556666';
@@ -56,7 +57,8 @@ test('a Claude root created after start switches claude-code on: one log line, /
     await until(async () => (await health(app)).files === 1, 3000);
     assert.deepEqual(app.agents, ['claude-code']);
     const h = await health(app);
-    assert.deepEqual(h, { ok: true, files: 1, sessions: 1, clients: 0, agents: ['claude-code'] });
+    assert.deepEqual(oldHealth(h), { ok: true, files: 1, sessions: 1, clients: 0, agents: ['claude-code'] });
+    assertHealthShape(h); // runners now has the late adapter too
     const session = (await stateEvents(app)).find((e) => e.type === 'session' && e.sessionId === SID);
     assert.equal(session?.agent, 'claude-code');
     await sleep(120);

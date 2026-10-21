@@ -1,9 +1,16 @@
 // P4 skills/office/SKILL.md: frontmatter (name office, a description that triggers on /office), a body that covers
-// every step and argument, nothing user-specific (no absolute home paths, no emoticons), and names that match the code.
+// every step and argument, nothing user-specific (no absolute home paths, no emoticons), and names that match the code
+// (the /healthz keys are checked on a real server: port 0, a temp root, never the real ~/.claude).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { USAGE } from '../src/cli-args.mjs';
+import { start } from '../src/server.mjs';
+import { KNOWN_AGENTS } from '../src/adapters/index.mjs';
+import { createHealth } from '../src/server-health.mjs';
+import { request } from './fixtures/sse.mjs';
 
 const read = (rel) => fs.readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
 const SKILL = read('skills/office/SKILL.md');
@@ -62,12 +69,10 @@ test('nothing user-specific: no absolute home or temp paths, no emails, no emoti
   assert.ok(SKILL.split('\n').length < 150, 'kept short');
 });
 
-test('names in the skill match the code: the 401 body, healthz keys, CLI flags, npm scripts', () => {
+test('names in the skill match the code: the 401 body, CLI flags, npm scripts', () => {
   const body401 = 'unauthorized: open the URL printed by office-sim';
   assert.ok(SKILL.includes(`\`401 ${body401}\``));
   assert.ok(read('src/server-http.mjs').includes(`'${body401}\\n'`));
-  assert.match(read('src/server-http.mjs'), /'\/healthz'\) return sendJson\(res, 200, \{ ok: true, \.\.\.stats\(\), clients: clients\.size \}\)/);
-  assert.match(read('src/server.mjs'), /stats: \(\) => \(\{ files: group\.fileCount, sessions: store\.sessionCount, agents: group\.ids \}\)/);
   for (const flag of ['--port <n>', '--auth ', '--open ']) assert.ok(USAGE.includes(flag), flag);
   const { scripts } = JSON.parse(read('package.json'));
   assert.equal(scripts['skill:install'], 'node scripts/install-skill.mjs');
@@ -151,4 +156,40 @@ test('Windows stop matches the bin path as the first argument after node.exe, no
 
 test('Linux auth: no opener with the token URL; the user pastes it (finding 9)', () => {
   assert.ok(section('4. Open `<page>`', '5. Tell the user').includes('Linux with `auth`: do not run an opener'));
+});
+
+// ---- /healthz (maintenance PR 2) ----------------------------------------------------------------------------
+
+// The probe classifies on `"ok":true` + an `agents` array, and the status section names the keys it reports. Checked on
+// a real server instead of pinning source lines, so a refactor of the healthz code keeps passing while the body holds.
+test('the healthz keys the skill reads are on a real server, and a four-agent body fits the probe slice', async () => {
+  const status = section('## status', '## start, demo, auth');
+  const named = [...status.matchAll(/`(?:runners\.<agent>\.)?([a-z][A-Za-z]+)`/g)].map((m) => m[1]).filter((k) => k !== 'null');
+  for (const k of ['agents', 'sessions', 'clients', 'version', 'commit', 'loopErrors', 'linkErrors', 'scanErr', 'runners']) {
+    assert.ok(named.includes(k), `status names ${k}`);
+  }
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'office-sim-skillfile-'));
+  const app = await start({ port: 0, root, agents: ['claude-code'], rescanMs: 60_000 });
+  try {
+    await app.ready;
+    const res = await request(app.port, { path: '/healthz' });
+    assert.equal(res.status, 200);
+    assert.match(res.body, /^\{"ok":true,/, 'what the probe classifies on');
+    const body = JSON.parse(res.body);
+    assert.ok(Array.isArray(body.agents));
+    const runnerKeys = Object.keys(body.runners['claude-code']);
+    for (const k of named) assert.ok(k in body || runnerKeys.includes(k), `the status section's ${k} is a /healthz key`);
+  } finally {
+    await app.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+  // the probe prints body.slice(0, N): a body with every known adapter on and large counters still parses whole
+  const n = Number(/\.slice\(0,(\d+)\)\)/.exec(SKILL)[1]);
+  const big = 999_999_999;
+  const runner = { files: new Map([['a', {}]]), lastScanMs: big, lastScanAt: Date.now(), scanErr: `E${'X'.repeat(31)}`,
+    badLines: big, applyErrors: big, loopErrors: big, linkErrors: big, tailer: { skippedLines: big } };
+  const group = { entries: KNOWN_AGENTS.map((id) => ({ id, runner })), ids: [...KNOWN_AGENTS], fileCount: big };
+  const store = { sessionCount: big, stats: () => ({ rejectedRefs: big }) };
+  const worst = JSON.stringify(createHealth({ group, store, build: { version: '10.20.30', commit: 'f'.repeat(40) }, startedAt: 0 })(big));
+  assert.ok(worst.length < n, `worst-case body ${worst.length} chars < probe slice ${n}`);
 });

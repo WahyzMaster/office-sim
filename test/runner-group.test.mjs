@@ -13,6 +13,7 @@ import { Store } from '../src/store.mjs';
 import { request } from './fixtures/sse.mjs';
 import { writeReplayFixture } from './fixtures/replay-fixture.mjs';
 import { claudeCode } from '../src/adapters/claude-code.mjs';
+import { assertHealthShape, oldHealth } from './fixtures/healthz.mjs';
 
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
 const CLAUDE_ONLY = { 'claude-code': claudeCode };
@@ -113,7 +114,9 @@ test('server with a missing Claude root starts, serves / and /healthz with agent
     assert.equal(page.status, 200);
     assert.match(page.body, /<!doctype html>/);
     const health = JSON.parse((await request(app.port, { path: '/healthz' })).body);
-    assert.deepEqual(health, { ok: true, files: 0, sessions: 0, clients: 0, agents: [] });
+    assert.deepEqual(oldHealth(health), { ok: true, files: 0, sessions: 0, clients: 0, agents: [] });
+    assertHealthShape(health);
+    assert.deepEqual(health.runners, {}, 'no adapter on, no runner entry');
     const st = JSON.parse((await request(app.port, { path: '/state' })).body);
     assert.deepEqual(st.events, []);
     assert.deepEqual(app.stats(), { files: 0, badLines: 0, skippedLines: 0, applyErrors: 0, rejectedRefs: 0 });

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { start } from '../src/server.mjs';
 import { parseArgs } from '../src/cli-args.mjs';
+import { assertHealthShape, oldHealth } from './fixtures/healthz.mjs';
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 const PUBLIC = here('../public');
@@ -220,7 +221,8 @@ test('POST /config validates, applies and broadcasts; /state and /healthz answer
     assert.equal(state.type, 'snapshot');
     assert.ok(Array.isArray(state.events));
     const health = JSON.parse((await request(port, { path: '/healthz' })).body);
-    assert.deepEqual(health, { ok: true, files: 0, sessions: 0, clients: 1, agents: ['claude-code'] });
+    assert.deepEqual(oldHealth(health), { ok: true, files: 0, sessions: 0, clients: 1, agents: ['claude-code'] });
+    assertHealthShape(health);
     es.close();
   } finally {
     await app.close();

@@ -16,6 +16,7 @@ import { gid, groupOf, writeSession, appendLines as appendGrok } from './fixture
 import { createCodexBuilder, toJsonl as codexJsonl } from './fixtures/codex.mjs';
 import { cid, rolloutPath, today, appendLines as appendCodex } from './fixtures/codex-tree.mjs';
 import { request, sse, until } from './fixtures/sse.mjs';
+import { assertHealthShape } from './fixtures/healthz.mjs';
 
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
 const FAST = {
@@ -89,7 +90,8 @@ test('without observeDir: no /observe route, no observe SSE frame, /healthz as b
     await sleep(300);
     assert.equal(es.frames.filter(isObserve()).length, 0);
     const health = JSON.parse((await request(port, { path: '/healthz' })).body);
-    assert.deepEqual(Object.keys(health), ['ok', 'files', 'sessions', 'agents', 'clients']);
+    assert.deepEqual(Object.keys(health).slice(0, 5), ['ok', 'files', 'sessions', 'agents', 'clients']);
+    assertHealthShape(health); // the observation feature adds nothing to /healthz
     assert.equal(await exists(fx.obsDir), false);
   } finally {
     es?.close();
