@@ -83,9 +83,10 @@ const SCENARIOS = [
       ['tool', 'read_file', 'firestore.rules'],
       ['tool', 'search_replace', 'firestore.rules'],
       // 승인 대기 둘: 테스트는 내 자리에서 허용을 받고 서버실로 돌아가 돌리고, 배포는 내 자리에서 거절된다.
-      ['tool', 'run_terminal_command', 'npm test', { approval: 5, dur: 2.4 }],
+      // 대기는 내 자리까지 가는 시간(앞일을 마치고 걷기까지 10~12초)보다 길어야 칩이 몇 초 보인다
+      ['tool', 'run_terminal_command', 'npm test', { approval: 14, dur: 2.4 }],
       ['plan', [['규칙 사용처 조사', 2], ['만료 검증 추가', 2], ['규칙 테스트', 2]]],
-      ['tool', 'run_terminal_command', 'firebase', { approval: 6, deny: true }],
+      ['tool', 'run_terminal_command', 'firebase', { approval: 16, deny: true }],
       ['say', '규칙 세 곳에 만료 검증을 추가했어요. 배포는 승인받지 못했어요.'],
       ['end'],
     ],
@@ -215,7 +216,7 @@ export class MockSource {
           t = asked + o.approval;
           if (o.deny) {
             out.push([t, { type: 'tool_end', sessionId: sid, toolUseId: id, ok: false, error: USER_DENIAL, errorKind: 'denied' }]);
-            t += 0.5;
+            t += 3; // 거절됨 말풍선이 다음 말에 바로 가려지지 않게
             continue;
           }
           out.push([t, { type: 'tool_wait', sessionId: sid, toolUseId: id, waiting: false }]);
