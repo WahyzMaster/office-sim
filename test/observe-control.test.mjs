@@ -124,7 +124,12 @@ test('ticks: rescan when due, poll every tick, records appended as they come, ne
   slow = 30;
   const running = timers.fire();
   await new Promise((r) => setTimeout(r, 10));
-  assert.equal(timers.pending, 0, 'the next tick is scheduled only after this one ends');
+  // 리뷰 수정(PR 3): 다음 tick 은 단계보다 먼저 걸린다 (멈춘 단계가 시간 상한을 붙잡지 않게). 그 tick 은 새 단계를 시작하지 않는다.
+  assert.equal(timers.pending, 1, 'the next tick is already set while this step runs');
+  const busy = ctl.run.busy;
+  await timers.fire();
+  assert.equal(ctl.run.busy, busy, 'a tick during a running step does not start a second one');
+  assert.equal(timers.pending, 1, 'it only sets the next tick');
   await running;
   assert.ok(counts.readdir > afterScan, 'rescan once rescanMs passed');
   assert.equal(timers.pending, 1);

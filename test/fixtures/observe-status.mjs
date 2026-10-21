@@ -13,15 +13,19 @@ export function checklist(have = {}, off = []) {
   });
 }
 
+// 서버의 기본 상한 (src/observe/control.mjs: 다 모인 뒤 10분, 최대 4시간, 50 MB, 파일 20개)
+export const LIMITS = { readyGraceMs: 600_000, maxMs: 14_400_000, maxBytes: 52_428_800, keep: 20 };
+
 export function status(over = {}) {
   return {
     type: 'observe', available: true, agents: { grok: true, codex: true }, running: false, startedAt: null, elapsedMs: 0,
-    checklist: checklist(), ready: false, totals: { files: 0, appends: 0 }, last: null, ...over,
+    checklist: checklist(), ready: false, totals: { files: 0, appends: 0 }, last: null, bytes: 0, endsAt: null,
+    limits: LIMITS, ...over,
   };
 }
 
 export const ALL_DONE = { 'grok-updates': 23, 'grok-wait': 1, 'grok-active': 2, 'codex-rollout': 20 };
 export const LAST = {
   file: 'observe-20261021-153000.jsonl', endedAt: '2026-10-21T15:42:10.000Z',
-  checklist: checklist(ALL_DONE), totals: { files: 3, appends: 57 },
+  checklist: checklist(ALL_DONE), totals: { files: 3, appends: 57 }, bytes: 48_213, reason: 'user',
 };

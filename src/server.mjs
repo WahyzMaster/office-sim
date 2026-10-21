@@ -271,12 +271,15 @@ function observeRoots(group) {
   return out;
 }
 
-// 시험 훅 observeTiming { intervalMs, rescanMs, notifyMs }: 숫자인 것만 ObserveControl 에 넘긴다
-function observeTiming(t) {
+// 시험 훅 observeTiming { intervalMs, rescanMs, notifyMs } 과 observeLimits { readyGraceMs, maxMs, maxBytes, keep }:
+// 양수인 것만 ObserveControl 에 넘긴다 (keep 은 양의 정수만). bin 은 넘기지 않는다 (기본값).
+function positiveOf(t, keys) {
   const out = {};
-  for (const k of ['intervalMs', 'rescanMs', 'notifyMs']) if (Number.isFinite(t?.[k]) && t[k] > 0) out[k] = t[k];
+  for (const k of keys) if (Number.isFinite(t?.[k]) && t[k] > 0 && (k !== 'keep' || Number.isSafeInteger(t[k]))) out[k] = t[k];
   return out;
 }
+const observeTiming = (t) => positiveOf(t, ['intervalMs', 'rescanMs', 'notifyMs']);
+const observeLimits = (l) => positiveOf(l, ['readyGraceMs', 'maxMs', 'maxBytes', 'keep']);
 
 /**
  * @param {object} options port, host, root (Claude Code root), intervalMs, activeMinutes, rescanMs, publicDir,
@@ -289,7 +292,8 @@ function observeTiming(t) {
  *   the bin passes it, absent = commit null). Test hooks: deps (claude-code deps override; a fake scan also skips the
  *   root check), adapters (registry override), probe ((root, id) => error code | null, replaces the root check),
  *   probeTimeoutMs (root check time limit, default 2000), replayTiming ({ maxGapMs, holdMs, restartMs, statusMs }),
- *   observeTiming ({ intervalMs, rescanMs, notifyMs } of the observation loop).
+ *   observeTiming ({ intervalMs, rescanMs, notifyMs } of the observation loop), observeLimits ({ readyGraceMs, maxMs,
+ *   maxBytes, keep }: the observation's auto-stop limits and the files kept; absent = the defaults of control.mjs).
  * @returns {Promise<{ url: string, token: string|null, port: number, store: Store, ready: Promise, close: () => Promise<void>,
  *   agents: string[], notImplemented: string[], stats: () => object }>}
  *   With auth, `url` is the one to open: http://<host>:<port>/?t=<token>. `agents`: the enabled adapter ids, read
@@ -318,7 +322,9 @@ export async function start(options = {}) {
   });
   // 기록 관찰 (observe-spec): observeDir 이 있을 때만 켠다. 없으면 /observe 경로도 observe 메시지도 없다 (예전 그대로).
   if (opts.observeDir) {
-    observe = new ObserveControl({ roots: () => observeRoots(group), dir: opts.observeDir, ...observeTiming(opts.observeTiming) });
+    observe = new ObserveControl({
+      roots: () => observeRoots(group), dir: opts.observeDir, ...observeTiming(opts.observeTiming), ...observeLimits(opts.observeLimits),
+    });
   }
   const replayRunner = opts.replay ? group.runners[0] : null;
   const config = () => ({

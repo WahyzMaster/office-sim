@@ -132,6 +132,7 @@ test('observeView: after an end the saved file name, a counts-only line and the 
   const v = view({ last: LAST });
   assert.deepEqual(v.last, {
     file: 'observe-20261021-153000.jsonl',
+    reason: '직접 끝냄',
     counts: '파일 3개 · 덧붙음 57번 · 체크리스트 4/4 채움',
     claude: "Claude 에게 '관찰 결과 반영해 줘' 라고 하면 이 파일을 읽어 문서에 반영해요",
   });

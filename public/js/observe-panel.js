@@ -2,6 +2,12 @@
 // 위쪽은 DOM 없이 node 테스트에서 부르는 순수 도우미(이름표, 시간 형식, 상태 읽기, 화면 모델, 요청)이고
 // 맨 아래 ObservePanel 만 문서를 만진다. 서버가 보내는 것은 개수와 결과 파일 이름뿐이고, 여기서도 그것만 보여 준다.
 // 데모·아티팩트·벤치에서는 observe 메시지가 오지 않으므로 버튼도 패널도 숨은 채로 있다.
+// 자동 종료의 상한(다 모인 뒤, 최대 시간, 최대 크기)과 남기는 파일 수는 서버의 limits 에서 읽는다 (observe-format.js).
+import {
+  count, clock, sizeText, readLimits, limitsText, readReason, autoWhy, reasonText, remainingMs,
+} from './observe-format.js';
+
+export { clock };
 
 // 체크리스트 id(전선 위 이름) -> 화면 이름. 모르는 id 는 그대로 보여 준다.
 export const CHECK_LABELS = {
@@ -31,7 +37,8 @@ const ANNOUNCE = {
 
 // 패널 안에서 ObservePanel 이 data-ob 로 찾는 자리(office.html 과 맞는지 테스트가 본다).
 export const PANEL_PARTS = [
-  'clock', 'state', 'list', 'hint', 'action', 'note', 'error', 'last', 'fileline', 'file', 'counts', 'claude',
+  'clock', 'limits', 'state', 'meter', 'list', 'hint', 'action', 'note', 'error', 'last', 'fileline', 'file', 'reason',
+  'counts', 'claude',
 ];
 
 const SAFE_ID = /^[a-z0-9-]{1,40}$/;
@@ -39,23 +46,13 @@ const SAFE_ID = /^[a-z0-9-]{1,40}$/;
 const SAFE_FILE = /^[A-Za-z0-9._-]{1,128}$/;
 const MAX_ITEMS = 16;
 const COOLDOWN_MS = 800; // 요청이 끝난 뒤 버튼이 다시 받기까지
+const ENDED_COOLDOWN_MS = 1500; // 서버가 끝낸 뒤(자동 종료, 다른 탭): 사람이 반응하는 시간이라 더블클릭보다 길다
 
 export const checkLabel = (id) => (Object.hasOwn(CHECK_LABELS, id) ? CHECK_LABELS[id] : id);
 
-// 0 이상의 정수만 받는다. 그 밖(문자열, 음수, NaN)은 0.
-const count = (v) => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
 // ISO 시각만 받는다(Date.parse 는 'BAIT 2020' 같은 글도 받아 준다).
 const ISO = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,6})?(Z|[+-]\d\d:\d\d)$/;
 const isoOrNull = (v) => (typeof v === 'string' && ISO.test(v) ? v : null);
-
-// 경과 시간: 12:03 (한 시간이 넘으면 1:02:03).
-export function clock(ms) {
-  const s = Math.floor(count(ms) / 1000);
-  const two = (n) => String(n).padStart(2, '0');
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return h ? `${h}:${two(m)}:${two(s % 60)}` : `${two(m)}:${two(s % 60)}`;
-}
 
 function readChecklist(list) {
   if (!Array.isArray(list)) return [];
@@ -81,11 +78,16 @@ export function readStatus(msg) {
     checklist: readChecklist(msg.checklist),
     ready: running && msg.ready === true,
     totals: readTotals(msg.totals),
+    bytes: running ? count(msg.bytes) : 0,
+    endsAt: running ? isoOrNull(msg.endsAt) : null,
+    limits: readLimits(msg.limits),
     last: l && {
       file: typeof l.file === 'string' && SAFE_FILE.test(l.file) ? l.file : null,
       endedAt: isoOrNull(l.endedAt),
       checklist: readChecklist(l.checklist),
       totals: readTotals(l.totals),
+      bytes: count(l.bytes),
+      reason: readReason(l.reason),
     },
   };
 }
@@ -151,7 +153,19 @@ function stateText(s, stale, notice) {
   if (s.ready) return `${TEXT.ready}. 끝내면 요약을 덧붙여 저장을 마쳐요.`;
   if (s.running) return '관찰 중이에요. 체크리스트가 다 차면 알려 드려요.';
   if (notice) return notice;
+  const why = s.last && autoWhy(s.last.reason, s.limits);
+  if (why) return `관찰이 자동으로 끝났어요 (${why}). 다시 시작하면 새 파일에 모아요.`;
   return s.last ? '관찰을 끝냈어요. 다시 시작하면 새 파일에 모아요.' : '관찰하지 않고 있어요.';
+}
+
+// 관찰 중의 한 줄: 쓴 크기, 다 모인 뒤로는 자동 종료까지 남은 시간(초 단위로 올림).
+function meterView(s, elapsedMs) {
+  if (!s.running) return { size: null, ends: null };
+  const left = s.ready ? remainingMs(s, elapsedMs) : null;
+  return {
+    size: `${sizeText(s.bytes)} 기록됨`,
+    ends: left === null ? null : `${clock(Math.ceil(left / 1000) * 1000)} 뒤 자동으로 끝나요`,
+  };
 }
 
 // 화면 모델. status 는 readStatus 결과(없으면 숨김). opt: elapsedMs(지금까지 흐른 시간), busy('start'|'stop'), error,
@@ -160,8 +174,10 @@ export function observeView(status, opt = {}) {
   if (!status) return { visible: false };
   const s = status;
   const stale = opt.stale === true;
-  const time = clock(opt.elapsedMs ?? s.elapsedMs);
+  const elapsed = opt.elapsedMs ?? s.elapsedMs;
+  const time = clock(elapsed);
   const wait = s.checklist.find((c) => c.id === 'grok-wait');
+  const why = !s.running && s.last ? autoWhy(s.last.reason, s.limits) : null;
   return {
     visible: true,
     available: s.available,
@@ -169,7 +185,10 @@ export function observeView(status, opt = {}) {
     ready: s.ready,
     button: buttonView(s, time, stale),
     clock: s.running ? time : '',
+    ...meterView(s, elapsed),
+    limits: s.available && s.limits ? limitsText(s.limits) : null,
     stateText: stateText(s, stale, opt.notice ?? null),
+    autoEnd: why ? `기록 관찰이 자동으로 끝났어요 (${why}).` : null,
     items: s.available ? s.checklist.map((c) => itemView(c, s.running)) : [],
     hint: s.available && wait && !wait.off && !(s.running && wait.done) ? TEXT.waitHint : null,
     action: actionView(s, opt.busy ?? null, stale),
@@ -177,11 +196,14 @@ export function observeView(status, opt = {}) {
     error: opt.error ?? null,
     last: s.running || !s.last ? null : {
       file: s.last.file,
+      reason: reasonText(s.last.reason, s.limits),
       counts: lastCounts(s.last),
       claude: s.last.file ? TEXT.claude : null,
     },
   };
 }
+
+const meterText = (v) => [v.size, v.ends].filter(Boolean).join(' · ') || null;
 
 const HTTP_REASONS = {
   401: '인증이 풀렸어요. office-sim 이 알려 준 주소로 다시 열어 주세요.',
@@ -337,8 +359,13 @@ export class ObservePanel {
     this.render();
   }
 
+  // 이 패널이 보내지 않은 끝(자동 종료, 다른 탭)은 같은 자리의 버튼을 '관찰 시작' 으로 바꾼다: '관찰 끝내기' 를 누르려던
+  // 클릭이 새 관찰을 시작하지 않게 잠깐 쉰다.
   apply(msg) {
-    if (this.live && this.model.apply(msg)) this.render();
+    const was = this.model.status?.running === true;
+    if (!this.live || !this.model.apply(msg)) return;
+    if (was && !this.model.status.running && !this.model.busy) this.coolUntil = Math.max(this.coolUntil, this.now() + ENDED_COOLDOWN_MS);
+    this.render();
   }
 
   // 서버와의 연결이 끊기거나 다시 붙었다(hud.setSource 가 부른다).
@@ -358,14 +385,15 @@ export class ObservePanel {
     this.render();
   }
 
-  // 프레임 루프(hud.tick)에서 부른다. 시계 글자만 바꾼다(목록을 다시 만들지 않는다).
+  // 프레임 루프(hud.tick)에서 부른다. 시계와 남은 시간 글자만 바꾼다(목록을 다시 만들지 않는다).
   tick() {
     if (!this.view.visible || !this.view.running) return;
     const v = this.model.view();
-    if (v.clock === this.view.clock) return;
+    if (v.clock === this.view.clock && v.ends === this.view.ends) return;
     this.view = v;
     this.btn.textContent = v.button.text;
     this.el.clock.textContent = v.clock;
+    show(this.el.meter, meterText(v));
   }
 
   render() {
@@ -388,7 +416,9 @@ export class ObservePanel {
     panel.hidden = !this.open;
     panel.dataset.state = v.button.state;
     el.clock.textContent = v.clock;
+    show(el.limits, v.limits);
     el.state.textContent = v.stateText;
+    show(el.meter, meterText(v));
     this.renderList(v.items);
     show(el.hint, v.hint);
     el.action.textContent = v.action.label;
@@ -404,6 +434,7 @@ export class ObservePanel {
     if (v.last) {
       el.fileline.hidden = !v.last.file;
       el.file.textContent = v.last.file ?? '';
+      show(el.reason, v.last.reason);
       el.counts.textContent = v.last.counts;
       show(el.claude, v.last.claude);
     }
@@ -411,12 +442,14 @@ export class ObservePanel {
   }
 
   // 시작, 다 모임, 끝처럼 단계가 바뀔 때만 알린다(진행 숫자는 알리지 않는다). 열린 패널은 안의 상태 줄이 말한다.
+  // 저절로 끝났으면 그 까닭을 함께 알린다.
   announce(v) {
     const phase = !v.available ? 'off' : v.ready ? 'ready' : v.running ? 'running' : 'idle';
     const prev = this.phase;
     this.phase = phase;
     if (!prev || prev === phase || phase === 'off' || prev === 'off' || this.open || !this.announceEl) return;
-    this.announceEl.textContent = phase === 'idle' && this.model.notice ? this.model.notice : ANNOUNCE[phase];
+    const idle = this.model.notice ?? v.autoEnd ?? ANNOUNCE.idle;
+    this.announceEl.textContent = phase === 'idle' ? idle : ANNOUNCE[phase];
   }
 
   renderList(items) {
