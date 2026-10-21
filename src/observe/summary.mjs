@@ -222,8 +222,11 @@ export class Tally {
     return { files: this.files.size, appends: this.appends };
   }
 
-  /** The summary record body: { type: 'summary', t, endedAt, ... } (t and endedAt as given, else null). */
-  summary({ t = null, endedAt = null } = {}) {
+  /**
+   * The summary record body: { type: 'summary', t, endedAt, reason, ... } (t, endedAt and reason as given, else null;
+   * reason says why the observation ended, null = unknown, as in a summary rebuilt from the records).
+   */
+  summary({ t = null, endedAt = null, reason = null } = {}) {
     const kinds = {};
     const names = new Set(Object.entries(AGENT_KINDS).flatMap(([a, ks]) => (this.agents[a] ? ks : [])));
     for (const k of this.kinds.keys()) names.add(k);
@@ -243,7 +246,7 @@ export class Tally {
     for (const q of this.queues.values()) unresolved += q.length;
     const { checklist, ready } = this.progress();
     return {
-      type: 'summary', t, endedAt,
+      type: 'summary', t, endedAt, reason,
       agents: { ...this.agents },
       totals: { files: this.files.size, appends: this.appends, bytes: this.bytes, lines: this.lines },
       kinds,

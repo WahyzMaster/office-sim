@@ -1,8 +1,11 @@
 // 기록 관찰의 켜고 끄기 (observe-spec "Files", "Server and HTTP" 의 Status). ObserveControl 하나가 관찰 한 번씩을 맡는다:
 // 시작하면 <dir>/observe-<YYYYMMDD-HHMMSS>.jsonl 을 새로 만들고 (폴더 0700, 파일 0600, 이미 있는 이름이면 -2, -3 ...),
 // 기록이 생기는 대로 덧붙인다 (tick 마다 모아서 한 번; 쓰다 실패하면 다음 tick 에 쓰지 못한 바이트부터 이어 쓴다).
-// 끝내면 summary 기록을 붙이고 파일을 닫는다. 멈춘 마운트에 걸린 단계는 STOP_WAIT_MS 까지만 기다린다.
-// 루프는 setTimeout 사슬 하나다: tick 마다 (rescanMs 가 지났으면) rescan, 그다음 poll, 그다음 쓰기. 그래서 겹치지 않는다.
+// 끝내면 summary 기록을 붙이고 파일을 닫는다. 멈춘 마운트에 걸린 단계도, 요약 쓰기와 닫기도 STOP_WAIT_MS 까지만 기다린다.
+// 저절로도 끝난다 (먼저 오는 것): 체크리스트가 다 찬 뒤 READY_GRACE_MS, 시작 뒤 MAX_MS, 파일이 MAX_BYTES 에 닿음.
+// 끝난 까닭(reason)은 요약과 status.last 에 남는다. 새 파일을 만든 뒤에는 가장 새 KEEP_FILES 개만 남긴다 (retention.mjs).
+// 루프는 setTimeout 사슬 하나다: tick 마다 (rescanMs 가 지났으면) rescan, 그다음 poll, 그다음 쓰기. 다음 tick 은 단계보다
+// 먼저 걸고, 앞 단계가 아직 돌면 그 tick 은 상한만 본다: 단계는 겹치지 않고, 멈춘 단계가 시간 상한을 붙잡지 않는다.
 // start / stop / close 도 차례로 돈다. 상태(status)에는 개수와 출력 파일의 이름만 있다 (폴더 경로는 없다).
 // 바뀐 상태는 onChange(status) 로 알린다: 시작과 끝은 바로, 도는 동안에는 바뀌었을 때 1초에 한 번까지.
 import { constants as FS } from 'node:fs';
@@ -11,6 +14,7 @@ import path from 'node:path';
 import { Observer } from './observer.mjs';
 import { Tally, progress } from './summary.mjs';
 import { errorCode } from './records.mjs';
+import { pruneOutputs } from './retention.mjs';
 
 /** Poll period (ms). */
 export const POLL_MS = 100;
@@ -25,6 +29,16 @@ export const FILE_MODE = 0o600;
 export const STOP_WAIT_MS = 1500;
 /** Records waiting behind a failing output write at most (past it the oldest waiting ones are dropped). */
 export const MAX_PENDING = 20_000;
+/** Auto-stop: this long after the checklist first became ready during the observation (10 minutes). */
+export const READY_GRACE_MS = 600_000;
+/** Auto-stop: this long after the start at most (4 hours). */
+export const MAX_MS = 14_400_000;
+/** Auto-stop: once the output file holds this many bytes (50 MB; the summary still goes in after). */
+export const MAX_BYTES = 52_428_800;
+/** Observation files kept in the output folder after a start, the new one included. */
+export const KEEP_FILES = 20;
+/** Why an observation ended (summary record and status.last `reason`). */
+export const STOP_REASONS = Object.freeze(['user', 'ready', 'duration', 'bytes', 'close']);
 
 const WRITE_FLAGS = FS.O_WRONLY | FS.O_CREAT | FS.O_EXCL | FS.O_APPEND | (FS.O_NOFOLLOW ?? 0);
 const MAX_SUFFIX = 99;
@@ -37,6 +51,14 @@ export function fileStamp(ms) {
 }
 
 const dirOf = (v) => (typeof v === 'string' && v !== '' ? v : null);
+const isoOf = (ms) => (Number.isFinite(ms) && Math.abs(ms) <= 8.64e15 ? new Date(ms).toISOString() : null);
+
+// 상한 값 검사: 양수 (keep 은 양의 정수)
+function positive(v, name, integer = false) {
+  const ok = integer ? Number.isSafeInteger(v) : Number.isFinite(v);
+  if (!ok || v <= 0) throw new RangeError(`${name} must be a positive ${integer ? 'integer' : 'number'}`);
+  return v;
+}
 
 // fs 오류의 message 에는 경로가 들어 있다: 코드만 가진 새 오류로 바꾼다
 function plainError(err) {
@@ -48,22 +70,32 @@ function plainError(err) {
 
 /**
  * new ObserveControl({ roots, dir, now?, intervalMs?, rescanMs?, timers?, fsImpl?, onChange?, platform?, notifyMs?,
- *   stopWaitMs? })
+ *   stopWaitMs?, readyGraceMs?, maxMs?, maxBytes?, keep? })
  * - roots: { grok?: dir, codex?: dir } of the enabled adapters, or a function returning it (read at each start() and
  *   status()). Neither -> available false and start() is a no-op.
  * - dir: the output folder (created 0700 at the first start; a link or non-folder there refuses the start).
  * - timers: { setTimeout(fn, ms) -> handle, clearTimeout(handle) } (default the global ones; handles are unref-ed).
- * - fsImpl: node:fs/promises or a stand-in (lstat, readdir, open, mkdir, chmod), called at call time.
+ * - fsImpl: node:fs/promises or a stand-in (lstat, readdir, open, mkdir, chmod, unlink), called at call time.
+ * - readyGraceMs / maxMs / maxBytes: the auto-stop limits (default READY_GRACE_MS, MAX_MS, MAX_BYTES); keep: the files
+ *   kept after a start (default KEEP_FILES). A value that is not positive (keep: a positive integer) is a RangeError.
  * - onChange(status): also settable later as control.onChange.
  * status() -> the status object. start() / stop() -> Promise<status> (no-ops when running / stopped). start() rejects
  * with an Error whose only detail is `.code` when the output file cannot be made (nothing runs then). close() stops a
  * running observation (the summary is written) and refuses later starts. A step stuck in an fs call is waited for at
- * most stopWaitMs; the summary is then written from the in-memory tally and the late step's records are dropped.
+ * most stopWaitMs; the summary is then written from the in-memory tally and the late step's records are dropped. The
+ * summary write and the close are waited for at most stopWaitMs too (a stalled one finishes when its mount answers).
+ * A tick that finds a limit reached stops the observation exactly like stop() (reason 'ready', 'duration' or 'bytes');
+ * a tick that comes while the previous step still runs checks the limits without starting a step.
  */
 export class ObserveControl {
   constructor({ roots = {}, dir, now = Date.now, intervalMs = POLL_MS, rescanMs = RESCAN_MS, timers = null,
-    fsImpl = fsp, onChange = null, platform = process.platform, notifyMs = NOTIFY_MS, stopWaitMs = STOP_WAIT_MS } = {}) {
+    fsImpl = fsp, onChange = null, platform = process.platform, notifyMs = NOTIFY_MS, stopWaitMs = STOP_WAIT_MS,
+    readyGraceMs = READY_GRACE_MS, maxMs = MAX_MS, maxBytes = MAX_BYTES, keep = KEEP_FILES } = {}) {
     if (typeof dir !== 'string' || dir === '') throw new TypeError('dir must be a folder path');
+    this.limits = Object.freeze({
+      readyGraceMs: positive(readyGraceMs, 'readyGraceMs'), maxMs: positive(maxMs, 'maxMs'),
+      maxBytes: positive(maxBytes, 'maxBytes'), keep: positive(keep, 'keep', true),
+    });
     this.roots = roots;
     this.dir = dir;
     this.now = now;
@@ -80,6 +112,7 @@ export class ObserveControl {
     this.closed = false;
     this.ops = Promise.resolve();
     this.notified = { key: null, at: -Infinity };
+    this.pruned = { removed: 0, failed: 0 }; // 보관 규칙이 지운 파일과 건너뛴 오류 (디버그용, 상태에는 없다)
   }
 
   get running() {
@@ -113,7 +146,27 @@ export class ObserveControl {
       ready: p.ready,
       totals: run ? run.tally.totals() : { files: 0, appends: 0 },
       last: last ? { ...last, checklist: last.checklist.map((i) => ({ ...i })), totals: { ...last.totals } } : null,
+      bytes: run ? run.bytes : 0,
+      endsAt: run ? isoOf(this._endsMs(run)) : null,
+      limits: { ...this.limits },
     };
+  }
+
+  // 시간으로 끝나는 가장 이른 때: 시작 + maxMs, 다 찬 뒤로는 다 찬 때 + readyGraceMs 와 견줘 이른 쪽
+  _endsMs(run) {
+    const { maxMs, readyGraceMs } = this.limits;
+    return Math.min(run.startMs + maxMs, run.readyMs === null ? Infinity : run.readyMs + readyGraceMs);
+  }
+
+  // tick 의 쓰기 뒤에, 그리고 앞 단계가 아직 도는 tick 에서도 본다. 같은 tick 에 둘 이상이면 시간 상한(먼저 온 쪽, 같으면
+  // ready), 그다음 크기.
+  _limitReason(run) {
+    const now = this.now();
+    if (now >= this._endsMs(run)) {
+      const { maxMs, readyGraceMs } = this.limits;
+      return run.readyMs !== null && run.readyMs + readyGraceMs <= run.startMs + maxMs ? 'ready' : 'duration';
+    }
+    return run.bytes >= this.limits.maxBytes ? 'bytes' : null;
   }
 
   start() {
@@ -121,13 +174,13 @@ export class ObserveControl {
   }
 
   stop() {
-    return this._op(() => this._stop());
+    return this._op(() => this._stop('user'));
   }
 
   async close() {
     await this._op(async () => {
       this.closed = true;
-      await this._stop();
+      await this._stop('close');
     });
   }
 
@@ -147,7 +200,7 @@ export class ObserveControl {
     const startedAt = new Date(startMs).toISOString();
     const run = {
       file, fh, startMs, startedAt, agents, tally: new Tally(), pending: [], out: null, writing: Promise.resolve(),
-      timer: null, busy: null, nextRescan: startMs, stopping: false, sealed: false, observer: null,
+      timer: null, busy: null, nextRescan: startMs, stopping: false, sealed: false, observer: null, bytes: 0, readyMs: null,
     };
     run.observer = new Observer({ roots, startMs, now: this.now, emit: (rec) => this._record(run, rec), fsImpl: this.fs });
     this._record(run, {
@@ -155,9 +208,22 @@ export class ObserveControl {
     });
     await this._flush(run);
     this.run = run;
+    await this._prune(file); // 첫 tick 전에: start() 의 답은 여전히 첫 rescan 전의 상태다
     this._schedule(run, 0);
     this._notify(true);
     return this.status();
+  }
+
+  // 새 파일을 만든 뒤에만 부른다 (시작이 실패하면 아무것도 지우지 않는다). 던지지 않고, 멈춘 마운트는 stopWaitMs 까지만 기다린다.
+  // 기다림을 넘긴 단계는 그만두게 한다: 늦게 돌아온 목록에는 그다음 관찰이 쓰는 파일이 있을 수 있다 (그 뒤로는 지우지 않는다).
+  async _prune(current) {
+    const ac = new AbortController();
+    const p = pruneOutputs({ dir: this.dir, current, keep: this.limits.keep, fsImpl: this.fs, signal: ac.signal })
+      .then((r) => {
+        this.pruned.removed += r.removed;
+        this.pruned.failed += r.failed;
+      }, () => {});
+    if ((await this._settle(p.then(() => true))) !== true) ac.abort();
   }
 
   async _openOutput(startMs) {
@@ -193,6 +259,8 @@ export class ObserveControl {
   _record(run, rec) {
     if (run.sealed) return; // 요약을 쓴 뒤에 늦게 깨어난 단계의 기록은 버린다
     run.tally.add(rec);
+    // 다 찬 때는 체크리스트를 채운 기록을 받은 때다: 상태의 ready 와 endsAt 이 늘 함께 바뀐다
+    if (run.readyMs === null && run.tally.progress().ready) run.readyMs = this.now();
     run.pending.push(`${JSON.stringify(rec)}\n`);
   }
 
@@ -222,6 +290,7 @@ export class ObserveControl {
         if (run.pending.length > MAX_PENDING) run.pending.splice(0, run.pending.length - MAX_PENDING);
         return;
       }
+      run.bytes += n;
       run.out = run.out.subarray(n);
     }
   }
@@ -231,15 +300,34 @@ export class ObserveControl {
     run.timer?.unref?.();
   }
 
+  // 다음 tick 은 단계보다 먼저 건다: 단계가 멈춘 마운트에 걸려도 다음 tick 이 와서 시간 상한을 본다. 앞 단계가 아직 돌면
+  // 그 tick 은 새 단계를 시작하지 않고 (단계는 겹치지 않는다) 상한만 보고 다시 건다. 크기는 쓰기에서만 는다.
   async _tick(run) {
     run.timer = null;
     if (this.run !== run || run.stopping) return;
+    if (run.busy) {
+      const reason = this._limitReason(run);
+      if (reason) this._end(run, reason); // 기다리지 않는다: 끝내기가 멈춘 단계를 stopWaitMs 까지만 기다린다
+      else this._schedule(run, this.intervalMs);
+      return;
+    }
+    this._schedule(run, this.intervalMs);
     run.busy = this._step(run);
     await run.busy;
     run.busy = null;
     if (this.run !== run || run.stopping) return;
-    this._notify(false);
-    this._schedule(run, this.intervalMs);
+    const reason = this._limitReason(run);
+    if (reason) await this._end(run, reason);
+    else this._notify(false);
+  }
+
+  // 상한에 닿았다: stop() 과 똑같이 끝낸다 (요약, 닫기, status.last, 바로 알림). 먼저 들어온 stop / close 가 있으면 그쪽이 끝낸다.
+  _end(run, reason) {
+    if (run.timer !== null) {
+      this.timers.clearTimeout(run.timer);
+      run.timer = null;
+    }
+    return this._op(() => (this.run === run ? this._stop(reason) : null)).catch(() => {});
   }
 
   async _step(run) {
@@ -262,7 +350,7 @@ export class ObserveControl {
     return Promise.race([p, late]).finally(() => this.timers.clearTimeout(timer));
   }
 
-  async _stop() {
+  async _stop(reason) {
     const run = this.run;
     if (!run) return this.status();
     run.stopping = true;
@@ -276,11 +364,12 @@ export class ObserveControl {
     const endMs = this.now();
     const endedAt = new Date(endMs).toISOString();
     const elapsedMs = Math.max(0, Math.round(endMs - run.startMs));
-    run.pending.push(`${JSON.stringify(run.tally.summary({ t: elapsedMs, endedAt }))}\n`);
-    await this._flush(run);
-    await run.fh.close().catch(() => {});
+    run.pending.push(`${JSON.stringify(run.tally.summary({ t: elapsedMs, endedAt, reason }))}\n`);
+    // 요약 쓰기와 닫기도 stopWaitMs 까지만 기다린다 (결과 폴더의 마운트가 멈추면: 요약은 그 마운트가 돌아올 때 들어가고
+    // 그다음에 닫힌다; last.bytes 에는 그때까지 쓴 것만 있다). 닫기는 늘 쓰기 뒤다.
+    await this._settle(this._flush(run).then(() => run.fh.close()).catch(() => {}));
     const { checklist, ready } = run.tally.progress();
-    this.last = { file: run.file, endedAt, elapsedMs, checklist, ready, totals: run.tally.totals() };
+    this.last = { file: run.file, endedAt, elapsedMs, checklist, ready, totals: run.tally.totals(), bytes: run.bytes, reason };
     this.run = null;
     this._notify(true);
     return this.status();

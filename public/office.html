@@ -299,6 +299,7 @@ body.overview .tag, body.overview .sign { display: none; }
 #observe header span { font: 500 12px/1 var(--font-mono); color: var(--accent); font-variant-numeric: tabular-nums; }
 #observe p { margin: 8px 0 0; font-size: 12px; }
 #observe .ob-muted { color: var(--muted); }
+#observe .ob-meter { font-variant-numeric: tabular-nums; }
 #observe ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 9px; }
 #observe li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: baseline; }
 #observe li b { font-weight: 500; font-size: 12px; }
@@ -373,13 +374,16 @@ body.overview .tag, body.overview .sign { display: none; }
   <section id="observe" class="panel" hidden aria-labelledby="observe-title">
     <header><h2 id="observe-title">기록 관찰</h2><span data-ob="clock"></span></header>
     <p class="ob-muted">평소처럼 Grok·Codex 를 쓰면 기록이 덧붙는 모양만 셉니다. 내용은 남기지 않아요.</p>
+    <p class="ob-muted" data-ob="limits" hidden></p>
     <p data-ob="state" aria-live="polite"></p>
+    <p class="ob-muted ob-meter" data-ob="meter" hidden></p>
     <ul data-ob="list" aria-label="모을 것"></ul>
     <p class="ob-hint" data-ob="hint" hidden></p>
     <div class="ob-act"><button type="button" class="ghost" data-ob="action">관찰 시작</button><span class="ob-muted" data-ob="note" hidden></span></div>
     <p class="ob-err" data-ob="error" role="alert" hidden></p>
     <div class="ob-last" data-ob="last" hidden>
       <p data-ob="fileline">저장한 파일 <code data-ob="file"></code></p>
+      <p data-ob="reason" hidden></p>
       <p class="ob-muted" data-ob="counts"></p>
       <p data-ob="claude"></p>
     </div>

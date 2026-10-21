@@ -217,3 +217,69 @@ test('ObservePanel: the button name stays "기록 관찰"; start, ready and stop
   p.apply(status({ running: false, last: LAST }));
   assert.equal(announce.textContent, '기록 관찰을 끝냈어요.');
 });
+
+// ---- 유지보수 PR 3: 상한 한 줄, 쓴 크기와 남은 시간, 끝난 까닭 ----
+
+test('ObservePanel: the limits line, the bytes written, a ticking countdown once ready, and the reason after the end', async () => {
+  let t = 0;
+  const announce = new El('p');
+  const { p, btn, part } = mount({ now: () => t, announce });
+  p.setLive(true);
+  p.apply(status());
+  assert.equal(part('limits').hidden, false);
+  assert.equal(part('limits').textContent, '다 모인 뒤 10분, 최대 4시간, 50 MB 에서 자동으로 끝나요. 결과 파일은 최근 20개만 남겨요.');
+  assert.equal(part('meter').hidden, true, 'nothing written while idle');
+  const startedAt = '2026-10-21T15:30:00.000Z';
+  const later = (ms) => new Date(Date.parse(startedAt) + ms).toISOString();
+  p.apply(status({ running: true, startedAt, elapsedMs: 0, bytes: 2048, endsAt: later(14_400_000) }));
+  assert.equal(part('meter').hidden, false);
+  assert.equal(part('meter').textContent, '2 KB 기록됨');
+  p.apply(status({
+    running: true, ready: true, checklist: checklist(ALL_DONE), startedAt, elapsedMs: 0, bytes: 1_258_291, endsAt: later(600_000),
+  }));
+  assert.equal(part('meter').textContent, '1.2 MB 기록됨 · 10:00 뒤 자동으로 끝나요');
+  t = 1500;
+  p.tick();
+  assert.equal(part('meter').textContent, '1.2 MB 기록됨 · 09:59 뒤 자동으로 끝나요', 'the frame loop moves the countdown');
+  assert.equal(btn.textContent, '충분히 모였어요');
+  announce.textContent = '';
+  p.apply(status({ running: false, last: { ...LAST, reason: 'ready' } }));
+  assert.equal(announce.textContent, '기록 관찰이 자동으로 끝났어요 (다 모인 뒤 10분).', 'announced outside the closed panel');
+  assert.equal(part('meter').hidden, true);
+  assert.equal(part('reason').hidden, false);
+  assert.equal(part('reason').textContent, '자동으로 끝남 (다 모인 뒤 10분)');
+  assert.equal(part('counts').textContent, '파일 3개 · 덧붙음 57번 · 체크리스트 4/4 채움');
+  btn.click();
+  assert.equal(part('state').textContent, '관찰이 자동으로 끝났어요 (다 모인 뒤 10분). 다시 시작하면 새 파일에 모아요.');
+  p.apply(status({ running: false, last: { ...LAST, reason: undefined } }));
+  assert.equal(part('reason').hidden, true, 'an older server sends no reason');
+  btn.click();
+  p.apply(status({ running: true }));
+  p.apply(status({ running: false, last: LAST }));
+  assert.equal(announce.textContent, '기록 관찰을 끝냈어요.', 'a user stop is announced as before');
+  assert.equal(part('reason').textContent, '직접 끝냄');
+});
+
+// ---- 리뷰 수정(PR 3): 서버가 끝낸 직후의 클릭 ----
+
+test('ObservePanel: a click meant for 관찰 끝내기 that lands just after an auto-stop does not start a new observation', async () => {
+  let t = 0;
+  const { p, posts, part } = mount({ now: () => t });
+  p.setLive(true);
+  p.apply(status({ running: true, ready: true, checklist: checklist(ALL_DONE) }));
+  assert.equal(part('action').textContent, '관찰 끝내기');
+  t = 10_000;
+  p.apply(status({ running: false, last: { ...LAST, reason: 'ready' } })); // 서버의 자동 종료 (SSE)
+  assert.equal(part('action').textContent, '관찰 시작');
+  t += 150;
+  await p.act(); // 끝내려던 클릭이 바뀐 버튼에 닿았다
+  assert.deepEqual(posts, [], 'no new observation');
+  assert.equal(part('last').hidden, false, 'the result stays on screen');
+  t += 1500;
+  await p.act();
+  assert.deepEqual(posts, ['start'], 'a later click starts as usual');
+  t += 1000;
+  p.apply(status({ running: true, elapsedMs: 1000 })); // 관찰 중의 보통 갱신은 버튼을 쉬게 하지 않는다
+  await p.act();
+  assert.deepEqual(posts, ['start', 'stop'], 'only a stop the panel did not ask for pauses the button');
+});

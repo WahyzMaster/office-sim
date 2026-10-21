@@ -101,9 +101,10 @@ src/observe/            live log observation ("기록 관찰", 6.2), every file 
                         shape; pure), `observer.mjs` (`Observer`: the file watcher, no timers; the caller drives `rescan()`
                         and `poll()`), `days.mjs` (the Codex day folder keys: today and yesterday, local time; pure),
                         `codex-walk.mjs` (the Codex day folder walk: start scan, hot days, the 30 s full walk),
-                        `summary.mjs` (`Tally`, `summarize(records)`, `progress()` and the checklist; pure)
-                        and `control.mjs` (`ObserveControl`: start / stop, the poll and rescan timers, the output file,
-                        the status object, change notices)
+                        `summary.mjs` (`Tally`, `summarize(records)`, `progress()` and the checklist; pure),
+                        `control.mjs` (`ObserveControl`: start / stop, the poll and rescan timers, the output file,
+                        the status object, change notices, the auto-stop limits) and `retention.mjs` (`pruneOutputs`:
+                        keep the 20 newest observation files of the output folder after a start)
 src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
 src/replay.mjs          ReplayRunner (extends Runner): --replay playback of one session (section 6.1)
 src/replay-timeline.mjs replay timeline: line times, cross-file merge, speed + gap cap, approval look-ahead (pure)
@@ -117,6 +118,8 @@ public/                 the browser app; owned by the browser module (public/js/
                         P5g: js/approval.js (live `tool_wait` -> the character's desk visit and back, pure; section 7)
                         기록 관찰: js/observe-panel.js (the top-bar button and panel of 6.2: DOM-free helpers for labels,
                         times, status reading, the view model and POST /observe, then the `ObservePanel` DOM class)
+                        and js/observe-format.js (its pure text helpers: clock, sizes, spans, the limits line, the
+                        end reason, the auto-stop countdown)
 .observe/               the observation output folder of the bin (6.2); in .gitignore, created 0700 at the first start
 ```
 
@@ -161,10 +164,11 @@ Wire messages on `/events` (each SSE `data:` line is one JSON object, every mess
   once a second while the progress moves (section 6.1).
 - `{ "type": "observe", ...status }` only when the server runs with `observeDir` (live log observation, 6.2; without
   it this message never exists). `status` is `{ available, agents: { grok, codex }, running, startedAt, elapsedMs,
-  checklist: [{ id, have, need, done, off }], ready, totals: { files, appends }, last }` with `last` = `{ file,
-  endedAt, elapsedMs, ready, checklist, totals }` of the latest ended observation or null (6.2 has every field). It
-  is sent right after `config` on every connection (the snapshot path and the Last-Event-ID path alike, with the same
-  `id:` line as that `config`), at once on start and stop, while running at most once a second when anything but
+  checklist: [{ id, have, need, done, off }], ready, totals: { files, appends }, last, bytes, endsAt, limits }` with
+  `last` = `{ file, endedAt, elapsedMs, ready, checklist, totals, bytes, reason }` of the latest ended observation or
+  null (6.2 has every field). It is sent right after `config` on every connection (the snapshot path and the
+  Last-Event-ID path alike, with the same `id:` line as that `config`), at once on start and stop (an auto-stop too),
+  while running at most once a second when anything but
   `elapsedMs` changed, and when a grok or codex root switches on late (4.0.1 F1). Like `config` it is a control
   message: it is never in the Store, the ring, a snapshot or `/state`. LiveSource hands it to `onObserve` (the panel,
   `public/js/observe-panel.js`), never to the office or the tail counter.
@@ -1770,7 +1774,7 @@ counts only (events, unpaired tools, apply errors, privacy hits).
 - The browser classifies rooms with `public/js/rooms.js`; the server only sends `room` hints from 3.1.
 - Live log observation (6.2): the output file, every status object (GET / POST `/observe`) and every `observe` SSE
   message hold only numbers, booleans, ISO times, the per-observation ids `f#` / `s#`, the agent ids, the file kinds,
-  the checklist ids, fs error codes (`/^E[A-Z0-9_]{1,31}$/`, else `?`), the output file's own name (never its folder)
+  the checklist ids, the end reasons (`user`, `ready`, `duration`, `bytes`, `close`), fs error codes (`/^E[A-Z0-9_]{1,31}$/`, else `?`), the output file's own name (never its folder)
   and categorical values read from these fields only: Grok `updates.jsonl` `method` and `params.update.sessionUpdate`;
   Grok `events.jsonl` `type`, `phase` (`phase_changed` only) and `decision` (`permission_resolved` only); Codex rollout
   `type` and `payload.type`; the key names and JSON value types (never the values) of `active_sessions.json` rows.
@@ -1957,8 +1961,10 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   `http://<host>:<port>/?t=<token>` (what the bin prints) and `token` is set; without it `token` is null and `url` has
   no query. `observeDir` (a folder path, `~`-expanded and resolved; default null) turns on the live log observation
   (6.2): `/observe` and the `observe` SSE message exist only then. The bin passes `<repo>/.observe` in live mode and
-  nothing in replay mode. Test hook `observeTiming` (`{ intervalMs, rescanMs, notifyMs }` of the observation loop,
-  defaults 100, 2000, 1000). `close()` stops a running observation and writes its summary record (the open pages get
+  nothing in replay mode. Test hooks `observeTiming` (`{ intervalMs, rescanMs, notifyMs }` of the observation loop,
+  defaults 100, 2000, 1000) and `observeLimits` (`{ readyGraceMs, maxMs, maxBytes, keep }`, the auto-stop limits and
+  the files kept of 6.2, defaults 600000, 14400000, 52428800, 20; only positive numbers pass, `keep` only a positive
+  integer, anything else keeps the default; the bin passes neither). `close()` stops a running observation and writes its summary record (the open pages get
   the ended status) before the SSE connections are closed; it runs alongside the Runners' close.
 
 ### 6.1 Replay mode (`--replay <file> --speed <x> [--loop]`, P3)
@@ -2030,20 +2036,50 @@ user asks (`관찰 결과 반영해 줘`); (4) the status shows only in the pane
   -> `gone`. When a watched start falls inside a line, the rest of that line counts in `lines` when it ends, but it is
   never parsed and is left out of `maxLineBytes` (the byte before the start is read through the same safe open).
 - Loop (`src/observe/control.mjs`): one `setTimeout` chain (handles `unref`-ed): each tick runs `rescan()` when 2000
-  ms have passed, then `poll()`, then appends the tick's records to the output file, every 100 ms; ticks never
-  overlap, and start, stop and close run one after another. `start()` resolves once the start record is written,
+  ms have passed, then `poll()`, then appends the tick's records to the output file, every 100 ms; steps never
+  overlap, and start, stop and close run one after another. The next tick is set before each step (review fix), so a
+  step stuck on a stalled mount does not stop the chain: a tick that comes while the previous step still runs starts
+  no step and only checks the time limits (Auto-stop, below). `start()` resolves once the start record is written,
   before the first rescan (so the totals in its reply are 0 and a slow mount cannot hang `POST /observe`). `stop()`
   and the server's `close()` cancel the loop, wait for a step still running at most 1500 ms (`STOP_WAIT_MS`: an fs
   call on a stalled mount cannot be aborted, so the stop button, later `POST /observe` calls and the shutdown never
   hang on it; the step left behind writes nothing, its later records are dropped), append the `summary` record (from
-  the in-memory tally) and close the file.
+  the in-memory tally) and close the file. Writing the summary and closing the file are waited for at most another
+  1500 ms (review fix: an output folder on a stalled mount holds the stop no longer either); a summary write left
+  behind goes in, and the file is closed after it, when that mount answers again (`last.bytes` then leaves it out).
+- Auto-stop (maintenance PR 3, the user's numbers, 2026-10-21; constants in `control.mjs`): an observation also ends by
+  itself at whichever comes first: `ready` 10 minutes (`READY_GRACE_MS` 600000) after the checklist first became
+  `ready` during this observation, `duration` 4 hours (`MAX_MS` 14400000) after the start (ready or not), `bytes` once
+  the output file holds 50 MB (`MAX_BYTES` 52428800 bytes written, the start record included). Each tick checks after
+  its write, and a tick that comes while the previous step is still running checks too, so a time limit starts the
+  stop at most one tick (100 ms) late even while a step is stuck on a stalled mount; like any stop it then waits for
+  that step at most `STOP_WAIT_MS`, so `elapsedMs` can end up to that much past the limit (review fix: before it, a
+  stuck step held the time limits until it returned). The size limit is met at the first tick at or over it (the
+  summary record still goes in after, so the file ends a little over 50 MB). When two are met in the same tick the
+  time limit whose moment came first wins (`ready` on a tie), then `bytes`. An auto-stop does exactly what
+  `POST /observe stop` does (the summary record, the close, `status.last`, an immediate `observe` message) through the
+  same queue as start / stop / close, so a stop or close that came first ends it with its own reason instead.
+  `reason` in the summary record and in `status.last` says why it ended: `user` (`POST /observe stop`), `ready`,
+  `duration`, `bytes` or `close` (the server's `close()`, Ctrl-C / SIGTERM). A summary without `reason` (written before
+  this rule, or rebuilt by `summarize(records)`, which gives `reason: null`) means unknown.
+- Retention (`src/observe/retention.mjs`): right after a start has made its new file and written the start record
+  (never after a failed start; before the first tick, so the `start()` reply is still the status before the first
+  rescan), the output folder keeps the 20 newest observation files (`KEEP_FILES`), the new one counted, and older ones are deleted.
+  Only entries directly in `observeDir` whose name matches `/^observe-\d{8}-\d{6}(?:-\d{1,2})?\.jsonl$/` and that
+  `lstat` shows to be regular files count and may be deleted (`unlink`); links (never followed), folders, other names,
+  anything in a subfolder and the running file are never touched (the running file is kept even when older names sort
+  after it). Order: the name's stamp, then the `-n` suffix (none = 1, numeric), newest kept. Errors are skipped per
+  file (`readdir`, `lstat`, `unlink`; counted in the control's `pruned` for debugging, never in the status, never
+  logged with a path) and never fail the start; a folder that stalls is waited for at most `STOP_WAIT_MS`, and a pass
+  still running then is abandoned: it deletes nothing more (review fix: its late listing could hold the next
+  observation's running file).
 - Output file: `<observeDir>/observe-<YYYYMMDD-HHMMSS>.jsonl` (local time of the start; `-2` .. `-99` before `.jsonl`
   when that name is taken), folder mode 0700, file mode 0600, opened `O_CREAT | O_EXCL | O_NOFOLLOW`; a link or a
   non-folder at `observeDir` refuses the start with an error code. A failed or short write is resumed at the next tick
   (or by the stop) from its first unwritten byte, so no record is cut, glued to the next one or written twice; up to
   20,000 records (`MAX_PENDING`) wait behind a failing write and past that the oldest waiting ones are dropped. The
   status and the summary stay right (they come from the in-memory tally); a summary whose own write fails at the stop
-  is lost. Nothing else is ever written there. One JSON object
+  is lost (one whose write stalls goes in later, see Loop). Nothing else is ever written there (retention, below, only deletes older observation files). One JSON object
   per line; `t` is ms since the start, `f#` / `s#` number the files and sessions per observation (a Grok session's
   two files share one `s#`, every Codex rollout has its own, the index has none):
   - `start` `{ type, v: 1, startedAt, intervalMs, rescanMs, platform, agents: { grok, codex } }` (first).
@@ -2070,8 +2106,8 @@ user asks (`관찰 결과 반영해 줘`); (4) the status shows only in the pane
     sorted and joined with `|`). Never a value.
   - `error` `{ type, t, kind, file, code }`: `kind` a file kind or `grok-scan`, `codex-scan`, `grok-active`; `file` the
     `f#` or null; one record each time a target's error code changes. ENOENT and ENOTDIR are not errors.
-  - `summary` (last, at stop or server close): `{ type, t, endedAt, agents, totals: { files, appends, bytes, lines },
-    kinds, errors, grokPermission, active, checklist, ready }`. `kinds` per file kind (every kind of an enabled agent,
+  - `summary` (last, at stop, auto-stop or server close): `{ type, t, endedAt, reason, agents, totals: { files,
+    appends, bytes, lines }, kinds, errors, grokPermission, active, checklist, ready }` (`reason` as in Auto-stop). `kinds` per file kind (every kind of an enabled agent,
     sorted): `{ files, appends, lines, bytes, linesPerAppend: { '0', '1', '2', '3-5', '6+' }, partialTail,
     midLineStart, lagMin, lagMax, resets, gone, bad, oversize, values }` where `bytes`, `lagMin` (over each append's
     min) and `lagMax` (over each append's max) are distributions `{ n, p50, p90, max }` (nearest rank, null when
@@ -2088,10 +2124,16 @@ user asks (`관찰 결과 반영해 줘`); (4) the status shows only in the pane
   item is `{ id, have, need, done, off }`; an item of an agent that is not on is `off` (have 0, done false) and does
   not block `ready`; `ready` = at least one item is on and every on item is done.
 - Status (the `observe` message of section 2 and the HTTP replies): `{ available, agents: { grok, codex }, running,
-  startedAt: ISO | null, elapsedMs, checklist, ready, totals: { files, appends }, last }`. While running `agents` are
-  the run's own; while stopped they are the adapters on now and the checklist shows have 0. `last` = `{ file, endedAt,
-  elapsedMs, ready, checklist, totals }` of the latest ended observation (`file` is the output file name only, never
-  its folder) or null.
+  startedAt: ISO | null, elapsedMs, checklist, ready, totals: { files, appends }, last, bytes, endsAt, limits }`. While
+  running `agents` are the run's own; while stopped they are the adapters on now and the checklist shows have 0. `last`
+  = `{ file, endedAt, elapsedMs, ready, checklist, totals, bytes, reason }` of the latest ended observation (`file` is
+  the output file name only, never its folder; `bytes` the file's size at the end, the summary included) or null.
+  `bytes` = bytes written to the output file so far (0 when stopped); `endsAt` = ISO of the earliest time-based
+  auto-stop, `min(start + maxMs, readyAt + readyGraceMs)` with the second term only once ready (null when stopped;
+  `readyAt` is the moment the record that filled the checklist came in, so a status with `ready` true always carries
+  the grace in `endsAt`, review fix);
+  `limits` = `{ readyGraceMs, maxMs, maxBytes, keep }` (always present, so the page never hard-codes the numbers; `keep`
+  is the retention count, added beyond the first draft of these keys for the page's limits line).
 - HTTP (guards: section 6 order of checks, like `/config`): `GET` / `HEAD /observe` -> 200 `{ type: 'observe',
   ...status }`; `POST /observe {"action":"start"|"stop"}` -> 200 `{ type: 'observe', ...status }` (start while running
   and stop while stopped are no-ops); any other action -> 400; a start whose output file cannot be made -> 500
@@ -2104,15 +2146,25 @@ user asks (`관찰 결과 반영해 줘`); (4) the status shows only in the pane
   tooltips say so; ending is the panel's button). Its accessible name stays `기록 관찰` (`기록 관찰, 관찰 중`,
   `기록 관찰, 충분히 모였어요`; never the ticking clock), and a visually hidden `aria-live` line outside the panel
   (`#observe-announce`) announces the start, `ready` and the end while the panel is closed (an open panel's own
-  `aria-live` state line speaks instead). The panel shows the one-line explanation, the
+  `aria-live` state line speaks instead); an auto-stop is announced with its reason (`기록 관찰이 자동으로 끝났어요
+  (다 모인 뒤 10분).`, and the state line reads `관찰이 자동으로 끝났어요 (다 모인 뒤 10분). 다시 시작하면 새 파일에
+  모아요.`). The panel shows the one-line explanation, a muted limits line made from
+  `limits` (`다 모인 뒤 10분, 최대 4시간, 50 MB 에서 자동으로 끝나요. 결과 파일은 최근 20개만 남겨요.`; hidden when
+  `limits` is missing), while running a line with the bytes written (`1.2 MB 기록됨`) and, once `ready`, the time left
+  to the auto-stop (`09:59 뒤 자동으로 끝나요`, from `endsAt - startedAt - elapsed`, so it runs and stops with the
+  page clock), the
   checklist with Korean labels and have/need bars (off items greyed with the reason), the `grok-wait` hint (answer a
   permission prompt after more than one second; it needs a Grok permission mode that asks), and one start / end button:
   `관찰 시작`, then `지금 끝내기` with the note that ending now keeps what was collected, or `관찰 끝내기` as the primary
   action once ready. Ending is this button; nothing has to be said in chat. After an end it shows the saved file name,
-  a counts-only line (files, appends, checklist items filled) and `Claude 에게 '관찰 결과 반영해 줘' 라고 하면 이 파일을
+  the reason (`직접 끝냄`, `자동으로 끝남 (다 모인 뒤 10분)`, `자동으로 끝남 (최대 4시간)`, `자동으로 끝남 (최대 50 MB)`,
+  `서버가 꺼지면서 끝남`; nothing for an unknown reason), a counts-only line (files, appends, checklist items filled) and `Claude 에게 '관찰 결과 반영해 줘' 라고 하면 이 파일을
   읽어 문서에 반영해요`. A failed POST shows a short line in the panel (a 500 shows its error code). While a POST is in
   flight, or while the live connection is lost, the panel's button is `aria-disabled` (still focusable, clicks
-  ignored) rather than `disabled`, so the keyboard focus stays on it. When the live source reports `retry` (the SSE
+  ignored) rather than `disabled`, so the keyboard focus stays on it. Because ending and starting are the same button,
+  it ignores clicks for 800 ms after its own request and for 1.5 s after a stop the panel did not ask for (an
+  auto-stop or another tab; review fix), so a click aimed at `관찰 끝내기` that lands after the change does not start
+  a new observation. When the live source reports `retry` (the SSE
   connection dropped) the status is stale: the clock stops, the button is inert and the state line says
   `서버와 연결이 끊겼어요. 다시 연결되면 상태를 새로 받아요.`; the next `observe` message replaces it, and if the
   observation was running before and the server now has no observation and no `last` (it was restarted), the panel
