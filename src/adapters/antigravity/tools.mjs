@@ -112,9 +112,14 @@ export const TOOLS = Object.freeze({
   search_web: T('web', { query: ['query'] }), // domain 은 읽지 않는다
   read_url_content: T('web', { url: ['Url'] }),
   call_mcp_tool: T('web', { mcp: true }), // Arguments 는 읽지 않는다
+  list_resources: T('web'), // 2.x MCP 리소스 목록 (ServerName 은 읽지 않는다)
+  read_resource: T('web'), // 2.x MCP 리소스 읽기 (ServerName, Uri 는 읽지 않는다)
   // 내 자리
   ask_question: T('ask', { questions: true }),
   // 제자리 (서브에이전트 연결은 없다: 부모 직원의 도구 호출로 보인다)
+  define_subagent: T('agent'), // 2.x 서브에이전트 정의 (Name, Description, SystemPrompt 는 읽지 않는다)
+  invoke_subagent: T('agent'), // 2.x 서브에이전트 호출 (TypeName, Role, Prompt 는 읽지 않는다)
+  send_message: T('agent'), // 2.x 에이전트 메시지 전달 (Recipient, Message 는 읽지 않는다)
   manage_subagents: T('agent'),
   browser_subagent: T('agent'), // Task, TaskName, TaskSummary, RecordingName 은 읽지 않는다
   generate_image: T('other'), // Prompt, ImageName 은 읽지 않는다

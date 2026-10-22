@@ -1658,8 +1658,9 @@ Tools (`tools.mjs`):
 | `search_web` | `kind: 'web'`, `query` | research |
 | `read_url_content` | `kind: 'web'`, `url: Url` (host only) | research |
 | `call_mcp_tool` | `kind: 'web'`, `mcpServer: ServerName`, `mcpTool: ToolName`, so `tool` is `mcp__<server>__<tool>` (a uuid-looking server -> ZERO_UUID, section 5); `Arguments` is never read. Without both names: a plain web call | MCP names: none, the page classifies them (D4); without names: research |
+| `list_resources`, `read_resource` | `kind: 'web'`, no argument read | research |
 | `ask_question` | `kind: 'ask'`, `questions` (at most 50; the `question` and at most 4 `options` each, an option being a string or a `label`) -> `question` / `options` (R33, `askFields`); its result line ends it | desk |
-| `manage_subagents`, `browser_subagent` | `kind: 'agent'`, no argument read | here |
+| `define_subagent`, `invoke_subagent`, `send_message`, `manage_subagents`, `browser_subagent` | `kind: 'agent'`, no argument read | here |
 | `generate_image` | `kind: 'other'`, no argument read | here |
 | `schedule` | `kind: 'other'`, no argument read; `AntigravitySession` puts the `lounge` room hint on its `tool_start` (as Codex `clock.sleep`, 4.7; the core has no lounge kind) | lounge |
 | `list_permissions` | hidden plumbing: no `tool_start` and no `tool_end`, but the call keeps its place in the pairing, so its result line is taken and gives nothing | - |

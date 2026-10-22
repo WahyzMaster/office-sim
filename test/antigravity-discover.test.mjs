@@ -20,7 +20,7 @@ import { start } from '../src/server.mjs';
 import { ADAPTERS } from '../src/adapters/index.mjs';
 import { request, sse, until } from './fixtures/sse.mjs';
 import {
-  aid, charOf, CLI, IDE, writeConversation, appendLines, fullOf, plainOf, brainDir, logsDir, writeSummaries, writeAnnotation,
+  aid, charOf, CLI, IDE, APP, writeConversation, appendLines, fullOf, plainOf, brainDir, logsDir, writeSummaries, writeAnnotation,
   writeTasks, summaryOf, annotationOf, tasksOf, antigravityTestAdapter,
 } from './fixtures/antigravity-tree.mjs';
 import { writeSession, gid, groupOf } from './fixtures/grok-tree.mjs';
@@ -42,15 +42,19 @@ const WINDOW = { activeMs: 30 * 60_000, nowMs: Date.now() + 1000 };
 const brief = (refs) => refs.map((r) => [r.charId, path.basename(r.path), r.facts.base]);
 const n = (k) => Array.from({ length: k }, (_, i) => ({ k: 'say', text: `line ${i}` }));
 
-test('refs: every conversation of both sub-roots is a main with a D2 id; sorted by uuid; facts say which file', async () => {
+test('refs: every conversation of all three sub-roots (cli, ide, app) or a direct sub-root is a main with a D2 id', async () => {
   const root = await tmp();
   await writeConversation(root, { id: aid(3), full: n(2), plain: n(2) });
   await writeConversation(root, { id: aid(1), full: null, plain: n(1) });
   await writeConversation(root, { id: aid(2), base: IDE, full: null, plain: n(3) });
+  await writeConversation(root, { id: aid(4), base: APP, full: n(2), plain: n(1) });
   const refs = await scanAntigravity(root, WINDOW);
   assert.deepEqual(brief(refs), [
-    [charOf(1), 'transcript.jsonl', CLI], [charOf(2), 'transcript.jsonl', IDE], [charOf(3), 'transcript_full.jsonl', CLI],
+    [charOf(1), 'transcript.jsonl', CLI], [charOf(2), 'transcript.jsonl', IDE],
+    [charOf(3), 'transcript_full.jsonl', CLI], [charOf(4), 'transcript_full.jsonl', APP],
   ]);
+  const direct = await scanAntigravity(path.join(root, APP), WINDOW);
+  assert.deepEqual(brief(direct), [[charOf(4), 'transcript_full.jsonl', APP]]);
   for (const r of refs) {
     assert.equal(r.agent, 'antigravity');
     assert.equal(r.kind, 'main');
@@ -297,13 +301,13 @@ test('allowlist: bait files for every never-open path and symlinked folders are 
   await writeSummaries(root, [{ id: aid(1), title: 'Allow title', cwd: '/work/allow', branch: 'main', remote: 'BAIT/repo' }]);
   await writeAnnotation(root, aid(1), 'Allowlist conversation');
   await writeTasks(root, aid(2), '- [ ] ide task\n', IDE);
-  // the desktop app root with a valid-looking transcript: skipped by path, not by shape
-  const desk = await writeConversation(root, { id: aid(3), base: 'antigravity', full: [{ k: 'say', text: 'BAIT desktop' }] });
+  // an unallowed sub-root with a valid-looking transcript: skipped by path, not by shape
+  const desk = await writeConversation(root, { id: aid(3), base: 'antigravity-bait', full: [{ k: 'say', text: 'BAIT desktop' }] });
   const c1 = brainDir(root, aid(1));
   const gen1 = path.join(c1, '.system_generated');
   const bait = [
-    desk.full, path.join(root, 'antigravity', 'conversations', `${aid(3)}.pb`), path.join(root, 'antigravity', 'agyhub_summaries_proto.pb'),
-    path.join(root, 'antigravity', 'brain', aid(3), 'task.md'), path.join(root, 'antigravity', 'annotations', `${aid(3)}.pbtxt`),
+    desk.full, path.join(root, 'antigravity', 'conversations', `${aid(3)}.pb`), path.join(root, 'antigravity-bait', 'agyhub_summaries_proto.pb'),
+    path.join(root, 'antigravity-bait', 'brain', aid(3), 'task.md'), path.join(root, 'antigravity-bait', 'annotations', `${aid(3)}.pbtxt`),
     path.join(root, CLI, 'conversations', `${aid(1)}.db`), path.join(root, CLI, 'conversations', `${aid(1)}.db-wal`),
     path.join(root, CLI, 'conversations', `${aid(1)}.db-shm`), path.join(root, CLI, 'conversations', `${aid(1)}.pb`),
     path.join(root, CLI, 'conversation_summaries.db'), path.join(root, CLI, 'history.jsonl'), path.join(root, CLI, 'history', 'x.jsonl'),
@@ -350,8 +354,8 @@ test('allowlist: bait files for every never-open path and symlinked folders are 
   }
   const under = spy.calls.filter((c) => c.path.startsWith(root));
   for (const b of bait) assert.ok(!under.some((c) => c.path === b), `bait touched: ${path.relative(root, b)}`);
-  assert.ok(!under.some((c) => c.path.startsWith(path.join(root, 'antigravity') + path.sep) || c.path === path.join(root, 'antigravity')),
-    'nothing under the desktop app root, not even a stat');
+  assert.ok(!under.some((c) => c.path.startsWith(path.join(root, 'antigravity-bait') + path.sep) || c.path === path.join(root, 'antigravity-bait')),
+    'nothing under an unallowed sub-root, not even a stat');
   assert.ok(!under.some((c) => c.fn.startsWith('readdir') && c.path === root), 'the root itself is never listed');
   assert.ok(!spy.calls.some((c) => c.path.startsWith(outside)), 'symlinks are never followed out of the root');
   // what was opened under the root: the transcripts (line counts and the Tailer; transcript.jsonl of aid(1) only to count

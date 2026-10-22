@@ -141,6 +141,25 @@ export function userRequestOf(content) {
   return null;
 }
 
+const USER_INFO_RE = /<user_information>([\s\S]*?)(?:<\/user_information>|$)/i;
+const CWD_RE = /Command Working Directory:\s*(\/[^\r\n]+)/;
+const WS_RE = /Active Workspaces:\s*\r?\n\s*-\s*(\/[^\r\n]+)/;
+
+/**
+ * Fallback workspace path from a 2.x `<user_information>` block in `USER_INPUT` content (`Command Working Directory` or
+ * the first entry under `Active Workspaces`), or null. Used only when the summaries proto has no workspace URI.
+ */
+export function userCwdOf(content) {
+  if (typeof content !== 'string' || !content.includes('<user_information>')) return null;
+  const block = USER_INFO_RE.exec(content)?.[1];
+  if (!block) return null;
+  const m = CWD_RE.exec(block) ?? WS_RE.exec(block);
+  const raw = (m?.[1] ?? '').trim();
+  if (!raw.startsWith('/') || raw.includes('\u0000')) return null;
+  const trimmed = raw.replace(/\/+$/, '');
+  return trimmed === '' ? '/' : trimmed;
+}
+
 // --------------------------------------------------------------------------------------------- results
 
 /**

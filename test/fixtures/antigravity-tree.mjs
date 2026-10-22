@@ -17,6 +17,7 @@ export const aid = (n) => `a9a90000-0000-4000-8000-${String(n).padStart(12, '0')
 export const charOf = (n) => `antigravity-${aid(n)}`;
 export const CLI = 'antigravity-cli';
 export const IDE = 'antigravity-ide';
+export const APP = 'antigravity';
 
 export const baseDir = (root, base = CLI) => path.join(root, base);
 export const brainDir = (root, id, base = CLI) => path.join(root, base, 'brain', id);

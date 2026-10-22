@@ -19,6 +19,7 @@ const MAX_REMEMBERED = 1000;
 const isClaude = (e) => e.agent === CLAUDE_CODE_AGENT;
 // 세션 객체가 낸 내부 힌트 ({ hint: 'end', charId }, 4.0.1). 이벤트가 아니라 브라우저로 가지 않는다.
 const isHint = (ev) => ev.hint !== undefined;
+const AGY_SURFACE = Object.freeze({ 'antigravity-cli': 'cli', 'antigravity': 'app', 'antigravity-ide': 'ide' });
 
 export class Store {
   constructor({ log = () => {}, ringSize = 1000, seqStart = 0, now = Date.now } = {}) {
@@ -245,9 +246,11 @@ export class Store {
   // 층 상속, agentType 도. agent 는 이벤트에 없을 때 entry 의 agent.
   patch(ev, e) {
     if (!ev || ev.type !== 'session' || !e) return ev;
+    const surface = AGY_SURFACE[e.ref?.facts?.base] ?? null;
     if (e.kind === 'main') {
       const floor = this.floorOf(e, ev.project);
-      return floor ? { ...ev, ...floor } : ev;
+      if (!floor && !surface) return ev;
+      return { ...ev, ...(floor ?? {}), ...(surface ? { surface } : {}) };
     }
     // 서브의 session 이벤트 project 는 이미 부모의 층이다: 워크트리 배지는 서브 자신의 첫 cwd 로 본다
     const own = e.state?.firstCwd;

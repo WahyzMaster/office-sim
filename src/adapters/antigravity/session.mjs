@@ -39,7 +39,7 @@
 import { SessionCore } from '../../core/session-core.mjs';
 import { isObj } from '../../core/session-items.mjs';
 import {
-  ANTIGRAVITY_AGENT, CLOSERS, PASSING, parseStep, userRequestOf, resultEndOf, errorMessageText, planItemsOf, runStatusOf,
+  ANTIGRAVITY_AGENT, CLOSERS, PASSING, parseStep, userRequestOf, userCwdOf, resultEndOf, errorMessageText, planItemsOf, runStatusOf,
 } from './records.mjs';
 import { callStartOf, cwdOfCall } from './tools.mjs';
 
@@ -250,6 +250,8 @@ export class AntigravitySession {
     if (CLOSERS.has(s.type)) this._close(push);
     switch (s.type) {
       case 'USER_INPUT': {
+        const ucwd = userCwdOf(s.content);
+        if (ucwd !== null) this._takeCwd(ucwd, push);
         push({ k: 'turn_start' }); // 턴 시작이 프롬프트보다 먼저 (CONTRACT 4.0.2)
         const text = userRequestOf(s.content);
         if (text !== null) push({ k: 'prompt', text });
@@ -308,19 +310,22 @@ export class AntigravitySession {
     }
   }
 
-  // run_command Cwd as the cwd fallback (header): remembered during the replay, applied at once after it. true = done
-  // (a cwd is remembered or known), so the caller stops looking.
-  _cwd(call, push) {
+  // Cwd fallback (from <user_information> or run_command Cwd): remembered during replay, applied at once after it.
+  // true = done (a cwd is remembered or known), so the caller stops looking.
+  _takeCwd(cwd, push) {
     if (!this._settled) {
       if (this._cwdFallback !== null) return true;
-      this._cwdFallback = cwdOfCall(call, this._format);
+      if (cwd !== null) this._cwdFallback = cwd;
       return this._cwdFallback !== null;
     }
     if (this.core.firstCwd !== null) return true;
-    const cwd = cwdOfCall(call, this._format);
     if (cwd === null) return false;
     push({ k: 'meta', cwd });
     return true;
+  }
+
+  _cwd(call, push) {
+    return this._takeCwd(cwdOfCall(call, this._format), push);
   }
 
   _result(s, push) {
