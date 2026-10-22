@@ -8,7 +8,7 @@ import {
   mats, buildArchive, buildDev, buildServer, buildResearch, buildMeeting, buildDesk, buildLoungeProps,
 } from './furniture.js';
 import { buildThemeGround } from './theme-grounds.js';
-import { buildPalaceProps, buildHanokProps, buildStarshipProps } from './theme-props.js';
+import { buildPalaceProps, buildHanokProps, buildStarshipProps, buildDogsProps, buildCatsProps } from './theme-props.js';
 
 export const FLOOR_GAP = 5.4;
 export const EXPLODE_GAP = 9.5;
@@ -71,6 +71,10 @@ export class Floor {
       ({ leds: this.leds, globe: this.globe } = buildHanokProps(ag, this.board));
     } else if (theme === 'starship') {
       ({ leds: this.leds, globe: this.globe } = buildStarshipProps(ag, this.board));
+    } else if (theme === 'dogs') {
+      ({ leds: this.leds, globe: this.globe } = buildDogsProps(ag, this.board));
+    } else if (theme === 'cats') {
+      ({ leds: this.leds, globe: this.globe } = buildCatsProps(ag, this.board));
     } else {
       buildArchive(ag);
       buildDev(ag);

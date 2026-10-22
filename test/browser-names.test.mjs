@@ -100,11 +100,13 @@ test('agentBadge and brandHue: compact badges and distinct brand hue families pe
   assert.ok(hueGap(hAgyApp, hAgyApp2) >= 4);
 });
 
-test('ROOM_THEMES and applyRoomTheme: supports studio, office, palace, hanok and starship in KO and EN', () => {
+test('ROOM_THEMES and applyRoomTheme: supports dogs, cats, studio, office, palace, hanok and starship in KO and EN', () => {
   assert.equal(DEFAULT_ROOM_THEME, 'studio');
-  assert.deepEqual(Object.keys(ROOM_THEMES), ['studio', 'office', 'palace', 'hanok', 'starship']);
+  assert.deepEqual(Object.keys(ROOM_THEMES), ['dogs', 'cats', 'studio', 'office', 'palace', 'hanok', 'starship']);
   assert.equal(roomThemeOf('palace'), 'palace');
   assert.equal(roomThemeOf('hanok'), 'hanok');
+  assert.equal(roomThemeOf('dogs'), 'dogs');
+  assert.equal(roomThemeOf('cats'), 'cats');
   assert.equal(roomThemeOf('invalid'), 'studio');
   assert.equal(langOf('en'), 'en');
   assert.equal(langOf('ko'), 'ko');
@@ -116,6 +118,8 @@ test('ROOM_THEMES and applyRoomTheme: supports studio, office, palace, hanok and
   assert.equal(roomLabel('desk', 'palace', 'ko'), '승정원');
   assert.equal(roomLabel('dev', 'hanok', 'ko'), '글방');
   assert.equal(roomLabel('desk', 'hanok', 'ko'), '사랑채');
+  assert.equal(roomLabel('archive', 'dogs', 'ko'), '노즈워크 숲');
+  assert.equal(roomLabel('desk', 'cats', 'ko'), '츄르·집사 호출석');
   assert.equal(roomLabel('desk', 'studio', 'en'), 'Review Booth');
 
   applyRoomTheme('palace', 'ko');
@@ -132,16 +136,18 @@ test('ROOM_THEMES and applyRoomTheme: supports studio, office, palace, hanok and
 });
 
 test('THEME_LAYOUTS and route: non-rectangular ring themes detour around central pond/courtyard/warp core', () => {
-  for (const k of ['studio', 'office', 'palace', 'hanok', 'starship']) {
+  for (const k of ['studio', 'office', 'palace', 'hanok', 'starship', 'dogs', 'cats']) {
     assert.ok(THEME_LAYOUTS[k], k);
     for (const r of Object.keys(ROOMS)) assert.ok(THEME_LAYOUTS[k].slots[r]?.length > 0, `${k}.${r}`);
   }
   // spine themes walk straight along z = lane without extra detour waypoints
   assert.deepEqual(corridorWaypoints(-8, 0, 8, 0, 0, 'studio'), []);
-  // ring themes (palace, hanok, starship) insert perimeter waypoints when crossing x = 0
+  // ring themes (palace, hanok, starship, dogs, cats) insert perimeter waypoints when crossing x = 0
   const palaceWps = corridorWaypoints(-8, -0.2, 8, -0.2, 0, 'palace');
   assert.equal(palaceWps.length, 2);
   assert.ok(Math.abs(palaceWps[0].z) >= 1.3, 'detours outside central pond');
+  assert.equal(corridorWaypoints(-8, -0.2, 8, -0.2, 0, 'dogs').length, 2);
+  assert.equal(corridorWaypoints(-8, -0.2, 8, -0.2, 0, 'cats').length, 2);
 
   applyRoomTheme('hanok', 'ko');
   assert.equal(ELEVATOR.x, -11.6);
@@ -151,12 +157,19 @@ test('THEME_LAYOUTS and route: non-rectangular ring themes detour around central
   applyRoomTheme('studio', 'ko');
 });
 
-test('LEGEND_AGENTS and LEGEND_SIGNALS: provide theme-adaptive agent swatches and status color signals in KO/EN', () => {
+test('LEGEND_AGENTS and LEGEND_SIGNALS: provide theme-adaptive agent/pet swatches and status color signals in KO/EN', () => {
   assert.equal(LEGEND_AGENTS.length, 6);
   assert.equal(LEGEND_SIGNALS.length, 7);
   const palaceKo = legendAgentsFor('palace', 'ko');
   assert.ok(palaceKo.find((a) => a.id === 'claude')?.desc.includes('정자관'));
   assert.ok(palaceKo.find((a) => a.id === 'codex')?.desc.includes('흑립 갓'));
+  const dogsKo = legendAgentsFor('dogs', 'ko');
+  assert.equal(dogsKo.length, 8);
+  assert.ok(dogsKo.some((d) => d.id === 'dog-jindo-bear' && d.desc.includes('반달 가슴털')));
+  assert.ok(dogsKo.some((d) => d.id === 'dog-collie' && d.label === '보더 콜리'));
+  const catsEn = legendAgentsFor('cats', 'en');
+  assert.equal(catsEn.length, 6);
+  assert.ok(catsEn.some((c) => c.id === 'cat-savannah' && c.desc.includes('Highest-priced cat')));
   const starshipEn = legendAgentsFor('starship', 'en');
   assert.ok(starshipEn.find((a) => a.id === 'sub')?.desc.includes('Hover drone rotor'));
   const signalsKo = legendSignalsFor('ko');

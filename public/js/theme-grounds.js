@@ -36,6 +36,15 @@ export function themeMats() {
     plasmaViolet: new THREE.MeshStandardMaterial({ color: 0xe9d5ff, emissive: 0x9333ea, emissiveIntensity: 1.4 }),
     studioOak: new THREE.MeshStandardMaterial({ color: 0xc89d6c, roughness: 0.55 }),
     glassWall: new THREE.MeshStandardMaterial({ color: 0xdbeafe, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.34 }),
+    lawn: new THREE.MeshStandardMaterial({ color: 0x86c478, roughness: 0.85 }),
+    lawnDark: new THREE.MeshStandardMaterial({ color: 0x5c9a50, roughness: 0.88 }),
+    fenceWood: new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.65 }),
+    agilityBlue: new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4 }),
+    agilityYellow: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 }),
+    velvetCream: new THREE.MeshStandardMaterial({ color: 0xf5ebe0, roughness: 0.72 }),
+    roseGold: new THREE.MeshStandardMaterial({ color: 0xd69f7e, roughness: 0.35, metalness: 0.45 }),
+    plushPink: new THREE.MeshStandardMaterial({ color: 0xf4acb7, roughness: 0.65 }),
+    sisal: new THREE.MeshStandardMaterial({ color: 0xcba376, roughness: 0.88 }),
   };
   return TM;
 }
@@ -76,6 +85,8 @@ export function buildThemeGround(g, theme) {
   if (theme === 'palace') return buildPalaceGround(g);
   if (theme === 'hanok') return buildHanokGround(g);
   if (theme === 'starship') return buildStarshipGround(g);
+  if (theme === 'dogs') return buildDogsGround(g);
+  if (theme === 'cats') return buildCatsGround(g);
   if (theme === 'office') return buildOfficeGround(g);
   return buildStudioGround(g);
 }
@@ -303,6 +314,85 @@ function buildStarshipGround(g) {
   g.add(ring1, ring2, core);
   // 좌측 블라스트 에어락/터보리프트 포털
   return buildElevatorDoors(g, tm.hullTrim, tm.plasmaCyan, -11.82, 0);
+}
+
+// 6. 퍼피 파크(dogs): 대형 뼈다귀 모양 잔디 공원 + 나무 피켓 펜스 + 중앙 강아지 발바닥 분수대·어질리티 후프
+function buildDogsGround(g) {
+  const M = mats();
+  const tm = themeMats();
+  // 비직사각형 뼈다귀(Bone) 실루엣 잔디 파크: 중앙 잔디판 + 네 모서리 원형 마디 광장
+  box(g, tm.lawnDark, FLOOR_W - 2.4, 0.44, FLOOR_D - 1.2, 0, -0.44, 0);
+  box(g, tm.lawn, FLOOR_W - 2.6, 0.04, FLOOR_D - 1.4, 0, 0, 0, false);
+  for (const [bx, bz] of [[-10.2, -5.8], [10.2, -5.8], [-10.2, 5.8], [10.2, 5.8]]) {
+    cyl(g, tm.lawnDark, 3.6, 3.3, 0.44, bx, -0.44, bz);
+    cyl(g, tm.lawn, 3.45, 3.15, 0.04, bx, 0, bz);
+  }
+  for (const [k, r] of Object.entries(ROOMS)) {
+    if (k === 'lounge') continue;
+    const cz = r.side === 'top' ? -5 : 5;
+    cyl(g, M.rug[k], 3.1, 2.3, 0.03, (r.x0 + r.x1) / 2, 0.02, cz);
+  }
+  // 나무 피켓 펜스 울타리
+  for (let x = -10.5; x <= 10.5; x += 1.5) {
+    box(g, tm.fenceWood, 0.16, 0.95, 0.08, x, 0, -7.4);
+  }
+  box(g, tm.fenceWood, 21.5, 0.1, 0.08, 0, 0.65, -7.4);
+  box(g, tm.fenceWood, 21.5, 0.1, 0.08, 0, 0.32, -7.4);
+  for (const x of [-4, 4]) {
+    box(g, tm.fenceWood, 0.14, 0.72, 4.4, x, 0, -5);
+    box(g, tm.fenceWood, 0.14, 0.72, 4.4, x, 0, 5);
+  }
+  // 중앙 강아지 발바닥 분수대 + 어질리티 점프 링 (x: 0, z: 0)
+  cyl(g, tm.granite, 2.3, 2.1, 0.18, 0, 0, 0);
+  cyl(g, M.leaf2, 2.0, 1.8, 0.05, 0, 0.15, 0);
+  cyl(g, tm.fenceWood, 0.68, 0.55, 0.14, 0, 0.16, 0.25);
+  for (const [px, pz] of [[-0.68, -0.35], [-0.24, -0.62], [0.24, -0.62], [0.68, -0.35]]) {
+    cyl(g, tm.fenceWood, 0.26, 0.26, 0.14, px, 0.16, pz);
+  }
+  const hoop = new THREE.Mesh(TORUS, tm.agilityYellow);
+  hoop.scale.setScalar(0.58);
+  hoop.position.set(0, 0.85, 0.25);
+  g.add(hoop);
+  pineTree(g, tm, -11.2, -6.2, 0.95);
+  pineTree(g, tm, 11.2, -6.2, 0.95);
+  return buildElevatorDoors(g, tm.fenceWood, tm.agilityBlue, -11.42, 0);
+}
+
+// 7. 캣 타워 살롱(cats): 고양이 얼굴·귀 실루엣 벨벳 라운지 + 좌우 삼각 고양이 귀 썬룸 + 중앙 3단 캣타워
+function buildCatsGround(g) {
+  const M = mats();
+  const tm = themeMats();
+  // 고양이 얼굴 모양 플로어: 둥근 볼 + 좌·우 북쪽 삼각 고양이 귀 썬룸 돌출부
+  cyl(g, tm.roseGold, 12.2, 8.2, 0.44, 0, -0.44, 0.4);
+  cyl(g, tm.velvetCream, 11.9, 7.9, 0.04, 0, 0, 0.4);
+  for (const sx of [-1, 1]) {
+    cyl(g, tm.roseGold, 4.4, 4.4, 0.44, sx * 8.0, -0.44, -5.6, CONE4, sx * 0.12);
+    cyl(g, tm.velvetCream, 4.1, 4.1, 0.04, sx * 8.0, 0, -5.6, CONE4, sx * 0.12);
+    cyl(g, tm.plushPink, 2.5, 2.5, 0.03, sx * 8.0, 0.02, -5.9, CONE4, sx * 0.12);
+  }
+  for (const [k, r] of Object.entries(ROOMS)) {
+    if (k === 'lounge') continue;
+    const cz = r.side === 'top' ? -5 : 5;
+    cyl(g, M.rug[k], 3.0, 2.2, 0.03, (r.x0 + r.x1) / 2, 0.02, cz);
+  }
+  // 로즈골드 아치 파티션
+  for (const x of [-4, 4]) {
+    cyl(g, tm.sisal, 0.16, 0.16, 1.35, x, 0, -3.2);
+    cyl(g, tm.sisal, 0.16, 0.16, 1.35, x, 0, 3.2);
+    box(g, tm.roseGold, 0.1, 0.85, 4.2, x, 0, -5);
+    box(g, tm.roseGold, 0.1, 0.85, 4.2, x, 0, 5);
+  }
+  // 중앙 3단 럭셔리 캣타워 & 황금 실타래 (x: 0, z: 0)
+  cyl(g, tm.roseGold, 2.1, 2.1, 0.12, 0, 0, 0);
+  for (const [px, pz, h] of [[-0.85, -0.45, 0.9], [0.85, -0.45, 1.35], [0, 0.55, 1.8]]) {
+    cyl(g, tm.sisal, 0.16, 0.16, h, px, 0.12, pz);
+    cyl(g, tm.plushPink, 0.78, 0.78, 0.1, px, 0.12 + h, pz);
+  }
+  const yarn = new THREE.Mesh(ICOSA, tm.gold);
+  yarn.scale.setScalar(0.32);
+  yarn.position.set(0, 2.28, 0.55);
+  g.add(yarn);
+  return buildElevatorDoors(g, tm.roseGold, tm.plushPink, -11.42, 0);
 }
 
 function buildElevatorDoors(g, frameMat, doorMat, x, z) {
