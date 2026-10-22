@@ -1,8 +1,8 @@
 // 직원 몸(three.js 메시), 테마별 의상(궁궐 관복·한옥 배자·스타십 우주복·스튜디오/오피스), 브랜드별 액세서리, 몸짓 애니메이션.
 import * as THREE from 'three';
 import { mats } from './furniture.js';
-import { applyPetMesh } from './pet-mesh.js';
-import { activeThemeOf } from './rooms.js';
+import { animateTail, applyPetMesh, applyPostureRig } from './pet-mesh.js';
+import { activeThemeOf, effectivePosture } from './rooms.js';
 import { glowing } from './scene.js';
 
 const CAPSULE = new THREE.CapsuleGeometry(0.31, 0.36, 6, 14);
@@ -62,6 +62,7 @@ function limb(rig, mat, footMat, x, y, sx, sy, isLeg) {
     tip.position.set(0, -sy - 0.01, 0);
   }
   tip.castShadow = true;
+  pivot.userData.tip = tip;
   pivot.add(tip);
   rig.add(pivot);
   return pivot;
@@ -118,7 +119,7 @@ function buildThemeCostume(agent, theme) {
   }
 }
 
-export function buildBrandFlair(agent, theme = activeThemeOf()) {
+export function buildBrandFlair(agent, theme = activeThemeOf(), posture = effectivePosture(theme)) {
   if (!agent.head || !agent.rig) return;
   if (agent.brandGroup) agent.brandGroup.parent?.remove(agent.brandGroup);
   if (agent.baseRing) agent.baseRing.parent?.remove(agent.baseRing);
@@ -140,7 +141,8 @@ export function buildBrandFlair(agent, theme = activeThemeOf()) {
 
   if (theme === 'dogs' || theme === 'cats') {
     agent.flair = bg;
-    applyPetMesh(agent, theme);
+    applyPetMesh(agent, theme, posture);
+    applyPostureRig(agent, theme, posture, mats().skin);
     return;
   }
   agent.head.material = mats().skin;
@@ -271,6 +273,7 @@ export function buildBrandFlair(agent, theme = activeThemeOf()) {
   } else {
     agent.propeller = null;
   }
+  applyPostureRig(agent, theme, posture, mats().skin);
 }
 
 // agent 에 group, rig, head, legs, arms, pickMeshes, bodyMat, legsMat 를 붙인다.
@@ -282,9 +285,9 @@ export function buildAgentMesh(agent) {
   const rig = agent.rig = new THREE.Group();
   g.add(rig);
 
-  const torso = new THREE.Mesh(CAPSULE, agent.bodyMat);
+  const torso = agent.torsoMesh = new THREE.Mesh(CAPSULE, agent.bodyMat);
   torso.position.y = 0.78;
-  const collar = new THREE.Mesh(COLLAR, M.wall);
+  const collar = agent.collarMesh = new THREE.Mesh(COLLAR, M.wall);
   collar.rotation.x = Math.PI / 2;
   collar.position.y = 1.09;
   const pack = agent.packMesh = new THREE.Mesh(PACK, agent.legsMat);
@@ -324,22 +327,50 @@ export function tintAgent(agent) {
   agent.legsMat.color.setHSL(agent.hue / 360, 0.42, 0.26, THREE.SRGBColorSpace);
 }
 
-// 캐릭터 팔다리·고개·브랜드 장식 애니메이션.
+// 캐릭터 팔다리·고개·브랜드 장식 애니메이션 (2족 보행 및 4족 대각선 트로트 보행·발성·꼬리 모션).
 export function animateAgentMesh(agent, reduced = false) {
   const t = agent.t;
+  const isTetra = agent.posture === 'tetrapod';
+  const isCat = activeThemeOf() === 'cats';
   let leg = 0;
   let armL = 0;
   let armR = 0;
   let bob = 0;
   let tilt = 0;
+  let headPitch = 0;
   let shake = 0;
   if (agent.path.length) {
-    const f = 9.5 * (1 + Math.min(agent.queue.length, 6) * 0.25);
-    leg = Math.sin(t * f) * 0.65;
-    armL = -leg * 0.85;
-    armR = leg * 0.85;
-    bob = Math.abs(Math.sin(t * f)) * 0.06;
-    tilt = Math.sin(t * f * 0.5) * 0.06;
+    const f = (isTetra ? 10.5 : 9.5) * (1 + Math.min(agent.queue.length, 6) * 0.24);
+    leg = Math.sin(t * f) * 0.64;
+    armL = isTetra ? leg : -leg * 0.85;
+    armR = isTetra ? -leg : leg * 0.85;
+    bob = Math.abs(Math.sin(t * f)) * 0.058;
+    tilt = Math.sin(t * f * 0.5) * 0.055;
+  } else if (isTetra) {
+    switch (agent.mode) {
+      case 'work':
+        armL = isCat ? Math.max(0, Math.sin(t * 8)) * -0.45 : -0.35 + Math.sin(t * 18) * 0.32;
+        armR = isCat ? Math.max(0, -Math.sin(t * 8)) * -0.45 : -0.35 + Math.cos(t * 18) * 0.32;
+        bob = Math.abs(Math.sin(t * 6)) * 0.018;
+        break;
+      case 'think':
+        tilt = 0.26 * Math.sin(t * 2.2) + 0.16;
+        bob = Math.sin(t * 2) * 0.016;
+        break;
+      case 'write':
+        armR = -0.55 + Math.sin(t * 14) * 0.28;
+        tilt = 0.12;
+        break;
+      case 'ask':
+        armL = -0.65;
+        armR = -0.65;
+        headPitch = -0.18 + Math.sin(t * 6) * 0.1;
+        bob = Math.abs(Math.sin(t * 5)) * 0.032;
+        break;
+      default:
+        bob = Math.sin(t * 2.4) * 0.016;
+        tilt = Math.sin(t * 1.2) * 0.03;
+    }
   } else {
     switch (agent.mode) {
       case 'work':
@@ -349,7 +380,7 @@ export function animateAgentMesh(agent, reduced = false) {
         break;
       case 'think':
         armR = -2.3;
-        tilt = 0.2;
+        tilt = 0.22;
         bob = Math.sin(t * 2) * 0.018;
         break;
       case 'write':
@@ -365,9 +396,13 @@ export function animateAgentMesh(agent, reduced = false) {
         tilt = Math.sin(t * 1.2) * 0.03;
     }
   }
+  if (agent.soundT > 0 && !reduced) {
+    headPitch = -0.22 * Math.abs(Math.sin(t * 16));
+    bob += Math.abs(Math.sin(t * 14)) * 0.04;
+  }
   if (agent.panicT > 0) {
-    armL = -2.6 + Math.sin(t * 30) * 0.3;
-    armR = -2.6 - Math.sin(t * 30) * 0.3;
+    armL = (isTetra ? -0.9 : -2.6) + Math.sin(t * 30) * 0.3;
+    armR = (isTetra ? -0.9 : -2.6) - Math.sin(t * 30) * 0.3;
     shake = reduced ? 0 : Math.sin(t * 70) * 0.04;
   }
   const floatOffset = agent.agent === 'antigravity' && !reduced ? 0.03 + Math.sin(t * 3.2) * 0.025 : 0;
@@ -378,15 +413,14 @@ export function animateAgentMesh(agent, reduced = false) {
   agent.rig.position.y = (reduced ? 0 : bob) + floatOffset;
   agent.rig.position.x = shake;
   agent.head.rotation.z = tilt;
+  agent.head.rotation.x = headPitch;
   if (!reduced && agent.flair && !agent.tailPivot) {
     agent.flair.rotation.y = t * 1.8;
     if (agent.agent === 'antigravity' || agent.agent === 'codex') {
       agent.flair.position.y = (agent.agent === 'antigravity' ? 0.48 : 0.43) + Math.sin(t * 3.2) * 0.025;
     }
   }
-  if (!reduced && agent.tailPivot) {
-    agent.tailPivot.rotation.z = Math.sin(t * (agent.path.length ? 14 : 7.5)) * 0.42;
-  }
+  animateTail(agent, reduced);
   if (!reduced && agent.propeller) {
     agent.propeller.rotation.y = t * (agent.path.length ? 18 : 7);
   }

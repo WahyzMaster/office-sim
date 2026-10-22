@@ -1,5 +1,8 @@
-// 강아지(dogs) · 고양이(cats) 테마 전용 3D 품종 조형(귀·주둥이·코·수염·반달가슴/점박이 무늬·목줄 방울·꼬리)과 꼬리 애니메이션.
+// 강아지(dogs) · 고양이(cats) 테마 전용 3D 품종 조형(귀·주둥이·코·수염·반달가슴/점박이 무늬·목줄 방울·꼬리), 2족/4족 자세 변환, 꼬리 모션.
 import * as THREE from 'three';
+import { pickPetBreed } from './sound.js';
+
+export { pickPetBreed };
 
 const SNOUT_DOG = new THREE.CapsuleGeometry(0.115, 0.11, 6, 12);
 const SNOUT_PUFF = new THREE.SphereGeometry(0.082, 10, 8);
@@ -53,36 +56,9 @@ export const CAT_BREEDS = Object.freeze({
   fold:     Object.freeze({ body: 0xf2b365, legs: 0xfaf8f5, ear: 'fold',   tail: 'cat', bib: 'white', eye: 0x10b981 }),
 });
 
-const DOG_ORDER = ['golden', 'labrador', 'jindo-white', 'jindo-black', 'jindo-bear', 'collie', 'corgi', 'shiba'];
-const CAT_ORDER = ['savannah', 'bengal', 'british', 'siamese', 'ragdoll', 'fold'];
-
-function hashId(s = '') {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-export function pickPetBreed(agent, theme) {
-  if (agent.petBreed) return agent.petBreed;
-  const h = hashId(agent.id || '');
-  if (theme === 'dogs') {
-    if (agent.isSub) return h % 2 === 0 ? 'corgi' : 'shiba';
-    if (agent.agent === 'claude-code') return h % 3 === 0 ? 'jindo-white' : 'golden';
-    if (agent.agent === 'codex') return h % 3 === 0 ? 'jindo-black' : 'labrador';
-    if (agent.agent === 'grok') return 'collie';
-    if (agent.agent === 'antigravity') return agent.surface === 'cli' ? (h % 2 === 0 ? 'jindo-white' : 'jindo-black') : 'jindo-bear';
-    return DOG_ORDER[h % DOG_ORDER.length];
-  }
-  if (agent.isSub) return 'fold';
-  if (agent.agent === 'claude-code') return 'savannah';
-  if (agent.agent === 'codex') return 'bengal';
-  if (agent.agent === 'grok') return 'british';
-  if (agent.agent === 'antigravity') return agent.surface === 'cli' ? 'siamese' : 'ragdoll';
-  return CAT_ORDER[h % CAT_ORDER.length];
-}
-
-export function applyPetMesh(agent, theme) {
+export function applyPetMesh(agent, theme, posture = 'tetrapod') {
   const isDog = theme === 'dogs';
+  const isTetra = posture === 'tetrapod';
   const breedKey = pickPetBreed(agent, theme);
   const spec = isDog ? (DOG_BREEDS[breedKey] || DOG_BREEDS.golden) : (CAT_BREEDS[breedKey] || CAT_BREEDS.savannah);
 
@@ -98,33 +74,36 @@ export function applyPetMesh(agent, theme) {
 
   // 목줄(브랜드 컬러) + 금방울 인식표
   const collar = new THREE.Mesh(COLLAR_RING, agent.accentMat);
-  collar.rotation.x = Math.PI / 2;
-  collar.position.y = 1.1;
+  collar.rotation.x = isTetra ? Math.PI * 0.28 : Math.PI / 2;
+  collar.position.set(0, isTetra ? 0.69 : 1.1, isTetra ? 0.29 : 0);
   const bell = new THREE.Mesh(BELL, GOLD_BELL);
-  bell.position.set(0, 1.05, 0.25);
+  bell.position.set(0, isTetra ? 0.52 : 1.05, isTetra ? 0.42 : 0.25);
   cg.add(collar, bell);
 
   // 가슴털 / 반달가슴곰(네눈박이) 반달 무늬 / 랙돌 목 갈기 / 표범 로제트 점무늬
   if (spec.bib === 'white' || spec.bib === 'cream') {
     const bib = new THREE.Mesh(CHEST_BIB, spec.bib === 'white' ? WHITE_FUR : CREAM_FUR);
-    bib.scale.set(0.85, 1.1, 0.45);
-    bib.position.set(0, 0.82, 0.24);
+    bib.scale.set(isTetra ? 0.82 : 0.85, isTetra ? 0.85 : 1.1, isTetra ? 0.55 : 0.45);
+    bib.position.set(0, isTetra ? 0.54 : 0.82, isTetra ? 0.33 : 0.24);
     cg.add(bib);
   } else if (spec.bib === 'crescent') {
     for (const sx of [-1, 1]) {
       const arm = new THREE.Mesh(CRESCENT_ARM, WHITE_FUR);
-      arm.position.set(sx * 0.055, 0.86, 0.305);
+      arm.position.set(sx * 0.055, isTetra ? 0.56 : 0.86, isTetra ? 0.41 : 0.305);
       arm.rotation.z = sx * 0.48;
       cg.add(arm);
     }
   } else if (spec.bib === 'ruff') {
     const ruff = new THREE.Mesh(RUFF_RING, WHITE_FUR);
-    ruff.rotation.x = Math.PI / 2;
-    ruff.position.y = 1.08;
+    ruff.rotation.x = isTetra ? Math.PI * 0.28 : Math.PI / 2;
+    ruff.position.set(0, isTetra ? 0.68 : 1.08, isTetra ? 0.27 : 0);
     cg.add(ruff);
   }
   if (spec.spots) {
-    for (const [x, y, z] of [[-0.18, 0.88, 0.26], [0.19, 0.74, 0.25], [-0.22, 0.72, -0.22], [0.2, 0.9, -0.22], [0, 0.65, -0.28]]) {
+    const pts = isTetra
+      ? [[-0.24, 0.62, 0.08], [0.24, 0.58, -0.08], [-0.22, 0.64, -0.18], [0.22, 0.66, 0.14], [0, 0.81, -0.05]]
+      : [[-0.18, 0.88, 0.26], [0.19, 0.74, 0.25], [-0.22, 0.72, -0.22], [0.2, 0.9, -0.22], [0, 0.65, -0.28]];
+    for (const [x, y, z] of pts) {
       const sp = new THREE.Mesh(SPOT_DISC, SPOT_MAT);
       sp.scale.set(1, 0.85, 0.35);
       sp.position.set(x, y, z);
@@ -134,7 +113,8 @@ export function applyPetMesh(agent, theme) {
 
   // 꼬리 (활발히 흔드는 강아지 꼬리 / 말린 진돗개 꼬리 / 웰시코기 식빵 단미 / 우아한 고양이 꼬리)
   const tailPivot = agent.tailPivot = new THREE.Group();
-  tailPivot.position.set(0, 0.62, -0.26);
+  tailPivot.position.set(0, isTetra ? 0.66 : 0.62, isTetra ? -0.40 : -0.26);
+  tailPivot.userData = { isDog, tailType: spec.tail };
   const tailMat = spec.tail === 'seal' ? SEAL_MAT : spec.tail === 'plume' ? agent.legsMat : agent.bodyMat;
   if (spec.tail === 'curl') {
     const curl = new THREE.Mesh(TAIL_CURL, tailMat);
@@ -246,6 +226,98 @@ export function applyPetMesh(agent, theme) {
         inner.rotation.z = -sx * 0.2;
         bg.add(ear, inner);
       }
+    }
+  }
+}
+
+// 2족(bipod) ↔ 4족(tetrapod) 골격 변환: 몸통·목깃·가방·머리·앞다리(arms)·뒷다리(legs)·꼬리 위치를 재배치한다.
+export function applyPostureRig(agent, theme, posture, skinMat) {
+  const isTetra = posture === 'tetrapod';
+  const isPet = theme === 'dogs' || theme === 'cats';
+  agent.posture = isTetra ? 'tetrapod' : 'bipod';
+
+  if (agent.torsoMesh) {
+    agent.torsoMesh.position?.set(0, isTetra ? 0.56 : 0.78, 0);
+    agent.torsoMesh.rotation?.set(isTetra ? Math.PI / 2 : 0, 0, 0);
+    agent.torsoMesh.scale?.set(isTetra ? 0.88 : 1, isTetra ? 1.08 : 1, isTetra ? 0.84 : 1);
+  }
+  if (agent.collarMesh) {
+    agent.collarMesh.visible = !isPet && !isTetra;
+  }
+  if (agent.packMesh) {
+    agent.packMesh.position?.set(0, isTetra ? 0.84 : 0.78, isTetra ? -0.02 : -0.23);
+    agent.packMesh.rotation?.set(isTetra ? -Math.PI / 2 : 0, 0, 0);
+  }
+  if (agent.head) {
+    agent.head.position?.set(0, isTetra ? 0.88 : 1.44, isTetra ? 0.40 : 0);
+    agent.head.rotation?.set(0, 0, 0);
+  }
+  if (agent.legs?.length === 2) {
+    agent.legs[0].position?.set(isTetra ? -0.17 : -0.13, 0.44, isTetra ? -0.23 : 0);
+    agent.legs[1].position?.set(isTetra ? 0.17 : 0.13, 0.44, isTetra ? -0.23 : 0);
+  }
+  if (agent.arms?.length === 2) {
+    agent.arms[0].position?.set(isTetra ? -0.17 : -0.38, isTetra ? 0.42 : 1.02, isTetra ? 0.24 : 0);
+    agent.arms[1].position?.set(isTetra ? 0.17 : 0.38, isTetra ? 0.42 : 1.02, isTetra ? 0.24 : 0);
+    for (const arm of agent.arms) {
+      if (arm.userData?.tip && skinMat) {
+        arm.userData.tip.material = (isPet || isTetra) ? agent.legsMat : skinMat;
+      }
+    }
+  }
+  if (isTetra && !agent.tailPivot && agent.costumeGroup) {
+    const tp = agent.tailPivot = new THREE.Group();
+    tp.position.set(0, 0.66, -0.40);
+    tp.userData = { isDog: true, tailType: 'long' };
+    const tMesh = new THREE.Mesh(TAIL_LONG, agent.bodyMat);
+    tMesh.position.set(0, 0.16, -0.1);
+    tMesh.rotation.x = -0.55;
+    tp.add(tMesh);
+    agent.costumeGroup.add(tp);
+  } else if (agent.tailPivot) {
+    agent.tailPivot.position?.set(0, isTetra ? 0.66 : 0.62, isTetra ? -0.40 : -0.26);
+  }
+}
+
+// 상태별 꼬리 흔들기 모션: 대기(진자/S자), 이동(경쾌한 흔들기/수직 안테나), 질문·발성(프로펠러 8자), 에러(내림/부풀림).
+export function animateTail(agent, reduced = false) {
+  const tp = agent.tailPivot;
+  if (!tp) return;
+  if (reduced) {
+    tp.rotation.set(0, 0, 0);
+    tp.scale.setScalar(1);
+    return;
+  }
+  const t = agent.t || 0;
+  const isDog = tp.userData?.isDog !== false;
+  const excited = agent.mode === 'ask' || agent.soundT > 0;
+  const panic = agent.panicT > 0;
+  const walking = agent.path?.length > 0;
+
+  if (isDog) {
+    tp.scale.setScalar(1);
+    if (panic) {
+      tp.rotation.set(-0.72, 0, Math.sin(t * 28) * 0.12);
+    } else if (excited) {
+      tp.rotation.set(0.24 + Math.cos(t * 22) * 0.22, Math.cos(t * 22) * 0.42, Math.sin(t * 22) * 0.72);
+    } else if (walking) {
+      tp.rotation.set(0.12, Math.cos(t * 15) * 0.24, Math.sin(t * 15) * 0.52);
+    } else {
+      const f = agent.mode === 'work' ? 11.5 : 7.5;
+      const amp = agent.mode === 'work' ? 0.48 : 0.36;
+      tp.rotation.set(0, Math.sin(t * f) * amp * 0.35, Math.sin(t * f) * amp);
+    }
+  } else if (panic) {
+    tp.scale.set(1.45, 1.15, 1.45);
+    tp.rotation.set(0.45, 0, Math.sin(t * 32) * 0.18);
+  } else {
+    tp.scale.setScalar(1);
+    if (excited) {
+      tp.rotation.set(0.38 + Math.sin(t * 10) * 0.12, Math.cos(t * 8) * 0.2, Math.sin(t * 16) * 0.42);
+    } else if (walking) {
+      tp.rotation.set(0.32, Math.cos(t * 6.5) * 0.14, Math.sin(t * 6.5) * 0.24);
+    } else {
+      tp.rotation.set(Math.sin(t * 1.7) * 0.12, Math.cos(t * 1.7) * 0.28, Math.sin(t * 3.4) * 0.38);
     }
   }
 }

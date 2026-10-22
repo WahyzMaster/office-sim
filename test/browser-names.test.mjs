@@ -6,7 +6,11 @@ import { BRAND_HUES, brandHue, hueGap, route } from '../public/js/placement.js';
 import {
   ROOMS, SLOTS, ELEVATOR, ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf, detectLang, roomLabel, applyRoomTheme, uiText,
   LEGEND_AGENTS, LEGEND_SIGNALS, legendAgentsFor, legendSignalsFor,
+  POSTURE_MODES, DEFAULT_POSTURE_MODE, postureModeOf, setPostureMode, effectivePosture,
 } from '../public/js/rooms.js';
+import {
+  CharacterVoice, DogVoice, CatVoice, SynthVoice, voiceFor, makeSound, setSoundEnabled, isSoundEnabled,
+} from '../public/js/sound.js';
 import { THEME_LAYOUTS, corridorWaypoints } from '../public/js/theme-layouts.js';
 
 // Map 으로 만든 가짜 localStorage. 실제 브라우저 저장소는 건드리지 않는다.
@@ -176,4 +180,51 @@ test('LEGEND_AGENTS and LEGEND_SIGNALS: provide theme-adaptive agent/pet swatche
   assert.ok(signalsKo.some((s) => s.id === 'error' && s.desc.includes('식은땀')));
   const signalsEn = legendSignalsFor('en');
   assert.ok(signalsEn.some((s) => s.id === 'ask' && s.desc.includes('approval')));
+});
+
+test('POSTURE_MODES and effectivePosture: auto resolves tetrapod for dogs/cats and bipod for humanoid themes', () => {
+  assert.deepEqual(POSTURE_MODES, ['auto', 'tetrapod', 'bipod']);
+  assert.equal(DEFAULT_POSTURE_MODE, 'auto');
+  assert.equal(postureModeOf('tetrapod'), 'tetrapod');
+  assert.equal(postureModeOf('bipod'), 'bipod');
+  assert.equal(postureModeOf('invalid'), 'auto');
+  assert.equal(effectivePosture('dogs', 'auto'), 'tetrapod');
+  assert.equal(effectivePosture('cats', 'auto'), 'tetrapod');
+  assert.equal(effectivePosture('studio', 'auto'), 'bipod');
+  assert.equal(effectivePosture('dogs', 'bipod'), 'bipod');
+  assert.equal(effectivePosture('studio', 'tetrapod'), 'tetrapod');
+  setPostureMode('auto');
+});
+
+test('CharacterVoice abstraction and DogVoice/CatVoice/SynthVoice implementations (bark, meow, purr, chime)', () => {
+  const base = new CharacterVoice();
+  assert.throws(() => base.resolve(), /must be implemented/);
+  assert.throws(() => base.play(), /must be implemented/);
+
+  const dog = voiceFor({ id: 's1', agent: 'claude-code' }, 'dogs');
+  assert.ok(dog instanceof DogVoice);
+  assert.equal(dog.makeSound('click').soundId, 'bark');
+  assert.equal(dog.makeSound('pet').soundId, 'happyBark');
+  assert.equal(dog.makeSound('error').soundId, 'whimper');
+
+  const cat = voiceFor({ id: 's2', agent: 'claude-code' }, 'cats');
+  assert.ok(cat instanceof CatVoice);
+  assert.equal(cat.makeSound('click').soundId, 'meow');
+  assert.equal(cat.makeSound('work').soundId, 'purr');
+  assert.equal(cat.makeSound('error').soundId, 'hiss');
+
+  const palace = voiceFor({ id: 's3', agent: 'codex' }, 'palace');
+  assert.ok(palace instanceof SynthVoice);
+  assert.equal(palace.makeSound('click').soundId, 'chime');
+
+  const agent = { id: 's1', agent: 'antigravity', surface: 'app' };
+  const s1 = makeSound(agent, 'ask', { theme: 'dogs', lang: 'ko', force: true });
+  assert.equal(s1.soundId, 'bark');
+  assert.equal(s1.text, '왈! 왈!');
+  assert.ok(agent.soundT > 0);
+  assert.equal(agent.vocalText, '왈! 왈!');
+
+  assert.equal(setSoundEnabled(false), false);
+  assert.equal(isSoundEnabled(), false);
+  assert.equal(setSoundEnabled(true), true);
 });

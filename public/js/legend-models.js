@@ -75,9 +75,11 @@ function drawEntry(entry, angle = -0.38, wave = false) {
   st.holder.clear();
   st.holder.add(dummy.group);
   dummy.mode = wave ? 'ask' : 'idle';
+  dummy.soundT = wave ? 0.5 : 0;
   animateAgentMesh(dummy, false);
-  if (!wave && dummy.arms?.[1]) dummy.arms[1].rotation.x = -0.45;
+  if (!wave && dummy.posture !== 'tetrapod' && dummy.arms?.[1]) dummy.arms[1].rotation.x = -0.45;
   dummy.group.rotation.y = angle;
+  st.camera.lookAt(0, dummy.posture === 'tetrapod' ? 0.65 : 1.0, 0);
   st.renderer.render(st.scene, st.camera);
   const ctx = canvas.getContext?.('2d');
   if (!ctx) return;

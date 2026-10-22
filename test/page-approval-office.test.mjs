@@ -31,7 +31,7 @@ register(`data:text/javascript,${encodeURIComponent(`export async function resol
 }`)}`);
 globalThis.window ??= { matchMedia: () => ({ matches: false }) };
 const { Agent } = await import('../public/js/agent.js');
-const { buildBrandFlair } = await import('../public/js/agent-mesh.js');
+const { buildAgentMesh, buildBrandFlair, animateAgentMesh } = await import('../public/js/agent-mesh.js');
 const { buildThemeGround } = await import('../public/js/theme-grounds.js');
 const { buildPalaceProps, buildHanokProps, buildStarshipProps, buildDogsProps, buildCatsProps } = await import('../public/js/theme-props.js');
 const { Office, GLOBAL_FLOOR_KEY, GLOBAL_FLOOR_LABEL } = await import('../public/js/office.js');
@@ -361,4 +361,22 @@ test('buildBrandFlair and Office.refreshLabels: remodels character costumes, pet
     const res = fn({ add() {} }, board);
     assert.ok(res.leds.length > 0 && res.globe);
   }
+
+  // bipod / tetrapod posture switching, tail waving, and pet() sound
+  const model = { agent: 'claude-code', surface: '', hue: 18, light: 0.53, isSub: false, t: 1.2, path: [{}], queue: [], mode: 'work', panicT: 0, soundT: 0 };
+  buildAgentMesh(model);
+  buildBrandFlair(model, 'dogs', 'tetrapod');
+  assert.equal(model.posture, 'tetrapod');
+  assert.ok(model.tailPivot);
+  animateAgentMesh(model, false);
+  buildBrandFlair(model, 'dogs', 'bipod');
+  assert.equal(model.posture, 'bipod');
+  assert.ok(model.tailPivot);
+  animateAgentMesh(model, false);
+
+  const { a } = setup('pet-1');
+  const petRes = a.pet();
+  assert.ok(petRes?.soundId);
+  assert.ok(a.soundT > 0);
+  assert.deepEqual(lastBubble(a), ['say', petRes.text]);
 });
