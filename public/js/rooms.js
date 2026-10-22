@@ -1,17 +1,17 @@
 // 방 배치, 자리(slot), 도구 -> 방 분류 규칙, 독립 선택 축(공간·캐릭터·LLM 매핑·보행·소리·조명).
 import { layoutOf } from './theme-layouts.js';
 import {
-  LEGEND_AGENTS, LEGEND_DOGS, LEGEND_CATS, LEGEND_SIGNALS,
+  LEGEND_AGENTS, LEGEND_DOGS, LEGEND_CATS, LEGEND_HUMANS, LEGEND_CATALOG, LEGEND_SIGNALS,
   CHAR_THEMES, DEFAULT_CHAR_THEME, CHARACTER_CATALOG, LLM_SLOTS, DEFAULT_LLM_CHAR_MAP,
   VOICE_MODES, DEFAULT_VOICE_MODE, COLOR_THEMES, DEFAULT_COLOR_THEME, LLM_FILTERS, DEFAULT_LLM_FILTER,
-  llmSlotOf, charSpecOf, defaultLlmCharMap, llmCharMapOf,
+  llmSlotOf, charSpecOf, defaultLlmCharMap, llmCharMapOf, legendCatalogFor, renderCatalogSection,
 } from './legend-data.js';
 
 export {
-  LEGEND_AGENTS, LEGEND_DOGS, LEGEND_CATS, LEGEND_SIGNALS,
+  LEGEND_AGENTS, LEGEND_DOGS, LEGEND_CATS, LEGEND_HUMANS, LEGEND_CATALOG, LEGEND_SIGNALS,
   CHAR_THEMES, DEFAULT_CHAR_THEME, CHARACTER_CATALOG, LLM_SLOTS, DEFAULT_LLM_CHAR_MAP,
   VOICE_MODES, DEFAULT_VOICE_MODE, COLOR_THEMES, DEFAULT_COLOR_THEME, LLM_FILTERS, DEFAULT_LLM_FILTER,
-  llmSlotOf, charSpecOf, defaultLlmCharMap, llmCharMapOf,
+  llmSlotOf, charSpecOf, defaultLlmCharMap, llmCharMapOf, legendCatalogFor,
 };
 
 export const FLOOR_W = 24;
@@ -270,7 +270,7 @@ export const UI_TEXT = Object.freeze({
     petBtn: '쓰다듬기 · 소리', controlLabel: '조작', legendBtn: '범례·배정', logBtn: '활동 기록',
     logTitle: '활동 기록', legendTitle: '범례 및 LLM 캐릭터 배정', resetCastBtn: '기본 배정 복원',
     legendSections: Object.freeze({
-      rooms: '공간 · 방 안내', agents: 'LLM별 캐릭터 배정 (클릭·변경 가능)',
+      rooms: '공간 · 방 안내', agents: 'LLM별 캐릭터 배정', catalog: '캐릭터 · 품종 도감 (19종)',
       signals: '상태 · 색깔 신호', controls: '카메라 · 단축키',
     }),
     allNo: '전체', allName: '모든 프로젝트 층 보기', globalFloor: '전역 · 미지정',
@@ -311,7 +311,7 @@ export const UI_TEXT = Object.freeze({
     petBtn: 'Pet · Voice', controlLabel: 'Controls', legendBtn: 'Legend & Cast', logBtn: 'Activity Log',
     logTitle: 'Activity Log', legendTitle: 'Visual Legend & LLM Cast', resetCastBtn: 'Reset Cast',
     legendSections: Object.freeze({
-      rooms: 'Rooms & Zones', agents: 'LLM Character Mapping (Customizable)',
+      rooms: 'Rooms & Zones', agents: 'LLM Character Mapping', catalog: 'Character & Breed Catalog (19)',
       signals: 'Status & Color Signals', controls: 'Camera & Shortcuts',
     }),
     allNo: 'ALL', allName: 'All Project Floors', globalFloor: 'Global · Unassigned',
@@ -336,20 +336,10 @@ export const uiText = (lang = activeLang) => UI_TEXT[langOf(lang)];
 
 export function legendAgentsFor(themeKey = activeCharTheme, lang = activeLang) {
   const l = langOf(lang);
-  if (themeKey === 'dogs') {
-    return LEGEND_DOGS.map((d) => ({ id: d.id, spec: d.spec, swatch: d.swatch, label: d.label[l], desc: d.desc[l] }));
-  }
-  if (themeKey === 'cats') {
-    return LEGEND_CATS.map((c) => ({ id: c.id, spec: c.spec, swatch: c.swatch, label: c.label[l], desc: c.desc[l] }));
-  }
+  if (themeKey === 'dogs') return LEGEND_DOGS.map((d) => ({ id: d.id, spec: d.spec, swatch: d.swatch, label: d.label[l], desc: d.desc[l] }));
+  if (themeKey === 'cats') return LEGEND_CATS.map((c) => ({ id: c.id, spec: c.spec, swatch: c.swatch, label: c.label[l], desc: c.desc[l] }));
   const th = Object.hasOwn(ROOM_THEMES, themeKey) && themeKey !== 'dogs' && themeKey !== 'cats' ? themeKey : 'studio';
-  return LEGEND_AGENTS.map((a) => ({
-    id: a.id,
-    slot: a.slot,
-    swatch: a.swatch,
-    label: a.label[l],
-    desc: (a.desc[th] || a.desc.studio)[l],
-  }));
+  return LEGEND_AGENTS.map((a) => ({ id: a.id, slot: a.slot, swatch: a.swatch, label: a.label[l], desc: (a.desc[th] || a.desc.studio)[l] }));
 }
 
 export function legendSignalsFor(lang = activeLang) {
@@ -403,9 +393,11 @@ export function renderLegend(legendEl, themeKey = activeTheme, lang = activeLang
         isSub: a.slot === 'sub',
       });
       const charTitle = CHARACTER_CATALOG[resolved.charSpec]?.[l] || a.label[l];
-      li.innerHTML = '<canvas class="ag-model" width="128" height="144" aria-hidden="true"></canvas><div class="ag-tag"><i></i><b></b></div><select class="ag-map"></select><span role="tooltip"></span>';
+      li.dataset.charSpec = resolved.charSpec;
+      li.innerHTML = '<canvas class="ag-model" width="128" height="144" aria-hidden="true"></canvas><div class="ag-tag"><i></i><b></b></div><small class="ag-sub"></small><select class="ag-map"></select><span role="tooltip"></span>';
       li.querySelector('i').setAttribute('style', a.swatch);
       li.querySelector('b').textContent = a.label[l];
+      li.querySelector('.ag-sub').textContent = charTitle;
       li.querySelector('span').textContent = `${a.label[l]} -> ${charTitle}`;
       const sel = li.querySelector('select.ag-map');
       if (sel) {
@@ -413,7 +405,7 @@ export function renderLegend(legendEl, themeKey = activeTheme, lang = activeLang
         for (const [specKey, labels] of Object.entries(CHARACTER_CATALOG)) {
           const opt = legendEl.ownerDocument.createElement('option');
           opt.value = specKey;
-          opt.textContent = specKey === 'auto' ? `${labels[l]} (${CHARACTER_CATALOG[resolved.charSpec]?.[l] || ''})` : labels[l];
+          opt.textContent = specKey === 'auto' ? `${labels[l]} (${charTitle})` : labels[l];
           sel.append(opt);
         }
         sel.value = map[a.slot] || 'auto';
@@ -426,9 +418,13 @@ export function renderLegend(legendEl, themeKey = activeTheme, lang = activeLang
       }
       agentUl.append(li);
     }
-    if (typeof window !== 'undefined' && typeof WebGLRenderingContext !== 'undefined') {
-      import('./legend-models.js').then((m) => m.mountLegendModels(agentUl)).catch(() => {});
-    }
+  }
+  renderCatalogSection(legendEl, l, activeCharTheme, (pickedTheme) => {
+    setCharTheme(pickedTheme);
+    onMapChange?.('charTheme', pickedTheme);
+  });
+  if (typeof window !== 'undefined' && typeof WebGLRenderingContext !== 'undefined') {
+    import('./legend-models.js').then((m) => m.mountLegendModels(legendEl)).catch(() => {});
   }
   fillList(legendEl.querySelector('[data-lg="signals"]'), legendSignalsFor(l));
 }

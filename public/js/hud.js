@@ -242,6 +242,7 @@ export class Hud {
     };
     toggle(el.logBtn, el.log, 'log', !narrow);
     toggle(el.legendBtn, el.legend, 'legend', false);
+    el.legend?.querySelector('#close-legend')?.addEventListener('click', () => el.legendBtn?.click());
 
     el.floors.addEventListener('click', (e) => {
       const b = e.target.closest('button');
@@ -334,12 +335,21 @@ export class Hud {
   }
 
   buildLegend() {
-    renderLegend(this.el.legend, this.roomTheme, this.lang, () => {
-      this.llmCharMap = activeLlmCharMapOf();
-      this.prefs.llmCharMap = this.llmCharMap;
+    const closeBtn = this.el.legend?.querySelector?.('#close-legend');
+    if (closeBtn) closeBtn.textContent = uiText(this.lang).close;
+    renderLegend(this.el.legend, this.roomTheme, this.lang, (slotOrKind, val) => {
+      if (slotOrKind === 'charTheme') {
+        this.charTheme = setCharTheme(val);
+        this.prefs.charTheme = this.charTheme;
+        if (this.el.charTheme) this.el.charTheme.value = this.charTheme;
+      } else {
+        this.llmCharMap = activeLlmCharMapOf();
+        this.prefs.llmCharMap = this.llmCharMap;
+      }
       savePrefs(this.prefs);
       this.office?.refreshCharacters?.();
       this.buildLegend();
+      if (this.office?.selected) this.inspect(this.office.selected, this.office);
     });
   }
 

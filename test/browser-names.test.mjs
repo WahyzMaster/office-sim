@@ -8,7 +8,7 @@ import {
 } from '../public/js/placement.js';
 import {
   ROOMS, SLOTS, ELEVATOR, ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf, detectLang, roomLabel, applyRoomTheme, uiText,
-  LEGEND_AGENTS, LEGEND_SIGNALS, legendAgentsFor, legendSignalsFor,
+  LEGEND_AGENTS, LEGEND_CATALOG, LEGEND_SIGNALS, legendAgentsFor, legendCatalogFor, legendSignalsFor,
   POSTURE_MODES, DEFAULT_POSTURE_MODE, postureModeOf, setPostureMode, effectivePosture,
   CHAR_THEMES, charThemeOf, activeCharThemeOf, setCharTheme,
   VOICE_MODES, voiceModeOf, setVoiceMode, COLOR_THEMES, colorThemeOf, setColorTheme,
@@ -187,6 +187,11 @@ test('LEGEND_AGENTS and LEGEND_SIGNALS: provide theme-adaptive agent/pet swatche
   assert.ok(signalsKo.some((s) => s.id === 'error' && s.desc.includes('식은땀')));
   const signalsEn = legendSignalsFor('en');
   assert.ok(signalsEn.some((s) => s.id === 'ask' && s.desc.includes('approval')));
+  assert.equal(LEGEND_CATALOG.length, 19);
+  assert.equal(legendCatalogFor('ko', 'all').length, 19);
+  assert.equal(legendCatalogFor('ko', 'dogs').length, 8);
+  assert.equal(legendCatalogFor('ko', 'cats').length, 6);
+  assert.equal(legendCatalogFor('en', 'human').length, 5);
 });
 
 test('POSTURE_MODES and effectivePosture: auto resolves tetrapod for dogs/cats and bipod for humanoid themes', () => {
