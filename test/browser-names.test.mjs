@@ -46,11 +46,14 @@ test('loadPrefs reads the new key after migration and survives missing, corrupt 
   assert.deepEqual(loadPrefs(throwing), {});
 });
 
-test('agentLabel: the four agent ids get display labels, unknown ids pass through as-is', () => {
+test('agentLabel: the four agent ids get display labels (with Antigravity surface distinction), unknown ids pass through as-is', () => {
   assert.equal(agentLabel('claude-code'), 'Claude Code');
   assert.equal(agentLabel('codex'), 'Codex');
   assert.equal(agentLabel('grok'), 'Grok');
   assert.equal(agentLabel('antigravity'), 'Antigravity');
+  assert.equal(agentLabel('antigravity', 'cli'), 'Antigravity (CLI)');
+  assert.equal(agentLabel('antigravity', 'app'), 'Antigravity (App)');
+  assert.equal(agentLabel('antigravity', 'ide'), 'Antigravity (IDE)');
   assert.equal(agentLabel('cursor'), 'cursor');
   assert.equal(agentLabel('constructor'), 'constructor');
 });

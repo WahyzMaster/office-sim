@@ -28,6 +28,7 @@ export class Agent {
     this.worktree = info.worktree || null;
     this.agentType = info.agentType || '';
     this.agent = info.agent || ''; // 세션을 만든 에이전트 출처 id ('claude-code', 'codex' ...)
+    this.surface = info.surface || '';
     this.name = info.title || (this.isSub ? this.agentType : `세션 ${this.id.slice(0, 6)}`);
     this.childSeq = 0;
     this.paint(this.parentId ? office.agents.get(this.parentId) : null);
@@ -109,6 +110,7 @@ export class Agent {
     if ('worktree' in info) this.worktree = info.worktree || null;
     if (typeof info.agentType === 'string' && info.agentType) this.agentType = info.agentType;
     if (typeof info.agent === 'string' && info.agent) this.agent = info.agent;
+    if (typeof info.surface === 'string' && info.surface) this.surface = info.surface;
     if ('parentSessionId' in info && (info.parentSessionId || null) !== this.parentId) {
       this.parentId = info.parentSessionId || null;
       const parent = this.parentId ? this.office.agents.get(this.parentId) : null;

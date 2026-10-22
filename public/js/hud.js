@@ -13,7 +13,13 @@ const SOURCE = {
 };
 // session 이벤트의 agent(출처 id) -> 화면 이름. 모르는 id 는 그대로 보여 준다.
 const AGENT_LABEL = { 'claude-code': 'Claude Code', codex: 'Codex', grok: 'Grok', antigravity: 'Antigravity' };
-export const agentLabel = (id) => (Object.hasOwn(AGENT_LABEL, id) ? AGENT_LABEL[id] : id);
+const AGY_SURFACE_LABEL = { cli: 'CLI', app: 'App', ide: 'IDE' };
+export const agentLabel = (id, surface = '') => {
+  if (!Object.hasOwn(AGENT_LABEL, id)) return id;
+  const base = AGENT_LABEL[id];
+  const sub = id === 'antigravity' && surface && Object.hasOwn(AGY_SURFACE_LABEL, surface) ? AGY_SURFACE_LABEL[surface] : '';
+  return sub ? `${base} (${sub})` : base;
+};
 
 // 재생 모드(--replay): 서버가 config 메시지에 싣는 replay { state, speed, loop, round, progress } 를 칩 문구로.
 function replayText(r) {
@@ -66,6 +72,7 @@ export class Hud {
     };
     this.prefs = loadPrefs();
     this.pings = new Map();
+    this.keys = new Set();
     this.statT = 0;
     this.buildLegend();
     // 라이브 서버가 observe 메시지를 보내기 전에는 숨어 있다(데모·벤치에서는 끝까지 숨는다).
@@ -135,17 +142,46 @@ export class Hud {
     });
     el.insp.querySelector('[data-act="follow"]').addEventListener('click', () => {
       office.follow = !office.follow;
-      if (!office.follow) office.layout();
+      if (!office.follow) office.layout({ snapPan: true });
       this.inspect(office.selected, office);
     });
     el.insp.querySelector('[data-act="close"]').addEventListener('click', () => office.select(null));
 
+    const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
     window.addEventListener('keydown', (e) => {
-      if (e.target.closest('input, textarea')) return;
+      if (e.target.closest('input, textarea, select, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (MOVE_KEYS.has(k)) {
+        this.keys.add(k);
+        if (k.startsWith('arrow')) e.preventDefault();
+        return;
+      }
       if (e.key === 'Escape') office.select(null);
       else if (e.key === '0') office.focus('all');
       else if (/^[1-9]$/.test(e.key) && Number(e.key) <= office.floors.length) office.focus(Number(e.key) - 1);
+      else if ((e.key === '[' || e.key === 'PageDown') && office.floors.length) {
+        e.preventDefault();
+        office.focus(office.overview ? 0 : Math.max(0, office.focusIndex - 1));
+      } else if ((e.key === ']' || e.key === 'PageUp') && office.floors.length) {
+        e.preventDefault();
+        office.focus(office.overview ? office.floors.length - 1 : Math.min(office.floors.length - 1, office.focusIndex + 1));
+      } else if (k === 'q') office.stage.rotateBy?.(-0.35);
+      else if (k === 'e') office.stage.rotateBy?.(0.35);
+      else if (e.key === '+' || e.key === '=') office.stage.zoomBy?.(1.2);
+      else if (e.key === '-' || e.key === '_') office.stage.zoomBy?.(1 / 1.2);
+      else if (k === 'r' || e.key === 'Home') {
+        office.follow = false;
+        office.layout({ snapPan: true });
+        office.stage.resetView?.();
+        if (office.selected) this.inspect(office.selected, office);
+      } else if (k === 'f' && office.selected) {
+        office.follow = !office.follow;
+        if (!office.follow) office.layout({ snapPan: true });
+        this.inspect(office.selected, office);
+      }
     });
+    window.addEventListener('keyup', (e) => { this.keys.delete(e.key.toLowerCase()); });
+    window.addEventListener('blur', () => { this.keys.clear(); });
   }
 
   setLive(live) {
@@ -285,7 +321,7 @@ export class Hud {
       ['남은 일', `${a.queue.length}건`],
     ];
     if (a.isSub) rows.splice(1, 1, ['종류', `서브에이전트 · ${a.agentType}`]);
-    rows.splice(2, 0, ['에이전트', a.agent ? agentLabel(a.agent) : '-']); // 브랜치(또는 종류) 바로 다음
+    rows.splice(2, 0, ['에이전트', a.agent ? agentLabel(a.agent, a.surface) : '-']); // 브랜치(또는 종류) 바로 다음
     const dl = box.querySelector('dl');
     dl.replaceChildren(...rows.flatMap(([k, val]) => {
       const dt = document.createElement('dt');
@@ -307,6 +343,11 @@ export class Hud {
   }
 
   tick(realDt, office) {
+    if (this.keys.size && office?.stage?.panBy) {
+      const rx = (this.keys.has('d') || this.keys.has('arrowright') ? 1 : 0) - (this.keys.has('a') || this.keys.has('arrowleft') ? 1 : 0);
+      const fz = (this.keys.has('w') || this.keys.has('arrowup') ? 1 : 0) - (this.keys.has('s') || this.keys.has('arrowdown') ? 1 : 0);
+      if (rx || fz) office.stage.panBy(rx * 11 * realDt, fz * 11 * realDt);
+    }
     this.statT -= realDt;
     if (this.statT > 0) return;
     this.statT = 0.5;
