@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mats } from './furniture.js';
 import { animateTail, applyPetMesh, applyPostureRig } from './pet-mesh.js';
-import { activeThemeOf, effectivePosture } from './rooms.js';
+import { activeCharThemeOf, effectivePosture, resolveAgentAppearance } from './rooms.js';
 import { glowing } from './scene.js';
 
 const CAPSULE = new THREE.CapsuleGeometry(0.31, 0.36, 6, 14);
@@ -119,7 +119,7 @@ function buildThemeCostume(agent, theme) {
   }
 }
 
-export function buildBrandFlair(agent, theme = activeThemeOf(), posture = effectivePosture(theme)) {
+export function buildBrandFlair(agent, theme = activeCharThemeOf(), posture = undefined) {
   if (!agent.head || !agent.rig) return;
   if (agent.brandGroup) agent.brandGroup.parent?.remove(agent.brandGroup);
   if (agent.baseRing) agent.baseRing.parent?.remove(agent.baseRing);
@@ -128,36 +128,43 @@ export function buildBrandFlair(agent, theme = activeThemeOf(), posture = effect
   agent.tailPivot = null;
   agent.propeller = null;
 
-  const key = agent.agent === 'antigravity' && agent.surface === 'cli' ? 'antigravity:cli' : agent.agent;
-  const spec = BRAND_ACCENT[key] || BRAND_ACCENT[agent.agent] || { color: 0xe2e8f0, emissive: 0x64748b, glow: 0.6 };
+  const resolved = resolveAgentAppearance(agent, { charTheme: theme, posture });
+  const style = resolved.style;
+  const effPosture = posture ? effectivePosture(resolved.charSpec, posture) : resolved.posture;
+  agent.charFamily = resolved.family;
+  agent.charSpec = resolved.charSpec;
+
+  const brandId = agent.brandOverride || agent.agent;
+  const key = brandId === 'antigravity' && agent.surface === 'cli' ? 'antigravity:cli' : brandId;
+  const spec = BRAND_ACCENT[key] || BRAND_ACCENT[brandId] || { color: 0xe2e8f0, emissive: 0x64748b, glow: 0.6 };
   agent.accentMat = glowing(
     new THREE.MeshStandardMaterial({ color: spec.color, emissive: spec.emissive, roughness: 0.25, metalness: 0.2 }),
     spec.glow,
   );
-  buildThemeCostume(agent, theme);
+  buildThemeCostume(agent, style);
 
   const bg = agent.brandGroup = new THREE.Group();
   agent.head.add(bg);
 
-  if (theme === 'dogs' || theme === 'cats') {
+  if (resolved.family === 'dogs' || resolved.family === 'cats') {
     agent.flair = bg;
-    applyPetMesh(agent, theme, posture);
-    applyPostureRig(agent, theme, posture, mats().skin);
+    applyPetMesh(agent, resolved.family, effPosture, resolved.breed);
+    applyPostureRig(agent, resolved.family, effPosture, mats().skin);
     return;
   }
   agent.head.material = mats().skin;
   tintAgent(agent);
 
-  if (agent.agent === 'claude-code') {
+  if (brandId === 'claude-code') {
     // Claude: 궁궐(정자관+옥관자), 한옥(유건+매듭별), 기본/스타십(베레모/크레스트+스파크 스타)
     const hat = new THREE.Group();
-    hat.position.set(theme === 'palace' || theme === 'hanok' ? 0 : 0.03, 0.26, -0.01);
-    if (theme !== 'palace' && theme !== 'hanok') hat.rotation.set(-0.12, 0, -0.18);
-    const crown = new THREE.Mesh(theme === 'palace' ? GAT_CROWN : BERET, theme === 'palace' ? GAT_MAT : agent.bodyMat);
+    hat.position.set(style === 'palace' || style === 'hanok' ? 0 : 0.03, 0.26, -0.01);
+    if (style !== 'palace' && style !== 'hanok') hat.rotation.set(-0.12, 0, -0.18);
+    const crown = new THREE.Mesh(style === 'palace' ? GAT_CROWN : BERET, style === 'palace' ? GAT_MAT : agent.bodyMat);
     crown.castShadow = true;
     hat.add(crown);
     const star = new THREE.Group();
-    star.position.set(0, theme === 'palace' ? 0.16 : 0.11, 0.14);
+    star.position.set(0, style === 'palace' ? 0.16 : 0.11, 0.14);
     const g1 = new THREE.Mesh(GEM, agent.accentMat);
     const g2 = new THREE.Mesh(GEM, agent.accentMat);
     g2.rotation.y = Math.PI / 4;
@@ -166,19 +173,19 @@ export function buildBrandFlair(agent, theme = activeThemeOf(), posture = effect
     hat.add(star);
     bg.add(hat);
     agent.flair = star;
-  } else if (agent.agent === 'codex') {
+  } else if (brandId === 'codex') {
     // Codex: 궁궐(흑립 갓+어사화), 한옥(대나무 삿갓+에메랄드 구슬), 기본/스타십(사이버 바이저+육각 헤드셋)
     const visor = new THREE.Mesh(VISOR, agent.accentMat);
     visor.position.set(0, 0.02, 0.03);
     visor.rotation.set(Math.PI / 2, 0, -Math.PI * 0.34);
     bg.add(visor);
-    if (theme === 'palace') {
+    if (style === 'palace') {
       const brim = new THREE.Mesh(GAT_BRIM, GAT_MAT);
       brim.position.set(0, 0.24, 0);
       const top = new THREE.Mesh(GAT_CROWN, GAT_MAT);
       top.position.set(0, 0.36, 0);
       bg.add(brim, top);
-    } else if (theme === 'hanok') {
+    } else if (style === 'hanok') {
       const cone = new THREE.Mesh(SATGAT, BAMBOO_MAT);
       cone.position.set(0, 0.32, 0);
       bg.add(cone);
@@ -191,20 +198,20 @@ export function buildBrandFlair(agent, theme = activeThemeOf(), posture = effect
       }
     }
     const gem = new THREE.Mesh(GEM, agent.accentMat);
-    gem.position.set(0, theme === 'palace' ? 0.56 : 0.46, 0);
+    gem.position.set(0, style === 'palace' ? 0.56 : 0.46, 0);
     bg.add(gem);
     agent.flair = gem;
-  } else if (agent.agent === 'grok') {
+  } else if (brandId === 'grok') {
     // Grok: 궁궐(사모 관모+혼천의 고리), 한옥(전립+반딧불 고리), 기본/스타십(다크 셰이드+토성 궤도 링)
     const shade = new THREE.Mesh(VISOR, EYE_MAT);
     shade.position.set(0, 0.03, 0.03);
     shade.rotation.set(Math.PI / 2, 0, -Math.PI * 0.34);
     bg.add(shade);
-    if (theme === 'palace' || theme === 'hanok') {
+    if (style === 'palace' || style === 'hanok') {
       const cap = new THREE.Mesh(BERET, GAT_MAT);
       cap.position.set(0, 0.25, 0);
       bg.add(cap);
-      if (theme === 'palace') {
+      if (style === 'palace') {
         const wings = new THREE.Mesh(PROP_BLADE, GAT_MAT);
         wings.scale.set(1.4, 1.8, 1.5);
         wings.position.set(0, 0.24, -0.14);
@@ -214,26 +221,26 @@ export function buildBrandFlair(agent, theme = activeThemeOf(), posture = effect
     const orbit = new THREE.Group();
     orbit.position.set(0, 0.14, 0);
     orbit.rotation.set(1.22, 0.3, -0.32);
-    const ring = new THREE.Mesh(ORBIT_RING, theme === 'palace' ? GOLD_MAT : agent.accentMat);
+    const ring = new THREE.Mesh(ORBIT_RING, style === 'palace' ? GOLD_MAT : agent.accentMat);
     const moon = new THREE.Mesh(HAND, agent.accentMat);
     moon.scale.setScalar(0.65);
     moon.position.set(0.43, 0, 0);
     orbit.add(ring, moon);
     bg.add(orbit);
     agent.flair = orbit;
-  } else if (agent.agent === 'antigravity') {
+  } else if (brandId === 'antigravity') {
     // Antigravity: 발밑 반중력/구름/파문 링 + 머리 위 프리즘 + CLI/App 또는 방건/망건
     const lev = new THREE.Mesh(LEV_RING, agent.accentMat);
     lev.rotation.x = Math.PI / 2;
     lev.position.set(0, 0.05, 0);
     agent.rig.add(lev);
     agent.baseRing = lev;
-    if (theme === 'palace') {
+    if (style === 'palace') {
       const crown = new THREE.Mesh(GAT_CROWN, GOLD_MAT);
       crown.scale.set(0.85, 0.85, 0.85);
       crown.position.set(0, 0.28, 0);
       bg.add(crown);
-    } else if (theme === 'hanok') {
+    } else if (style === 'hanok') {
       const band = new THREE.Mesh(BELT, GAT_MAT);
       band.rotation.x = Math.PI / 2;
       band.position.set(0, 0.14, 0);
@@ -263,9 +270,9 @@ export function buildBrandFlair(agent, theme = activeThemeOf(), posture = effect
 
   if (agent.isSub) {
     const prop = new THREE.Group();
-    prop.position.set(0, agent.agent === 'antigravity' || agent.agent === 'codex' ? 0.68 : 0.42, 0);
+    prop.position.set(0, brandId === 'antigravity' || brandId === 'codex' ? 0.68 : 0.42, 0);
     const stem = new THREE.Mesh(PROP_STEM, agent.legsMat);
-    const blade = new THREE.Mesh(PROP_BLADE, theme === 'palace' ? GOLD_MAT : agent.accentMat);
+    const blade = new THREE.Mesh(PROP_BLADE, style === 'palace' ? GOLD_MAT : agent.accentMat);
     blade.position.y = 0.07;
     prop.add(stem, blade);
     bg.add(prop);
@@ -273,7 +280,7 @@ export function buildBrandFlair(agent, theme = activeThemeOf(), posture = effect
   } else {
     agent.propeller = null;
   }
-  applyPostureRig(agent, theme, posture, mats().skin);
+  applyPostureRig(agent, style, effPosture, mats().skin);
 }
 
 // agent 에 group, rig, head, legs, arms, pickMeshes, bodyMat, legsMat 를 붙인다.
@@ -331,7 +338,7 @@ export function tintAgent(agent) {
 export function animateAgentMesh(agent, reduced = false) {
   const t = agent.t;
   const isTetra = agent.posture === 'tetrapod';
-  const isCat = activeThemeOf() === 'cats';
+  const isCat = agent.charFamily ? agent.charFamily === 'cats' : activeCharThemeOf() === 'cats';
   let leg = 0;
   let armL = 0;
   let armR = 0;

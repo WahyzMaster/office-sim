@@ -2,16 +2,23 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { STORE, LEGACY_STORE, migratePrefs, loadPrefs, agentLabel, agentBadge, CONTROL_PRESETS, DEFAULT_CONTROL_PRESET, controlPresetOf } from '../public/js/hud.js';
-import { BRAND_HUES, brandHue, hueGap, route } from '../public/js/placement.js';
+import {
+  BRAND_HUES, brandHue, hueGap, route,
+  hitObstacle, segmentHitsObstacle, resolveObstacleCollision, safeSpawnPos, findSafePath, separateAgents,
+} from '../public/js/placement.js';
 import {
   ROOMS, SLOTS, ELEVATOR, ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf, detectLang, roomLabel, applyRoomTheme, uiText,
   LEGEND_AGENTS, LEGEND_SIGNALS, legendAgentsFor, legendSignalsFor,
   POSTURE_MODES, DEFAULT_POSTURE_MODE, postureModeOf, setPostureMode, effectivePosture,
+  CHAR_THEMES, charThemeOf, activeCharThemeOf, setCharTheme,
+  VOICE_MODES, voiceModeOf, setVoiceMode, COLOR_THEMES, colorThemeOf, setColorTheme,
+  LLM_FILTERS, llmFilterOf, setLlmFilter, isLlmVisible,
+  CHARACTER_CATALOG, DEFAULT_LLM_CHAR_MAP, activeLlmCharMapOf, setLlmCharMap, resetLlmCharMap, resolveAgentAppearance,
 } from '../public/js/rooms.js';
 import {
   CharacterVoice, DogVoice, CatVoice, SynthVoice, voiceFor, makeSound, setSoundEnabled, isSoundEnabled,
 } from '../public/js/sound.js';
-import { THEME_LAYOUTS, corridorWaypoints } from '../public/js/theme-layouts.js';
+import { THEME_LAYOUTS, corridorWaypoints, obstaclesOf } from '../public/js/theme-layouts.js';
 
 // Map 으로 만든 가짜 localStorage. 실제 브라우저 저장소는 건드리지 않는다.
 function fakeStorage(init = {}) {
@@ -227,4 +234,124 @@ test('CharacterVoice abstraction and DogVoice/CatVoice/SynthVoice implementation
   assert.equal(setSoundEnabled(false), false);
   assert.equal(isSoundEnabled(), false);
   assert.equal(setSoundEnabled(true), true);
+});
+
+test('Independent selections and custom LLM-to-character mapping (llmCharMap + per-agent overrides)', () => {
+  // Place and Character are completely independent
+  applyRoomTheme('palace', 'ko');
+  setCharTheme('dogs');
+  setPostureMode('auto');
+  setVoiceMode('auto');
+  resetLlmCharMap();
+
+  assert.equal(ROOMS.archive.label, '규장각', 'Place is palace');
+  assert.equal(activeCharThemeOf(), 'dogs', 'Character theme is independently dogs');
+  assert.ok(Object.keys(CHAR_THEMES).length >= 20);
+  assert.ok(Object.keys(CHARACTER_CATALOG).includes('dog:golden'));
+  assert.ok(Object.keys(CHARACTER_CATALOG).includes('cat:savannah'));
+  assert.ok(Object.keys(CHARACTER_CATALOG).includes('human:palace'));
+
+  // Tier 3: default mapping from activeCharTheme ('dogs')
+  const claudeDefault = resolveAgentAppearance({ agent: 'claude-code', surface: '' });
+  assert.equal(claudeDefault.charSpec, DEFAULT_LLM_CHAR_MAP.dogs['claude-code']);
+  assert.equal(claudeDefault.family, 'dogs');
+  assert.equal(claudeDefault.breed, 'golden');
+  assert.equal(claudeDefault.posture, 'tetrapod');
+  assert.equal(claudeDefault.voiceKind, 'dogs');
+
+  // Tier 2: custom LLM-to-character mapping overrides global charTheme for that LLM only
+  setLlmCharMap('codex', 'cat:bengal');
+  setLlmCharMap('grok', 'human:starship');
+  assert.equal(activeLlmCharMapOf().codex, 'cat:bengal');
+  const codexMapped = resolveAgentAppearance({ agent: 'codex', surface: '' });
+  assert.equal(codexMapped.charSpec, 'cat:bengal');
+  assert.equal(codexMapped.family, 'cats');
+  assert.equal(codexMapped.breed, 'bengal');
+  assert.equal(codexMapped.posture, 'tetrapod');
+  const grokMapped = resolveAgentAppearance({ agent: 'grok', surface: '' });
+  assert.equal(grokMapped.charSpec, 'human:starship');
+  assert.equal(grokMapped.family, 'human');
+  assert.equal(grokMapped.style, 'starship');
+  assert.equal(grokMapped.posture, 'bipod');
+
+  // Tier 1: per-agent charOverride & postureOverride take highest priority
+  const customSession = resolveAgentAppearance({
+    agent: 'codex',
+    surface: '',
+    charOverride: 'dog:corgi',
+    postureOverride: 'bipod',
+  });
+  assert.equal(customSession.charSpec, 'dog:corgi');
+  assert.equal(customSession.breed, 'corgi');
+  assert.equal(customSession.posture, 'bipod');
+
+  // Independent voiceMode, colorTheme, and llmFilter
+  assert.equal(setVoiceMode('chime'), 'chime');
+  assert.equal(voiceModeOf('invalid'), 'auto');
+  assert.equal(resolveAgentAppearance({ agent: 'claude-code' }).voiceStyle, 'palace');
+  assert.deepEqual(VOICE_MODES, ['auto', 'dogs', 'cats', 'chime', 'chirp', 'blip', 'mute']);
+  assert.deepEqual(COLOR_THEMES, ['system', 'light', 'dark']);
+  assert.equal(setColorTheme('dark'), 'dark');
+  assert.equal(colorThemeOf('invalid'), 'system');
+  assert.deepEqual(LLM_FILTERS, ['all', 'claude-code', 'codex', 'grok', 'antigravity']);
+  setLlmFilter('codex');
+  assert.equal(isLlmVisible({ agent: 'codex' }), true);
+  assert.equal(isLlmVisible({ agent: 'claude-code' }), false);
+  setLlmFilter('all');
+  assert.equal(llmFilterOf('invalid'), 'all');
+
+  // Reset restores defaults
+  resetLlmCharMap();
+  setCharTheme('studio');
+  setPostureMode('auto');
+  setVoiceMode('auto');
+  setColorTheme('system');
+  applyRoomTheme('studio', 'ko');
+});
+
+test('Materialized non-overlapping obstacles, safe pathfinding and dynamic agent separation', () => {
+  for (const [theme, lay] of Object.entries(THEME_LAYOUTS)) {
+    const obs = obstaclesOf(theme);
+    assert.ok(obs.length >= 20, `${theme} has materialized obstacles`);
+    for (const [room, slots] of Object.entries(lay.slots)) {
+      slots.forEach(([sx, sz], idx) => {
+        assert.equal(hitObstacle(sx, sz, 0.24, theme), null, `${theme}.${room}[${idx}] does not overlap any obstacle`);
+        const d = lay.doors[room];
+        const pts = route({ x: d.x, z: d.inner }, room, sx, sz, 0, theme);
+        let prev = { x: d.x, z: d.inner };
+        for (const p of pts) {
+          assert.equal(segmentHitsObstacle(prev.x, prev.z, p.x, p.z, 0.16, theme), false, `${theme}.${room}[${idx}] route avoids obstacles`);
+          prev = p;
+        }
+      });
+    }
+  }
+
+  // Direct segment across research globe (-8, 5) hits obstacle, and findSafePath detours around it
+  assert.equal(segmentHitsObstacle(-8, 2.9, -8, 6.6, 0.2, 'studio'), true);
+  const detour = findSafePath(-8, 2.9, -8, 6.6, 'studio', 0.2);
+  assert.ok(detour.length >= 2, 'detours around research globe');
+  let prev = { x: -8, z: 2.9 };
+  for (const p of detour) {
+    assert.equal(segmentHitsObstacle(prev.x, prev.z, p.x, p.z, 0.18, 'studio'), false);
+    prev = p;
+  }
+
+  // resolveObstacleCollision pushes a point out of the meeting room table (x: 0.1..1.5, z: 3.4..6.6)
+  const insideTable = { x: 0.8, z: 5.0 };
+  assert.ok(hitObstacle(insideTable.x, insideTable.z, 0.24, 'studio'));
+  resolveObstacleCollision(insideTable, 0.24, 'studio');
+  assert.equal(hitObstacle(insideTable.x, insideTable.z, 0.2, 'studio'), null);
+
+  // safeSpawnPos avoids both obstacles and occupied agent positions
+  const sp = safeSpawnPos(0.8, 5.0, 0.24, 'studio', [{ x: -0.5, z: 5.0 }]);
+  assert.equal(hitObstacle(sp.x, sp.z, 0.24, 'studio'), null);
+  assert.ok(Math.hypot(sp.x - (-0.5), sp.z - 5.0) >= 0.5);
+
+  // separateAgents pushes two overlapping agents apart while keeping them outside obstacles
+  const f = {};
+  const a1 = { floor: f, path: [{ x: 0, z: 0 }], group: { visible: true, position: { x: 0, z: 0 } } };
+  const a2 = { floor: f, path: [], group: { visible: true, position: { x: 0.1, z: 0 } } };
+  for (let i = 0; i < 10; i++) separateAgents([a1, a2], 0.05, 0.56, 'studio');
+  assert.ok(Math.hypot(a2.group.position.x - a1.group.position.x, a2.group.position.z - a1.group.position.z) >= 0.55);
 });
