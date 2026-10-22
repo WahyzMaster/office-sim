@@ -359,6 +359,84 @@ export const DEFAULT_COLOR_THEME = 'system';
 export const LLM_FILTERS = Object.freeze(['all', 'claude-code', 'codex', 'grok', 'antigravity']);
 export const DEFAULT_LLM_FILTER = 'all';
 
+export const LEGEND_HUMANS = Object.freeze([
+  Object.freeze({ id: 'human-studio', spec: 'human:studio', theme: 'studio', swatch: 'background:#d97757;border-radius:50%', label: Object.freeze({ ko: 'AI 스튜디오 대원', en: 'AI Studio Chibi' }), desc: Object.freeze({ ko: '치비 기본 · 베레모·사이버 바이저·반중력 링', en: 'Studio Chibi · Beret, cyber visor & anti-gravity ring' }) }),
+  Object.freeze({ id: 'human-office', spec: 'human:office', theme: 'office', swatch: 'background:#10b981;border-radius:50%', label: Object.freeze({ ko: '테크 오피스 사원', en: 'Tech Office Staff' }), desc: Object.freeze({ ko: '오피스 캐주얼 · 사원증 랜야드 + 백팩', en: 'Tech Office · ID lanyard & backpack' }) }),
+  Object.freeze({ id: 'human-palace', spec: 'human:palace', theme: 'palace', swatch: 'background:#a855f7;border-radius:50%', label: Object.freeze({ ko: '조선 궁궐 관원', en: 'Joseon Royal Official' }), desc: Object.freeze({ ko: '정자관·흑립 갓·사모 · 금박 흉배 관복', en: 'Joseon Crown & Gat · Gold-crest royal robe' }) }),
+  Object.freeze({ id: 'human-hanok', spec: 'human:hanok', theme: 'hanok', swatch: 'background:#06b6d4;border-radius:50%', label: Object.freeze({ ko: '전통 한옥 선비', en: 'Traditional Hanok Scholar' }), desc: Object.freeze({ ko: '유건·대나무 삿갓·망건 · 배자·서책 망태기', en: 'Scholar Yugeon & Satgat · Hanok vest & basket' }) }),
+  Object.freeze({ id: 'human-starship', spec: 'human:starship', theme: 'starship', swatch: 'background:#3b82f6;border-radius:50%', label: Object.freeze({ ko: 'SF 스타십 크루', en: 'Sci-Fi Starship Crew' }), desc: Object.freeze({ ko: '아크 리액터 코어 · 트윈 제트팩 우주복', en: 'Arc reactor core · Twin-jetpack pressure suit' }) }),
+]);
+
+export const LEGEND_CATALOG = Object.freeze([
+  ...LEGEND_DOGS.map((d) => Object.freeze({ ...d, category: 'dogs', theme: d.spec })),
+  ...LEGEND_CATS.map((c) => Object.freeze({ ...c, category: 'cats', theme: c.spec })),
+  ...LEGEND_HUMANS.map((h) => Object.freeze({ ...h, category: 'human' })),
+]);
+
+export function legendCatalogFor(lang = 'ko', category = 'all') {
+  const l = lang === 'en' ? 'en' : 'ko';
+  return LEGEND_CATALOG
+    .filter((it) => category === 'all' || it.category === category)
+    .map((it) => ({
+      id: it.id,
+      spec: it.spec,
+      theme: it.theme,
+      category: it.category,
+      swatch: it.swatch,
+      label: it.label[l],
+      desc: it.desc[l],
+    }));
+}
+
+export const CATALOG_TABS = Object.freeze({
+  ko: Object.freeze({ all: '전체 19', dogs: '강아지 8', cats: '고양이 6', human: '휴먼 5' }),
+  en: Object.freeze({ all: 'All 19', dogs: 'Dogs 8', cats: 'Cats 6', human: 'Humans 5' }),
+});
+
+export function renderCatalogSection(legendEl, lang, activeCharTheme, onPickTheme) {
+  const catUl = legendEl?.querySelector?.('[data-lg="catalog"]');
+  if (!catUl) return;
+  const l = lang === 'en' ? 'en' : 'ko';
+  const cat = legendEl.dataset.catFilter || 'all';
+  const tabBar = legendEl.querySelector('[data-cat-tabs]');
+  if (tabBar) {
+    tabBar.replaceChildren(...Object.entries(CATALOG_TABS[l]).map(([k, text]) => {
+      const b = legendEl.ownerDocument.createElement('button');
+      b.type = 'button';
+      b.dataset.cat = k;
+      b.setAttribute('aria-pressed', String(k === cat));
+      b.textContent = text;
+      b.addEventListener('click', () => {
+        legendEl.dataset.catFilter = k;
+        renderCatalogSection(legendEl, l, activeCharTheme, onPickTheme);
+        if (typeof window !== 'undefined' && typeof WebGLRenderingContext !== 'undefined') {
+          import('./legend-models.js').then((m) => m.mountLegendModels(legendEl)).catch(() => {});
+        }
+      });
+      return b;
+    }));
+  }
+  catUl.replaceChildren();
+  for (const it of legendCatalogFor(l, cat)) {
+    const li = legendEl.ownerDocument.createElement('li');
+    li.dataset.agentId = it.id;
+    li.dataset.charSpec = it.spec;
+    li.dataset.charTheme = it.theme;
+    li.dataset.active = String(activeCharTheme === it.theme || activeCharTheme === it.spec);
+    li.tabIndex = 0;
+    li.innerHTML = '<canvas class="ag-model" width="128" height="144" aria-hidden="true"></canvas><div class="ag-tag"><i></i><b></b></div><small class="ag-sub"></small><span role="tooltip"></span>';
+    li.querySelector('i').setAttribute('style', it.swatch);
+    li.querySelector('b').textContent = it.label;
+    li.querySelector('.ag-sub').textContent = it.desc;
+    li.querySelector('span').textContent = `${it.label} · ${it.desc}`;
+    li.addEventListener('click', () => onPickTheme?.(it.theme));
+    li.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPickTheme?.(it.theme); }
+    });
+    catUl.append(li);
+  }
+}
+
 export function llmSlotOf(agent = {}) {
   if (agent.isSub) return 'sub';
   const id = agent.brandOverride || agent.agent || 'claude-code';

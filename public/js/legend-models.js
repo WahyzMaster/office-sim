@@ -28,6 +28,11 @@ const MODEL_SPECS = Object.freeze({
   'cat-siamese':     Object.freeze({ agent: 'antigravity', surface: 'cli', hue: 192, light: 0.53, isSub: false, petBreed: 'siamese' }),
   'cat-ragdoll':     Object.freeze({ agent: 'antigravity', surface: 'app', hue: 220, light: 0.53, isSub: false, petBreed: 'ragdoll' }),
   'cat-fold':        Object.freeze({ agent: 'claude-code', surface: '',    hue: 38,  light: 0.62, isSub: true,  petBreed: 'fold' }),
+  'human-studio':    Object.freeze({ agent: 'claude-code', surface: '',    hue: 18,  light: 0.53, isSub: false, charOverride: 'human:studio' }),
+  'human-office':    Object.freeze({ agent: 'codex',       surface: '',    hue: 158, light: 0.53, isSub: false, charOverride: 'human:office' }),
+  'human-palace':    Object.freeze({ agent: 'grok',        surface: '',    hue: 275, light: 0.53, isSub: false, charOverride: 'human:palace' }),
+  'human-hanok':     Object.freeze({ agent: 'antigravity', surface: 'cli', hue: 192, light: 0.53, isSub: false, charOverride: 'human:hanok' }),
+  'human-starship':  Object.freeze({ agent: 'antigravity', surface: 'app', hue: 220, light: 0.53, isSub: false, charOverride: 'human:starship' }),
 });
 
 let studio = null;
@@ -114,21 +119,23 @@ function startHover(entry) {
   hoverRaf = requestAnimationFrame(loop);
 }
 
-export function mountLegendModels(agentUl) {
+export function mountLegendModels(rootEl) {
   stopHover();
-  if (!agentUl || !ensureStudio()) return;
-  for (const li of agentUl.querySelectorAll('li[data-agent-id]')) {
+  if (!rootEl || !ensureStudio()) return;
+  for (const li of rootEl.querySelectorAll('li[data-agent-id]')) {
     const id = li.dataset.agentId;
     const spec = MODEL_SPECS[id] || MODEL_SPECS.claude;
     const canvas = li.querySelector('canvas.ag-model');
     if (!canvas) continue;
+    const charOverride = li.dataset.charSpec || spec.charOverride || '';
     const dummy = {
       agent: spec.agent,
       surface: spec.surface,
       hue: spec.hue,
       light: spec.light,
       isSub: spec.isSub,
-      petBreed: spec.petBreed || '',
+      petBreed: charOverride ? '' : (spec.petBreed || ''),
+      charOverride,
       t: 0.8,
       path: [],
       queue: [],
