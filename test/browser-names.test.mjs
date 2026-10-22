@@ -1,7 +1,7 @@
 // office-sim 이름 (브라우저 쪽): localStorage 키 'office-sim:v1', 옛 키 'claude-office:v1' 에서 한 번 복사, 에이전트 화면 이름.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STORE, LEGACY_STORE, migratePrefs, loadPrefs, agentLabel } from '../public/js/hud.js';
+import { STORE, LEGACY_STORE, migratePrefs, loadPrefs, agentLabel, CONTROL_PRESETS, DEFAULT_CONTROL_PRESET, controlPresetOf } from '../public/js/hud.js';
 
 // Map 으로 만든 가짜 localStorage. 실제 브라우저 저장소는 건드리지 않는다.
 function fakeStorage(init = {}) {
@@ -56,4 +56,15 @@ test('agentLabel: the four agent ids get display labels (with Antigravity surfac
   assert.equal(agentLabel('antigravity', 'ide'), 'Antigravity (IDE)');
   assert.equal(agentLabel('cursor'), 'cursor');
   assert.equal(agentLabel('constructor'), 'constructor');
+});
+
+test('controlPresetOf: supports map, figma, orbit and blender presets and falls back to map', () => {
+  assert.equal(DEFAULT_CONTROL_PRESET, 'map');
+  assert.deepEqual(Object.keys(CONTROL_PRESETS), ['map', 'figma', 'orbit', 'blender']);
+  for (const k of ['map', 'figma', 'orbit', 'blender']) {
+    assert.equal(controlPresetOf(k), k);
+    assert.ok(CONTROL_PRESETS[k].label.length > 0 && CONTROL_PRESETS[k].hint.length > 0);
+  }
+  assert.equal(controlPresetOf('unknown'), 'map');
+  assert.equal(controlPresetOf(undefined), 'map');
 });
