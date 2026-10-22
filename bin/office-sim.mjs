@@ -18,14 +18,64 @@ const OBSERVE_DIR = fileURLToPath(new URL('../.observe', import.meta.url));
 // 아니거나, 2초 안에 답하지 않으면 null. git 의 출력과 오류는 받기만 하고 내보내지 않는다 (stdout 의 office-sim: 줄은 그대로).
 // 저장소 루트 자신이 체크아웃일 때만 (<root>/.git, worktree 와 submodule 은 파일) 묻고, git 이 위 폴더로 올라가거나 물려받은
 // GIT_DIR 같은 GIT_* 변수를 따르지 않게 한다: 다른 저장소 안에 풀어 둔 사본이나 남의 hook 에서 띄운 서버가 그 저장소의 sha 를 내지 않게.
+function readHeadSha(root) {
+  try {
+    const dotGit = path.join(root, '.git');
+    const st = fs.lstatSync(dotGit);
+    let gitDir = dotGit;
+    let commonDir = dotGit;
+    if (st.isFile()) {
+      const m = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(dotGit, 'utf8'));
+      if (!m) return null;
+      gitDir = path.resolve(root, m[1].trim());
+      const commonFile = path.join(gitDir, 'commondir');
+      if (fs.existsSync(commonFile)) {
+        commonDir = path.resolve(gitDir, fs.readFileSync(commonFile, 'utf8').trim());
+      } else {
+        commonDir = gitDir;
+      }
+    } else if (!st.isDirectory()) {
+      return null;
+    }
+    const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
+    if (/^[0-9a-f]{40,64}$/i.test(head)) return head.slice(0, 12).toLowerCase();
+    if (!head.startsWith('ref:')) return null;
+    const ref = head.slice(4).trim();
+    if (!ref.startsWith('refs/') || ref.includes('..')) return null;
+    for (const base of [gitDir, commonDir]) {
+      const refPath = path.join(base, ref);
+      if (fs.existsSync(refPath)) {
+        const sha = fs.readFileSync(refPath, 'utf8').trim();
+        if (/^[0-9a-f]{40,64}$/i.test(sha)) return sha.slice(0, 12).toLowerCase();
+      }
+    }
+    const packedPath = path.join(commonDir, 'packed-refs');
+    if (fs.existsSync(packedPath)) {
+      for (const line of fs.readFileSync(packedPath, 'utf8').split('\n')) {
+        if (line.startsWith('#') || line.startsWith('^')) continue;
+        const sp = line.indexOf(' ');
+        if (sp > 0 && line.slice(sp + 1).trim() === ref) {
+          const sha = line.slice(0, sp).trim();
+          if (/^[0-9a-f]{40,64}$/i.test(sha)) return sha.slice(0, 12).toLowerCase();
+        }
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function gitCommit() {
   const root = fileURLToPath(new URL('..', import.meta.url));
   if (!fs.existsSync(path.join(root, '.git'))) return null;
+  const direct = readHeadSha(root);
+  if (direct && COMMIT_RE.test(direct)) return direct;
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith('GIT_')));
   try {
     const out = execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], {
       cwd: root, env: { ...env, GIT_CEILING_DIRECTORIES: path.dirname(root) },
-      encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true,
+      encoding: 'utf8', timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true,
     }).trim();
     return COMMIT_RE.test(out) ? out : null;
   } catch {

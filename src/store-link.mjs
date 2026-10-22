@@ -107,11 +107,23 @@ export function newIndex() {
 }
 
 const MAX_STOPPED = 500;
+export const MAX_INDEX_ENTRIES = 2000;
+
+export function setCapped(map, key, val, max = MAX_INDEX_ENTRIES) {
+  if (map.has(key)) map.delete(key);
+  else if (map.size >= max) map.delete(map.keys().next().value);
+  map.set(key, val);
+}
+
+export function addCapped(set, val, max = MAX_INDEX_ENTRIES) {
+  if (set.has(val)) set.delete(val);
+  else if (set.size >= max) set.delete(set.values().next().value);
+  set.add(val);
+}
 
 /** R29: the parent stopped waiting for a sync Agent before its sub was known (restart replay, meta.json late). */
 export function rememberStopped(idx, tuId, ts) {
-  if (idx.stopped.size >= MAX_STOPPED) idx.stopped.delete(idx.stopped.keys().next().value);
-  idx.stopped.set(tuId, ts);
+  setCapped(idx.stopped, tuId, ts, MAX_STOPPED);
 }
 
 /**
@@ -125,7 +137,7 @@ export function takeStopped(idx, e) {
   idx.stopped.delete(tu);
   const key = `r|${tu}`;
   if (idx.doneKeys.has(key) || idx.revived.has(e.charId)) return undefined;
-  idx.doneKeys.add(key);
+  addCapped(idx.doneKeys, key);
   return ts ?? null;
 }
 
