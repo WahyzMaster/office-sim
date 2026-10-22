@@ -193,4 +193,9 @@ export class Floor {
     this.doors[0].position.z = -o;
     this.doors[1].position.z = o;
   }
+
+  dispose(stage) {
+    for (const o of this.labels) o.element.remove();
+    stage.scene.remove(this.group);
+  }
 }

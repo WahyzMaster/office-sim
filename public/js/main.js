@@ -50,11 +50,36 @@ hud.bind(office, cfg, () => source);
 
 let down = null;
 const canvas = stage.renderer.domElement;
-canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
-canvas.addEventListener('pointerup', (e) => {
-  if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+const ndcOf = (e) => {
   const r = canvas.getBoundingClientRect();
-  office.pick({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 });
+  return { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 };
+};
+canvas.addEventListener('pointerdown', (e) => {
+  down = { x: e.clientX, y: e.clientY };
+  canvas.classList.add('dragging');
+});
+window.addEventListener('pointerup', () => canvas.classList.remove('dragging'));
+canvas.addEventListener('pointermove', (e) => {
+  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return;
+  canvas.classList.toggle('hovering', !!office.hitAgent(ndcOf(e)));
+});
+canvas.addEventListener('pointerup', (e) => {
+  const d = down;
+  down = null;
+  if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) return;
+  office.pick(ndcOf(e));
+});
+canvas.addEventListener('dblclick', (e) => {
+  const hit = office.hitAgent(ndcOf(e));
+  if (hit) {
+    if (hit.floor.index !== office.focusIndex || office.overview) office.focus(hit.floor.index);
+    office.select(hit, { focusPan: true });
+  } else {
+    office.follow = false;
+    office.layout({ snapPan: true });
+    stage.resetView();
+    if (office.selected) hud.inspect(office.selected, office);
+  }
 });
 
 // 숨어 있던 탭은 프레임이 멈춘 채 이벤트만 쌓인다. 다시 보이면 밀린 일을 건너뛰고 지금 상태로 따라잡는다.

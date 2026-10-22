@@ -6,6 +6,7 @@ import { ROOMS, classify, toolLabel } from './rooms.js';
 import { Inbox } from './office-inbox.js';
 import { floorDetail, labelRootIndex } from './detail.js';
 import { waitStart, waitEnd, reconcileWaits, snapshotWaits, liveAskStays, textKey, rememberText, forgetText, forgetTexts } from './approval.js';
+import { agentLabel } from './hud.js';
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 // 이 이벤트가 오면 tool_end 를 못 받은 채 열려 있는 질문은 이미 끝난 것이다(새 요청, 새 메시지, 턴 끝).
@@ -30,6 +31,12 @@ export class Office {
     this.raycaster = new THREE.Raycaster();
     this.tmp = new THREE.Vector3();
     stage.setViewFn((aspect) => this.viewHalf(aspect));
+    stage.setOnUserPan?.(() => {
+      if (this.follow) {
+        this.follow = false;
+        if (this.selected) this.hud.inspect(this.selected, this);
+      }
+    });
   }
 
   // project 는 층을 구분하는 키(서버에서는 저장소 경로), label 은 화면에 보이는 이름.
@@ -170,11 +177,14 @@ export class Office {
     a.releaseAsks((it) => !liveAskStays(it, ev.type) && (always || t - Date.parse(it.ts ?? '') >= ASK_SIBLING_MS));
   }
 
-  // session 이벤트 -> 직원 생성/갱신. 놓을 층을 모르면(project 없음, 부모도 모름) null.
+  // session 이벤트 -> 직원 생성/갱신. 놓을 층을 모르면(project 없음, 부모도 모름) 메인 세션은 에이전트 기본 층에 둔다.
   upsert(info) {
     const existing = this.agents.get(info.sessionId);
     const parent = info.parentSessionId ? this.agents.get(info.parentSessionId) : null;
-    const floor = parent && parent !== existing ? parent.floor : this.floorFor(info.project, info.projectLabel);
+    const isSub = 'isSubagent' in info ? !!info.isSubagent : !!existing?.isSub;
+    const proj = info.project || (!isSub && !info.parentSessionId && info.agent ? `agent:${info.agent}` : '');
+    const projLabel = info.project ? info.projectLabel : (proj ? agentLabel(info.agent) : '');
+    const floor = parent && parent !== existing ? parent.floor : this.floorFor(proj, projLabel);
     if (existing) {
       existing.cancelLeave();
       const flip = 'isSubagent' in info && !!info.isSubagent !== existing.isSub;
@@ -206,6 +216,7 @@ export class Office {
       parentSessionId: has('parentSessionId') ? info.parentSessionId : old.parentId,
       agentType: info.agentType || old.agentType,
       agent: info.agent || old.agent,
+      surface: info.surface || old.surface || '',
     };
     const carry = old.current && old.current.kind !== 'leave' ? [old.current] : [];
     for (const it of carry) {
@@ -225,6 +236,7 @@ export class Office {
     if (this.selected === old) this.select(a);
     if (floor !== from) {
       for (const kid of [...this.agents.values()]) if (kid.parentId === a.id && kid.floor === from) this.rehome(kid, {}, floor);
+      this.pruneEmptyFloors();
     }
     this.hud.renderFloors(this);
     return a;
@@ -313,7 +325,30 @@ export class Office {
     a.dispose();
     this.agents.delete(a.id);
     if (this.selected === a) this.select(null);
+    this.pruneEmptyFloors();
     this.hud.renderFloors(this);
+  }
+
+  pruneEmptyFloors() {
+    if (this.floors.length <= 1) return;
+    let removed = false;
+    for (let i = this.floors.length - 1; i >= 0 && this.floors.length > 1; i--) {
+      const f = this.floors[i];
+      if (f.agents.size > 0) continue;
+      this.floors.splice(i, 1);
+      this.byKey.delete(f.key);
+      this.hud.clearPing(f);
+      f.dispose(this.stage);
+      if (this.focusIndex > i) this.focusIndex -= 1;
+      removed = true;
+    }
+    if (!removed) return;
+    this.floors.forEach((f, idx) => {
+      f.index = idx;
+      f.renameTag();
+    });
+    this.focusIndex = clamp(this.focusIndex, 0, Math.max(0, this.floors.length - 1));
+    this.layout();
   }
 
   // ---- 시점 ----
@@ -341,12 +376,13 @@ export class Office {
       this.hud.clearPing(this.floors[this.focusIndex]);
     }
     this.follow = false;
-    this.layout();
+    this.layout({ snapPan: true });
     this.hud.renderFloors(this);
   }
 
-  layout() {
+  layout(opts = {}) {
     document.body.classList.toggle('overview', this.overview);
+    this.stage.setOverview?.(this.overview);
     for (const f of this.floors) {
       f.goalY = f.index * (this.overview ? EXPLODE_GAP : FLOOR_GAP);
       const d = floorDetail(f.index, this.focusIndex, this.overview);
@@ -359,7 +395,7 @@ export class Office {
     }
     const n = this.floors.length;
     const y = this.overview ? ((n - 1) * EXPLODE_GAP) / 2 : this.focusIndex * FLOOR_GAP;
-    this.stage.setGoal(new THREE.Vector3(0, y + 0.6, 0));
+    this.stage.setGoal(new THREE.Vector3(0, y + 0.6, 0), opts);
     this.stage.setLampY(this.overview ? -100 : this.focusIndex * FLOOR_GAP);
     this.stage.resize();
   }
@@ -370,18 +406,27 @@ export class Office {
     return base + (Math.max(1, this.floors.length) - 1) * EXPLODE_GAP * 0.42;
   }
 
-  select(a) {
+  select(a, { focusPan = false } = {}) {
     this.selected = a;
-    this.follow = !!a && this.follow;
+    this.follow = !!a && (this.follow || focusPan);
+    if (focusPan && a) {
+      a.group.getWorldPosition(this.tmp);
+      this.tmp.y += 0.6;
+      this.stage.setGoal(this.tmp, { snapPan: true });
+    }
     this.hud.inspect(a, this);
   }
 
-  pick(ndc) {
+  hitAgent(ndc) {
     const meshes = [];
     for (const a of this.agents.values()) if (a.floor.group.visible) meshes.push(...a.pickMeshes);
     this.raycaster.setFromCamera(ndc, this.stage.camera);
     const hit = this.raycaster.intersectObjects(meshes, false)[0];
-    this.select(hit ? hit.object.userData.agent : null);
+    return hit ? hit.object.userData.agent : null;
+  }
+
+  pick(ndc) {
+    this.select(this.hitAgent(ndc));
   }
 
   update(dt, realDt) {
@@ -394,7 +439,7 @@ export class Office {
     if (this.follow && this.selected) {
       this.selected.group.getWorldPosition(this.tmp);
       this.tmp.y += 0.6;
-      this.stage.setGoal(this.tmp);
+      this.stage.setGoal(this.tmp, { snapPan: true });
     }
     this.stage.update(realDt);
   }

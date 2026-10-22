@@ -66,7 +66,9 @@ export function createStage(host) {
   controls.maxZoom = 4;
   controls.minPolarAngle = 0.35;
   controls.maxPolarAngle = 1.25;
-  controls.screenSpacePanning = true;
+  controls.screenSpacePanning = false;
+  controls.zoomToCursor = true;
+  controls.keyPanSpeed = 0;
 
   const hemi = new THREE.HemisphereLight(0xffffff, 0x808080, 1);
   const sun = new THREE.DirectionalLight(0xffffff, 2);
@@ -90,8 +92,25 @@ export function createStage(host) {
   let lampGoal = 0;
 
   const goal = new THREE.Vector3();
+  const anchor = new THREE.Vector3();
   const tmp = new THREE.Vector3();
+  const fwd = new THREE.Vector3();
+  const right = new THREE.Vector3();
+  const sph = new THREE.Spherical();
+  let snapPan = false;
+  let onUserPan = null;
+  let lastTarget = new THREE.Vector3();
   let viewFn = (aspect) => Math.max(9.8, 14.5 / aspect);
+
+  controls.addEventListener('change', () => {
+    const dx = controls.target.x - lastTarget.x;
+    const dz = controls.target.z - lastTarget.z;
+    if (dx * dx + dz * dz > 1e-4) {
+      snapPan = false;
+      onUserPan?.();
+    }
+    lastTarget.copy(controls.target);
+  });
 
   function resize() {
     const w = host.clientWidth || window.innerWidth;
@@ -126,13 +145,71 @@ export function createStage(host) {
 
   function update(realDt) {
     const k = Math.min(1, realDt * 4);
-    tmp.copy(goal).sub(controls.target).multiplyScalar(k);
+    tmp.copy(goal).sub(anchor).multiplyScalar(k);
+    anchor.add(tmp);
     controls.target.add(tmp);
     camera.position.add(tmp);
+    if (snapPan) {
+      tmp.copy(anchor).sub(controls.target).multiplyScalar(Math.min(1, realDt * 7));
+      controls.target.add(tmp);
+      camera.position.add(tmp);
+      if (controls.target.distanceToSquared(anchor) < 0.0004) snapPan = false;
+    }
+    const ox = controls.target.x - anchor.x;
+    const oz = controls.target.z - anchor.z;
+    const cx = Math.min(18, Math.max(-18, ox)) - ox;
+    const cz = Math.min(18, Math.max(-18, oz)) - oz;
+    if (cx || cz) {
+      controls.target.x += cx;
+      controls.target.z += cz;
+      camera.position.x += cx;
+      camera.position.z += cz;
+    }
+    lastTarget.copy(controls.target);
     sun.position.copy(controls.target).add(SUN_OFFSET);
     sun.target.position.copy(controls.target);
     lamps.position.y += (lampGoal - lamps.position.y) * k;
     controls.update();
+    lastTarget.copy(controls.target);
+  }
+
+  function panBy(dx, dz) {
+    if (!dx && !dz) return;
+    snapPan = false;
+    onUserPan?.();
+    fwd.subVectors(controls.target, camera.position);
+    fwd.y = 0;
+    if (fwd.lengthSq() < 1e-6) fwd.set(-1, 0, -1);
+    fwd.normalize();
+    right.set(-fwd.z, 0, fwd.x);
+    const scale = 1 / Math.max(0.4, camera.zoom);
+    tmp.set(0, 0, 0).addScaledVector(right, dx * scale).addScaledVector(fwd, dz * scale);
+    controls.target.add(tmp);
+    camera.position.add(tmp);
+    lastTarget.copy(controls.target);
+  }
+
+  function rotateBy(dTheta, dPhi = 0) {
+    tmp.subVectors(camera.position, controls.target);
+    sph.setFromVector3(tmp);
+    sph.theta += dTheta;
+    sph.phi = Math.min(controls.maxPolarAngle, Math.max(controls.minPolarAngle, sph.phi + dPhi));
+    tmp.setFromSpherical(sph);
+    camera.position.copy(controls.target).add(tmp);
+  }
+
+  function zoomBy(factor) {
+    camera.zoom = Math.min(controls.maxZoom, Math.max(controls.minZoom, camera.zoom * factor));
+    camera.updateProjectionMatrix();
+  }
+
+  function resetView() {
+    snapPan = true;
+    camera.zoom = 1;
+    camera.updateProjectionMatrix();
+    camera.position.copy(anchor).add(ISO);
+    controls.target.copy(anchor);
+    lastTarget.copy(controls.target);
   }
 
   window.addEventListener('resize', resize);
@@ -140,7 +217,13 @@ export function createStage(host) {
 
   return {
     renderer, labels, scene, camera, controls, resize, applyTheme, update,
-    setGoal(v) { goal.copy(v); },
+    panBy, rotateBy, zoomBy, resetView,
+    setGoal(v, opts = {}) {
+      goal.copy(v);
+      if (opts.snapPan) snapPan = true;
+    },
+    setOverview(ov) { controls.screenSpacePanning = !!ov; },
+    setOnUserPan(fn) { onUserPan = fn; },
     setLampY(y) { lampGoal = y; },
     setViewFn(fn) { viewFn = fn; resize(); },
     // labelRoot: CSS 라벨을 계산할 묶음 (기본은 장면 전체). 숨은 층의 라벨까지 매 프레임 돌지 않게 한다.
