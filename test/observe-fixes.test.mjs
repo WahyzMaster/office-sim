@@ -152,14 +152,20 @@ test('without a birth time an old file appended to before the start scan is watc
 test('Grok updates lag is measured from the write-time timestamp (agent clock only as a fallback)', async () => {
   const root = await tmp();
   const s = await grokSession(root, 'g', '01920000-0000-7000-8000-00000000000f');
-  const { ob, recs } = observe({ grok: root });
+  // 관찰기 시계를 주입한다 (Codex 시험들처럼): 실제 시계면 기록 시각이 초 단위라 지연에 벽시계의 ms 와 poll 의 디스크
+  // 작업 시간이 섞여, 느린 디스크에서 창을 넘나든다. 주입하면 지연이 정확한 한 값이다
+  const clock = { t: Date.now() };
+  const { ob, recs } = observe({ grok: root }, { startMs: clock.t, now: () => clock.t });
   await ob.rescan();
-  const now = Date.now();
+  const written = clock.t;
   // 권한 창 뒤의 첫 tool_call_update: 에이전트 시계는 18.8초 전, 기록 시각(초)은 지금
-  await fsp.appendFile(s.file, line(upd('tool_call_update', now - 18_800, Math.floor(now / 1000))));
+  await fsp.appendFile(s.file, line(upd('tool_call_update', written - 18_800, Math.floor(written / 1000))));
+  clock.t += 300; // poll 은 0.3초 뒤에 본다
   await ob.poll();
   const [a] = appendsOf(recs);
-  assert.ok(a.lagMs.min >= 0 && a.lagMs.max < 1500, JSON.stringify(a.lagMs));
+  // 기록 시각(초를 내림) 부터 poll 까지: 0.3초 + 그 초 안의 ms (1.3초 미만). 에이전트 시계로 쟀다면 19.1초
+  const want = clock.t - Math.floor(written / 1000) * 1000;
+  assert.deepEqual(a.lagMs, { min: want, max: want });
   const ms = 1_760_000_000_500;
   const meta = (agentTimestampMs) => ({ params: { _meta: { agentTimestampMs } } });
   assert.equal(recordMs('grok-updates', { timestamp: 1_760_000_000, ...meta(ms - 18_800) }), 1_760_000_000_000);

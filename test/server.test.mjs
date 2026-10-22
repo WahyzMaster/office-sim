@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { start } from '../src/server.mjs';
 import { parseArgs } from '../src/cli-args.mjs';
+import { Tailer } from '../src/tailer.mjs';
 import { assertHealthShape, oldHealth } from './fixtures/healthz.mjs';
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
@@ -282,15 +283,18 @@ test('loops never overlap: a slow scan or poll skips ticks instead of stacking',
   const slow = async () => { calls++; active++; maxActive = Math.max(maxActive, active); await sleep(120); active--; };
   let pollActive = 0;
   let pollMax = 0;
+  let polls = 0;
   const root = await tmpRoot();
   const ref = { path: path.join(root, 'p', `${SID}.jsonl`), kind: 'main', stem: SID, sessionId: SID };
   class SlowTailer extends NullTailer {
-    async poll() { pollActive++; pollMax = Math.max(pollMax, pollActive); await sleep(80); pollActive--; return { bytes: 0 }; }
+    async poll() { polls++; pollActive++; pollMax = Math.max(pollMax, pollActive); await sleep(80); pollActive--; return { bytes: 0 }; }
   }
   const deps = { ...NO_FILES, Tailer: SlowTailer, scan: async () => { await slow(); return [ref]; } };
   const app = await start({ ...BASE, root, deps, rescanMs: 20, intervalMs: 50 });
   try {
-    await sleep(500);
+    // 고정 500 ms 대신 그동안 하던 일의 양을 기다린다 (scan 4번 시작 = 앞의 3번은 끝까지, poll 3번).
+    // 겹쳐 쌓였다면 이 횟수에 이르는 사이에 maxActive / pollMax 가 1 을 넘는다
+    await until(() => calls >= 4 && polls >= 3, 5000).catch(() => assert.fail(`scan ran ${calls} times, poll ${polls} times`));
     assert.ok(calls >= 2, `scan ran ${calls} times`);
     assert.equal(maxActive, 1);
     assert.equal(pollMax, 1);
@@ -307,7 +311,10 @@ test('attach, live tail, subagent link, late meta, and idle detach', async () =>
     main: [human('u1', 'Make an invented thing'), agentUse('u2', 'toolu_A1')],
     sub: [{ type: 'user', uuid: 's1', sessionId: SID, agentId: AGENT, isSidechain: true, timestamp: TS(), message: { role: 'user', content: 'INVENTED PROMPT' } }],
   });
-  const app = await start({ ...BASE, root, deps: { SessionState: FakeSession } });
+  // 진짜 Tailer 그대로, 만든 것만 기억한다: 잘린 줄이 실제로 읽혀 버퍼에 있는지 볼 수 있게
+  const tailers = [];
+  class SpyTailer extends Tailer { constructor(...a) { super(...a); tailers.push(this); } }
+  const app = await start({ ...BASE, root, deps: { SessionState: FakeSession, Tailer: SpyTailer } });
   try {
     const { port } = app;
     await app.ready;
@@ -326,7 +333,8 @@ test('attach, live tail, subagent link, late meta, and idle detach', async () =>
     // 잘린 줄은 줄바꿈이 올 때까지 기다린다
     const partial = line(say('u4', 'Second invented note'));
     await fs.appendFile(mainPath, partial.slice(0, 20));
-    await sleep(150);
+    // 고정 150 ms 대신, poll 이 앞 20바이트를 읽고 줄바꿈을 기다리며 쥐고 있을 때까지 (앞 줄은 다 읽혀 0 이었다)
+    await until(() => tailers.some((t) => t.pendingBytes(mainPath) === 20), 5000);
     await fs.appendFile(mainPath, partial.slice(20));
     assert.equal((await es.next(dataOf('say'))).data.text, 'Second invented note');
     // meta 가 늦게 생긴다 -> 다음 rescan 에 다시 연결
@@ -439,12 +447,30 @@ test('bin prints the URL and exits cleanly on SIGINT', async () => {
   // HOME = the temp root: the bin's default roots (~/.grok since P5c) never reach the real folders
   const child = spawn(process.execPath, [here('../bin/office-sim.mjs'), '--port', '0', '--root', root, '--rescan', '200'], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, HOME: root } });
   let out = '';
+  let errOut = '';
   child.stdout.on('data', (c) => { out += c; });
+  child.stderr.on('data', (c) => { errOut += c; }); // 주소 전에 끝났을 때 실패 메시지에 붙인다
+  // 주소 기다림은 'close' 로 끝낸다: stdout/stderr 를 다 읽은 뒤라 메시지의 stderr 가 빠지지 않는다 ('exit' 는 그보다 먼저 온다)
+  let exitInfo = null;
+  child.on('close', (code, signal) => { exitInfo = { code, signal }; });
   const exited = new Promise((resolve) => child.on('exit', (code, signal) => resolve({ code, signal })));
-  const url = await until(() => /http:\/\/127\.0\.0\.1:(\d+)\//.exec(out), 5000);
-  const r = await request(Number(url[1]), { path: '/healthz' });
-  assert.equal(r.status, 200);
+  // 끝나기를 ms 까지만 기다린다. 넘으면 SIGKILL 로 정리한다: 살아 있는 bin 은 테스트 파일 프로세스를 끝나지 못하게 붙잡는다
+  const exitWithin = (ms) => Promise.race([exited,
+    sleep(ms, null, { ref: false }).then(() => { child.kill('SIGKILL'); return { code: `no exit in ${ms} ms` }; })]);
+  try {
+    // 새 node 를 띄우고 서버를 여는 일이라 부하에서 느리다: 넉넉히 기다린다.
+    // 다만 주소를 찍기 전에 bin 이 끝나면 (인자 오류, 시작 실패) 15초를 다 채우지 않고 종료 코드와 stderr 로 바로 실패한다
+    const url = await until(() => /http:\/\/127\.0\.0\.1:(\d+)\//.exec(out) || exitInfo, 15000);
+    if (!Array.isArray(url)) assert.fail(`bin exited before printing the URL (code ${url.code}, signal ${url.signal}): ${errOut.slice(0, 2000)}`);
+    const r = await request(Number(url[1]), { path: '/healthz' });
+    assert.equal(r.status, 200);
+  } catch (err) {
+    child.kill('SIGKILL'); // 실패 경로에서도 듣고 있는 bin 을 남기지 않는다
+    await exitWithin(5000);
+    throw err;
+  }
   child.kill('SIGINT');
-  const { code } = await exited;
+  // bin 은 SIGINT 뒤 3초 안에 스스로 끝난다 (못 끝내면 강제 종료, 코드 1). 그보다 넉넉히 기다린다
+  const { code } = await exitWithin(10000);
   assert.equal(code, 0);
 });

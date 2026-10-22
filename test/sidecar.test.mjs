@@ -279,10 +279,18 @@ test('server: a transcript truncated and re-attached gets its summary values aga
     await es.next((fr) => fr.data?.type === 'snapshot', 4000);
     await until(async () => JSON.parse((await request(app.port, { path: '/state' })).body).events.some((e) => e.sessionId === charOf(1)), 4000);
     const mark = es.frames.length;
+    const old = app.store.entry(main);
     await fsp.writeFile(main, `${JSON.stringify({ k: 'turn_start', id: 'p2' })}\n`); // shorter: the Tailer resets, the Runner re-attaches
-    await until(() => app.store.entry(main)?.state?.debugState?.().turnId === 'p2', 4000);
-    await new Promise((r) => setTimeout(r, 200));
-    const after = es.frames.slice(mark).filter((fr) => fr.data?.type === 'session' && fr.data.sessionId === charOf(1)).map((fr) => fr.data);
+    // the fresh entry is announced only after its summary.json read; then its session event reaches the page
+    await until(() => {
+      const e = app.store.entry(main);
+      return !!e && e !== old && e.announced && e.state?.debugState?.().turnId === 'p2';
+    }, 4000);
+    const sessionsAfter = () => es.frames.slice(mark).filter((fr) => fr.data?.type === 'session' && fr.data.sessionId === charOf(1)).map((fr) => fr.data);
+    await until(() => sessionsAfter().length >= 1, 4000);
+    await new Promise((r) => setTimeout(r, 200)); // window for a later session event without the summary values
+    const after = sessionsAfter();
+    assert.ok(after.length >= 1, 'the re-attached main is announced again');
     assert.ok(after.every((e) => e.title === 'Truncated main' && e.project === '/work/trunc'), JSON.stringify(after.map((e) => e.title)));
     const st = JSON.parse((await request(app.port, { path: '/state' })).body).events.find((e) => e.type === 'session' && e.sessionId === charOf(1));
     assert.deepEqual([st.title, st.project, st.branch], ['Truncated main', '/work/trunc', 'b1']);

@@ -51,8 +51,9 @@ test('the page reads the server status as sent: SSE observe frame, POST start / 
     items: [g.userMessage({ text: 'BAIT_PROMPT seam' })],
   });
   const app = await start({ ...FAST, agents: ['grok'], roots: { grok: grokRoot }, observeDir: path.join(parent, 'obs') });
-  const c = await sse(app.port);
+  let c = null; // 연결이 실패해도 finally 가 서버를 닫는다 (남은 서버가 테스트 파일을 끝나지 못하게 붙잡는다)
   try {
+    c = await sse(app.port);
     const model = new ObserveModel();
     const first = await c.next((fr) => fr.data?.type === 'observe');
     assert.equal(model.apply(first.data), true, 'the connect frame is a status the page accepts');
@@ -87,7 +88,7 @@ test('the page reads the server status as sent: SSE observe frame, POST start / 
     const text = JSON.stringify([first.data, progressed.data, v]);
     for (const bad of ['BAIT', parent, GROK_ID, 'updates.jsonl']) assert.ok(!text.includes(bad), bad);
   } finally {
-    c.close();
+    c?.close();
     await app.close();
   }
 });
@@ -125,6 +126,23 @@ test('postObserve 500: a code that is not a plain E... code is dropped; a failed
 
 // ---- bin ----------------------------------------------------------------------------------------------------
 
+// node 를 띄우고 서버가 서기까지 (느린 러너나 느린 fs 에서는 몇 초): 넉넉한 상한
+const START_MS = 15_000;
+// 신호를 받은 실행 파일이 끝나기까지의 상한. 실행 파일의 3초 강제 종료는 이벤트 루프가 멈추면 돌지 않으므로 그것만 믿지 않는다
+const EXIT_MS = 10_000;
+const LATE = Symbol('late');
+
+// exited 를 EXIT_MS 까지만 기다린다. 넘으면 SIGKILL 하고 실패한다 (남겨 두면 자식과 그 파이프가 테스트 파일을 끝나지 못하게
+// 붙잡는다). 타이머는 ref: false: 자식이 먼저 끝나면 남은 타이머가 파일을 붙잡지 않고, 자식이 사는 동안은 그 핸들이 루프를 붙잡는다.
+async function exitWithin(child, exited, ms = EXIT_MS) {
+  const code = await Promise.race([exited, sleep(ms, LATE, { ref: false })]);
+  if (code === LATE) {
+    child.kill('SIGKILL');
+    throw new Error(`bin did not exit within ${ms} ms of the signal`);
+  }
+  return code;
+}
+
 async function runBin(args) {
   const env = { ...process.env, HOME: await tmp() }; // 기본 루트(~/.grok, ~/.codex, ~/.gemini)가 실제 폴더에 닿지 않게
   const child = spawn(process.execPath, [BIN, '--port', '0', ...args], { stdio: ['ignore', 'pipe', 'pipe'], env });
@@ -132,13 +150,13 @@ async function runBin(args) {
   child.stdout.on('data', (b) => { out += b; });
   const exited = new Promise((resolve) => child.on('exit', (code) => resolve(code)));
   try {
-    await until(() => /office-sim: agents /.test(out), 5000);
+    await until(() => /office-sim: agents /.test(out), START_MS);
   } catch (err) {
     child.kill('SIGKILL'); // 남겨 두면 그 파이프가 테스트 파일을 끝나지 못하게 붙잡는다 (느린 러너에서 멈춤)
     throw err;
   }
   const port = Number(/^office-sim: http:\/\/127\.0\.0\.1:(\d+)\//m.exec(out)[1]);
-  return { port, stop: async () => { child.kill('SIGINT'); return exited; } };
+  return { port, stop: async () => { child.kill('SIGINT'); return exitWithin(child, exited); } };
 }
 
 test('bin: live mode turns the observation on (here unavailable: no Grok or Codex root); replay mode leaves it off', async () => {
@@ -172,6 +190,9 @@ test('bin: live mode turns the observation on (here unavailable: no Grok or Code
 // npm start 의 Ctrl-C 는 신호 두 개다 (터미널이 프로세스 묶음에, npm 이 자식에게 한 번 더, 1~2 ms 사이). 두 번째가 요약을
 // 쓰기 전에 끝내 버리지 않는지 본다. 저장소의 .observe 에 쓰지 않도록 실행 파일을 임시 폴더에 복사하고 (src 는 저장소로
 // 가는 링크), 관찰의 첫 rescan 이 멈춘 마운트처럼 오래 걸리도록 sessions 폴더의 readdir 을 늦추는 preload 를 끼운다.
+// preload 는 관찰(observer.mjs)이 그 늦춘 readdir 에 들어설 때 stderr 에 표시를 남긴다 (Grok 어댑터의 스캔도 같은 폴더를
+// 읽으므로 부른 쪽으로 가린다). 테스트는 그 표시를 보고 Ctrl-C 를 보내므로, 두 신호는 늦춘 600 ms 안에 닿는다.
+const SLOW_MARK = 'office-sim-test: observer readdir stalled\n';
 test('bin: a Ctrl-C that arrives twice (npm start) is one stop: the summary is written and the exit code is 0', {
   skip: process.platform === 'win32' ? 'POSIX signals' : false,
 }, async () => {
@@ -188,25 +209,31 @@ test('bin: a Ctrl-C that arrives twice (npm start) is one stop: the summary is w
     `const slow = ${JSON.stringify(path.join(grokRoot, 'sessions'))};`,
     'const readdir = fsp.readdir;',
     'fsp.readdir = async function slowReaddir(p, ...rest) {',
-    '  if (String(p) === slow) await new Promise((r) => setTimeout(r, 600));',
+    '  if (String(p) === slow) {',
+    `    if (new Error().stack.includes('/observe/observer.mjs')) process.stderr.write(${JSON.stringify(SLOW_MARK)});`,
+    '    await new Promise((r) => setTimeout(r, 600));',
+    '  }',
     '  return readdir.call(this, p, ...rest);',
     '};',
   ].join('\n'));
   const args = ['--import', pathToFileURL(preload).href, path.join(base, 'bin', 'office-sim.mjs'), '--port', '0', '--agents', 'grok', '--grok-root', grokRoot];
   const child = spawn(process.execPath, args, { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, HOME: await tmp() } });
   let out = '';
+  let err = '';
   child.stdout.on('data', (b) => { out += b; });
+  child.stderr.on('data', (b) => { err += b; });
   const exited = new Promise((resolve) => child.on('exit', (code) => resolve(code)));
   try {
-    await until(() => /office-sim: agents /.test(out), 8000);
+    await until(() => /office-sim: agents /.test(out), START_MS);
     const port = Number(/^office-sim: http:\/\/127\.0\.0\.1:(\d+)\//m.exec(out)[1]);
     const r = await request(port, { method: 'POST', path: '/observe', headers: { 'content-type': 'application/json' }, body: '{"action":"start"}' });
     assert.equal(JSON.parse(r.body).running, true);
-    await sleep(150); // 첫 rescan 이 늦춘 readdir 을 기다리는 중
+    // 첫 rescan 이 늦춘 readdir 에 들어섰다 (관찰은 위 POST 로 처음 생기므로 그 전의 표시는 없다)
+    await until(() => err.includes(SLOW_MARK), 5000, 5);
     child.kill('SIGINT');
-    await sleep(2);
+    await sleep(2); // npm 이 보내는 두 번째 신호의 간격 (기다림이 아니라 흉내)
     child.kill('SIGINT');
-    assert.equal(await exited, 0, 'the repeat is the same keystroke, not a second Ctrl-C');
+    assert.equal(await exitWithin(child, exited), 0, 'the repeat is the same keystroke, not a second Ctrl-C');
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
   }

@@ -200,7 +200,8 @@ test('server: a child that shows up in a later rescan after its end was read nev
     await fs.appendFile(l.mainPath, line({ k: 'sub_end', child: 'grok-c1' }) + line({ k: 'meta', title: 'marker' }));
     await until(() => app.store.ring.some((x) => x.event.type === 'session' && x.event.title === 'marker'), 3000);
     withChild = true;
-    await until(() => app.stats().files === 2, 3000);
+    // files === 2 only means attached: the child is announced (and ended from the hint) after its readAll
+    await until(() => app.store.entry(l.childPath)?.announced === true, 3000);
     await sleep(150);
     await assertNeverShown(app, l.childPath);
   } finally {

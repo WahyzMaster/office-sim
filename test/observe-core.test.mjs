@@ -62,6 +62,30 @@ async function opensDuring(fn) {
   return opened;
 }
 
+// work 가 끝나면 그 값, BLOCK_MS 안에 안 끝나면 'blocked'. FIFO 를 O_NONBLOCK 없이 열면 쓰는 쪽이 열릴 때까지 돌아오지
+// 않으므로 (느린 디스크처럼 늦게라도 끝나는 것이 아니다) 넉넉히 기다려도 잃는 것이 없다: 느린 디스크나 바쁜 기계에서
+// 막히지 않은 poll 을 'blocked' 로 잘못 보지 않게 하는 한도일 뿐이다. 끝에는 fifo 의 쓰는 쪽을 막힘 없이 열었다 닫아
+// 막힌 open 을 풀어 준다 (읽는 쪽이 없으면 ENXIO 로 넘어간다). 그래서 막혀도 시험 파일이 멈추지 않고 실패한다.
+// 막혔으면 풀기 전에 ob 를 멈춘다: 풀린 open 만 끝나고 work 에 남은 rescan/poll 은 _serial 이 건너뛰므로 FIFO 를 다시
+// 열지 않는다 (풀어 주는 것은 한 번뿐이라 두 번째 open 은 아무도 풀지 않아 시험 파일이 끝나지 않는다).
+// work 도 곧 끝나 opensDuring 이 fsp.open 을 되돌린다. 막히지 않았으면 멈추지 않는다 (뒤의 ob.rescan() 이 돌아야 한다).
+const BLOCK_MS = 30_000;
+async function unlessBlocked(work, fifo, ob) {
+  let timer;
+  const blocked = new Promise((resolve) => { timer = setTimeout(() => resolve('blocked'), BLOCK_MS); });
+  let result;
+  try {
+    result = await Promise.race([work, blocked]);
+    return result;
+  } finally {
+    clearTimeout(timer);
+    if (result === 'blocked') ob.cancel();
+    try {
+      closeSync(openSync(fifo, FS.O_WRONLY | FS.O_NONBLOCK));
+    } catch {}
+  }
+}
+
 test('a file existing at start starts at its size; whole-line appends are counted with kinds and lag', async () => {
   const root = await tmp();
   const s = await grokSession(root, { updates: line(upd('user_message_chunk')) + line(upd('agent_message_chunk')) });
@@ -325,18 +349,21 @@ test('links, link folders and FIFOs are never opened and never block', { skip: S
   const linked = path.join(root, 'sessions', GROUP, '01920000-0000-7000-8000-000000000005');
   await fsp.mkdir(linked, { recursive: true });
   await fsp.symlink(path.join(outside, 'updates.jsonl'), path.join(linked, 'updates.jsonl'));
-  execFileSync('mkfifo', [path.join(linked, 'events.jsonl')]);
+  const fifo = path.join(linked, 'events.jsonl');
+  execFileSync('mkfifo', [fifo]);
   await fsp.symlink(path.join(outside, 'sess'), path.join(root, 'sessions', GROUP, '01920000-0000-7000-8000-000000000006'));
   await fsp.symlink(outside, path.join(root, 'sessions', 'linked-group'));
   const real = await grokSession(root);
   const { ob, recs } = observe({ grok: root });
-  const opened = await opensDuring(async () => {
+  // FIFO 를 막힘 모드로 열면 끝나지 않으므로 한도를 두고 기다린다 (멈추지 않고 실패하게)
+  const opened = await unlessBlocked(opensDuring(async () => {
     await ob.rescan();
     await fsp.appendFile(real.file, line(upd('a')));
     await fsp.appendFile(path.join(outside, 'updates.jsonl'), line(upd('b')));
     await ob.poll();
     await ob.rescan();
-  });
+  }), fifo, ob);
+  assert.notEqual(opened, 'blocked', 'an open of the FIFO blocked');
   assert.deepEqual(filesOf(recs).map((r) => r.event), ['watch']);
   assert.equal(appendsOf(recs).length, 1);
   assert.ok(opened.every((p) => p === real.file), opened.join('\n'));
@@ -360,16 +387,11 @@ test('a FIFO renamed over a watched file between its lstat and open is not read 
     }
     return st;
   };
-  let timer;
   try {
-    const blocked = new Promise((resolve) => { timer = setTimeout(() => resolve('blocked'), 1000); });
-    assert.notEqual(await Promise.race([ob.poll(), blocked]), 'blocked');
+    // 바뀐 뒤의 이름(s.file)이 FIFO 다: 막힌 open 은 unlessBlocked 가 그 쓰는 쪽을 열어 풀어 준다
+    assert.notEqual(await unlessBlocked(ob.poll(), s.file, ob), 'blocked');
   } finally {
-    clearTimeout(timer);
     fsp.lstat = orig;
-    try {
-      closeSync(openSync(s.file, FS.O_WRONLY | FS.O_NONBLOCK));
-    } catch {}
   }
   assert.equal(appendsOf(recs).length, 0);
   await ob.rescan();

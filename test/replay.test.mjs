@@ -7,10 +7,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { start } from '../src/server.mjs';
 import { parseArgs } from '../src/cli-args.mjs';
+import { fileEntries, mergeTimeline, schedule } from '../src/replay-timeline.mjs';
+// 서버(claude-code 어댑터)가 동적 import 하는 것과 같은 모듈 인스턴스다
+import { ReplayRunner } from '../src/replay.mjs';
 import { request, sse, until } from './fixtures/sse.mjs';
-import { writeReplayFixture, REPLAY_SID, REPLAY_AGENT, REPLAY_CWD, IDS } from './fixtures/replay-fixture.mjs';
+import { writeReplayFixture, REPLAY_SID, REPLAY_AGENT, REPLAY_CWD, IDS, LONG_GAP_MS } from './fixtures/replay-fixture.mjs';
 
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
+const SPEED = 20;
+const TIMING = { maxGapMs: 300, holdMs: 150, restartMs: 150, statusMs: 50 };
 const tmpDirs = [];
 const apps = [];
 after(async () => {
@@ -29,8 +34,8 @@ async function launch(mainPath, extra = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'office-sim-replay-root-'));
   tmpDirs.push(root);
   const app = await start({
-    port: 0, root, publicDir: PUBLIC, replay: mainPath, speed: 20, intervalMs: 50, idleMs: 50,
-    replayTiming: { maxGapMs: 300, holdMs: 150, restartMs: 150, statusMs: 50 }, ...extra,
+    port: 0, root, publicDir: PUBLIC, replay: mainPath, speed: SPEED, intervalMs: 50, idleMs: 50,
+    replayTiming: TIMING, ...extra,
   });
   apps.push(app);
   const got = [];
@@ -42,9 +47,60 @@ const getConfig = async (port) => JSON.parse((await request(port, { path: '/conf
 const find = (got, pred) => got.find((g) => pred(g.ev));
 const startOf = (got, id) => find(got, (e) => e.type === 'tool_start' && e.toolUseId === id);
 
-test('replay: events follow the recorded order, the subagent joins when its file starts, gaps scale with --speed', async () => {
-  const { mainPath } = await fixture();
-  const { app, got } = await launch(mainPath);
+// 재생기와 같은 순수 시간표 (시계 없음): 메인 먼저, 그다음 서브에이전트 파일 -> [{ fi, line, t, due }]
+async function plannedTimeline({ mainPath, subPath }) {
+  const files = [];
+  for (const p of [mainPath, subPath]) files.push(fileEntries(await fs.readFile(p, 'utf8')).entries);
+  const timeline = mergeTimeline(files);
+  schedule(timeline, { speed: SPEED, maxGapMs: TIMING.maxGapMs });
+  return timeline;
+}
+
+// 그 도구 호출(tool_use 블록)이 실린 줄이 재생 시작 몇 ms 뒤에 나오는지
+function dueOf(timeline, id) {
+  const e = timeline.find(({ line }) => {
+    const content = JSON.parse(line).message?.content;
+    return Array.isArray(content) && content.some((b) => b?.type === 'tool_use' && b.id === id);
+  });
+  assert.ok(e, `no tool_use ${id} in the timeline`);
+  return e.due;
+}
+
+// 재생기 안을 시계 상한 없이 본다: begin() 이 잡은 시작 시각과 due, poll 마다 낸 줄의 범위 [from, to).
+// 원래 메서드를 감싸 기록만 하고 동작은 바꾸지 않는다. restore() 로 되돌린다.
+function watchReplay() {
+  const P = ReplayRunner.prototype;
+  const { begin, pollAll } = P;
+  const seen = { startWall: null, dues: null, polls: [] };
+  P.begin = function (...args) {
+    const r = begin.apply(this, args);
+    seen.startWall = this.startWall;
+    seen.dues = this.timeline.map((e) => e.due);
+    return r;
+  };
+  P.pollAll = async function (...args) {
+    if (this.phase !== 'playing') return pollAll.apply(this, args);
+    // lo 는 부르기 전에 잰다: pollAll 이 안에서 언제 시계를 읽든 그 poll 의 경과 시간은 lo 이상이다
+    const from = this.cursor;
+    const lo = Date.now() - this.startWall;
+    await pollAll.apply(this, args);
+    seen.polls.push({ from, to: this.cursor, lo });
+  };
+  return {
+    seen,
+    restore: () => {
+      P.begin = begin;
+      P.pollAll = pollAll;
+    },
+  };
+}
+
+test('replay: events follow the recorded order, the subagent joins when its file starts, gaps scale with --speed', async (t) => {
+  const watch = watchReplay();
+  t.after(watch.restore); // 이 파일의 다음 테스트(--loop 의 두 번째 begin 등)와 아직 도는 이 앱은 원래 메서드로
+  const fx = await fixture();
+  const plan = await plannedTimeline(fx);
+  const { app, got } = await launch(fx.mainPath);
   await app.ready;
   await until(async () => (await getConfig(app.port)).replay.state === 'done', 8000);
 
@@ -69,12 +125,35 @@ test('replay: events follow the recorded order, the subagent joins when its file
   for (const g of got.filter((x) => x.ev.type === 'session')) assert.equal(g.ev.agent, 'claude-code', JSON.stringify(g.ev));
   assert.ok(startOf(got, IDS.subRead) && got.indexOf(startOf(got, IDS.subRead)) < got.indexOf(subEnd));
 
-  // 기록 간격 19 s (Read 4 s -> 승인 대기 Bash 23 s) / 20배속 = 약 950 ms (poll 50 ms 단위라 넓게 본다)
-  const gap = startOf(got, IDS.approved).at - startOf(got, IDS.read).at;
-  assert.ok(gap >= 650 && gap <= 1800, `scaled gap ${gap} ms`);
-  // 한 시간 비운 자리는 maxGapMs(300 ms)로 줄어든다
-  const lintGap = startOf(got, IDS.lint).at - startOf(got, IDS.rejected).at;
-  assert.ok(lintGap < 1500, `capped gap ${lintGap} ms`);
+  // 기록 간격 19 s (Read 4 s -> 승인 대기 Bash 23 s) / 20배속 = 950 ms. 배속 계산은 시계 없이 시간표로 정확히 본다
+  // (픽스처의 시각 차는 모두 100 ms 의 배수라 20 으로 나눠도 정수다)
+  const dueRead = dueOf(plan, IDS.read);
+  const dueApproved = dueOf(plan, IDS.approved);
+  assert.equal(dueApproved - dueRead, 950);
+  // 한 시간 비운 그 한 칸만 maxGapMs(300 ms)로 줄어든다 (20배속 그대로면 180 s)
+  const back = plan.findIndex((e, i) => i > 0 && e.t - plan[i - 1].t === LONG_GAP_MS);
+  assert.ok(back > 0, 'the one-hour gap is in the timeline');
+  assert.equal(plan[back].due - plan[back - 1].due, TIMING.maxGapMs);
+  // 재생기도 이 시간표 그대로다: 배속이나 상한을 잘못 넘기면 due 가 달라진다
+  // (마지막 poll 기록은 done 이 된 poll 바로 뒤 마이크로태스크에 쌓이고, 위의 /config 왕복이 그 뒤라 여기서 다 보인다)
+  const { startWall, dues, polls } = watch.seen;
+  assert.ok(dues && startWall, 'the replay runner began');
+  assert.deepEqual(dues, plan.map((e) => e.due));
+  // poll 마다: 그 poll 이 시작할 때 이미 때가 된 줄은 그 poll 에서 모두 나온다 (붙잡아 두었다가 몰아 내지 않는다).
+  // 부하는 poll 을 늦출 뿐이고 lo 를 키우는 쪽이라, 이 검사는 시계 상한 없이도 부하로 깨지지 않는다
+  assert.ok(polls.length > 0 && polls[0].from === 0 && polls.at(-1).to === dues.length, JSON.stringify(polls.slice(-3)));
+  for (const [i, p] of polls.entries()) {
+    if (i > 0) assert.equal(p.from, polls[i - 1].to, `poll ${i} starts where the last one stopped`);
+    assert.ok(p.to === dues.length || dues[p.to] > p.lo, `poll ${i} at ${p.lo} ms held back a line due at ${dues[p.to]} ms`);
+  }
+  // 실제 이벤트: 줄은 startWall + due 보다 일찍 나오지 않는다. 부하는 늦출 수만 있어서 이 하한은 부하로 깨지지 않는다
+  const readStart = startOf(got, IDS.read);
+  const approvedStart = startOf(got, IDS.approved);
+  assert.ok(got.indexOf(readStart) < got.indexOf(approvedStart));
+  for (const id of [IDS.read, IDS.approved, IDS.rejected, IDS.lint]) {
+    const at = startOf(got, id).at - startWall;
+    assert.ok(at >= dueOf(plan, id), `${id} released ${at} ms after start, due ${dueOf(plan, id)} ms`);
+  }
 
   // 사람이 권한 창에 답한 호출만 awaitsApproval (재생에서만 결과를 미리 안다)
   assert.equal(startOf(got, IDS.approved).ev.awaitsApproval, true);

@@ -15,10 +15,16 @@ import { grok } from '../src/adapters/grok/index.mjs';
 import { createGrokScanner } from '../src/adapters/grok/discover.mjs';
 import { start } from '../src/server.mjs';
 import { ADAPTERS } from '../src/adapters/index.mjs';
+import { APPROVAL_SHOW_MS } from '../src/adapters/grok/approval.mjs';
 import { sse, until } from './fixtures/sse.mjs';
 
 const SCRIPT = fileURLToPath(new URL('../scripts/fake-grok-append.mjs', import.meta.url));
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
+// How long after APPROVAL_SHOW_MS the live show of an open prompt may reach the wire (the 1 s rule itself is pinned in
+// grok-approval.test.mjs): the next rescan (60 ms here) and its cycle, slower on a loaded machine, plus delivery. Seen:
+// about 1.0-1.1 s from the request, 1.3 s with every fs call 60 ms slower, 2.05 s with each GrokMeta check stalled
+// 0.7 s; a show 3 s late fails (so do fs calls 200 ms slower, about 2.8 s: this bound is then the first limit).
+const SHOW_SLACK_MS = 1500;
 const tmpDirs = [];
 after(async () => {
   for (const d of tmpDirs) await fsp.rm(d, { recursive: true, force: true });
@@ -29,11 +35,16 @@ async function tmp(prefix) {
   return d;
 }
 
+// resolves { code, stdout, stderr } when the script exits; `.child` is the process (a test that does not await the run
+// kills it on its failure path)
 function runScript(args, home) {
-  return new Promise((resolve) => {
-    execFile(process.execPath, [SCRIPT, ...args], { env: { ...process.env, HOME: home, USERPROFILE: home }, timeout: 20_000 },
+  let child = null;
+  const done = new Promise((resolve) => {
+    child = execFile(process.execPath, [SCRIPT, ...args], { env: { ...process.env, HOME: home, USERPROFILE: home }, timeout: 20_000 },
       (err, stdout, stderr) => resolve({ code: err ? err.code : 0, stdout, stderr }));
   });
+  done.child = child;
+  return done;
 }
 const readJsonl = async (file) => (await fsp.readFile(file, 'utf8')).split('\n').filter(Boolean).map((l) => JSON.parse(l));
 async function sessionFiles(root) {
@@ -73,14 +84,39 @@ test('fake-grok-append --cancel: the open prompt shows, then the cancelled turn 
     await app.ready;
     es = await sse(app.port);
     await es.next((fr) => fr.data?.type === 'snapshot', 4000);
-    const r = await runScript(['--root', root, '--cwd', '/work/fake-cancel', '--step-ms', '0', '--wait-ms', '1600', '--cancel'], home);
-    assert.equal(r.code, 0, r.stderr);
     const wire = () => es.frames.map((fr) => fr.data).filter((e) => e && e.type !== 'snapshot' && e.type !== 'config');
     const runs = () => wire().filter((e) => e.type === 'tool_start' && e.tool === 'run_terminal_command');
+    // The prompt shows only if one events.jsonl read (once per rescan, after the scan) finds it open at least
+    // APPROVAL_SHOW_MS (1 s) after its request; the cancel then closes it as gone, which sends nothing. --wait-ms 5000
+    // leaves that read a 4 s window (1.6 s left 0.6 s, missed by a rescan cycle stalled 0.7 s), for about 3.4 s more wall
+    // time; how late the show may come is bounded on its own below (SHOW_SLACK_MS). The run is not awaited first: the
+    // test polls for the second test run's waiting:true while the prompt is open, or for the script's end (its execFile
+    // timeout ends it by 20 s; then the assertions below show what is missing).
+    const run = runScript(['--root', root, '--cwd', '/work/fake-cancel', '--step-ms', '0', '--wait-ms', '5000', '--cancel'], home);
+    let exited = false;
+    run.then(() => { exited = true; });
+    const isShown = (e) => e.type === 'tool_wait' && e.waiting === true && e.toolUseId === runs()[1]?.toolUseId;
+    let shownAt = null; // when that waiting:true was first seen on the wire (to the 20 ms poll)
+    try {
+      await until(() => {
+        if (shownAt === null && wire().some(isShown)) shownAt = Date.now();
+        return shownAt !== null || exited;
+      }, 25_000);
+    } catch (err) {
+      run.child.kill('SIGKILL');
+      await run;
+      throw err;
+    }
+    const r = await run;
+    assert.equal(r.code, 0, r.stderr);
     await until(() => runs().length === 2 && wire().some((e) => e.type === 'tool_end' && e.toolUseId === runs()[1].toolUseId), 6000);
     const id = runs()[1].toolUseId; // the second test run: its prompt stays open
     const mine = wire().filter((e) => e.toolUseId === id).map((e) => [e.type, e.waiting ?? e.errorKind ?? null]);
     assert.deepEqual(mine, [['tool_start', null], ['tool_wait', true], ['tool_end', 'interrupted']]);
+    // the show end to end (the read cadence, GrokMeta, the runner, SSE): from the request (its ts) to the wire
+    const delay = shownAt === null ? null : shownAt - Date.parse(wire().find(isShown).ts);
+    assert.ok(delay !== null && delay <= APPROVAL_SHOW_MS + SHOW_SLACK_MS,
+      `waiting:true ${delay === null ? 'seen only after the script ended' : `${delay} ms after the request`}`);
     assert.deepEqual(wire().filter((e) => e.type === 'tool_wait').map((e) => [e.toolUseId, e.waiting]), [[id, true]], 'no waiting:false');
     // the files: the prompt has no resolution and its call no completion; the turn ends cancelled in both logs
     const [main] = (await sessionFiles(root)).filter((d) => existsSync(path.join(d, 'subagents')));

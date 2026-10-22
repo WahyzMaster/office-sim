@@ -7,12 +7,13 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fsp from 'node:fs/promises';
-import { existsSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { execFile, spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { insideRealRoot } from '../scripts/fake-root-guard.mjs';
+import { until } from './fixtures/sse.mjs';
 
 const script = (name) => fileURLToPath(new URL(`../scripts/${name}`, import.meta.url));
 const GROUP = encodeURIComponent('/work/fake'); // fake-grok's session group folder for --cwd /work/fake
@@ -61,14 +62,21 @@ function runScript(file, args, home) {
 }
 
 // Starts a script, waits for its printed root (its first files are written and the signal handlers are on; it then
-// sleeps --step-ms) or, with `when`, for that stdout line too, then `delayMs` more and `before(root)`, sends the signal
-// and waits for the exit. A script that never prints or never exits is killed.
-async function stopAfterRoot(file, args, { home, tmpDir, signal = 'SIGTERM', when = null, delayMs = 0, before = null }) {
-  const child = spawn(process.execPath, [file, ...args], { env: envOf(home, tmpDir), stdio: ['ignore', 'pipe', 'pipe'] });
+// sleeps --step-ms) or, with `when`, for that stdout line too, then runs `before(root)` (which may wait for the script's
+// next write), sends the signal and waits for the exit. A script that never prints or never exits is killed after 15 s;
+// one still running when something after its root line throws is killed (SIGKILL) before the error goes on, so a
+// --loop script never outlives this call (a test that runs several at once waits for every call before it ends).
+// execArgv goes before the script (a --import probe); what the child writes to fd 3 comes back as `probe`.
+async function stopAfterRoot(file, args,
+  { home, tmpDir, signal = 'SIGTERM', when = null, before = null, execArgv = [] }) {
+  const child = spawn(process.execPath, [...execArgv, file, ...args],
+    { env: envOf(home, tmpDir), stdio: ['ignore', 'pipe', 'pipe', 'pipe'] });
   const kill = setTimeout(() => child.kill('SIGKILL'), 15_000);
   let out = '';
   let err = '';
+  let probe = '';
   child.stderr.on('data', (d) => { err += d; });
+  child.stdio[3].on('data', (d) => { probe += d; });
   const exited = new Promise((resolve) => child.on('close', (code, sig) => resolve({ code, signal: sig })));
   try {
     const root = await new Promise((resolve, reject) => {
@@ -79,14 +87,59 @@ async function stopAfterRoot(file, args, { home, tmpDir, signal = 'SIGTERM', whe
       });
       exited.then(() => reject(new Error(`exited before printing its root\n${out}${err}`)));
     });
-    if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
     const written = existsSync(root) ? await fsp.readdir(root) : [];
     await before?.(root);
     child.kill(signal);
-    return { root, written, ...(await exited), out, err };
+    return { root, written, ...(await exited), out, err, probe };
   } finally {
+    // a throw after the root line (readdir, `before` or its wait) left the child unsignalled: its pipes and process
+    // handle would keep this file running (a --loop script writes forever). SIGKILL cannot be caught, so `exited` settles
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+      await exited;
+    }
     clearTimeout(kill);
   }
+}
+
+// The writes under way at a signal, seen from inside the script: a preload for the child (its source goes in a data:
+// URL, so no file and no change to the script; never run here). Every write call of the run (appendFile, writeFile,
+// rename, mkdir: all the scripts' writes) is held 20 ms before it starts, so one is nearly always under way at the
+// signal, and fd 3 gets how many were under way when the signal came and when the temp root's removal started.
+// "signal 1\nrm 0\n" is a stop that waited for the write; a stop that removes the root at once gives "rm 1" (its write
+// then lands on an unlinked file or fails after the exit, which the exit code, stderr and the removed root cannot show).
+function writeProbe(fsp, writeSync) {
+  let open = 0;
+  for (const k of ['appendFile', 'writeFile', 'rename', 'mkdir']) {
+    const real = fsp[k];
+    fsp[k] = async function held(...a) {
+      open += 1;
+      try {
+        await new Promise((r) => setTimeout(r, 20));
+        return await real.apply(this, a);
+      } finally {
+        open -= 1;
+      }
+    };
+  }
+  const rm = fsp.rm;
+  fsp.rm = function counted(...a) {
+    writeSync(3, `rm ${open}\n`);
+    return rm.apply(this, a);
+  };
+  // registered before the script's own handlers, so it reads the count before stop() runs
+  for (const s of ['SIGTERM', 'SIGINT']) process.on(s, () => writeSync(3, `signal ${open}\n`));
+}
+const WRITE_PROBE = `data:text/javascript,${encodeURIComponent(
+  `import fsp from 'node:fs/promises'; import { writeSync } from 'node:fs'; (${writeProbe})(fsp, writeSync);`)}`;
+
+// the .jsonl transcripts under a root and their sizes (sync calls: a cheap check, polled every few ms)
+function jsonlSizes(root) {
+  const sizes = new Map();
+  for (const rel of readdirSync(root, { recursive: true })) {
+    if (rel.endsWith('.jsonl')) sizes.set(rel, statSync(path.join(root, rel)).size);
+  }
+  return sizes;
 }
 
 test('insideRealRoot: the same path or under it by whole parts, as written or through links, letter case folded', async () => {
@@ -259,26 +312,44 @@ for (const [name, s] of Object.entries(SCRIPTS)) {
 test('a signal during writes (--step-ms 0 --loop): the writes under way finish, then the temp root is removed, exit 0', async () => {
   const runs = [];
   for (const [name, s] of Object.entries(SCRIPTS)) {
-    for (const [i, signal] of ['SIGTERM', 'SIGINT', 'SIGTERM'].entries()) {
+    for (const signal of ['SIGTERM', 'SIGINT', 'SIGTERM']) {
       runs.push((async () => {
         const tmpDir = await tmp('office-sim-fake-tmp-');
-        // codex and grok write without pause once turn 1 is written; agy's results land 0.25-2 s apart (its own jitter),
-        // so it is signalled a little after its 1.5 s start pause instead
-        const agy = name === 'antigravity';
-        const r = await stopAfterRoot(s.file, ['--cwd', '/work/fake', '--step-ms', '0', '--loop', ...s.extra],
-          { home: await tmp('office-sim-fake-home-'), tmpDir, signal, when: agy ? null : /^turn 1 written$/m, delayMs: agy ? 1600 + 200 * i : 0 });
+        // codex and grok write without pause once turn 1 is written (agy's whole turn takes ~10 s of its own jitter, so
+        // it goes from its root line: its turn starts after a 1.5 s pause). Then the signal follows the script's own
+        // progress, not a guessed delay: it goes out as soon as its next transcript write lands, a .jsonl grown or new
+        // since the sizes taken at that point (8 s is far above the 1.5 s pause; the 15 s kill comes later). The write
+        // probe holds each write 20 ms and counts the ones under way at the signal and at the removal
+        const r = await stopAfterRoot(s.file, ['--cwd', '/work/fake', '--step-ms', '0', '--loop', ...s.extra], {
+          home: await tmp('office-sim-fake-home-'), tmpDir, signal, when: name === 'antigravity' ? null : /^turn 1 written$/m,
+          execArgv: ['--import', WRITE_PROBE],
+          before: async (root) => {
+            const seen = jsonlSizes(root);
+            await until(() => [...jsonlSizes(root)].some(([rel, size]) => size > (seen.get(rel) ?? -1)), 8000, 5);
+          },
+        });
         return { at: `${name} ${signal}`, r, tmpDir };
       })());
     }
   }
-  for (const { at, r, tmpDir } of await Promise.all(runs)) {
-    const log = `${at}\n${r.out}${r.err}`;
+  // every run ends (its signal, or its own SIGKILL on a throw) before the test does: one failing run must not leave the
+  // others writing while after() removes their folders. Then the first failure is the test's
+  const settled = await Promise.allSettled(runs);
+  const failed = settled.find((x) => x.status === 'rejected');
+  if (failed) throw failed.reason;
+  const results = settled.map((x) => x.value);
+  for (const { at, r, tmpDir } of results) {
+    const log = `${at}\n${r.out}${r.err}\nprobe: ${JSON.stringify(r.probe)}`;
     assert.deepEqual([r.code, r.signal], [0, null], log);
     assert.equal(r.err, '', `${log}: no unhandled write error`);
     assert.match(r.out, /\nstopped; the temp root was removed\n$/, log);
+    assert.match(r.probe, /^signal \d+\nrm 0\n$/, `${log}: no write was under way when the temp root's removal started`);
     assert.equal(existsSync(r.root), false, `${log}: the temp root is gone`);
     assert.deepEqual(await fsp.readdir(tmpDir), [], log);
   }
+  // not a vacuous "rm 0": a write was under way at the signal (nearly every run has one; a run can land between writes)
+  assert.ok(results.some(({ r }) => /^signal [1-9]/.test(r.probe)),
+    `a write was under way at some signal\n${results.map(({ at, r }) => `${at}: ${JSON.stringify(r.probe)}`).join('\n')}`);
 });
 
 test('a temp root that could not be removed is named on SIGTERM (exit 1), not reported removed',

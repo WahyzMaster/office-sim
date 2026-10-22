@@ -315,7 +315,10 @@ test('Runner: a continuation piece takes over the same character (no second one,
   const root = await tmp();
   const base = await writeRollout(root, { id: cid(1), mtimeMs: Date.now() - 2000,
     items: [{ k: 'turn_start', id: 't1' }, { k: 'say', text: 'Base piece.' }] });
-  const app = await startCodex(root);
+  // the poll is held off (the slowest allowed interval) until the piece has taken over: the Runner defers the takeover
+  // while a poll reads the base, and with a short poll on a slow disk the rescan kept finding the base busy (the
+  // takeover waited past 15 s). Nothing before the takeover needs a poll; POST /config brings it back to 50 ms below.
+  const app = await startCodex(root, { intervalMs: 5000 });
   let es = null;
   try {
     await app.ready;
@@ -323,7 +326,13 @@ test('Runner: a continuation piece takes over the same character (no second one,
     es = await sse(app.port);
     await es.next((fr) => fr.data?.type === 'snapshot', 4000);
     const piece = await writeRollout(root, { id: cid(1), piece: cid(90), meta: { ordinal: 2 }, items: [{ k: 'say', text: 'Rolled back.' }] });
-    await until(() => app.store.has(piece), 4000);
+    // published, not just registered: has() turns true before the replay stats the piece, and a line appended
+    // before that stat is replayed silently; announced comes after the replay, so the next line is read live.
+    // The bound covers a rescan plus the whole attach (real fs work), so it is wide
+    await until(() => app.store.entry(piece)?.announced === true, 15_000);
+    // a shorter interval moves the waiting poll up at once, so the line below is read within one 50 ms poll
+    const cfg = await request(app.port, { method: 'POST', path: '/config', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ intervalMs: 50 }) });
+    assert.equal(cfg.status, 200);
     await appendLines(piece, [{ k: 'say', text: 'Live from the piece.' }]);
     await es.next((fr) => fr.data?.type === 'say' && fr.data.text === 'Live from the piece.', 4000);
     await setMtime(piece, Date.now() + 60_000); // the piece stays the newest while the base is touched below

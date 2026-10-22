@@ -8,7 +8,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { ObserveControl, fileStamp } from '../src/observe/control.mjs';
 import { FILE_RE, fileKey, pruneOutputs } from '../src/observe/retention.mjs';
-import { tempDirs, fakeTimers, clock, codexRoot, turns } from './fixtures/observe-ctl.mjs';
+import { tempDirs, fakeTimers, clock, codexRoot } from './fixtures/observe-ctl.mjs';
 
 const T = tempDirs();
 after(() => T.cleanup());
@@ -232,11 +232,13 @@ test('a pass given an aborted signal deletes nothing', async () => {
   await assertBaitUntouched(dir, seeded);
 });
 
-test('a retention pass that outlives stopWaitMs deletes nothing afterwards: the next observation\'s running file stays', async () => {
+test('a retention pass that outlives stopWaitMs deletes nothing afterwards: the next observation\'s running file stays', { timeout: 10_000 }, async () => {
   const dir = path.join(await T.tmp(), '.observe');
   let stalls = 1;
   let release = null;
   let released = false;
+  let entered;
+  const stalled = new Promise((r) => { entered = r; });
   const late = [];
   const inDir = (p) => path.dirname(String(p)) === dir;
   const fsImpl = Object.assign(Object.create(null), fsp, {
@@ -244,6 +246,7 @@ test('a retention pass that outlives stopWaitMs deletes nothing afterwards: the 
     readdir: async (p, ...a) => {
       if (String(p) === dir && stalls > 0) {
         stalls -= 1;
+        entered();
         await new Promise((r) => { release = r; });
       }
       return fsp.readdir(p, ...a);
@@ -260,7 +263,9 @@ test('a retention pass that outlives stopWaitMs deletes nothing afterwards: the 
   const timers = fakeTimers();
   const { ctl, now } = await control(dir, { fsImpl, timers, keep: 1 });
   const starting = ctl.start();
-  for (let i = 0; i < 50 && timers.pending < 1; i++) await turns(1);
+  // 정해진 횟수만큼 돌며 기다리지 않는다 (느린 fs 에서는 그 사이 start 의 파일 열기와 시작 기록 쓰기가 끝나지 않는다):
+  // 첫 관찰의 보관 단계가 폴더 목록에 들어온 때를 기다린다. _settle 의 타이머는 그와 같은 동기 흐름에서 걸린다.
+  await stalled;
   assert.deepEqual(timers.delays, [1500]);
   await timers.fire(); // 첫 관찰의 보관 단계는 기다림을 넘겼다: start() 는 답한다
   assert.equal((await starting).running, true);
