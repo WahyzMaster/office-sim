@@ -2,11 +2,22 @@
 import { ROOMS, doorOf, zoneAt } from './rooms.js';
 
 export const GOLDEN_ANGLE = 137.508;
-const FAMILY_SPAN = 72; // 형제 서브에이전트 색이 퍼지는 폭: 부모 색 + 18 을 중심으로 ±36도
+const FAMILY_SPAN = 48; // 형제 서브에이전트 색이 퍼지는 폭: 부모 브랜드 색 계열 안에서 ±24도
 const MIN_HUE_GAP = 8; // 같은 층 메인 세션끼리 이보다 가까운 색이면 황금각만큼 돌린다
 export const LANES = 15;
 const LANE_GAP = 0.1; // 15칸 x 0.1 = 복도 가운데 ±0.7, 문 폭(±1) 안쪽
 const LOUNGE_ROWS = [-1.3, 1.3, -0.7, 0.7, 0];
+
+// 에이전트 브랜드별 대표 색상(Hue): Claude(테라코타), Codex(에메랄드), Grok(코스믹 바이올렛), Antigravity(딥마인드 코발트/CLI 시안)
+export const BRAND_HUES = Object.freeze({
+  'claude-code': 18,
+  codex: 162,
+  grok: 268,
+  antigravity: 222,
+  'antigravity:cli': 195,
+  'antigravity:ide': 208,
+  'antigravity:app': 224,
+});
 
 export function hueOf(id) {
   let h = 7;
@@ -26,6 +37,21 @@ export function spreadHue(base, taken) {
     if (taken.every((t) => hueGap(h, t) >= MIN_HUE_GAP)) return Math.round(h * 10) / 10;
   }
   return base % 360;
+}
+
+// 브랜드 색상 계열 안에서 세션마다 미세한 톤 차이를 준다(브랜드 정체성 유지 + 같은 층 동료 구분).
+export function brandHue(agent, surface, id, taken = []) {
+  const key = agent === 'antigravity' && surface && Object.hasOwn(BRAND_HUES, `antigravity:${surface}`)
+    ? `antigravity:${surface}` : agent;
+  if (!Object.hasOwn(BRAND_HUES, key)) return spreadHue(hueOf(id), taken);
+  const center = BRAND_HUES[key];
+  const seed = ((hueOf(id) % 17) - 8) * 1.2;
+  for (let i = 0; i < 9; i++) {
+    const shift = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 4.5;
+    const h = (((center + seed + shift) % 360) + 360) % 360;
+    if (taken.every((t) => hueGap(h, t) >= 4)) return Math.round(h * 10) / 10;
+  }
+  return (((center + seed) % 360) + 360) % 360;
 }
 
 // 서브에이전트: 부모 색 계열을 지키면서 형제 순번 k 마다 황금각 비율로 흩어 서로 다른 색을 준다.

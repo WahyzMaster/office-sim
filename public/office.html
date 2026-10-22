@@ -113,19 +113,23 @@ button { font: inherit; color: inherit; }
 }
 .tag {
   pointer-events: auto; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 6px; max-width: 240px;
+  display: inline-flex; align-items: center; gap: 5px; max-width: 268px;
   padding: 3px 9px 3px 6px; border-radius: 999px;
   background: var(--panel-solid); border: 1px solid var(--line); box-shadow: var(--shadow);
   font: 500 11px/1.25 var(--font-ui);
 }
 .tag i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: none; }
+.tag .ab {
+  font: 600 9.5px/1.15 var(--font-mono); font-style: normal; padding: 1px 5px; border-radius: 4px;
+  background: color-mix(in srgb, var(--c) 18%, var(--muted-bg)); color: var(--fg); flex: none;
+}
 .tag b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 112px; }
-.tag span { color: var(--muted); font: 400 10px/1.2 var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.tag span { color: var(--muted); font: 400 10px/1.2 var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 112px; }
 .tag.sub { font-size: 10px; padding-block: 2px; }
 .tag.sub b { max-width: 90px; }
 .tag[data-mode="panic"] { border-color: var(--danger); }
 .tag[data-mode="ask"] { border-color: var(--ask-line); }
-body.overview .tag, body.overview .sign { display: none; }
+body.overview .sign, body.overview .tag span { display: none; }
 
 .bubble {
   position: relative; max-width: 220px; padding: 7px 11px; border-radius: 14px;
@@ -244,7 +248,9 @@ body.overview .tag, body.overview .sign { display: none; }
   border: 2px solid var(--line); font: 400 15px/1 var(--font-sign);
 }
 .fl.all .no { font-size: 12px; }
-.fl .nm { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fl .nm { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fl .fn { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fl .ag { font: 500 10px/1.2 var(--font-mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fl .ct { font: 500 11px/1 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .fl[aria-pressed="true"] { border-color: var(--accent); }
 .fl[aria-pressed="true"] .no { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
@@ -404,6 +410,7 @@ body.overview .tag, body.overview .sign { display: none; }
   <section id="legend" class="panel" hidden aria-label="방 안내">
     <h2>방 안내</h2>
     <ul></ul>
+    <p id="legend-agents">에이전트: Claude(테라코타 베레모) · Codex(에메랄드 바이저) · Grok(바이올렛 궤도 링) · AGY(시안·코발트 반중력 링)</p>
     <p id="legend-controls">구글 맵: 좌클릭 드래그 이동 · 우클릭/Ctrl+드래그 회전·기울기 · 휠 확대 · WASD/방향키 이동 · Shift+방향키 회전·기울기 · R 초기화 · F/더블클릭 따라가기 · 1-9/[/]/0 층 이동</p>
   </section>
 

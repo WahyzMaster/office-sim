@@ -13,12 +13,20 @@ const SOURCE = {
 };
 // session 이벤트의 agent(출처 id) -> 화면 이름. 모르는 id 는 그대로 보여 준다.
 const AGENT_LABEL = { 'claude-code': 'Claude Code', codex: 'Codex', grok: 'Grok', antigravity: 'Antigravity' };
+const AGENT_BADGE = { 'claude-code': 'Claude', codex: 'Codex', grok: 'Grok', antigravity: 'AGY' };
 const AGY_SURFACE_LABEL = { cli: 'CLI', app: 'App', ide: 'IDE' };
 export const agentLabel = (id, surface = '') => {
   if (!Object.hasOwn(AGENT_LABEL, id)) return id;
   const base = AGENT_LABEL[id];
   const sub = id === 'antigravity' && surface && Object.hasOwn(AGY_SURFACE_LABEL, surface) ? AGY_SURFACE_LABEL[surface] : '';
   return sub ? `${base} (${sub})` : base;
+};
+export const agentBadge = (id, surface = '') => {
+  if (!id) return '';
+  if (!Object.hasOwn(AGENT_BADGE, id)) return id;
+  const base = AGENT_BADGE[id];
+  const sub = id === 'antigravity' && surface && Object.hasOwn(AGY_SURFACE_LABEL, surface) ? AGY_SURFACE_LABEL[surface] : '';
+  return sub ? `${base}·${sub}` : base;
 };
 
 export const DEFAULT_CONTROL_PRESET = 'map';
@@ -324,18 +332,18 @@ export class Hud {
       b.type = 'button';
       b.className = 'fl';
       b.dataset.i = String(i);
-      b.innerHTML = '<span class="no"></span><span class="nm"></span><span class="ct"></span>';
+      b.innerHTML = '<span class="no"></span><span class="nm"><b class="fn"></b><small class="ag" hidden></small></span><span class="ct"></span>';
       b.querySelector('.no').textContent = no;
-      b.querySelector('.nm').textContent = name;
+      b.querySelector('.fn').textContent = name;
       nav.append(b);
       return b;
     };
-    const all = make('all', '전체', '모든 층 펼쳐 보기');
+    const all = make('all', '전체', '모든 프로젝트 층 보기');
     all.setAttribute('aria-pressed', String(office.overview));
     all.classList.add('all');
     for (const f of [...office.floors].reverse()) {
       const b = make(f.index, f.number, f.label);
-      b.title = f.key;
+      b.title = f.key === '_global' ? '워크스페이스 경로가 지정되지 않은 전역 세션' : f.key;
       b.setAttribute('aria-pressed', String(!office.overview && f.index === office.focusIndex));
     }
     this.floorStats(office);
@@ -349,6 +357,17 @@ export class Hud {
       const agents = [...f.agents];
       const asking = agents.filter((a) => a.mode === 'ask').length;
       const approving = agents.filter((a) => a.mode === 'ask' && a.current?.approval).length;
+      const counts = new Map();
+      for (const a of agents) {
+        const tag = agentBadge(a.agent, a.surface);
+        if (tag) counts.set(tag, (counts.get(tag) || 0) + 1);
+      }
+      const agEl = b.querySelector('.ag');
+      if (agEl) {
+        const summary = [...counts].map(([k, n]) => (n > 1 ? `${k} ${n}` : k)).join(' · ');
+        agEl.textContent = summary;
+        agEl.hidden = !summary;
+      }
       b.querySelector('.ct').textContent = asking ? `${approving === asking ? '승인' : '질문'} ${asking}` : String(agents.length);
       b.classList.toggle('asking', asking > 0);
       const ping = this.pings.get(f);
@@ -373,7 +392,8 @@ export class Hud {
     li.innerHTML = '<time></time><i></i><b></b><span></span>';
     li.querySelector('time').textContent = time(new Date());
     li.querySelector('i').style.background = agent.color;
-    li.querySelector('b').textContent = `${agent.floor.number} ${agent.name}`;
+    const badge = agent.agent ? ` · ${agentBadge(agent.agent, agent.surface)}` : '';
+    li.querySelector('b').textContent = `${agent.floor.number}${badge} ${agent.name}`;
     li.querySelector('span').textContent = text;
     this.el.list.prepend(li);
     while (this.el.list.children.length > 80) this.el.list.lastElementChild.remove();
@@ -390,15 +410,15 @@ export class Hud {
     box.querySelector('h2').textContent = a.name;
     const mode = a.path.length ? '이동 중' : a.mode === 'ask' && a.current?.approval ? '승인 대기'
       : MODE[a.panicT > 0 ? 'panic' : a.mode] || a.mode;
+    const agentText = a.agent ? agentLabel(a.agent, a.surface) : '-';
     const rows = [
-      ['층', `${a.floor.number} · ${a.floor.label}`],
+      ['프로젝트', `${a.floor.number} · ${a.floor.label}`],
+      ['에이전트', a.isSub ? `${agentText} · 서브 (${a.agentType || '보조'})` : agentText],
       ['브랜치', a.worktree ? `${a.branch || '-'} (워크트리 ${a.worktree})` : a.branch || '-'],
       ['상태', mode],
       ['하는 일', a.activity],
       ['남은 일', `${a.queue.length}건`],
     ];
-    if (a.isSub) rows.splice(1, 1, ['종류', `서브에이전트 · ${a.agentType}`]);
-    rows.splice(2, 0, ['에이전트', a.agent ? agentLabel(a.agent, a.surface) : '-']); // 브랜치(또는 종류) 바로 다음
     const dl = box.querySelector('dl');
     dl.replaceChildren(...rows.flatMap(([k, val]) => {
       const dt = document.createElement('dt');

@@ -1,6 +1,6 @@
 # Office Sim
 
-AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 직원들이 3D 사무실을 오가며 일하는 모습으로 보여 주는 로컬 서버입니다. 지금은 Claude Code 세션 기록(`~/.claude/projects/**/*.jsonl`), Grok(xAI Grok Build) 세션 기록(`~/.grok/sessions/<작업 폴더>/<세션>/updates.jsonl`), Codex 세션 기록(`~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl`), Antigravity CLI(`agy`)와 예전 Antigravity IDE 의 대화 기록(`~/.gemini/antigravity-cli/brain/<대화>/.system_generated/logs/transcript_full.jsonl`, 예전 IDE 는 `~/.gemini/antigravity-ide/` 아래 같은 자리)을 읽습니다.
+AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 직원들이 3D 사무실을 오가며 일하는 모습으로 보여 주는 로컬 서버입니다. 지금은 Claude Code 세션 기록(`~/.claude/projects/**/*.jsonl`), Grok(xAI Grok Build) 세션 기록(`~/.grok/sessions/<작업 폴더>/<세션>/updates.jsonl`), Codex 세션 기록(`~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl`), Antigravity CLI(`agy`), 데스크톱 앱(Antigravity.app 2.x), 예전 Antigravity IDE 의 대화 기록(`~/.gemini/{antigravity,antigravity-cli,antigravity-ide}/brain/<대화>/.system_generated/logs/transcript_full.jsonl`)을 읽습니다.
 
 | 방 | 하는 일 |
 |---|---|
@@ -11,9 +11,10 @@ AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 직�
 | 회의실 | 계획을 세우면 화이트보드에 적음 |
 | 내 자리 | 물어볼 게 생기면 직원이 찾아와 질문 |
 
-- 프로젝트마다 한 층을 씁니다. 같은 저장소의 워크트리 세션은 같은 층에 모입니다.
+- 프로젝트마다 한 층을 씁니다. 같은 저장소의 워크트리 세션은 같은 층에 모이고, 작업 폴더가 정해지지 않은 세션은 `전역 · 미지정` 층에 모이며, 직원이 모두 퇴근한 빈 층은 자동으로 정리됩니다.
 - 생각 중에는 구름 말풍선이 뜨고, 도구가 실패하면 식은땀과 빨간 말풍선, 거절되거나 중단되면 회색 말풍선이 뜹니다.
-- 서브에이전트는 모자 쓴 작은 직원으로 나타났다가 일을 마치면 엘리베이터로 퇴장합니다.
+- 직원마다 에이전트 브랜드 색상과 전용 3D 소품(Claude Code 베레모·스타버스트, Codex 바이저·육각 크리스탈, Grok 선글라스·토성 궤도 링, Antigravity 부유 링·프리즘과 CLI 캡/App 헤드셋)을 갖추고, 머리 위 이름표와 층 카드에 에이전트 배지(`Claude`, `Codex`, `Grok`, `AGY·CLI`, `AGY·App`)가 표시됩니다.
+- 서브에이전트는 대나무 헬리콥터 프로펠러 모자를 쓴 작은 직원으로 나타났다가 일을 마치면 엘리베이터로 퇴장합니다.
 
 ## 지원하는 에이전트
 
@@ -22,16 +23,33 @@ AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 직�
 | Claude Code | `claude-code` | 지원 |
 | Grok (xAI Grok Build) | `grok` | 지원 (P5c). 라이브 승인 대기도 보임 (P5g, 권한 창이 열린 뒤 1~4초 늦게, 답하는 쪽은 Grok 의 자동 검토일 수도 있음) |
 | Codex (데스크톱 앱, CLI, IDE 확장 모두) | `codex` | 지원 (P5d) |
-| Antigravity CLI (`agy`)와 예전 Antigravity IDE | `antigravity` | 지원 (P5e) |
-| Antigravity 데스크톱 앱 (Antigravity.app 2.x) | 없음 | 범위 밖(결정 D6). 대화 파일(`~/.gemini/antigravity/conversations/*.pb`)이 암호화된 것으로 보이고 통째로 다시 쓰이며, 대화 폴더에 단계 기록(`logs/`)이 없어 도구 이벤트를 읽을 수 없습니다. 그래서 `~/.gemini/antigravity/` 는 열지 않습니다 |
+| Antigravity CLI (`agy`)와 예전 Antigravity IDE | `antigravity` (`surface: 'cli'`) | 지원 (P5e). 화면에는 `Antigravity (CLI)` · 배지 `AGY·CLI` 로 표시 |
+| Antigravity 데스크톱 앱 (Antigravity.app 2.x) | `antigravity` (`surface: 'app'`) | 지원. `~/.gemini/antigravity/brain/<대화>/.system_generated/logs/` 의 단계 기록과 아티팩트(`task.md`, `implementation_plan.md`)를 읽고, 암호화된 `conversations/*.pb` 는 열지 않습니다. 화면에는 `Antigravity (App)` · 배지 `AGY·App` 로 표시 |
 
-도구마다 그 도구의 세션 기록을 읽는 어댑터가 있습니다. 어댑터마다 기록을 찾고 읽는 방법은 다르지만, 브라우저로 보내는 이벤트 형식과 개인정보 규칙은 모두 같습니다(`docs/CONTRACT.md` 2절, 4.0절, 5절). Claude Code 어댑터의 규칙은 `docs/CONTRACT.md` 4.1~4.5절에, Grok 은 4.6절에, Codex 는 4.7절에, Antigravity 는 4.8절에 있습니다. 같은 작업 폴더의 Claude Code, Grok, Codex, Antigravity 세션은 모두 같은 층에서 일합니다. 설계와 구현 순서(Grok, Codex, Antigravity CLI)는 `docs/ADAPTERS.md` 에 있고, 2026-10-20 에 승인됐습니다.
+도구마다 그 도구의 세션 기록을 읽는 어댑터가 있습니다. 어댑터마다 기록을 찾고 읽는 방법은 다르지만, 브라우저로 보내는 이벤트 형식과 개인정보 규칙은 모두 같습니다(`docs/CONTRACT.md` 2절, 4.0절, 5절). Claude Code 어댑터의 규칙은 `docs/CONTRACT.md` 4.1~4.5절에, Grok 은 4.6절에, Codex 는 4.7절에, Antigravity 는 4.8절에 있습니다. 같은 작업 폴더의 Claude Code, Grok, Codex, Antigravity 세션은 모두 같은 층에서 일합니다. 설계와 구현 순서(Grok, Codex, Antigravity)는 `docs/ADAPTERS.md` 에 있고, 2026-10-20 에 승인됐습니다.
 
 서버는 구현된 어댑터 중 기록 폴더가 있는 것을 모두 켜고, 시작할 때 주소 다음 줄에 켜진 에이전트를 출력합니다. 네 기록 폴더(`~/.claude/projects`, `~/.codex`, `~/.grok`, `~/.gemini`)가 모두 있으면 `office-sim: agents claude-code,codex,grok,antigravity`(`~/.gemini` 는 Gemini CLI 도 쓰는 폴더라, Antigravity 를 쓰지 않아도 이 폴더가 있으면 `antigravity` 가 켜지고 빈 목록을 훑습니다), Claude Code 폴더만 있으면 `office-sim: agents claude-code` 처럼 나오고(순서는 늘 `claude-code`, `codex`, `grok`, `antigravity`), 켜진 것이 없으면 `office-sim: agents none` 입니다. 이제 네 id 가 모두 구현되어 있어서, `--agents` 로 고른 id 가 "아직 구현되지 않음"(`office-sim: <id> is not implemented yet`)으로 알려지는 일은 없습니다(앞으로 id 가 늘면 그 규칙이 다시 쓰입니다). 기록 폴더가 없거나 읽을 수 없는 어댑터는 로그 한 줄을 남기고 꺼지며(2초 안에 열리지 않는 폴더도 읽을 수 없는 것으로 봅니다), 서버는 빈 사무실로 계속 돕니다. 꺼진 어댑터의 기록 폴더는 rescan 주기마다 다시 확인해서, 나중에 폴더가 생기거나 읽을 수 있게 되면 `<id>: root found, adapter on` 로그 한 줄과 함께 그때 켭니다(`/healthz` 의 `agents` 에도 그때부터 보입니다. 시작할 때 출력한 `office-sim: agents` 줄은 바뀌지 않습니다).
 
-모든 직원(캐릭터)은 어느 도구의 세션인지 나타내는 에이전트 id를 가집니다. 서버가 보내는 `session` 이벤트의 `agent` 필드이고, `claude-code`, `codex`, `grok`, `antigravity` 중 하나입니다(Codex 직원의 id 는 `codex-`, Grok 직원의 id 는 `grok-`, Antigravity 직원의 id 는 `antigravity-` 로 시작합니다). 화면에는 `Claude Code`, `Codex`, `Grok`, `Antigravity` 로 보이고, 모르는 id는 그대로 보입니다.
+모든 직원(캐릭터)은 어느 도구의 세션인지 나타내는 에이전트 id를 가집니다. 서버가 보내는 `session` 이벤트의 `agent` 필드이고, `claude-code`, `codex`, `grok`, `antigravity` 중 하나입니다(Codex 직원의 id 는 `codex-`, Grok 직원의 id 는 `grok-`, Antigravity 직원의 id 는 `antigravity-` 로 시작합니다). Antigravity 세션은 기록 폴더에 따라 `surface`(`'cli'` 또는 `'app'`)가 함께 전달되어 화면에는 `Claude Code`, `Codex`, `Grok`, `Antigravity (CLI)`, `Antigravity (App)`(표시가 없으면 `Antigravity`)으로 보이고, 모르는 id는 그대로 보입니다.
 
-에이전트마다 기록이 남는 방식이 달라서 직원이 보이는 모습도 조금씩 다릅니다. Claude Code 직원은 도구 호출과 서브에이전트(모자 쓴 작은 직원)가 가장 자세히 보입니다. Grok 직원은 서브에이전트도 따로 보이고, 턴은 Grok 이 적는 턴 끝 기록으로 끝납니다. 또 Grok 은 권한 창이 열릴 때 기록(`events.jsonl`)을 남기므로, 권한 창이 1초 넘게 열려 있으면 라이브에서도 직원이 '내 자리'로 와서 `승인 대기` 말풍선을 띄웁니다. 창이 열린 뒤 1~4초 늦게 보이고(rescan 간격), 허용되면 3초 안에 도구 방으로 돌아가며, 거절되면 `거절됨` 을 보입니다. 이 표시는 권한 창이 열려 있다는 뜻일 뿐이고, 답하는 쪽은 사람일 수도 Grok 의 자동 검토일 수도 있습니다. Codex 직원은 데스크톱 앱, CLI, IDE 확장 어느 쪽에서 시작했든 같은 모습이고, 자동 승인 검토(guardian) 스레드는 보이지 않으며, code-mode 스크립트 하나 안의 명령, 파일 수정, MCP 호출은 끝날 때마다 그 방에 잠깐 들르는 모습으로 보입니다. Antigravity 직원은 한 단계가 끝나야 기록 줄이 쓰이므로 반응이 한 박자(모델이 생각하는 6~35초) 늦고, 서브에이전트 없이 모두 메인 직원이며, 도구 없이 답만 한 뒤 20초 동안 조용하면(요약 파일의 상태가 쉬는 중으로 바뀌면 그때 바로) 턴이 끝난 것으로 봅니다. 예전 IDE 대화는 `task.md` 체크리스트가 있으면 회의실 화이트보드에 보입니다.
+에이전트마다 기록이 남는 방식이 달라서 직원이 보이는 모습도 조금씩 다릅니다. Claude Code 직원은 도구 호출과 서브에이전트(모자 쓴 작은 직원)가 가장 자세히 보입니다. Grok 직원은 서브에이전트도 따로 보이고, 턴은 Grok 이 적는 턴 끝 기록으로 끝납니다. 또 Grok 은 권한 창이 열릴 때 기록(`events.jsonl`)을 남기므로, 권한 창이 1초 넘게 열려 있으면 라이브에서도 직원이 '내 자리'로 와서 `승인 대기` 말풍선을 띄웁니다. 창이 열린 뒤 1~4초 늦게 보이고(rescan 간격), 허용되면 3초 안에 도구 방으로 돌아가며, 거절되면 `거절됨` 을 보입니다. 이 표시는 권한 창이 열려 있다는 뜻일 뿐이고, 답하는 쪽은 사람일 수도 Grok 의 자동 검토일 수도 있습니다. Codex 직원은 데스크톱 앱, CLI, IDE 확장 어느 쪽에서 시작했든 같은 모습이고, 자동 승인 검토(guardian) 스레드는 보이지 않으며, code-mode 스크립트 하나 안의 명령, 파일 수정, MCP 호출은 끝날 때마다 그 방에 잠깐 들르는 모습으로 보입니다. Antigravity 직원은 한 단계가 끝나야 기록 줄이 쓰이므로 반응이 한 박자(모델이 생각하는 6~35초) 늦고, 도구 없이 답만 한 뒤 20초 동안 조용하면(요약 파일의 상태가 쉬는 중으로 바뀌면 그때 바로) 턴이 끝난 것으로 봅니다. 대화 폴더에 `task.md` 체크리스트나 `implementation_plan.md` 가 있으면 회의실 화이트보드에 보이며, 요약 파일에 작업 폴더가 없는 대화는 파일 도구 경로에서 프로젝트 루트를 추론합니다.
+
+## 화면 구성과 카메라 조작
+
+상단 바의 **조작 방식 프리셋 선택기**(`구글 맵`, `피그마`, `3D 오빗`, `블렌더`)에서 손에 익은 마우스·트랙패드 조작 방식을 고를 수 있습니다. 선택한 프리셋은 브라우저(`localStorage`)에 저장되며, 상단 `?` 버튼이나 `?` 키로 조작 안내 창을 언제든 열 수 있습니다.
+
+| 프리셋 | 좌클릭 드래그 | 우클릭 / 보조 드래그 | 휠 / 트랙패드 스크롤 |
+|---|---|---|---|
+| **구글 맵** (기본) | 바닥 수평 이동 (패닝) | 우클릭 또는 `Ctrl`+좌클릭: 시점 회전·기울기 | 줌 인 / 줌 아웃 (더블클릭: 초점 이동·줌인) |
+| **피그마 / 캔버스** | 직원 선택 (빈 곳 클릭 해제) | `Space`+좌클릭 또는 중클릭: 이동 / 우클릭: 회전 | 상하좌우 패닝 (`Ctrl`/`⌘`+휠: 줌) |
+| **3D 오빗** (Three.js) | 시점 회전 (오빗) | 우클릭 또는 `Shift`+좌클릭: 바닥 이동 (패닝) | 줌 인 / 줌 아웃 |
+| **블렌더** (DCC) | 직원 선택 | 중클릭: 회전 / `Shift`+중클릭: 이동 / `Ctrl`+중클릭: 줌 | 줌 인 / 줌 아웃 |
+
+- **공통 키보드 단축키**: `WASD` 또는 방향키(수평 이동), `Q`/`E`(시점 회전), `+`/`-`(줌), `1`~`9`(해당 층 보기), `0` 또는 `Tab`(전체 층 보기), `R` 또는 `Home`(카메라 시점 초기화), `?`(조작 도움말 열기/닫기), `Esc`(직원 선택 해제 또는 열린 창 닫기).
+- **층(프로젝트)과 에이전트 구분**:
+  - 왼쪽 층 목록은 프로젝트(작업 폴더)별로 나뉘며, 각 층 카드에 층 번호(`1F`), 프로젝트 이름, 현재 일하는 에이전트 배지 요약(`Claude 1 · AGY·App 2` 등), 활동·오류·질문·승인 대기 배지가 함께 표시됩니다.
+  - 작업 폴더가 없는 세션은 에이전트 이름 층을 따로 만들지 않고 `전역 · 미지정` 층에 모이며, 모든 직원이 퇴근한 빈 층은 자동으로 정리됩니다.
+  - 캐릭터 머리 위 이름표(`[에이전트 배지] 직원 이름`), 오른쪽 상세 카드(`프로젝트`, `에이전트`, `브랜치`, `상태`, `하는 일`, `남은 일`), 오른쪽 위 실시간 활동 기록(`[층 · 에이전트] 직원: 활동`), 왼쪽 아래 범례(방 색상 + 에이전트 브랜드 배지)에서 어느 프로젝트의 어떤 에이전트인지 한눈에 확인할 수 있습니다.
 
 ## 실행
 
@@ -56,7 +74,7 @@ node bin/office-sim.mjs --claude-root ~/.claude/projects --active 60
 | `--agents` | 구현된 어댑터 중 기록 폴더가 있는 것 모두 | 켤 에이전트 id 를 쉼표로 고릅니다(예: `--agents claude-code`, `--agents codex,grok,antigravity`). `claude-code`, `codex`, `grok`, `antigravity` 만 받고(네 개 모두 구현됨), 그 밖의 id 는 오류(종료 코드 2)입니다 |
 | `--codex-root` | `~/.codex` | Codex 기록 위치(데스크톱 앱, CLI, IDE 확장 모두). 그 아래 `sessions/<YYYY>/<MM>/<DD>/` 의 `rollout-*.jsonl`(되돌리기 뒤의 이어쓰기 조각 포함)과 제목 색인 `session_index.jsonl`(스레드 id 와 이름만)만 읽습니다. 자동 승인 검토(guardian) 스레드는 숨깁니다. 옵션을 주지 않으면 실행 파일(`bin/office-sim.mjs`)이 기본값을 채웁니다(서버의 `start()` 는 받은 루트만 씁니다) |
 | `--grok-root` | `~/.grok` | Grok(xAI Grok Build) 기록 위치. 그 아래 `sessions/<작업 폴더>/<세션>/` 의 `updates.jsonl`, `summary.json`(제목, 작업 폴더, branch, 서브에이전트 종류)과 승인 대기를 위한 `events.jsonl`(종류, 시각, 도구 이름, 허용/거절 네 필드만)만 읽고, 서브에이전트는 `subagents/` 아래 폴더 이름으로만 연결합니다. 옵션을 주지 않으면 실행 파일(`bin/office-sim.mjs`)이 기본값을 채웁니다(서버의 `start()` 는 받은 루트만 씁니다) |
-| `--antigravity-root` | `~/.gemini` | Antigravity CLI(`agy`)와 예전 IDE 의 기록 위치. 그 아래 `antigravity-cli/` 와 `antigravity-ide/` 두 폴더에만 들어가서, `brain/<대화>/.system_generated/logs/` 의 `transcript_full.jsonl`(없거나 더 짧으면 `transcript.jsonl`)과 메타 파일 셋(요약 protobuf 의 제목, 작업 폴더, branch, `annotations/<대화>.pbtxt` 의 제목, `brain/<대화>/task.md` 체크리스트)만 읽습니다. 데스크톱 앱 폴더 `antigravity/` 는 열지 않습니다. 옵션을 주지 않으면 실행 파일(`bin/office-sim.mjs`)이 기본값을 채웁니다(서버의 `start()` 는 받은 루트만 씁니다) |
+| `--antigravity-root` | `~/.gemini` | Antigravity 데스크톱 앱(`antigravity/`), CLI(`antigravity-cli/`), 예전 IDE(`antigravity-ide/`)의 기록 위치. 세 폴더의 `brain/<대화>/.system_generated/logs/` 아래 `transcript_full.jsonl`(없거나 더 짧으면 `transcript.jsonl`)과 메타 파일(요약 protobuf 의 제목, 작업 폴더, branch, `annotations/<대화>.pbtxt` 의 제목, `brain/<대화>/task.md` 또는 `implementation_plan.md` 체크리스트)만 읽고, 암호화된 `conversations/*.pb` 는 열지 않습니다. 옵션을 주지 않으면 실행 파일(`bin/office-sim.mjs`)이 기본값을 채웁니다(서버의 `start()` 는 받은 루트만 씁니다) |
 | `--replay` | 없음 | 지난 세션 하나(`<uuid>.jsonl` 과 그 서브에이전트 파일)를 기록된 시간 간격대로 다시 보여 줍니다. 이때 `--claude-root`(`--root`), `--active`, `--rescan` 은 쓰지 않습니다. 재생은 Claude Code 세션만 됩니다 |
 | `--speed` | 1 | 재생 배속(0.1~1000). 줄 사이 공백은 배속으로 나누고, 한 공백은 최대 5초로 줄입니다 |
 | `--loop` | 꺼짐 | 재생이 끝나면 모두 퇴근시킨 뒤 처음부터 다시 합니다 |
@@ -141,11 +159,11 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 - `src/adapters/`: 어댑터 등록표(`index.mjs`)와 Claude Code 설명자(`claude-code.mjs`). Claude 모듈은 제자리에 두고 설명자가 가리킵니다
 - `src/adapters/grok/`: Grok 어댑터(탐색, 레코드 정규화, 설명자 `index.mjs`)
 - `src/adapters/codex/`: Codex 어댑터(날짜 폴더 탐색과 첫 줄 사실, 제목 색인 읽기, 레코드 정규화와 code-mode `exec` 방문, 설명자 `index.mjs`)
-- `src/adapters/antigravity/`: Antigravity 어댑터(두 앱 폴더의 허용 목록 탐색과 파일 고르기, 요약 protobuf 해석기 `proto.mjs`, 메타 파일, 단계 정규화와 위치 짝짓기, 설명자 `index.mjs`)
+- `src/adapters/antigravity/`: Antigravity 어댑터(`antigravity/`, `antigravity-cli/`, `antigravity-ide/` 세 폴더의 허용 목록 탐색과 `surface` 구분, 요약 protobuf 해석기 `proto.mjs`, 메타 파일과 `implementation_plan.md` 계획 대안, 단계 정규화와 위치 짝짓기, 설명자 `index.mjs`)
 - `src/core/`: 새 어댑터가 같이 쓰는 부품. 세션 코어(`session-core.mjs`, `session-items.mjs`), 도구 요약(`tool-summary.mjs`), 바뀔 때만 다시 읽는 메타 파일 감시(`sidecar.mjs`)
 - `src/observe/`: 기록 관찰(파일 감시 `observer.mjs`, 범주 값 추출 `records.mjs`, 집계와 체크리스트 `summary.mjs`, 시작과 끝, 자동 종료 `control.mjs`, 결과 파일 보관 `retention.mjs`). 화면 쪽은 `public/js/observe-panel.js` 와 글 형식 `public/js/observe-format.js`
 - `skills/office/`: `/office` Claude Code 스킬. `scripts/install-skill.mjs` 가 설치하고, `src/open-url.mjs` 는 `--open` 의 브라우저 열기입니다
-- `public/`: three.js 사무실 화면. localhost에서 열면 라이브, 그 밖에서는 데모 데이터로 동작합니다(`#demo`로 강제 가능).
+- `public/`: three.js 사무실 화면(`scene.js` 카메라 프리셋·컨트롤, `agent-mesh.js` 에이전트 브랜드 3D 캐릭터·소품, `office.js` 층·직원 오케스트레이션, `hud.js` 층 목록·상세·로그). localhost에서 열면 라이브, 그 밖에서는 데모 데이터로 동작합니다(`#demo`로 강제 가능).
 - `docs/CONTRACT.md`: 모듈 경계, 이벤트 형식, 파싱 규칙
 - `docs/ADAPTERS.md`: 멀티 에이전트 어댑터 설계(승인됨)와 단계별 구현 순서
 - `docs/research/jsonl-format.json`: Claude Code 세션 기록 형식 조사 결과(구조만, 실제 내용 없음). Grok 은 `grok-format.json`, Codex 는 `codex-format.json`, Antigravity 는 `antigravity-format.json`
@@ -158,7 +176,7 @@ node bin/office-sim.mjs --replay test/fixtures/replay/7e7e7e7e-1111-4222-8333-44
 - 브라우저로는 요약만 보냅니다. 명령 원문, 파일 내용, 수정 내용, 전체 경로(파일 이름만), 전체 URL(호스트만), 이메일, 커넥터 계정 uuid는 보내지 않습니다. 층 구분 키(`project`)만 작업 폴더 경로 전체를 담습니다.
 - Grok 기록 폴더에서는 정해진 파일(`updates.jsonl`, `summary.json`, 승인 대기를 위한 `events.jsonl`)만 엽니다. `events.jsonl` 에서는 네 필드(기록 종류, 시각, 같은지 비교에만 쓰는 도구 이름, 허용/거절)만 읽고, MCP 오류 문구, 모델 id, 취소 사유 같은 나머지 필드는 읽지도 보내지도 않습니다. 원문 프롬프트 기록(`prompt_history.jsonl`, `chat_history.jsonl`), 계획 파일, 인증과 설정 파일은 열지 않습니다(`docs/CONTRACT.md` 4.6절).
 - Codex 기록 폴더에서는 정해진 파일(`sessions/` 아래 날짜 폴더의 `rollout-*.jsonl`, `session_index.jsonl`)만 엽니다. 압축된 기록(`.jsonl.zst`), `archived_sessions/`, 원문 프롬프트 기록(`history.jsonl`), 인증과 설정 파일, SQLite 파일, 로그, `worktrees/` 안은 열지 않고, 심볼릭 링크인 폴더는 따라가지 않습니다. 세션 첫 줄의 계정 id 는 보내지 않고, 데스크톱 앱과 IDE 확장이 요청 앞에 붙이는 문맥(열린 파일, 탭, 언급한 파일)은 프롬프트로 보내지 않으며, code-mode 스크립트는 처음 부르는 `tools.<이름>` 의 이름만 봅니다(문자열, 정규식, 주석 안은 읽지 않음, `docs/CONTRACT.md` 4.7절).
-- Antigravity 기록 폴더(`~/.gemini`)는 Gemini CLI 와 같이 쓰는 폴더라 인증 파일과 원문 입력 기록이 함께 있습니다. 그래서 `antigravity-cli/` 와 `antigravity-ide/` 아래의 정해진 파일(대화 기록 `transcript_full.jsonl` / `transcript.jsonl`, 요약 protobuf, `annotations/<대화>.pbtxt`, `task.md`)만 열고, 인증과 설정 파일(`oauth_creds.json`, `google_accounts.json`, `settings*.json` 등), 원문 입력 기록(`history.jsonl`, `history`), SQLite 대화 저장소, 암호화된 `.pb`, 백그라운드 알림(`messages/`), 도구 출력 파일, 데스크톱 앱 폴더 `antigravity/` 는 열지 않으며, 심볼릭 링크는 따라가지 않습니다. 모델이 도구 호출마다 붙이는 짧은 설명(`toolAction`, `toolSummary`)과 프롬프트 앞뒤의 환경 정보 블록(`ADDITIONAL_METADATA` 등)은 그 안에 적힌 내용까지 보내지 않고, 요약 protobuf 의 저장소 주소도 읽지 않습니다(`docs/CONTRACT.md` 4.8절).
+- Antigravity 기록 폴더(`~/.gemini`)는 Gemini CLI 와 같이 쓰는 폴더라 인증 파일과 원문 입력 기록이 함께 있습니다. 그래서 `antigravity/`, `antigravity-cli/`, `antigravity-ide/` 아래의 정해진 파일(대화 기록 `transcript_full.jsonl` / `transcript.jsonl`, 요약 protobuf, `annotations/<대화>.pbtxt`, `task.md`, `implementation_plan.md`)만 열고, 인증과 설정 파일(`oauth_creds.json`, `google_accounts.json`, `settings*.json` 등), 원문 입력 기록(`history.jsonl`, `history`), SQLite 대화 저장소, 암호화된 대화(`conversations/*.pb`), 백그라운드 알림(`messages/`), 도구 출력 파일은 열지 않으며, 심볼릭 링크는 따라가지 않습니다. 모델이 도구 호출마다 붙이는 짧은 설명(`toolAction`, `toolSummary`)과 프롬프트 앞뒤의 환경 정보 블록(`ADDITIONAL_METADATA` 등)은 그 안에 적힌 내용까지 보내지 않고, 요약 protobuf 의 저장소 주소도 읽지 않습니다(`docs/CONTRACT.md` 4.8절).
 - 기록 관찰(앞의 `기록 관찰` 절)의 결과 파일, 상태, SSE 메시지에는 개수, 번호, 정해진 종류 값, 오류 코드, 결과 파일 이름만 들어갑니다. 경로, 세션 id, 내용은 남기지 않습니다(`docs/CONTRACT.md` 5절, 6.2절). 관찰하는 동안에만 Grok 의 `active_sessions.json` 도 열어 행의 키 이름과 값의 타입만 셉니다(값은 읽어도 남기지 않습니다).
 
 ## 테스트
