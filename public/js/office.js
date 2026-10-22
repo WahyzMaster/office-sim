@@ -6,8 +6,9 @@ import { ROOMS, classify, toolLabel } from './rooms.js';
 import { Inbox } from './office-inbox.js';
 import { floorDetail, labelRootIndex } from './detail.js';
 import { waitStart, waitEnd, reconcileWaits, snapshotWaits, liveAskStays, textKey, rememberText, forgetText, forgetTexts } from './approval.js';
-import { agentLabel } from './hud.js';
 
+export const GLOBAL_FLOOR_KEY = '_global';
+export const GLOBAL_FLOOR_LABEL = '전역 · 미지정';
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 // 이 이벤트가 오면 tool_end 를 못 받은 채 열려 있는 질문은 이미 끝난 것이다(새 요청, 새 메시지, 턴 끝).
 const ASK_OVER = new Set(['prompt', 'thinking', 'turn_end']);
@@ -177,13 +178,13 @@ export class Office {
     a.releaseAsks((it) => !liveAskStays(it, ev.type) && (always || t - Date.parse(it.ts ?? '') >= ASK_SIBLING_MS));
   }
 
-  // session 이벤트 -> 직원 생성/갱신. 놓을 층을 모르면(project 없음, 부모도 모름) 메인 세션은 에이전트 기본 층에 둔다.
+  // session 이벤트 -> 직원 생성/갱신. 놓을 층을 모르면(project 없음, 부모도 모름) 메인 세션은 공통 '전역 · 미지정' 층에 둔다.
   upsert(info) {
     const existing = this.agents.get(info.sessionId);
     const parent = info.parentSessionId ? this.agents.get(info.parentSessionId) : null;
     const isSub = 'isSubagent' in info ? !!info.isSubagent : !!existing?.isSub;
-    const proj = info.project || (!isSub && !info.parentSessionId && info.agent ? `agent:${info.agent}` : '');
-    const projLabel = info.project ? info.projectLabel : (proj ? agentLabel(info.agent) : '');
+    const proj = info.project || (!isSub && !info.parentSessionId && info.agent ? GLOBAL_FLOOR_KEY : '');
+    const projLabel = info.project ? info.projectLabel : (proj ? GLOBAL_FLOOR_LABEL : '');
     const floor = parent && parent !== existing ? parent.floor : this.floorFor(proj, projLabel);
     if (existing) {
       existing.cancelLeave();

@@ -31,7 +31,7 @@ register(`data:text/javascript,${encodeURIComponent(`export async function resol
 }`)}`);
 globalThis.window ??= { matchMedia: () => ({ matches: false }) };
 const { Agent } = await import('../public/js/agent.js');
-const { Office } = await import('../public/js/office.js');
+const { Office, GLOBAL_FLOOR_KEY, GLOBAL_FLOOR_LABEL } = await import('../public/js/office.js');
 
 const HUD = { renderFloors() {}, log() {}, ping() {}, inspect() {}, clearPing() {}, pings: new Set() };
 const FLOOR = { key: 'p', label: 'P', release() {}, board: { set() {} } };
@@ -306,4 +306,19 @@ test('Office: an allow while the character walks to the desk never shows the ope
   wait(d.a, 2);
   assert.deepEqual(lastBubble(d.a), ['denied', '거절됨']);
   assert.ok(!d.a.bubbles.some(([kind]) => kind === 'ask'));
+});
+
+test('Office.upsert: workspace-less main sessions share the unified _global floor instead of agent-named floors', () => {
+  const { office } = setup();
+  const seen = [];
+  office.floorFor = (key, label) => {
+    seen.push([key, label]);
+    return null;
+  };
+  office.upsert({ sessionId: 'agy-1', agent: 'antigravity', project: '', projectLabel: '', isSubagent: false });
+  office.upsert({ sessionId: 'cx-1', agent: 'codex', project: '', projectLabel: '', isSubagent: false });
+  assert.deepEqual(seen, [
+    [GLOBAL_FLOOR_KEY, GLOBAL_FLOOR_LABEL],
+    [GLOBAL_FLOOR_KEY, GLOBAL_FLOOR_LABEL],
+  ]);
 });

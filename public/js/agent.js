@@ -3,9 +3,10 @@
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { ELEVATOR } from './rooms.js';
-import { buildAgentMesh, tintAgent } from './agent-mesh.js';
+import { buildAgentMesh, buildBrandFlair, tintAgent, animateAgentMesh } from './agent-mesh.js';
 import { compactQueue, collapse, QUEUE_CAP, softKind } from './agent-queue.js';
-import { hueOf, spreadHue, familyHue, familyLight, laneOffset, route, wrapAngle } from './placement.js';
+import { hueOf, brandHue, familyHue, familyLight, laneOffset, route, wrapAngle } from './placement.js';
+import { agentBadge } from './hud.js';
 
 export { hueOf };
 
@@ -60,7 +61,7 @@ export class Agent {
     this.goTo('lounge');
   }
 
-  // 서브에이전트는 부모 색 계열 안에서 형제 순번마다 다른 색, 메인은 id 색(같은 층과 겹치면 비켜 감).
+  // 서브에이전트는 부모 색 계열 안에서 형제 순번마다 다른 색, 메인은 브랜드 색 계열(같은 층과 겹치면 미세 조정).
   paint(parent) {
     if (parent) {
       const k = parent.childSeq++;
@@ -68,24 +69,24 @@ export class Agent {
       this.light = familyLight(k);
     } else {
       const taken = [...this.floor.agents].filter((a) => a !== this).map((a) => a.hue);
-      this.hue = spreadHue(hueOf(this.id), taken);
-      this.light = 0.5;
+      this.hue = brandHue(this.agent, this.surface, this.id, taken);
+      this.light = 0.52;
     }
-    this.color = `hsl(${this.hue}, 58%, ${Math.round(this.light * 100)}%)`;
-    this.ink = `hsl(${this.hue}, 62%, 32%)`;
+    this.color = `hsl(${this.hue}, 66%, ${Math.round(this.light * 100)}%)`;
+    this.ink = `hsl(${this.hue}, 66%, 32%)`;
   }
 
   buildLabels() {
     const el = document.createElement('div');
     el.className = 'anchor';
-    el.innerHTML = '<div class="stack"><div class="bubble" hidden></div><button class="tag" type="button"><i></i><b></b><span></span></button></div>';
+    el.innerHTML = '<div class="stack"><div class="bubble" hidden></div><button class="tag" type="button"><i></i><em class="ab" hidden></em><b></b><span></span></button></div>';
     this.tagEl = el.querySelector('.tag');
     this.bubbleEl = el.querySelector('.bubble');
     this.tagEl.style.setProperty('--c', this.color);
     this.tagEl.classList.toggle('sub', this.isSub);
     this.tagEl.addEventListener('click', () => this.office.select(this));
     this.label = new CSS2DObject(el);
-    this.label.position.set(0, 1.95, 0);
+    this.label.position.set(0, 2.08, 0);
     this.group.add(this.label);
 
     const sw = document.createElement('div');
@@ -93,7 +94,7 @@ export class Agent {
     sw.innerHTML = '<div class="sweat" hidden><i></i><i></i><i></i></div>';
     this.sweatEl = sw.firstChild;
     this.sweat = new CSS2DObject(sw);
-    this.sweat.position.set(0, 1.5, 0);
+    this.sweat.position.set(0, 1.55, 0);
     this.group.add(this.sweat);
     this.refreshTag();
   }
@@ -109,25 +110,33 @@ export class Agent {
     if (info.branch) this.branch = info.branch;
     if ('worktree' in info) this.worktree = info.worktree || null;
     if (typeof info.agentType === 'string' && info.agentType) this.agentType = info.agentType;
+    const prevBrand = `${this.agent}|${this.surface}`;
     if (typeof info.agent === 'string' && info.agent) this.agent = info.agent;
     if (typeof info.surface === 'string' && info.surface) this.surface = info.surface;
-    if ('parentSessionId' in info && (info.parentSessionId || null) !== this.parentId) {
-      this.parentId = info.parentSessionId || null;
+    const parentChanged = 'parentSessionId' in info && (info.parentSessionId || null) !== this.parentId;
+    if (parentChanged) this.parentId = info.parentSessionId || null;
+    if (parentChanged || `${this.agent}|${this.surface}` !== prevBrand) {
       const parent = this.parentId ? this.office.agents.get(this.parentId) : null;
-      if (parent || this.isSub) {
-        this.paint(parent);
-        tintAgent(this);
-        this.tagEl.style.setProperty('--c', this.color);
-      }
+      this.paint(parent);
+      tintAgent(this);
+      buildBrandFlair(this);
+      this.tagEl.style.setProperty('--c', this.color);
     }
     this.refreshTag();
   }
 
   refreshTag() {
+    const ab = this.tagEl.querySelector('.ab');
+    const badge = agentBadge(this.agent, this.surface);
+    if (ab) {
+      ab.textContent = badge;
+      ab.hidden = !badge;
+    }
+    this.tagEl.dataset.agent = this.agent || '';
     this.tagEl.querySelector('b').textContent = this.name;
     this.tagEl.querySelector('span').textContent = this.activity;
     this.tagEl.dataset.mode = this.panicT > 0 ? 'panic' : this.mode;
-    this.tagEl.setAttribute('aria-label', `${this.name}: ${this.activity}`);
+    this.tagEl.setAttribute('aria-label', `${badge ? `[${badge}] ` : ''}${this.name}: ${this.activity}`);
   }
 
   note(text, kind = '') {
@@ -438,54 +447,7 @@ export class Agent {
   }
 
   animate() {
-    const t = this.t;
-    let leg = 0;
-    let armL = 0;
-    let armR = 0;
-    let bob = 0;
-    let tilt = 0;
-    let shake = 0;
-    if (this.path.length) {
-      const f = 9 * (1 + Math.min(this.queue.length, 6) * 0.25);
-      leg = Math.sin(t * f) * 0.65;
-      armL = -leg * 0.8;
-      armR = leg * 0.8;
-      bob = Math.abs(Math.sin(t * f)) * 0.05;
-    } else {
-      switch (this.mode) {
-        case 'work':
-          armL = -1.1 + Math.sin(t * 22) * 0.18;
-          armR = -1.1 + Math.cos(t * 19) * 0.18;
-          break;
-        case 'think':
-          armR = -2.3;
-          tilt = 0.18;
-          bob = Math.sin(t * 2) * 0.015;
-          break;
-        case 'write':
-          armR = -2.5 + Math.sin(t * 14) * 0.25;
-          armL = -0.2;
-          break;
-        case 'ask':
-          armR = -2.75 + Math.sin(t * 6) * 0.12;
-          bob = Math.sin(t * 3) * 0.02;
-          break;
-        default:
-          bob = Math.sin(t * 2.2) * 0.015;
-      }
-    }
-    if (this.panicT > 0) {
-      armL = -2.6 + Math.sin(t * 30) * 0.3;
-      armR = -2.6 - Math.sin(t * 30) * 0.3;
-      shake = REDUCED ? 0 : Math.sin(t * 70) * 0.04;
-    }
-    this.legs[0].rotation.x = leg;
-    this.legs[1].rotation.x = -leg;
-    this.arms[0].rotation.x = armL;
-    this.arms[1].rotation.x = armR;
-    this.rig.position.y = REDUCED ? 0 : bob;
-    this.rig.position.x = shake;
-    this.head.rotation.z = tilt;
+    animateAgentMesh(this, REDUCED);
   }
 
   dispose() {
