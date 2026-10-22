@@ -2,11 +2,12 @@
 // 이벤트는 바로 실행하지 않고 "할 일(intent)" 대기열에 쌓은 뒤, 방까지 걸어가서 하나씩 처리한다.
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { ELEVATOR } from './rooms.js';
+import { activeThemeOf, ELEVATOR } from './rooms.js';
 import { buildAgentMesh, buildBrandFlair, tintAgent, animateAgentMesh } from './agent-mesh.js';
 import { compactQueue, collapse, QUEUE_CAP, softKind } from './agent-queue.js';
 import { hueOf, brandHue, familyHue, familyLight, laneOffset, route, wrapAngle } from './placement.js';
 import { agentBadge } from './hud.js';
+import { makeSound } from './sound.js';
 
 export { hueOf };
 
@@ -46,6 +47,8 @@ export class Agent {
     this.idleT = 0;
     this.bubbleT = 0;
     this.panicT = 0;
+    this.soundT = 0;
+    this.vocalText = '';
     this.t = Math.random() * 10;
     // lane 은 층마다 비어 있는 번호를 받아 같은 부모를 둔 형제끼리도 다른 길로 걷는다.
     this.laneIdx = floor.laneIndex();
@@ -148,11 +151,24 @@ export class Agent {
       ab.textContent = badge;
       ab.hidden = !badge;
     }
+    const act = this.soundT > 0 && this.vocalText ? `${this.vocalText} · ${this.activity}` : this.activity;
     this.tagEl.dataset.agent = this.agent || '';
     this.tagEl.querySelector('b').textContent = this.name;
-    this.tagEl.querySelector('span').textContent = this.activity;
+    this.tagEl.querySelector('span').textContent = act;
     this.tagEl.dataset.mode = this.panicT > 0 ? 'panic' : this.mode;
-    this.tagEl.setAttribute('aria-label', `${badge ? `[${badge}] ` : ''}${this.name}: ${this.activity}`);
+    this.tagEl.setAttribute('aria-label', `${badge ? `[${badge}] ` : ''}${this.name}: ${act}`);
+  }
+
+  makeSound(trigger = 'click', opts = {}) {
+    const res = makeSound(this, trigger, opts);
+    if (res) this.refreshTag();
+    return res;
+  }
+
+  pet() {
+    const res = this.makeSound('pet', { force: true });
+    if (res) this.bubble('say', res.text, 2.2);
+    return res;
   }
 
   note(text, kind = '') {
@@ -259,6 +275,7 @@ export class Agent {
       case 'tool':
         this.mode = 'work';
         if (it.error) this.panic(it.error, it.errorKind);
+        else if (activeThemeOf() === 'cats') this.makeSound('work');
         break;
       case 'think':
         this.mode = 'think';
@@ -283,6 +300,7 @@ export class Agent {
         }
         this.mode = 'ask';
         this.bubble('ask', it, Infinity);
+        this.makeSound('ask');
         this.office.onAsk(this, true);
         break;
       case 'error':
@@ -375,6 +393,7 @@ export class Agent {
     }
     this.panicT = 2.8;
     this.bubble('error', text, 4.6);
+    this.makeSound('error');
     this.sweatEl.hidden = false;
     this.office.onError(this, text);
     this.refreshTag();
@@ -453,6 +472,10 @@ export class Agent {
         this.sweatEl.hidden = true;
         this.refreshTag();
       }
+    }
+    if (this.soundT > 0 && (this.soundT -= dt) <= 0) {
+      this.vocalText = '';
+      this.refreshTag();
     }
     if (this.floor.animate) this.animate(); // 숨은 층(detail.js)은 몸짓을 건너뛴다
   }

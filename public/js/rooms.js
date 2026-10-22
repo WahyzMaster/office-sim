@@ -26,6 +26,8 @@ export const ROOMS = {
 
 export const DEFAULT_ROOM_THEME = 'studio';
 export const DEFAULT_LANG = 'ko';
+export const POSTURE_MODES = Object.freeze(['auto', 'tetrapod', 'bipod']);
+export const DEFAULT_POSTURE_MODE = 'auto';
 
 export const ROOM_THEMES = Object.freeze({
   dogs: Object.freeze({
@@ -116,10 +118,19 @@ export const ROOM_THEMES = Object.freeze({
 
 let activeTheme = DEFAULT_ROOM_THEME;
 let activeLang = DEFAULT_LANG;
+let activePostureMode = DEFAULT_POSTURE_MODE;
 
 export const roomThemeOf = (k) => (Object.hasOwn(ROOM_THEMES, k) ? k : DEFAULT_ROOM_THEME);
 export const activeThemeOf = () => activeTheme;
 export const langOf = (l) => (l === 'en' ? 'en' : 'ko');
+export const postureModeOf = (m) => (POSTURE_MODES.includes(m) ? m : DEFAULT_POSTURE_MODE);
+export const activePostureOf = () => activePostureMode;
+export const setPostureMode = (m) => { activePostureMode = postureModeOf(m); return activePostureMode; };
+export const effectivePosture = (themeKey = activeTheme, mode = activePostureMode) => {
+  const m = postureModeOf(mode);
+  if (m === 'tetrapod' || m === 'bipod') return m;
+  return (themeKey === 'dogs' || themeKey === 'cats') ? 'tetrapod' : 'bipod';
+};
 export const detectLang = (navLang = globalThis.navigator?.language) => (
   typeof navLang === 'string' && navLang.toLowerCase().startsWith('en') ? 'en' : 'ko'
 );
@@ -155,6 +166,10 @@ export const UI_TEXT = Object.freeze({
       live: '로컬 서버의 /events 스트림을 받고 있어요.',
     }),
     themeLabel: '공간',
+    postureLabel: '보행',
+    postures: Object.freeze({ auto: '자동 (테마별)', tetrapod: '4족 보행 (네발)', bipod: '2족 보행 (두발)' }),
+    soundLabel: Object.freeze({ on: '소리 켜짐', off: '음소거' }),
+    petBtn: '쓰다듬기 · 소리',
     controlLabel: '조작',
     legendBtn: '범례 안내',
     logBtn: '활동 기록',
@@ -195,6 +210,10 @@ export const UI_TEXT = Object.freeze({
       live: 'Connected to local /events stream.',
     }),
     themeLabel: 'Theme',
+    postureLabel: 'Posture',
+    postures: Object.freeze({ auto: 'Auto (By Theme)', tetrapod: 'Tetrapod (4-Leg)', bipod: 'Bipod (2-Leg)' }),
+    soundLabel: Object.freeze({ on: 'Sound On', off: 'Muted' }),
+    petBtn: 'Pet · Voice',
     controlLabel: 'Controls',
     legendBtn: 'Legend & Help',
     logBtn: 'Activity Log',

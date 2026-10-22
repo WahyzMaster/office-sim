@@ -1,8 +1,10 @@
 // 화면 가장자리 패널: 엘리베이터(층 선택), 활동 기록, 범례, 직원 상세, 기록 관찰(observe-panel.js).
 import {
   ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf, detectLang, applyRoomTheme, uiText, renderLegend,
+  postureModeOf, setPostureMode,
 } from './rooms.js';
 import { ObservePanel } from './observe-panel.js';
+import { setSoundEnabled } from './sound.js';
 
 export { ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf };
 export const STORE = 'office-sim:v1';
@@ -75,13 +77,15 @@ export class Hud {
     const $ = (id) => document.getElementById(id);
     this.el = {
       source: $('source'), sub: $('sub'), speed: $('speed'), interval: $('interval'),
-      roomTheme: $('room-theme'), themeLabel: $('theme-label'), preset: $('control-preset'), controlLabel: $('control-label'),
-      langBtn: $('lang-toggle'), tail: $('tail'),
+      roomTheme: $('room-theme'), themeLabel: $('theme-label'), posture: $('posture-mode'), postureLabel: $('posture-label'),
+      preset: $('control-preset'), controlLabel: $('control-label'), soundBtn: $('sound-toggle'), langBtn: $('lang-toggle'), tail: $('tail'),
       logBtn: $('toggle-log'), legendBtn: $('toggle-legend'), floors: $('floors'),
       log: $('log'), list: $('log-list'), legend: $('legend'), legendControls: $('legend-controls'), insp: $('inspector'),
     };
     this.prefs = loadPrefs();
     this.roomTheme = roomThemeOf(this.prefs.roomTheme);
+    this.postureMode = setPostureMode(this.prefs.postureMode);
+    this.soundOn = setSoundEnabled(this.prefs.soundOn !== false);
     this.lang = langOf(this.prefs.lang ?? detectLang());
     this.controlPreset = controlPresetOf(this.prefs.controlPreset);
     this.pings = new Map();
@@ -136,50 +140,59 @@ export class Hud {
       if (el.legendControls) el.legendControls.textContent = spec.hint;
       office.stage.setControlPreset?.(this.controlPreset);
     };
-    const applyThemeAndLang = (themeId, langId) => {
+    const syncSoundBtn = () => {
+      if (!el.soundBtn) return;
+      el.soundBtn.setAttribute('aria-pressed', String(this.soundOn));
+      el.soundBtn.textContent = uiText(this.lang).soundLabel[this.soundOn ? 'on' : 'off'];
+    };
+    const applyThemeAndLang = (themeId, langId, postureChanged = false) => {
       this.roomTheme = roomThemeOf(themeId);
       this.lang = langOf(langId);
       applyRoomTheme(this.roomTheme, this.lang);
       const t = uiText(this.lang);
       if (el.langBtn) el.langBtn.textContent = this.lang.toUpperCase();
       if (el.themeLabel) el.themeLabel.textContent = t.themeLabel;
+      if (el.postureLabel) el.postureLabel.textContent = t.postureLabel;
       if (el.controlLabel) el.controlLabel.textContent = t.controlLabel;
       if (el.roomTheme) {
         for (const opt of el.roomTheme.options) opt.textContent = ROOM_THEMES[opt.value]?.name?.[this.lang] || opt.textContent;
         el.roomTheme.value = this.roomTheme;
       }
+      if (el.posture) {
+        for (const opt of el.posture.options) opt.textContent = t.postures[opt.value] || opt.textContent;
+        el.posture.value = this.postureMode;
+      }
       if (el.preset) {
         for (const opt of el.preset.options) opt.textContent = t.controls[opt.value]?.label || opt.textContent;
       }
+      syncSoundBtn();
       el.legendBtn.textContent = t.legendBtn;
       el.logBtn.textContent = t.logBtn;
       el.log.querySelector('h2').textContent = t.logTitle;
+      const petBtn = el.insp.querySelector('[data-act="pet"]');
+      if (petBtn) petBtn.textContent = t.petBtn;
       el.insp.querySelector('[data-act="follow"]').textContent = t.follow;
       el.insp.querySelector('[data-act="close"]').textContent = t.close;
       this.buildLegend();
       applyPreset(this.controlPreset);
       el.sub.textContent = this.replay ? t.subReplay(this.replay.speed) : t.subInterval(cfg.intervalMs);
       this.setSource(el.source.dataset.state || 'demo');
-      office.refreshLabels?.(t.globalFloor, this.roomTheme);
+      office.refreshLabels?.(t.globalFloor, this.roomTheme, postureChanged);
       this.renderFloors(office);
       if (office.selected) this.inspect(office.selected, office);
     };
     applyThemeAndLang(this.roomTheme, this.lang);
-    el.roomTheme?.addEventListener('change', () => {
-      applyThemeAndLang(el.roomTheme.value, this.lang);
-      prefs.roomTheme = this.roomTheme;
-      savePrefs(prefs);
+    const save = () => savePrefs(prefs);
+    el.roomTheme?.addEventListener('change', () => { applyThemeAndLang(el.roomTheme.value, this.lang); prefs.roomTheme = this.roomTheme; save(); });
+    el.posture?.addEventListener('change', () => {
+      this.postureMode = setPostureMode(postureModeOf(el.posture.value));
+      applyThemeAndLang(this.roomTheme, this.lang, true);
+      prefs.postureMode = this.postureMode;
+      save();
     });
-    el.langBtn?.addEventListener('click', () => {
-      applyThemeAndLang(this.roomTheme, this.lang === 'ko' ? 'en' : 'ko');
-      prefs.lang = this.lang;
-      savePrefs(prefs);
-    });
-    el.preset?.addEventListener('change', () => {
-      applyPreset(el.preset.value);
-      prefs.controlPreset = this.controlPreset;
-      savePrefs(prefs);
-    });
+    el.soundBtn?.addEventListener('click', () => { this.soundOn = setSoundEnabled(!this.soundOn); syncSoundBtn(); prefs.soundOn = this.soundOn; save(); });
+    el.langBtn?.addEventListener('click', () => { applyThemeAndLang(this.roomTheme, this.lang === 'ko' ? 'en' : 'ko'); prefs.lang = this.lang; save(); });
+    el.preset?.addEventListener('change', () => { applyPreset(el.preset.value); prefs.controlPreset = this.controlPreset; save(); });
 
     const narrow = window.matchMedia('(max-width: 720px)').matches;
     const toggle = (btn, panel, key, fallback) => {
@@ -209,6 +222,10 @@ export class Hud {
       if (!a) return;
       if (a.floor.index !== office.focusIndex || office.overview) office.focus(a.floor.index);
       office.select(a);
+    });
+    el.insp.querySelector('[data-act="pet"]')?.addEventListener('click', () => {
+      office.selected?.pet?.();
+      if (office.selected) this.inspect(office.selected, office);
     });
     el.insp.querySelector('[data-act="follow"]').addEventListener('click', () => {
       office.follow = !office.follow;

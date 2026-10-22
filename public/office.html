@@ -389,7 +389,9 @@ body.overview .sign, body.overview .tag span { display: none; }
       </div>
       <label class="interval" for="interval">tail <input id="interval" type="number" min="50" max="5000" step="50" value="250"> ms</label>
       <label class="interval" for="room-theme"><span id="theme-label">공간</span> <select id="room-theme" aria-label="공간 테마 프리셋"><option value="dogs">퍼피 파크</option><option value="cats">캣 타워 살롱</option><option value="studio">AI 스튜디오</option><option value="office">테크 오피스</option><option value="palace">조선 궁궐</option><option value="hanok">전통 한옥</option><option value="starship">SF 스타십</option></select></label>
+      <label class="interval" for="posture-mode"><span id="posture-label">보행</span> <select id="posture-mode" aria-label="캐릭터 보행 자세"><option value="auto">자동 (테마별)</option><option value="tetrapod">4족 보행 (네발)</option><option value="bipod">2족 보행 (두발)</option></select></label>
       <label class="interval" for="control-preset"><span id="control-label">조작</span> <select id="control-preset" aria-label="카메라 조작 프리셋"><option value="map">구글 맵</option><option value="figma">피그마</option><option value="orbit">3D 오빗</option><option value="blender">블렌더</option></select></label>
+      <button type="button" id="sound-toggle" class="ghost" aria-pressed="true" aria-label="캐릭터 소리 켜기/끄기">소리 켜짐</button>
       <button type="button" id="lang-toggle" class="ghost" aria-label="언어 전환 (KO/EN)">KO</button>
       <button type="button" id="toggle-observe" class="ghost" hidden aria-pressed="false" aria-controls="observe" aria-label="기록 관찰">기록 관찰</button>
       <button type="button" id="toggle-legend" class="ghost" aria-pressed="false" aria-controls="legend">범례 안내</button>
@@ -438,6 +440,7 @@ body.overview .sign, body.overview .tag span { display: none; }
     <header>
       <span class="dot"></span>
       <h2></h2>
+      <button type="button" class="ghost" data-act="pet">쓰다듬기 · 소리</button>
       <button type="button" class="ghost" data-act="follow" aria-pressed="false">따라가기</button>
       <button type="button" class="ghost" data-act="close">닫기</button>
     </header>

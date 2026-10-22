@@ -353,7 +353,7 @@ export class Office {
   }
 
   // ---- 시점 ----
-  refreshLabels(globalLabel = GLOBAL_FLOOR_LABEL, theme = null) {
+  refreshLabels(globalLabel = GLOBAL_FLOOR_LABEL, theme = null, postureChanged = false) {
     const gf = this.byKey.get(GLOBAL_FLOOR_KEY);
     if (gf) gf.label = globalLabel;
     const themeChanged = theme && this.theme !== theme;
@@ -362,8 +362,8 @@ export class Office {
       if (themeChanged) f.rebuildTheme?.(theme);
       else f.refreshSigns?.();
     }
-    if (themeChanged) {
-      for (const a of this.agents.values()) a.refreshTheme?.(theme);
+    if (themeChanged || postureChanged) {
+      for (const a of this.agents.values()) a.refreshTheme?.(this.theme);
     }
   }
 
@@ -422,8 +422,10 @@ export class Office {
   }
 
   select(a, { focusPan = false } = {}) {
+    const prev = this.selected;
     this.selected = a;
     this.follow = !!a && (this.follow || focusPan);
+    if (a && a !== prev) a.makeSound?.('click', { force: true });
     if (focusPan && a) {
       a.group.getWorldPosition(this.tmp);
       this.tmp.y += 0.6;
