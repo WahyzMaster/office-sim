@@ -353,6 +353,20 @@ export class Office {
   }
 
   // ---- 시점 ----
+  refreshLabels(globalLabel = GLOBAL_FLOOR_LABEL, theme = null) {
+    const gf = this.byKey.get(GLOBAL_FLOOR_KEY);
+    if (gf) gf.label = globalLabel;
+    const themeChanged = theme && this.theme !== theme;
+    if (theme) this.theme = theme;
+    for (const f of this.floors) {
+      if (themeChanged) f.rebuildTheme?.(theme);
+      else f.refreshSigns?.();
+    }
+    if (themeChanged) {
+      for (const a of this.agents.values()) a.refreshTheme?.(theme);
+    }
+  }
+
   labelsVisible(floor) { return this.overview || floor.index === this.focusIndex; }
 
   // 새 직원도 자기 층의 자세히 그리기 수준(라벨, 그림자)을 따른다.

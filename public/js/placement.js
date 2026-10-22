@@ -1,5 +1,6 @@
 // 직원 색, 걷는 길(lane), 자리가 없을 때 기다리는 곳, 이동 경로. three.js 없이 쓰는 순수 함수.
-import { ROOMS, doorOf, zoneAt } from './rooms.js';
+import { ROOMS, activeThemeOf, doorOf, zoneAt } from './rooms.js';
+import { corridorWaypoints } from './theme-layouts.js';
 
 export const GOLDEN_ANGLE = 137.508;
 const FAMILY_SPAN = 48; // 형제 서브에이전트 색이 퍼지는 폭: 부모 브랜드 색 계열 안에서 ±24도
@@ -84,18 +85,28 @@ export function overflowPos(room, k) {
 }
 
 // 방 사이 경로. 문을 지날 때도 lane 만큼 옆으로 비켜 걸어서 같이 출발한 직원이 겹치지 않는다.
-export function route(p, toRoom, tx, tz, lane) {
+// 중정/연못/워프코어가 있는 테마(palace, hanok, starship)는 회랑 둘레길 경유점을 자동으로 끼워 넣는다.
+export function route(p, toRoom, tx, tz, lane, theme = activeThemeOf()) {
   const pts = [];
   const from = zoneAt(p.x, p.z);
+  let cx = p.x;
+  let cz = p.z;
   if (from !== toRoom) {
     if (from !== 'lounge') {
-      const d = doorOf(from);
+      const d = doorOf(from, theme);
       pts.push({ x: d.x + lane, z: d.inner }, { x: d.x + lane, z: lane });
+      cx = d.x + lane;
+      cz = lane;
     }
+    const targetX = toRoom !== 'lounge' ? doorOf(toRoom, theme).x + lane : tx;
+    const targetZ = toRoom !== 'lounge' ? lane : tz;
+    pts.push(...corridorWaypoints(cx, cz, targetX, targetZ, lane, theme));
     if (toRoom !== 'lounge') {
-      const d = doorOf(toRoom);
+      const d = doorOf(toRoom, theme);
       pts.push({ x: d.x + lane, z: lane }, { x: d.x + lane, z: d.inner });
     }
+  } else if (from === 'lounge') {
+    pts.push(...corridorWaypoints(cx, cz, tx, tz, lane, theme));
   }
   pts.push({ x: tx, z: tz });
   return pts;

@@ -275,13 +275,26 @@ body.overview .sign, body.overview .tag span { display: none; }
 #log li[data-kind="think"] span { font-family: var(--font-pen); font-size: 15px; line-height: 1.15; color: var(--fg); }
 #log li[data-kind="plan"] span { color: var(--accent); }
 
-#legend { grid-column: 1; grid-row: 3; align-self: end; padding: 12px 14px; width: 300px; }
-#legend ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 7px; }
-#legend li { display: grid; grid-template-columns: 12px 72px minmax(0, 1fr); gap: 8px; align-items: center; }
-#legend li i { width: 12px; height: 12px; border-radius: 3px; }
-#legend li b { font: 400 15px/1 var(--font-sign); }
+#legend { grid-column: 1; grid-row: 3; align-self: end; padding: 12px 14px; width: 336px; max-height: min(64vh, 540px); overflow-y: auto; }
+#legend h3 { margin: 11px 0 5px; padding-top: 8px; border-top: 1px solid var(--line); font: 600 11px/1.2 var(--font-ui); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+#legend h3:first-of-type { margin-top: 6px; padding-top: 0; border-top: 0; }
+#legend ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+#legend li { display: grid; grid-template-columns: 12px 84px minmax(0, 1fr); gap: 8px; align-items: center; }
+#legend li i { width: 12px; height: 12px; border-radius: 3px; box-sizing: border-box; }
+#legend li b { font: 400 14px/1.1 var(--font-sign); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #legend li span { font: 400 11px/1.3 var(--font-mono); color: var(--muted); }
-#legend p { margin: 10px 0 0; font-size: 11px; color: var(--muted); }
+#legend ul[data-lg="agents"] { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+#legend ul[data-lg="agents"] li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px 5px; border-radius: 10px; background: var(--muted-bg); border: 1px solid var(--line); cursor: pointer; outline: none; }
+#legend ul[data-lg="agents"] li:hover, #legend ul[data-lg="agents"] li:focus-visible { border-color: var(--accent); background: var(--panel-solid); }
+#legend ul[data-lg="agents"] canvas.ag-model { width: 68px; height: 76px; display: block; pointer-events: none; }
+#legend ul[data-lg="agents"] .ag-tag { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; }
+#legend ul[data-lg="agents"] .ag-tag i { width: 9px; height: 9px; flex: none; }
+#legend ul[data-lg="agents"] li span { position: absolute; bottom: calc(100% + 5px); left: 50%; transform: translate(-50%, 4px); width: max-content; max-width: 210px; padding: 6px 9px; border-radius: 8px; background: var(--panel-solid); color: var(--fg); border: 1px solid var(--line); box-shadow: var(--shadow); font: 500 11px/1.35 var(--font-ui); text-align: center; white-space: normal; z-index: 6; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.14s ease, transform 0.14s ease; }
+#legend ul[data-lg="agents"] li:nth-child(3n+1) span { left: 0; transform: translate(0, 4px); text-align: left; }
+#legend ul[data-lg="agents"] li:nth-child(3n) span { left: auto; right: 0; transform: translate(0, 4px); text-align: right; }
+#legend ul[data-lg="agents"] li:hover span, #legend ul[data-lg="agents"] li:focus-visible span { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+#legend ul[data-lg="agents"] li:nth-child(3n+1):hover span, #legend ul[data-lg="agents"] li:nth-child(3n+1):focus-visible span, #legend ul[data-lg="agents"] li:nth-child(3n):hover span, #legend ul[data-lg="agents"] li:nth-child(3n):focus-visible span { transform: translate(0, 0); }
+#legend p { margin: 4px 0 0; font-size: 11px; line-height: 1.4; color: var(--muted); }
 
 #inspector { grid-column: 2; grid-row: 3; justify-self: center; align-self: end; width: min(400px, 100%); padding: 12px 14px; }
 #inspector header { display: flex; align-items: center; gap: 8px; }
@@ -375,9 +388,11 @@ body.overview .sign, body.overview .tag span { display: none; }
         <button type="button" data-speed="4" aria-pressed="false">4×</button>
       </div>
       <label class="interval" for="interval">tail <input id="interval" type="number" min="50" max="5000" step="50" value="250"> ms</label>
-      <label class="interval" for="control-preset">조작 <select id="control-preset" aria-label="카메라 조작 프리셋"><option value="map">구글 맵</option><option value="figma">피그마</option><option value="orbit">3D 오빗</option><option value="blender">블렌더</option></select></label>
+      <label class="interval" for="room-theme"><span id="theme-label">공간</span> <select id="room-theme" aria-label="공간 테마 프리셋"><option value="studio">AI 스튜디오</option><option value="office">테크 오피스</option><option value="palace">조선 궁궐</option><option value="hanok">전통 한옥</option><option value="starship">SF 스타십</option></select></label>
+      <label class="interval" for="control-preset"><span id="control-label">조작</span> <select id="control-preset" aria-label="카메라 조작 프리셋"><option value="map">구글 맵</option><option value="figma">피그마</option><option value="orbit">3D 오빗</option><option value="blender">블렌더</option></select></label>
+      <button type="button" id="lang-toggle" class="ghost" aria-label="언어 전환 (KO/EN)">KO</button>
       <button type="button" id="toggle-observe" class="ghost" hidden aria-pressed="false" aria-controls="observe" aria-label="기록 관찰">기록 관찰</button>
-      <button type="button" id="toggle-legend" class="ghost" aria-pressed="false" aria-controls="legend">방 안내</button>
+      <button type="button" id="toggle-legend" class="ghost" aria-pressed="false" aria-controls="legend">범례 안내</button>
       <button type="button" id="toggle-log" class="ghost" aria-pressed="true" aria-controls="log">활동 기록</button>
     </div>
   </header>
@@ -407,10 +422,15 @@ body.overview .sign, body.overview .tag span { display: none; }
     <ol id="log-list"></ol>
   </aside>
 
-  <section id="legend" class="panel" hidden aria-label="방 안내">
-    <h2>방 안내</h2>
-    <ul></ul>
-    <p id="legend-agents">에이전트: Claude(테라코타 베레모) · Codex(에메랄드 바이저) · Grok(바이올렛 궤도 링) · AGY(시안·코발트 반중력 링)</p>
+  <section id="legend" class="panel" hidden aria-label="범례 안내">
+    <h2>범례 안내</h2>
+    <h3 data-lg-head="rooms">공간 · 방 안내</h3>
+    <ul data-lg="rooms"></ul>
+    <h3 data-lg-head="agents">캐릭터 · 에이전트</h3>
+    <ul data-lg="agents"></ul>
+    <h3 data-lg-head="signals">상태 · 색깔 신호</h3>
+    <ul data-lg="signals"></ul>
+    <h3 data-lg-head="controls">카메라 · 단축키</h3>
     <p id="legend-controls">구글 맵: 좌클릭 드래그 이동 · 우클릭/Ctrl+드래그 회전·기울기 · 휠 확대 · WASD/방향키 이동 · Shift+방향키 회전·기울기 · R 초기화 · F/더블클릭 따라가기 · 1-9/[/]/0 층 이동</p>
   </section>
 

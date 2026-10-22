@@ -1,6 +1,7 @@
-// 직원 몸(three.js 메시), 브랜드별 액세서리, 색칠, 몸짓 애니메이션.
+// 직원 몸(three.js 메시), 테마별 의상(궁궐 관복·한옥 배자·스타십 우주복·스튜디오/오피스), 브랜드별 액세서리, 몸짓 애니메이션.
 import * as THREE from 'three';
 import { mats } from './furniture.js';
+import { activeThemeOf } from './rooms.js';
 import { glowing } from './scene.js';
 
 const CAPSULE = new THREE.CapsuleGeometry(0.31, 0.36, 6, 14);
@@ -13,6 +14,11 @@ const HAND = new THREE.SphereGeometry(0.068, 8, 6);
 const SHOE = new THREE.CapsuleGeometry(0.075, 0.08, 4, 8);
 const PACK = new THREE.BoxGeometry(0.32, 0.32, 0.15);
 const COLLAR = new THREE.TorusGeometry(0.22, 0.042, 8, 18);
+const BELT = new THREE.TorusGeometry(0.305, 0.028, 8, 20);
+const GAT_BRIM = new THREE.CylinderGeometry(0.52, 0.52, 0.022, 24);
+const GAT_CROWN = new THREE.CylinderGeometry(0.18, 0.21, 0.24, 16);
+const SATGAT = new THREE.ConeGeometry(0.48, 0.24, 16);
+const JET_CYL = new THREE.CylinderGeometry(0.075, 0.095, 0.34, 10);
 const BERET = new THREE.CylinderGeometry(0.23, 0.28, 0.09, 16);
 const GEM = new THREE.OctahedronGeometry(0.095, 0);
 const VISOR = new THREE.TorusGeometry(0.275, 0.042, 8, 20, Math.PI * 0.68);
@@ -27,6 +33,9 @@ const PROP_BLADE = new THREE.BoxGeometry(0.34, 0.016, 0.045);
 const EYE_MAT = new THREE.MeshBasicMaterial({ color: 0x181d24 });
 const SPARK_MAT = new THREE.MeshBasicMaterial({ color: 0xffffff });
 const BLUSH_MAT = new THREE.MeshBasicMaterial({ color: 0xf48fb1, transparent: true, opacity: 0.65 });
+const GAT_MAT = new THREE.MeshStandardMaterial({ color: 0x1a1e24, roughness: 0.35, transparent: true, opacity: 0.9 });
+const BAMBOO_MAT = new THREE.MeshStandardMaterial({ color: 0xd4b483, roughness: 0.65 });
+const GOLD_MAT = new THREE.MeshStandardMaterial({ color: 0xd9a441, roughness: 0.3, metalness: 0.65 });
 
 const BRAND_ACCENT = {
   'claude-code': { color: 0xffd9b3, emissive: 0xff9e5e, glow: 0.9 },
@@ -57,7 +66,59 @@ function limb(rig, mat, footMat, x, y, sx, sy, isLeg) {
   return pivot;
 }
 
-export function buildBrandFlair(agent) {
+function buildThemeCostume(agent, theme) {
+  if (!agent.rig) return;
+  if (agent.costumeGroup) agent.costumeGroup.parent?.remove(agent.costumeGroup);
+  const cg = agent.costumeGroup = new THREE.Group();
+  agent.rig.add(cg);
+  if (agent.packMesh) agent.packMesh.visible = theme === 'studio' || theme === 'office';
+
+  if (theme === 'palace') {
+    // 조선 궁궐 관복: 금박 흉배(가슴 패치) + 각대(관복 허리띠) + 등 뒤 교지 두루마리 전서통
+    const badge = new THREE.Mesh(LIMB, GOLD_MAT);
+    badge.scale.set(0.22, 0.22, 0.03);
+    badge.position.set(0, 0.84, 0.3);
+    const belt = new THREE.Mesh(BELT, GOLD_MAT);
+    belt.rotation.x = Math.PI / 2;
+    belt.position.y = 0.66;
+    const scroll = new THREE.Mesh(JET_CYL, GOLD_MAT);
+    scroll.rotation.z = 0.55;
+    scroll.position.set(0, 0.84, -0.26);
+    cg.add(badge, belt, scroll);
+  } else if (theme === 'hanok') {
+    // 전통 한옥 배자: 고름 리본 + 등 뒤 대나무 서책 망태기
+    const goreum = new THREE.Mesh(LIMB, agent.accentMat);
+    goreum.scale.set(0.06, 0.26, 0.03);
+    goreum.position.set(0.08, 0.82, 0.31);
+    goreum.rotation.z = -0.2;
+    const basket = new THREE.Mesh(PACK, BAMBOO_MAT);
+    basket.position.set(0, 0.78, -0.24);
+    cg.add(goreum, basket);
+  } else if (theme === 'starship') {
+    // SF 스타십: 가슴 아크 리액터 코어 + 트윈 제트팩 추진기
+    const core = new THREE.Mesh(EAR_HEX, agent.accentMat);
+    core.rotation.x = Math.PI / 2;
+    core.position.set(0, 0.84, 0.3);
+    cg.add(core);
+    for (const sx of [-0.11, 0.11]) {
+      const pod = new THREE.Mesh(JET_CYL, agent.legsMat);
+      pod.position.set(sx, 0.8, -0.25);
+      const flame = new THREE.Mesh(HAND, agent.accentMat);
+      flame.scale.set(0.65, 0.9, 0.65);
+      flame.position.set(sx, 0.58, -0.25);
+      cg.add(pod, flame);
+    }
+  } else if (theme === 'office') {
+    // 테크 오피스: 사원증 케이스
+    const idCard = new THREE.Mesh(LIMB, SPARK_MAT);
+    idCard.scale.set(0.11, 0.15, 0.025);
+    idCard.position.set(0.1, 0.82, 0.31);
+    cg.add(idCard);
+  }
+}
+
+export function buildBrandFlair(agent, theme = activeThemeOf()) {
+  if (!agent.head || !agent.rig) return;
   if (agent.brandGroup) agent.brandGroup.parent?.remove(agent.brandGroup);
   if (agent.baseRing) agent.baseRing.parent?.remove(agent.baseRing);
   agent.flair = null;
@@ -69,20 +130,21 @@ export function buildBrandFlair(agent) {
     new THREE.MeshStandardMaterial({ color: spec.color, emissive: spec.emissive, roughness: 0.25, metalness: 0.2 }),
     spec.glow,
   );
+  buildThemeCostume(agent, theme);
 
   const bg = agent.brandGroup = new THREE.Group();
   agent.head.add(bg);
 
   if (agent.agent === 'claude-code') {
-    // Claude: 따뜻한 베레모 + 전면 스파크 스타 엠블럼
+    // Claude: 궁궐(정자관+옥관자), 한옥(유건+매듭별), 기본/스타십(베레모/크레스트+스파크 스타)
     const hat = new THREE.Group();
-    hat.position.set(0.03, 0.25, -0.02);
-    hat.rotation.set(-0.12, 0, -0.18);
-    const beret = new THREE.Mesh(BERET, agent.bodyMat);
-    beret.castShadow = true;
-    hat.add(beret);
+    hat.position.set(theme === 'palace' || theme === 'hanok' ? 0 : 0.03, 0.26, -0.01);
+    if (theme !== 'palace' && theme !== 'hanok') hat.rotation.set(-0.12, 0, -0.18);
+    const crown = new THREE.Mesh(theme === 'palace' ? GAT_CROWN : BERET, theme === 'palace' ? GAT_MAT : agent.bodyMat);
+    crown.castShadow = true;
+    hat.add(crown);
     const star = new THREE.Group();
-    star.position.set(0, 0.11, 0.14);
+    star.position.set(0, theme === 'palace' ? 0.16 : 0.11, 0.14);
     const g1 = new THREE.Mesh(GEM, agent.accentMat);
     const g2 = new THREE.Mesh(GEM, agent.accentMat);
     g2.rotation.y = Math.PI / 4;
@@ -92,31 +154,54 @@ export function buildBrandFlair(agent) {
     bg.add(hat);
     agent.flair = star;
   } else if (agent.agent === 'codex') {
-    // Codex: 에메랄드 사이버 바이저 + 육각 헤드셋 + 회전 크리스탈
+    // Codex: 궁궐(흑립 갓+어사화), 한옥(대나무 삿갓+에메랄드 구슬), 기본/스타십(사이버 바이저+육각 헤드셋)
     const visor = new THREE.Mesh(VISOR, agent.accentMat);
     visor.position.set(0, 0.02, 0.03);
     visor.rotation.set(Math.PI / 2, 0, -Math.PI * 0.34);
     bg.add(visor);
-    for (const sx of [-1, 1]) {
-      const ear = new THREE.Mesh(EAR_HEX, agent.legsMat);
-      ear.position.set(sx * 0.31, 0.02, 0);
-      ear.rotation.z = Math.PI / 2;
-      bg.add(ear);
+    if (theme === 'palace') {
+      const brim = new THREE.Mesh(GAT_BRIM, GAT_MAT);
+      brim.position.set(0, 0.24, 0);
+      const top = new THREE.Mesh(GAT_CROWN, GAT_MAT);
+      top.position.set(0, 0.36, 0);
+      bg.add(brim, top);
+    } else if (theme === 'hanok') {
+      const cone = new THREE.Mesh(SATGAT, BAMBOO_MAT);
+      cone.position.set(0, 0.32, 0);
+      bg.add(cone);
+    } else {
+      for (const sx of [-1, 1]) {
+        const ear = new THREE.Mesh(EAR_HEX, agent.legsMat);
+        ear.position.set(sx * 0.31, 0.02, 0);
+        ear.rotation.z = Math.PI / 2;
+        bg.add(ear);
+      }
     }
     const gem = new THREE.Mesh(GEM, agent.accentMat);
-    gem.position.set(0, 0.43, 0);
+    gem.position.set(0, theme === 'palace' ? 0.56 : 0.46, 0);
     bg.add(gem);
     agent.flair = gem;
   } else if (agent.agent === 'grok') {
-    // Grok: 토성/슬래시 궤도 링 + 위성 + 다크 셰이드
+    // Grok: 궁궐(사모 관모+혼천의 고리), 한옥(전립+반딧불 고리), 기본/스타십(다크 셰이드+토성 궤도 링)
     const shade = new THREE.Mesh(VISOR, EYE_MAT);
     shade.position.set(0, 0.03, 0.03);
     shade.rotation.set(Math.PI / 2, 0, -Math.PI * 0.34);
     bg.add(shade);
+    if (theme === 'palace' || theme === 'hanok') {
+      const cap = new THREE.Mesh(BERET, GAT_MAT);
+      cap.position.set(0, 0.25, 0);
+      bg.add(cap);
+      if (theme === 'palace') {
+        const wings = new THREE.Mesh(PROP_BLADE, GAT_MAT);
+        wings.scale.set(1.4, 1.8, 1.5);
+        wings.position.set(0, 0.24, -0.14);
+        bg.add(wings);
+      }
+    }
     const orbit = new THREE.Group();
-    orbit.position.set(0, 0.12, 0);
+    orbit.position.set(0, 0.14, 0);
     orbit.rotation.set(1.22, 0.3, -0.32);
-    const ring = new THREE.Mesh(ORBIT_RING, agent.accentMat);
+    const ring = new THREE.Mesh(ORBIT_RING, theme === 'palace' ? GOLD_MAT : agent.accentMat);
     const moon = new THREE.Mesh(HAND, agent.accentMat);
     moon.scale.setScalar(0.65);
     moon.position.set(0.43, 0, 0);
@@ -124,13 +209,23 @@ export function buildBrandFlair(agent) {
     bg.add(orbit);
     agent.flair = orbit;
   } else if (agent.agent === 'antigravity') {
-    // Antigravity: 발밑 반중력 부양 링 + 머리 위 프리즘 + CLI(터미널 캡) / App(헤일로 헤드셋)
+    // Antigravity: 발밑 반중력/구름/파문 링 + 머리 위 프리즘 + CLI/App 또는 방건/망건
     const lev = new THREE.Mesh(LEV_RING, agent.accentMat);
     lev.rotation.x = Math.PI / 2;
     lev.position.set(0, 0.05, 0);
     agent.rig.add(lev);
     agent.baseRing = lev;
-    if (agent.surface === 'cli') {
+    if (theme === 'palace') {
+      const crown = new THREE.Mesh(GAT_CROWN, GOLD_MAT);
+      crown.scale.set(0.85, 0.85, 0.85);
+      crown.position.set(0, 0.28, 0);
+      bg.add(crown);
+    } else if (theme === 'hanok') {
+      const band = new THREE.Mesh(BELT, GAT_MAT);
+      band.rotation.x = Math.PI / 2;
+      band.position.set(0, 0.14, 0);
+      bg.add(band);
+    } else if (agent.surface === 'cli') {
       const bill = new THREE.Mesh(BILL, agent.accentMat);
       bill.position.set(0, 0.17, 0.24);
       bill.rotation.x = 0.12;
@@ -148,16 +243,16 @@ export function buildBrandFlair(agent) {
     }
     const prism = new THREE.Mesh(GEM, agent.accentMat);
     prism.scale.set(1.1, 1.35, 1.1);
-    prism.position.set(0, 0.48, 0);
+    prism.position.set(0, 0.5, 0);
     bg.add(prism);
     agent.flair = prism;
   }
 
   if (agent.isSub) {
     const prop = new THREE.Group();
-    prop.position.set(0, agent.agent === 'antigravity' || agent.agent === 'codex' ? 0.64 : 0.38, 0);
+    prop.position.set(0, agent.agent === 'antigravity' || agent.agent === 'codex' ? 0.68 : 0.42, 0);
     const stem = new THREE.Mesh(PROP_STEM, agent.legsMat);
-    const blade = new THREE.Mesh(PROP_BLADE, agent.accentMat);
+    const blade = new THREE.Mesh(PROP_BLADE, theme === 'palace' ? GOLD_MAT : agent.accentMat);
     blade.position.y = 0.07;
     prop.add(stem, blade);
     bg.add(prop);
@@ -181,7 +276,7 @@ export function buildAgentMesh(agent) {
   const collar = new THREE.Mesh(COLLAR, M.wall);
   collar.rotation.x = Math.PI / 2;
   collar.position.y = 1.09;
-  const pack = new THREE.Mesh(PACK, agent.legsMat);
+  const pack = agent.packMesh = new THREE.Mesh(PACK, agent.legsMat);
   pack.position.set(0, 0.78, -0.23);
   pack.castShadow = true;
 

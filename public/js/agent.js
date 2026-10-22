@@ -125,6 +125,22 @@ export class Agent {
     this.refreshTag();
   }
 
+  refreshTheme(theme) {
+    buildBrandFlair(this, theme);
+    if (!this.floor.shadows && this.floor.setShadows) this.floor.setShadows(false, this.group);
+    if (this.current?.kind === 'leave') {
+      this.walkTo('lounge', ELEVATOR.x, ELEVATOR.z, -Math.PI / 2);
+      return;
+    }
+    if (typeof this.floor?.slotPos !== 'function') return;
+    const [tx, tz, face] = this.floor.slotPos(this.room, this.slot, this);
+    if (this.path.length) this.walkTo(this.room, tx, tz, face);
+    else if (this.group?.position) {
+      this.group.position.set(tx, 0, tz);
+      this.face = face;
+    }
+  }
+
   refreshTag() {
     const ab = this.tagEl.querySelector('.ab');
     const badge = agentBadge(this.agent, this.surface);
