@@ -1,16 +1,12 @@
 // 화면 가장자리 패널: 엘리베이터(층 선택), 활동 기록, 범례, 직원 상세, 기록 관찰(observe-panel.js).
-import { ROOMS } from './rooms.js';
+import {
+  ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf, detectLang, applyRoomTheme, uiText, renderLegend,
+} from './rooms.js';
 import { ObservePanel } from './observe-panel.js';
 
+export { ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf };
 export const STORE = 'office-sim:v1';
 export const LEGACY_STORE = 'claude-office:v1'; // 이름을 바꾸기 전(claude-office) 키. 한 번만 옮겨 오고 지우지 않는다.
-const MODE = { idle: '대기', work: '작업 중', think: '생각 중', write: '계획 작성', ask: '질문 중', panic: '식은땀' };
-const SOURCE = {
-  demo: '데모 데이터',
-  live: '라이브 · 연결됨',
-  retry: '라이브 · 재연결 중',
-  down: '서버 없음 · 데모 재생',
-};
 // session 이벤트의 agent(출처 id) -> 화면 이름. 모르는 id 는 그대로 보여 준다.
 const AGENT_LABEL = { 'claude-code': 'Claude Code', codex: 'Codex', grok: 'Grok', antigravity: 'Antigravity' };
 const AGENT_BADGE = { 'claude-code': 'Claude', codex: 'Codex', grok: 'Grok', antigravity: 'AGY' };
@@ -30,24 +26,7 @@ export const agentBadge = (id, surface = '') => {
 };
 
 export const DEFAULT_CONTROL_PRESET = 'map';
-export const CONTROL_PRESETS = Object.freeze({
-  map: Object.freeze({
-    label: '구글 맵',
-    hint: '구글 맵: 좌클릭 드래그 이동 · 우클릭/Ctrl+드래그 회전·기울기 · 휠 확대 · WASD/방향키 이동 · Shift+방향키 회전·기울기 · R 초기화 · F/더블클릭 따라가기 · 1-9/[/]/0 층 이동',
-  }),
-  figma: Object.freeze({
-    label: '피그마',
-    hint: '피그마: 휠/두손가락 이동 · Ctrl/핀치+휠 확대 · Space+드래그/휠클릭 이동 · 드래그 회전 · Shift+0/1/2 시점·맞춤·포커스 · R 초기화 · 1-9/[/]/0 층 이동',
-  }),
-  orbit: Object.freeze({
-    label: '3D 오빗',
-    hint: '3D 오빗: 좌클릭 드래그 회전 · 우클릭/Shift/Space+드래그 이동 · 휠 확대 · WASD/방향키 이동 · Q/E 회전 · R 초기화 · F/더블클릭 따라가기 · 1-9/[/]/0 층 이동',
-  }),
-  blender: Object.freeze({
-    label: '블렌더',
-    hint: '블렌더: 휠클릭/Alt+드래그 회전 · Shift+휠클릭/좌·우클릭 이동 · 휠 확대 · WASD/방향키 이동 · ./F 선택 포커스 · Home/R 초기화 · 1-9/[/]/0 층 이동',
-  }),
-});
+export const CONTROL_PRESETS = uiText('ko').controls;
 export const controlPresetOf = (k) => (Object.hasOwn(CONTROL_PRESETS, k) ? k : DEFAULT_CONTROL_PRESET);
 
 // 재생 모드(--replay): 서버가 config 메시지에 싣는 replay { state, speed, loop, round, progress } 를 칩 문구로.
@@ -95,15 +74,20 @@ export class Hud {
   constructor() {
     const $ = (id) => document.getElementById(id);
     this.el = {
-      source: $('source'), sub: $('sub'), speed: $('speed'), interval: $('interval'), preset: $('control-preset'), tail: $('tail'),
+      source: $('source'), sub: $('sub'), speed: $('speed'), interval: $('interval'),
+      roomTheme: $('room-theme'), themeLabel: $('theme-label'), preset: $('control-preset'), controlLabel: $('control-label'),
+      langBtn: $('lang-toggle'), tail: $('tail'),
       logBtn: $('toggle-log'), legendBtn: $('toggle-legend'), floors: $('floors'),
       log: $('log'), list: $('log-list'), legend: $('legend'), legendControls: $('legend-controls'), insp: $('inspector'),
     };
     this.prefs = loadPrefs();
+    this.roomTheme = roomThemeOf(this.prefs.roomTheme);
+    this.lang = langOf(this.prefs.lang ?? detectLang());
     this.controlPreset = controlPresetOf(this.prefs.controlPreset);
     this.pings = new Map();
     this.keys = new Set();
     this.statT = 0;
+    applyRoomTheme(this.roomTheme, this.lang);
     this.buildLegend();
     // 라이브 서버가 observe 메시지를 보내기 전에는 숨어 있다(데모·벤치에서는 끝까지 숨는다).
     this.observe = new ObservePanel($('toggle-observe'), $('observe'), { announce: $('observe-announce') });
@@ -111,6 +95,7 @@ export class Hud {
 
   bind(office, cfg, getSource) {
     this.office = office;
+    this.cfg = cfg;
     const { el, prefs } = this;
     cfg.speed = prefs.speed || 1;
     cfg.intervalMs = prefs.intervalMs || 250;
@@ -131,7 +116,7 @@ export class Hud {
     const setInterval = (ms) => {
       cfg.intervalMs = Math.min(5000, Math.max(50, Math.round(ms / 50) * 50 || 250));
       el.interval.value = String(cfg.intervalMs);
-      el.sub.textContent = `세션 기록을 ${cfg.intervalMs}ms마다 따라 읽어요`;
+      if (!this.replay) el.sub.textContent = uiText(this.lang).subInterval(cfg.intervalMs);
     };
     setInterval(cfg.intervalMs);
     el.interval.addEventListener('change', () => {
@@ -143,7 +128,7 @@ export class Hud {
 
     const applyPreset = (id) => {
       this.controlPreset = controlPresetOf(id);
-      const spec = CONTROL_PRESETS[this.controlPreset];
+      const spec = uiText(this.lang).controls[this.controlPreset];
       if (el.preset) {
         el.preset.value = this.controlPreset;
         el.preset.title = spec.hint;
@@ -151,7 +136,45 @@ export class Hud {
       if (el.legendControls) el.legendControls.textContent = spec.hint;
       office.stage.setControlPreset?.(this.controlPreset);
     };
-    applyPreset(this.controlPreset);
+    const applyThemeAndLang = (themeId, langId) => {
+      this.roomTheme = roomThemeOf(themeId);
+      this.lang = langOf(langId);
+      applyRoomTheme(this.roomTheme, this.lang);
+      const t = uiText(this.lang);
+      if (el.langBtn) el.langBtn.textContent = this.lang.toUpperCase();
+      if (el.themeLabel) el.themeLabel.textContent = t.themeLabel;
+      if (el.controlLabel) el.controlLabel.textContent = t.controlLabel;
+      if (el.roomTheme) {
+        for (const opt of el.roomTheme.options) opt.textContent = ROOM_THEMES[opt.value]?.name?.[this.lang] || opt.textContent;
+        el.roomTheme.value = this.roomTheme;
+      }
+      if (el.preset) {
+        for (const opt of el.preset.options) opt.textContent = t.controls[opt.value]?.label || opt.textContent;
+      }
+      el.legendBtn.textContent = t.legendBtn;
+      el.logBtn.textContent = t.logBtn;
+      el.log.querySelector('h2').textContent = t.logTitle;
+      el.insp.querySelector('[data-act="follow"]').textContent = t.follow;
+      el.insp.querySelector('[data-act="close"]').textContent = t.close;
+      this.buildLegend();
+      applyPreset(this.controlPreset);
+      el.sub.textContent = this.replay ? t.subReplay(this.replay.speed) : t.subInterval(cfg.intervalMs);
+      this.setSource(el.source.dataset.state || 'demo');
+      office.refreshLabels?.(t.globalFloor, this.roomTheme);
+      this.renderFloors(office);
+      if (office.selected) this.inspect(office.selected, office);
+    };
+    applyThemeAndLang(this.roomTheme, this.lang);
+    el.roomTheme?.addEventListener('change', () => {
+      applyThemeAndLang(el.roomTheme.value, this.lang);
+      prefs.roomTheme = this.roomTheme;
+      savePrefs(prefs);
+    });
+    el.langBtn?.addEventListener('click', () => {
+      applyThemeAndLang(this.roomTheme, this.lang === 'ko' ? 'en' : 'ko');
+      prefs.lang = this.lang;
+      savePrefs(prefs);
+    });
     el.preset?.addEventListener('change', () => {
       applyPreset(el.preset.value);
       prefs.controlPreset = this.controlPreset;
@@ -279,7 +302,7 @@ export class Hud {
     if (Number.isFinite(msg?.intervalMs)) {
       cfg.intervalMs = msg.intervalMs;
       this.el.interval.value = String(msg.intervalMs);
-      this.el.sub.textContent = `세션 기록을 ${msg.intervalMs}ms마다 따라 읽어요`;
+      this.el.sub.textContent = uiText(this.lang).subInterval(msg.intervalMs);
     }
     if (msg?.replay) this.setReplay(msg.replay);
   }
@@ -288,19 +311,17 @@ export class Hud {
   setReplay(r) {
     this.replay = r;
     this.el.interval.closest('label').hidden = true;
-    this.el.sub.textContent = `지난 세션 기록을 ${r.speed}배속으로 다시 보여 줘요`;
+    this.el.sub.textContent = uiText(this.lang).subReplay(r.speed);
     if (this.el.source.dataset.state !== 'retry') this.setSource('replay');
   }
 
   setSource(state) {
     if (state === 'live' && this.replay) state = 'replay';
     this.observe.setConnected(state !== 'retry'); // 기록 관찰: 끊긴 동안 받은 상태는 낡았다(시계와 버튼을 세운다)
+    const t = uiText(this.lang);
     this.el.source.dataset.state = state;
-    this.el.source.querySelector('span').textContent = state === 'replay' ? replayText(this.replay) : SOURCE[state] || state;
-    this.el.source.title = state === 'demo' || state === 'down'
-      ? '예시 세션을 재생하고 있어요. 로컬 서버를 실행하면 실제 에이전트 세션이 보여요.'
-      : state === 'replay' ? '지난 세션 기록을 기록된 시간 간격대로 재생하고 있어요.'
-        : '로컬 서버의 /events 스트림을 받고 있어요.';
+    this.el.source.querySelector('span').textContent = state === 'replay' ? replayText(this.replay) : t.source[state] || state;
+    this.el.source.title = state === 'demo' || state === 'down' ? t.sourceTitle.demo : state === 'replay' ? t.sourceTitle.replay : t.sourceTitle.live;
   }
 
   flashTail(n) {
@@ -312,20 +333,13 @@ export class Hud {
   }
 
   buildLegend() {
-    const ul = this.el.legend.querySelector('ul');
-    for (const r of Object.values(ROOMS)) {
-      const li = document.createElement('li');
-      li.innerHTML = '<i></i><b></b><span></span>';
-      li.querySelector('i').style.background = `var(${r.token})`;
-      li.querySelector('b').textContent = r.label;
-      li.querySelector('span').textContent = r.hint;
-      ul.append(li);
-    }
+    renderLegend(this.el.legend, this.roomTheme, this.lang);
   }
 
   renderFloors(office) {
     const nav = this.el.floors;
     const focused = document.activeElement?.closest?.('#floors button')?.dataset.i;
+    const t = uiText(this.lang);
     nav.replaceChildren();
     const make = (i, no, name) => {
       const b = document.createElement('button');
@@ -338,12 +352,12 @@ export class Hud {
       nav.append(b);
       return b;
     };
-    const all = make('all', '전체', '모든 프로젝트 층 보기');
+    const all = make('all', t.allNo, t.allName);
     all.setAttribute('aria-pressed', String(office.overview));
     all.classList.add('all');
     for (const f of [...office.floors].reverse()) {
       const b = make(f.index, f.number, f.label);
-      b.title = f.key === '_global' ? '워크스페이스 경로가 지정되지 않은 전역 세션' : f.key;
+      b.title = f.key === '_global' ? t.globalTitle : f.key;
       b.setAttribute('aria-pressed', String(!office.overview && f.index === office.focusIndex));
     }
     this.floorStats(office);
@@ -351,6 +365,7 @@ export class Hud {
   }
 
   floorStats(office) {
+    const t = uiText(this.lang);
     for (const f of office.floors) {
       const b = this.el.floors.querySelector(`[data-i="${f.index}"]`);
       if (!b) continue;
@@ -368,12 +383,12 @@ export class Hud {
         agEl.textContent = summary;
         agEl.hidden = !summary;
       }
-      b.querySelector('.ct').textContent = asking ? `${approving === asking ? '승인' : '질문'} ${asking}` : String(agents.length);
+      b.querySelector('.ct').textContent = asking ? t.askBadge(approving, asking) : String(agents.length);
       b.classList.toggle('asking', asking > 0);
       const ping = this.pings.get(f);
       b.classList.toggle('ping', ping === 'activity');
       b.classList.toggle('alert', ping === 'error');
-      b.setAttribute('aria-label', `${f.number} ${f.label}, 직원 ${agents.length}명${asking ? `, 질문 ${asking}건` : ''}`);
+      b.setAttribute('aria-label', `${f.number} ${f.label}, ${agents.length}${asking ? `, ${t.askBadge(approving, asking)}` : ''}`);
     }
   }
 
@@ -405,19 +420,20 @@ export class Hud {
       box.hidden = true;
       return;
     }
+    const t = uiText(this.lang);
     box.hidden = false;
     box.querySelector('.dot').style.background = a.color;
     box.querySelector('h2').textContent = a.name;
-    const mode = a.path.length ? '이동 중' : a.mode === 'ask' && a.current?.approval ? '승인 대기'
-      : MODE[a.panicT > 0 ? 'panic' : a.mode] || a.mode;
+    const mode = a.path.length ? t.mode.moving : a.mode === 'ask' && a.current?.approval ? t.mode.approval
+      : t.mode[a.panicT > 0 ? 'panic' : a.mode] || a.mode;
     const agentText = a.agent ? agentLabel(a.agent, a.surface) : '-';
     const rows = [
-      ['프로젝트', `${a.floor.number} · ${a.floor.label}`],
-      ['에이전트', a.isSub ? `${agentText} · 서브 (${a.agentType || '보조'})` : agentText],
-      ['브랜치', a.worktree ? `${a.branch || '-'} (워크트리 ${a.worktree})` : a.branch || '-'],
-      ['상태', mode],
-      ['하는 일', a.activity],
-      ['남은 일', `${a.queue.length}건`],
+      [t.rows.project, `${a.floor.number} · ${a.floor.label}`],
+      [t.rows.agent, a.isSub ? `${agentText} · ${t.subBadge(a.agentType)}` : agentText],
+      [t.rows.branch, a.worktree ? `${a.branch || '-'} (${t.worktreeBadge(a.worktree)})` : a.branch || '-'],
+      [t.rows.status, mode],
+      [t.rows.activity, a.activity],
+      [t.rows.queue, t.queueCount(a.queue.length)],
     ];
     const dl = box.querySelector('dl');
     dl.replaceChildren(...rows.flatMap(([k, val]) => {

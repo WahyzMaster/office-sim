@@ -1,14 +1,38 @@
 {
   "name": "office-sim",
   "version": "0.1.0",
-  "private": true,
-  "description": "AI 코딩 에이전트 세션 기록을 tail 해서 3D 사무실로 보여 주는 로컬 서버 (현재는 Claude Code, Codex, Grok(xAI Grok Build), Antigravity CLI(agy, 예전 IDE 포함) 세션 기록(jsonl)을 읽는다)",
+  "description": "Local 3D office visualizer for AI coding agents — tails Claude Code, Codex, Grok (xAI Grok Build), and Antigravity session logs in real time with zero dependencies.",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "office-sim": "bin/office-sim.mjs"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "public/",
+    "skills/",
+    "scripts/",
+    "README.md",
+    "README.ko.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WahyzMaster/office-sim.git"
+  },
+  "keywords": [
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "grok",
+    "antigravity",
+    "threejs",
+    "visualizer",
+    "developer-tools"
+  ],
   "engines": {
-    "node": ">=24"
+    "node": ">=22"
   },
   "scripts": {
     "start": "node bin/office-sim.mjs",

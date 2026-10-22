@@ -215,31 +215,34 @@ export function buildMeeting(g, board) {
 
 export function buildDesk(g) {
   desk(g, 9.6, 5, 1.0, 2.6);
-  monitor(g, M.screens.code, 9.35, 0.79, 4.4, E, 0.9, 0.56);
-  monitor(g, M.screens.web, 9.35, 0.79, 5.6, E, 0.9, 0.56);
-  box(g, M.wall, 0.5, 0.06, 0.38, 9.75, 0.79, 3.95, false);
+  monitor(g, M.screens.code, 9.35, 0.79, 4.35, E, 0.9, 0.56);
+  monitor(g, M.screens.web, 9.35, 0.79, 5.65, E, 0.9, 0.56);
+  // 중앙 승인 패드(허용/거절 버튼)와 마이크 스탠드
+  box(g, M.dark, 0.36, 0.05, 0.48, 9.68, 0.79, 5.0, false);
+  box(g, M.ledOn, 0.12, 0.03, 0.14, 9.68, 0.83, 4.88, false);
+  box(g, M.ledBusy, 0.12, 0.03, 0.14, 9.68, 0.83, 5.12, false);
+  box(g, M.metal, 0.04, 0.24, 0.04, 9.52, 0.79, 5.0, false);
+  box(g, M.dark, 0.1, 0.07, 0.07, 9.48, 1.03, 5.0, false);
   const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.16, 10), M.rug.desk);
   mug.position.set(9.9, 0.87, 6.1);
   g.add(mug);
-  // 내 의자와 나
-  box(g, M.metal, 0.08, 0.42, 0.08, 10.85, 0, 5, false);
-  box(g, M.dark, 0.62, 0.1, 0.62, 10.85, 0.42, 5);
-  box(g, M.dark, 0.1, 0.85, 0.62, 11.2, 0.52, 5);
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 0.38, 4, 12), M.user);
-  torso.position.set(10.82, 1.0, 5);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 18, 14), M.skin);
-  head.position.set(10.8, 1.6, 5);
-  const phones = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.04, 6, 20, Math.PI), M.dark);
-  phones.position.set(10.8, 1.6, 5);
-  for (const m of [torso, head, phones]) { m.castShadow = true; g.add(m); }
-  for (const dz of [-0.28, 0.28]) {
-    const arm = box(g, M.user, 0.5, 0.1, 0.1, 10.45, 0.92, 5 + dz);
-    arm.rotation.z = 0.25;
-  }
+  // 리뷰·승인 홀로그램 인터콤 부스 (층마다 사람이 복제되지 않도록 원격 홀로그램 비콘으로 구성)
+  for (const dz of [-1.55, 1.55]) box(g, M.part, 1.5, 1.55, 0.1, 10.45, 0, 5 + dz);
+  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.48, 0.86, 16), M.metal);
+  ped.position.set(10.8, 0.43, 5);
+  ped.castShadow = true;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.026, 8, 24), M.ledOn);
+  ring.position.set(10.8, 1.28, 5);
+  ring.rotation.x = Math.PI / 2;
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.26, 1), M.water);
+  core.position.set(10.8, 1.28, 5);
+  const beacon = box(g, M.lamp, 0.1, 0.1, 0.1, 10.8, 1.62, 5, false);
+  beacon.userData.blink = true;
+  g.add(ped, ring, core);
   plant(g, 5, 7.4, 1.3);
 }
 
-export function buildLounge(g) {
+export function buildLoungeProps(g) {
   box(g, M.sofa, 3.0, 0.42, 0.8, 8.8, 0, 1.4);
   box(g, M.sofa, 3.0, 0.55, 0.2, 8.8, 0.42, 1.75);
   box(g, M.sofa, 0.2, 0.62, 0.8, 7.3, 0, 1.4);
@@ -250,6 +253,10 @@ export function buildLounge(g) {
   g.add(bottle);
   plant(g, -10.4, 1.5, 1.0);
   plant(g, 11.5, 1.5, 1.2);
+}
+
+export function buildLounge(g) {
+  buildLoungeProps(g);
   box(g, M.dark, 0.14, 2.5, 2.5, -11.95, 0, 0);
   const doors = [
     box(g, M.metal, 0.06, 2.2, 0.92, -11.85, 0.02, -0.46, false),

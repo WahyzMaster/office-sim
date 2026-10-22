@@ -31,6 +31,9 @@ register(`data:text/javascript,${encodeURIComponent(`export async function resol
 }`)}`);
 globalThis.window ??= { matchMedia: () => ({ matches: false }) };
 const { Agent } = await import('../public/js/agent.js');
+const { buildBrandFlair } = await import('../public/js/agent-mesh.js');
+const { buildThemeGround } = await import('../public/js/theme-grounds.js');
+const { buildPalaceProps, buildHanokProps, buildStarshipProps } = await import('../public/js/theme-props.js');
 const { Office, GLOBAL_FLOOR_KEY, GLOBAL_FLOOR_LABEL } = await import('../public/js/office.js');
 
 const HUD = { renderFloors() {}, log() {}, ping() {}, inspect() {}, clearPing() {}, pings: new Set() };
@@ -321,4 +324,38 @@ test('Office.upsert: workspace-less main sessions share the unified _global floo
     [GLOBAL_FLOOR_KEY, GLOBAL_FLOOR_LABEL],
     [GLOBAL_FLOOR_KEY, GLOBAL_FLOOR_LABEL],
   ]);
+});
+
+test('buildBrandFlair and Office.refreshLabels: remodels character costumes and floors across all 5 themes', () => {
+  globalThis.document ??= {
+    createElement: () => ({ getContext: () => ({ fillRect() {} }), style: {} }),
+    documentElement: {},
+  };
+  globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '#888888' });
+  const { office } = setup();
+  let rebuilt = null;
+  office.floors.push({ rebuildTheme(t) { rebuilt = t; }, refreshSigns() {} });
+  for (const theme of ['studio', 'office', 'palace', 'hanok', 'starship']) {
+    office.refreshLabels('Global', theme);
+    assert.equal(rebuilt, theme);
+    const g = { add() {} };
+    const doors = buildThemeGround(g, theme);
+    assert.equal(doors.length, 2, `${theme} doors`);
+    for (const id of ['claude-code', 'codex', 'grok', 'antigravity']) {
+      const dummy = {
+        agent: id, surface: 'app', isSub: true,
+        rig: { add() {}, remove() {} }, head: { add() {}, remove() {} },
+        bodyMat: {}, legsMat: {}, packMesh: { visible: true },
+      };
+      buildBrandFlair(dummy, theme);
+      assert.ok(dummy.brandGroup, `${theme}/${id} brandGroup`);
+      assert.ok(dummy.costumeGroup, `${theme}/${id} costumeGroup`);
+      assert.equal(dummy.packMesh.visible, theme === 'studio' || theme === 'office');
+    }
+  }
+  const board = { material: {} };
+  for (const fn of [buildPalaceProps, buildHanokProps, buildStarshipProps]) {
+    const res = fn({ add() {} }, board);
+    assert.ok(res.leds.length > 0 && res.globe);
+  }
 });

@@ -1,13 +1,14 @@
-// 한 층 = 한 프로젝트. 바닥, 벽, 가구, 표지판, 자리 배정을 관리한다.
+// 한 층 = 한 프로젝트. 테마별 비직사각형 건물 외형, 가구, 표지판, 자리 배정을 관리한다.
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { ROOMS, SLOTS, FLOOR_W, FLOOR_D, CORRIDOR, doorOf } from './rooms.js';
-import { box } from './scene.js';
+import { ROOMS, SLOTS, FLOOR_W, FLOOR_D, activeThemeOf, doorOf } from './rooms.js';
 import { Board } from './board.js';
 import { overflowPos } from './placement.js';
 import {
-  mats, buildArchive, buildDev, buildServer, buildResearch, buildMeeting, buildDesk, buildLounge,
+  mats, buildArchive, buildDev, buildServer, buildResearch, buildMeeting, buildDesk, buildLoungeProps,
 } from './furniture.js';
+import { buildThemeGround } from './theme-grounds.js';
+import { buildPalaceProps, buildHanokProps, buildStarshipProps } from './theme-props.js';
 
 export const FLOOR_GAP = 5.4;
 export const EXPLODE_GAP = 9.5;
@@ -18,6 +19,8 @@ export class Floor {
     this.label = label;
     this.index = index;
     this.group = new THREE.Group();
+    this.archGroup = new THREE.Group();
+    this.group.add(this.archGroup);
     this.goalY = 0;
     this.agents = new Set();
     this.labels = [];
@@ -37,53 +40,14 @@ export class Floor {
   get number() { return `${this.index + 1}F`; }
 
   build() {
-    const M = mats();
     const g = this.group;
-    box(g, M.slab, FLOOR_W + 0.6, 0.5, FLOOR_D + 0.6, 0, -0.5, 0);
-    box(g, M.floor, FLOOR_W, 0.02, FLOOR_D, 0, 0, 0, false);
-    box(g, M.corridor, FLOOR_W, 0.03, CORRIDOR * 2, 0, 0, 0, false);
-    for (const [k, r] of Object.entries(ROOMS)) {
-      if (k === 'lounge') continue;
-      const cz = r.side === 'top' ? -5 : 5;
-      box(g, M.rug[k], r.x1 - r.x0 - 1.0, 0.03, 5.0, (r.x0 + r.x1) / 2, 0.01, cz, false);
-    }
-
-    // 먼 쪽 두 벽만 높게, 나머지는 낮은 칸막이(돌하우스 구도).
-    box(g, M.wall, FLOOR_W + 0.3, 2.8, 0.25, 0, 0, -FLOOR_D / 2 - 0.12);
-    box(g, M.wall, 0.25, 2.8, FLOOR_D + 0.3, -FLOOR_W / 2 - 0.12, 0, 0);
-    for (const z of [-CORRIDOR, CORRIDOR]) {
-      let x = -FLOOR_W / 2;
-      for (const dx of [-8, 0, 8]) {
-        const end = dx - 1;
-        if (end > x) box(g, M.part, end - x, 0.9, 0.14, (x + end) / 2, 0, z);
-        x = dx + 1;
-      }
-      box(g, M.part, FLOOR_W / 2 - x, 0.9, 0.14, (x + FLOOR_W / 2) / 2, 0, z);
-    }
-    for (const x of [-4, 4]) {
-      box(g, M.part, 0.14, 0.9, 6, x, 0, -5);
-      box(g, M.part, 0.14, 0.9, 6, x, 0, 5);
-    }
-
-    buildArchive(g);
-    buildDev(g);
-    this.leds = buildServer(g);
-    this.globe = buildResearch(g);
-    buildMeeting(g, this.board);
-    buildDesk(g);
-    this.doors = buildLounge(g);
-
     for (const [k, r] of Object.entries(ROOMS)) {
       const el = document.createElement('div');
       el.className = 'sign';
+      el.dataset.room = k;
       el.style.setProperty('--rc', `var(${r.token})`);
       el.textContent = r.label;
       const o = new CSS2DObject(el);
-      if (k === 'lounge') o.position.set(-11.7, 3.0, 0);
-      else {
-        const d = doorOf(k);
-        o.position.set(d.x, 1.55, d.z);
-      }
       g.add(o);
       this.labels.push(o);
     }
@@ -93,10 +57,47 @@ export class Floor {
     tag.position.set(FLOOR_W / 2 - 1.5, -0.3, FLOOR_D / 2 + 0.4);
     g.add(tag);
     this.labels.push(tag);
-    this.renameTag();
+    this.rebuildTheme(activeThemeOf());
+  }
+
+  rebuildTheme(theme = activeThemeOf()) {
+    this.theme = theme;
+    this.archGroup.clear();
+    const ag = this.archGroup;
+    this.doors = buildThemeGround(ag, theme);
+    if (theme === 'palace') {
+      ({ leds: this.leds, globe: this.globe } = buildPalaceProps(ag, this.board));
+    } else if (theme === 'hanok') {
+      ({ leds: this.leds, globe: this.globe } = buildHanokProps(ag, this.board));
+    } else if (theme === 'starship') {
+      ({ leds: this.leds, globe: this.globe } = buildStarshipProps(ag, this.board));
+    } else {
+      buildArchive(ag);
+      buildDev(ag);
+      this.leds = buildServer(ag);
+      this.globe = buildResearch(ag);
+      buildMeeting(ag, this.board);
+      buildDesk(ag);
+      buildLoungeProps(ag);
+    }
+    this.setShadows(this.shadows, ag);
+    this.refreshSigns(theme);
   }
 
   renameTag() { this.tagEl.textContent = `${this.number} · ${this.label}`; }
+
+  refreshSigns(theme = activeThemeOf()) {
+    for (const o of this.labels) {
+      const k = o.element?.dataset?.room;
+      if (k && ROOMS[k]) {
+        o.element.textContent = ROOMS[k].label;
+        const d = doorOf(k, theme);
+        const [sx, sy, sz] = d.sign || (k === 'lounge' ? [-11.7, 3.0, 0] : [d.x, 1.55, d.z]);
+        o.position.set(sx, sy, sz);
+      }
+    }
+    this.renameTag();
+  }
 
   // 라벨을 숨길 때는 DOM 도 바로 숨긴다: 렌더러가 이 층을 더 돌지 않아 display 를 다시 쓰지 않는다 (detail.js).
   setLabelsVisible(v) {
