@@ -110,7 +110,7 @@ export class SessionIndex {
           this.carry = [];
           this.carryLen = 0;
         } else if (piece.length) {
-          this.carry.push(piece);
+          this.carry.push(nl < 0 ? Buffer.from(piece) : piece);
           this.carryLen += piece.length;
         }
       }

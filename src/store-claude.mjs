@@ -3,7 +3,7 @@
 // 여기 함수는 그 Store 를 첫 인자로 받는다. 동작은 떼어 내기 전과 같다 (기존 테스트가 지킨다).
 import {
   linkFacts, isAgentTool, looksLikeAgentId, trailerAgentId, END_STATUSES, isAsyncLaunchText, resumedAgentIdOf,
-  rememberStopped, takeStopped,
+  rememberStopped, takeStopped, setCapped, addCapped,
 } from './store-link.mjs';
 
 const MAX_TASK_DELTAS = 500; // 세션 하나에 보관하는 서브 TaskCreate/TaskUpdate (메인이 다시 붙을 때 다시 적용)
@@ -80,8 +80,8 @@ export function observe(store, e, rec) {
   let linked = false;
   for (const tu of facts.toolUses ?? []) {
     if (!idx.toolOwner.has(tu.id)) linked = true;
-    idx.toolOwner.set(tu.id, e.charId);
-    idx.toolName.set(tu.id, tu.name);
+    setCapped(idx.toolOwner, tu.id, e.charId);
+    setCapped(idx.toolName, tu.id, tu.name);
   }
   for (const block of facts.results ?? []) {
     if (onResult(store, idx, e.sid, block, rec.toolUseResult, ts)) linked = true;
@@ -108,12 +108,12 @@ function onResult(store, idx, sid, block, tur, ts) {
     const terminal = completed || block.is_error === true;
     if (agentId) {
       if (!idx.agentOwner.has(agentId)) linked = true;
-      idx.agentOwner.set(agentId, idx.toolOwner.get(tuId));
-      idx.agentByToolUse.set(tuId, agentId);
+      setCapped(idx.agentOwner, agentId, idx.toolOwner.get(tuId));
+      setCapped(idx.agentByToolUse, tuId, agentId);
       if (terminal) {
         const key = `r|${tuId}`;
         if (!idx.doneKeys.has(key)) {
-          idx.doneKeys.add(key);
+          addCapped(idx.doneKeys, key);
           endAgent(store, agentId, ts, sid);
         }
       }
@@ -122,13 +122,13 @@ function onResult(store, idx, sid, block, tur, ts) {
     }
   } else if (name === 'Workflow' && obj) {
     if (typeof obj.runId === 'string') {
-      idx.runByToolUse.set(tuId, obj.runId);
-      if (typeof obj.taskId === 'string') idx.runByTask.set(obj.taskId, obj.runId);
+      setCapped(idx.runByToolUse, tuId, obj.runId);
+      if (typeof obj.taskId === 'string') setCapped(idx.runByTask, obj.taskId, obj.runId);
     }
   } else if (name === 'SendMessage') {
     const resumed = resumedAgentIdOf(block, obj);
     if (resumed) {
-      idx.resumeByToolUse.set(tuId, resumed);
+      setCapped(idx.resumeByToolUse, tuId, resumed);
       revive(idx, resumed); // 끝났던 에이전트가 다시 일한다: 유예 시간 없이 바로 되살린다
       const e = store.byChar.get(resumed);
       if (e && e.sid === sid) e.doneAt = 0;
@@ -141,7 +141,7 @@ function onNotification(store, idx, sid, n, ts) {
   if (!END_STATUSES.has(n.status)) return; // <status> 없는 진행 알림
   const key = `n|${n.toolUseId}|${n.taskId}|${n.status}`;
   if (idx.doneKeys.has(key)) return;
-  idx.doneKeys.add(key);
+  addCapped(idx.doneKeys, key);
   const agents = new Set();
   const runs = new Set();
   if (n.toolUseId) {
@@ -158,7 +158,7 @@ function onNotification(store, idx, sid, n, ts) {
   }
   for (const a of agents) endAgent(store, a, ts, sid);
   for (const r of runs) {
-    idx.doneRuns.add(r);
+    addCapped(idx.doneRuns, r);
     for (const e of store.subsOf(sid)) if (e.kind === 'wf' && e.runId === r) endAgent(store, e.charId, ts, sid);
   }
 }
@@ -200,7 +200,7 @@ export function applyBufferedTasks(store, e) {
 // 끝난 에이전트가 다시 일한다: doneAgents 에서 빼고, run 전체가 끝난 wf 도 이 에이전트만 살아 있게 표시한다.
 export function revive(idx, agentId) {
   idx.doneAgents.delete(agentId);
-  idx.revived.add(agentId);
+  addCapped(idx.revived, agentId);
 }
 
 // Store 쪽 신호(부모 결과, 알림, endTurn)로 끝난 서브. 아직 알리기 전이면 표시만 해 둔다 (announce 가 알리지 않는다).
@@ -209,7 +209,7 @@ export function endAgent(store, agentId, ts, sid = null) {
   const owner = sid ?? e?.sid;
   if (owner) {
     const idx = store.index(owner);
-    idx.doneAgents.add(agentId);
+    addCapped(idx.doneAgents, agentId);
     idx.revived.delete(agentId);
   }
   if (!e || e.kind === 'main' || (sid && e.sid !== sid)) return;

@@ -12,15 +12,20 @@
 // (EMFILE, EIO, ...) is rethrown so the caller skips the whole rescan instead of acting on a partial list
 // (a partial list would look like files leaving the active window).
 
+import { constants as FS } from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAIN_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
 const AGENT_RE = /^agent-([A-Za-z0-9_-]+)\.jsonl$/;
-const SKIP_CODES = new Set(['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM']);
+const SKIP_CODES = new Set(['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM', 'ELOOP', 'ENAMETOOLONG']);
 const KIND_ORDER = { main: 0, sub: 1, wf: 2 };
 const MAX_META_BYTES = 1024 * 1024;
+export const MAX_JOURNAL_BYTES = 16 * 1024 * 1024;
+const MAX_JOURNAL_CACHE = 256;
+export const SCAN_LIMITS = Object.freeze({ projects: 10_000, files: 100_000 });
+const capped = (what) => Object.assign(new Error(`claude scan cap reached (${what})`), { code: 'SCAN_CAPPED' });
 
 function isSkippable(err) {
   return Boolean(err && SKIP_CODES.has(err.code));
@@ -181,7 +186,7 @@ function pickSubs(subs, mainDirBySid) {
  * @returns {Promise<Array<object>>} FileRef[] ordered main, sub, wf, then by path. A main file outside the window is
  *   still returned while a sub/wf file of the same session is inside it (mtimeMs stays the real file mtime).
  */
-export async function scan(root, { activeMs = Infinity, nowMs = Date.now(), fs: fsApi = fsp } = {}) {
+export async function scan(root, { activeMs = Infinity, nowMs = Date.now(), fs: fsApi = fsp, limits = SCAN_LIMITS } = {}) {
   const absRoot = path.resolve(root);
   let projects;
   try {
@@ -190,13 +195,20 @@ export async function scan(root, { activeMs = Infinity, nowMs = Date.now(), fs: 
     if (err && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) return [];
     throw err;
   }
+  const maxProjects = limits?.projects ?? SCAN_LIMITS.projects;
+  const maxFiles = limits?.files ?? SCAN_LIMITS.files;
+  let projBudget = maxProjects;
   const mainCandidates = [];
   const subs = [];
   for (const d of projects) {
     if (d.name.startsWith('.')) continue;
+    if (projBudget-- <= 0) throw capped('projects');
     const projectDir = path.join(absRoot, d.name);
     if (!(await isDirEntry(fsApi, projectDir, d))) continue;
     const found = await scanProjectDir(fsApi, projectDir);
+    if (mainCandidates.length + subs.length + found.mains.length + found.subs.length > maxFiles) {
+      throw capped('files');
+    }
     mainCandidates.push(...found.mains);
     subs.push(...found.subs);
   }
@@ -251,30 +263,75 @@ export async function readSubMeta(jsonlPath) {
   }
 }
 
+const journalCache = new Map();
+
+function applyStartedLine(line, labels) {
+  // 'result' lines carry whole agent results and can be large; only parse lines that can be 'started'.
+  if (!line.includes('"started"')) return;
+  let rec;
+  try {
+    rec = JSON.parse(line);
+  } catch {
+    return;
+  }
+  if (!rec || rec.type !== 'started' || typeof rec.agentId !== 'string' || !rec.agentId) return;
+  const label = [rec.label, rec.phase].find((v) => typeof v === 'string' && v.trim() !== '');
+  if (label !== undefined) labels.set(rec.agentId, label.trim());
+}
+
 /**
  * <runDir>/journal.jsonl 'started' lines -> Map(agentId -> label ?? phase). Latest non-empty label wins.
  * Missing file, partial trailing line and invalid lines are tolerated (empty Map at worst).
+ * Bounded by MAX_JOURNAL_BYTES, opened with O_NONBLOCK, and incrementally cached per runDir.
  */
 export async function readJournalLabels(runDir) {
-  const labels = new Map();
-  let text;
+  if (typeof runDir !== 'string' || runDir === '') return new Map();
+  const file = path.join(runDir, 'journal.jsonl');
+  let st;
   try {
-    text = await fsp.readFile(path.join(runDir, 'journal.jsonl'), 'utf8');
+    st = await fsp.lstat(file);
   } catch {
-    return labels;
+    journalCache.delete(file);
+    return new Map();
   }
-  for (const line of text.split('\n')) {
-    // 'result' lines carry whole agent results and can be large; only parse lines that can be 'started'.
-    if (!line.includes('"started"')) continue;
-    let rec;
-    try {
-      rec = JSON.parse(line);
-    } catch {
-      continue;
+  if (!st.isFile() || st.size > MAX_JOURNAL_BYTES) return new Map();
+  let slot = journalCache.get(file);
+  if (slot && slot.ino === st.ino && slot.dev === st.dev && slot.size === st.size && slot.mtimeMs === st.mtimeMs) {
+    return new Map(slot.result);
+  }
+  if (!slot || slot.ino !== st.ino || slot.dev !== st.dev || st.size < slot.offset) {
+    slot = { ino: st.ino, dev: st.dev, size: 0, mtimeMs: 0, offset: 0, committed: new Map(), result: new Map() };
+  }
+  let fh = null;
+  try {
+    fh = await fsp.open(file, FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) | (FS.O_NONBLOCK ?? 0));
+    const now = await fh.stat();
+    if (!now.isFile() || now.ino !== st.ino || now.dev !== st.dev || now.size > MAX_JOURNAL_BYTES) return new Map();
+    const len = now.size - slot.offset;
+    if (len > 0) {
+      const buf = Buffer.allocUnsafe(len);
+      const { bytesRead } = await fh.read(buf, 0, len, slot.offset);
+      const chunk = buf.subarray(0, bytesRead);
+      const lastNl = chunk.lastIndexOf(0x0a);
+      if (lastNl >= 0) {
+        const doneText = chunk.subarray(0, lastNl).toString('utf8');
+        for (const line of doneText.split('\n')) applyStartedLine(line, slot.committed);
+        slot.offset += lastNl + 1;
+      }
+      const out = new Map(slot.committed);
+      const tail = lastNl + 1 < bytesRead ? chunk.subarray(lastNl + 1).toString('utf8') : '';
+      if (tail) applyStartedLine(tail, out);
+      slot.result = out;
     }
-    if (!rec || rec.type !== 'started' || typeof rec.agentId !== 'string' || !rec.agentId) continue;
-    const label = [rec.label, rec.phase].find((v) => typeof v === 'string' && v.trim() !== '');
-    if (label !== undefined) labels.set(rec.agentId, label.trim());
+    slot.size = now.size;
+    slot.mtimeMs = now.mtimeMs;
+    journalCache.delete(file);
+    if (journalCache.size >= MAX_JOURNAL_CACHE) journalCache.delete(journalCache.keys().next().value);
+    journalCache.set(file, slot);
+    return new Map(slot.result);
+  } catch {
+    return new Map();
+  } finally {
+    await fh?.close().catch(() => {});
   }
-  return labels;
 }
