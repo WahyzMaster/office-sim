@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { ObserveControl, fileStamp } from '../src/observe/control.mjs';
 import { nearDays } from '../src/observe/observer.mjs';
+import { until } from './fixtures/sse.mjs';
 
 const tmpDirs = [];
 after(async () => {
@@ -99,12 +100,19 @@ test('start: folder 0700, file 0600 named by the local stamp, the start record f
   await ctl.stop();
 });
 
-test('ticks: rescan when due, poll every tick, records appended as they come, never two ticks at once', async () => {
+test('ticks: rescan when due, poll every tick, records appended as they come, never two ticks at once', { timeout: 15000 }, async () => {
   const counts = { readdir: 0 };
-  let slow = 0;
+  // hold 가 서 있으면 lstat 은 들어왔다고 알리고 (enter) 풀어 줄 때까지 (gate) 멈춘다
+  let hold = null;
   const fsImpl = Object.assign(Object.create(null), fsp, {
     readdir: (...a) => { counts.readdir += 1; return fsp.readdir(...a); },
-    lstat: async (...a) => { if (slow) await new Promise((r) => setTimeout(r, slow)); return fsp.lstat(...a); },
+    lstat: async (...a) => {
+      if (hold) {
+        hold.enter();
+        await hold.gate;
+      }
+      return fsp.lstat(...a);
+    },
   });
   const { ctl, file, dir, timers, now } = await setup({ fsImpl });
   await ctl.start();
@@ -121,19 +129,33 @@ test('ticks: rescan when due, poll every tick, records appended as they come, ne
   const recs = await readRecords(dir, name);
   assert.deepEqual(recs.map((r) => r.type), ['start', 'file', 'file', 'append'], 'written before stop');
   now.add(2000);
-  slow = 30;
+  let enter;
+  let release;
+  const entered = new Promise((r) => { enter = r; });
+  hold = { enter, gate: new Promise((r) => { release = r; }) };
   const running = timers.fire();
-  await new Promise((r) => setTimeout(r, 10));
+  // 단계(busy)는 fire() 안에서 곧바로 걸린다. 아래 검사는 그 단계가 rescan 의 lstat 에 붙잡혀 있는 동안 한다
+  // (고정 시간을 자면 단계가 그 안에 끝나 busy 가 null 이 되고, 두 번째 fire 가 새 단계를 돌려도 검사가 그냥 지나갔다).
+  const busy = ctl.run.busy;
+  assert.ok(busy, 'the step starts within fire()');
+  await entered;
   // 리뷰 수정(PR 3): 다음 tick 은 단계보다 먼저 걸린다 (멈춘 단계가 시간 상한을 붙잡지 않게). 그 tick 은 새 단계를 시작하지 않는다.
   assert.equal(timers.pending, 1, 'the next tick is already set while this step runs');
-  const busy = ctl.run.busy;
-  await timers.fire();
+  // 붙잡힌 단계 뒤에 새 단계가 줄을 서면 fire() 가 끝나지 않으므로, 기다리기 전에도 한 번 본다.
+  // 끝나기를 기다리는 것도 상한(3초)을 둔다: 줄을 서면 gate 는 아래 release() 전에 풀리지 않아,
+  // 상한이 없으면 15초 시간 초과(cancelled)로만 보이고 어느 검사에서 틀렸는지 알 수 없다.
+  let secondDone = false;
+  const second = timers.fire().then(() => { secondDone = true; });
+  assert.equal(ctl.run.busy, busy, 'the tick does not replace the running step');
+  await until(() => secondDone, 3000).catch(() => assert.fail('the tick during a running step returns without waiting for it'));
+  await second;
   assert.equal(ctl.run.busy, busy, 'a tick during a running step does not start a second one');
   assert.equal(timers.pending, 1, 'it only sets the next tick');
+  hold = null;
+  release();
   await running;
   assert.ok(counts.readdir > afterScan, 'rescan once rescanMs passed');
   assert.equal(timers.pending, 1);
-  slow = 0;
   await ctl.stop();
   assert.equal(timers.pending, 0, 'stop clears the timer');
 });

@@ -97,12 +97,21 @@ test('a truncated file re-attaches at once and lines appended after the truncati
   await write(L.main, [first, m.assistantText({ msgId: 'mm1', text: 'Some long invented progress note before the cut.' }),
     m.assistantText({ msgId: 'mm2', text: 'Another invented note before the cut.' })]);
   let delay = 0;
-  const scan = async (r, o) => { if (delay) await sleep(delay); return realScan(r, o); };
+  let scans = 0; // scan calls made while `delay` is set (the startup rescan ran before, with delay 0)
+  const scan = async (r, o) => {
+    if (delay) {
+      scans += 1; // counted before the sleep: the append below lands while this re-attach rescan is still pending
+      await sleep(delay);
+    }
+    return realScan(r, o);
+  };
   await run(root, async (app) => {
     assert.ok(ring(app).some((e) => e.type === 'session' && e.sessionId === SID));
     delay = 400; // the re-attach rescan takes a while
     await fs.writeFile(L.main, toJsonl([first])); // same inode, shorter
-    await sleep(200); // a poll has seen the shrink
+    // rescanMs is 60 s, so the only scan from here on is the one a poll starts after it saw size < offset
+    // (and set the replay boundary at the shrunken size): the append below is past that boundary
+    assert.ok(await waitFor(() => scans > 0, 5000), 'no poll saw the shrink (no re-attach rescan started)');
     await fs.appendFile(L.main, toJsonl([m.assistantText({ msgId: 'mm3', text: 'AFTER_TRUNCATE_SAY' })]));
     const ok = await waitFor(() => says(app).includes(`${SID}:AFTER_TRUNCATE_SAY`), 4000);
     assert.ok(ok, `line after the truncation not streamed: ${brief(ring(app)).join(' ')}`);

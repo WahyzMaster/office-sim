@@ -144,20 +144,48 @@ async function fakeOpeners() {
   return { dir, bin, logFile: path.join(dir, 'open.log') };
 }
 
+// node start + server start is real, slow work on a loaded runner: a generous bound. Shutdown is bounded by the bin's own
+// 3 s force exit, so STOP_MS only trips when the process is truly stuck.
+const READY_MS = 15000;
+const STOP_MS = 10000;
+// one loopback request to a server that is already up: only trips when the server never answers
+const REQUEST_MS = 10000;
+// `promise` within `ms`, or a rejection naming `what`; the timer is cleared either way (no stale handle after a pass)
+function within(promise, ms, what) {
+  let timer;
+  const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${what}: not within ${ms} ms`)), ms); });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
 async function runBin(args, envExtra) {
   const home = await tmp();
   const env = { ...process.env, HOME: home, ...envExtra };
   const child = spawn(process.execPath, [BIN, '--port', '0', '--claude-root', home, ...args], { stdio: ['ignore', 'pipe', 'pipe'], env });
   let out = '';
   let err = '';
-  child.stdout.on('data', (c) => { out += c; });
-  child.stderr.on('data', (c) => { err += c; });
   const exited = new Promise((resolve) => child.on('exit', (code) => resolve(code)));
-  await until(() => out.includes('office-sim: agents'), 5000);
+  // resolved by the stdout chunk that brings the agents line (same check as before); an exit before it fails at once
+  const ready = new Promise((resolve, reject) => {
+    child.stdout.on('data', (c) => {
+      out += c;
+      if (out.includes('office-sim: agents')) resolve();
+    });
+    exited.then((code) => reject(new Error(`office-sim exited (${code}) before the agents line`)));
+    child.on('error', reject);
+  });
+  child.stderr.on('data', (c) => { err += c; });
+  // any failure path: a live server and its pipes would keep this test file from ever finishing, so kill it first
+  const killAndThrow = async (e) => {
+    child.kill('SIGKILL');
+    await within(exited, STOP_MS, 'office-sim exit after SIGKILL').catch(() => {});
+    throw new Error(`${e.message}\nstderr: ${err}`);
+  };
+  await within(ready, READY_MS, 'office-sim agents line').catch(killAndThrow);
   const url = out.split('\n')[0].replace(/^office-sim: /, '');
   const stop = async () => {
     child.kill('SIGTERM');
-    assert.equal(await exited, 0, err);
+    const code = await within(exited, STOP_MS, 'office-sim exit after SIGTERM').catch(killAndThrow);
+    assert.equal(code, 0, err);
   };
   return { url, out: () => out, err: () => err, stop };
 }
@@ -214,7 +242,9 @@ test('bin --open with no opener on PATH, or one that fails: one log line without
       assert.match(lines[0], envExtra.OPEN_EXIT ? /^\[office-sim\] open failed: (open|xdg-open) exited 3$/ : /^\[office-sim\] open failed: (open|xdg-open): ENOENT$/);
       assert.ok(!run.err().includes(new URL(run.url).searchParams.get('t')), 'no token in stderr');
       const port = Number(new URL(run.url).port);
-      assert.equal((await request(port, { path: '/healthz' })).status, 401, 'still serving (401 without the cookie)');
+      // bounded: a server that takes the request and never answers fails here and still reaches stop() below
+      const health = await within(request(port, { path: '/healthz' }), REQUEST_MS, 'healthz request');
+      assert.equal(health.status, 401, 'still serving (401 without the cookie)');
     } finally {
       await run.stop();
     }

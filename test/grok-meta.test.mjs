@@ -38,10 +38,13 @@ const G = groupOf(CWD);
 const callMs = (rec) => rec.params._meta.agentTimestampMs;
 const eventsOf = (file) => path.join(path.dirname(file), 'events.jsonl');
 const appendEvents = (file, lines) => fsp.appendFile(eventsOf(file), eventsJsonl(lines));
-// the real grok descriptor (GrokSession, GrokMeta) with no link grace, so new folders are classified at once
-const adapter = { ...grok, deps: (o = {}) => grok.deps({ scan: createGrokScanner({ linkGraceMs: 0 }), ...o }) };
+// the real grok descriptor (GrokSession, GrokMeta) with no link grace, so new folders are classified at once; `over`
+// replaces deps parts (one test passes its own GrokMeta with a test clock)
+const adapterWith = (over = {}) => ({ ...grok, deps: (o = {}) => grok.deps({ scan: createGrokScanner({ linkGraceMs: 0 }), ...over, ...o }) });
+const adapter = adapterWith();
 const OPTS = { port: 0, publicDir: PUBLIC, intervalMs: 50, rescanMs: 60, idleMs: 50, activeMinutes: 30 };
-const serve = (root) => start({ ...OPTS, root: path.join(root, 'no-claude'), agents: ['grok'], roots: { grok: root }, adapters: { ...ADAPTERS, grok: adapter } });
+const serve = (root, over = null) => start({ ...OPTS, root: path.join(root, 'no-claude'), agents: ['grok'], roots: { grok: root },
+  adapters: { ...ADAPTERS, grok: over ? adapterWith(over) : adapter } });
 const getState = async (port) => JSON.parse((await request(port, { path: '/state' })).body);
 const frames = (es, pred = () => true) => es.frames.filter((fr) => fr.data && fr.data.type !== 'snapshot' && fr.data.type !== 'config' && pred(fr.data));
 const waitsOf = (list, sid) => list.filter((e) => e.type === 'tool_wait' && e.sessionId === sid);
@@ -271,7 +274,12 @@ test('server: 100 auto-approved prompts appended live and a prompt resolved with
   const root = await tmp();
   const { g, items } = mainRecords(gid(1));
   const file = await writeSession(root, { group: G, id: gid(1), items, summary: { cwd: CWD, title: 'Busy main' } });
-  const app = await serve(root);
+  // the events clock of the server's GrokMeta (only seenAt reads it; a request shows once seenAt - reqMs >= 1 s): real
+  // time, except while the 300 ms prompt below is open, so a stalled process cannot make that request 1 s old. `reads`
+  // counts its calls (one per read that finds nothing new: EventsTail._read t0; two when bytes were appended)
+  let frozen = null;
+  let reads = 0;
+  const app = await serve(root, { sidecarWatcher: new GrokMeta(grokSidecars, { events: { now: () => (reads++, frozen ?? Date.now()) } }) });
   let es = null;
   try {
     await app.ready;
@@ -299,10 +307,23 @@ test('server: 100 auto-approved prompts appended live and a prompt resolved with
     const id = call.params.update.toolCallId;
     await appendLines(file, [call]);
     await es.next((fr) => fr.data?.type === 'tool_start' && fr.data.toolUseId === id, 4000);
-    const ev = createGrokEventsBuilder({ startMs: Date.now() });
-    await appendEvents(file, [ev.started('run_terminal_command', { ms: callMs(call) + 2 }), ev.phase(), ev.requested('run_terminal_command', { ms: Date.now() })]);
-    await sleep(300);
-    await appendEvents(file, [ev.resolved('run_terminal_command', { ms: Date.now(), waitMs: 300 }), ev.phase('tool_execution')]);
+    const approval = () => app.store.entry(file).state.debugState().grok.approval;
+    // the clock stops at the request time before the request is written: every read that sees it open is at most 300 ms
+    // after it, however long the test or the server stalls
+    const reqMs = (frozen = Date.now());
+    const ev = createGrokEventsBuilder({ startMs: reqMs });
+    await appendEvents(file, [ev.started('run_terminal_command', { ms: callMs(call) + 2 }), ev.phase(), ev.requested('run_terminal_command', { ms: reqMs })]);
+    await until(() => approval().pending.length === 1, 4000); // a rescan read it open and paired it, not due yet
+    assert.deepEqual(approval().pending, [101], 'the 101st tool_started, paired with the 101st call');
+    // 300 ms later, still open. Nothing is appended now, so each read takes the clock once; rescans run one at a time
+    // (Runner.tick) and a read's setInfo ends its tick, so two more clock reads mean read r0 + 1 saw it open at
+    // reqMs + 300 and the session kept it pending (a show threshold of 300 ms or less would have shown it)
+    frozen = reqMs + 300;
+    const r0 = reads;
+    await until(() => reads >= r0 + 2, 4000);
+    assert.deepEqual(approval().pending, [101], 'read open 300 ms after the request: not due yet');
+    await appendEvents(file, [ev.resolved('run_terminal_command', { ms: reqMs + 300, waitMs: 300 }), ev.phase('tool_execution')]);
+    frozen = null; // the allow is on disk: a read that starts now sees the request closed
     await sleep(1500);
     await appendLines(file, [g.toolDone({ id, output: out.bash() })]);
     await es.next((fr) => fr.data?.type === 'tool_end' && fr.data.toolUseId === id, 4000);

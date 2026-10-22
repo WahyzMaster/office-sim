@@ -57,6 +57,19 @@ function shAsync(cmd) {
 }
 const fill = (code, values) => Object.entries(values).reduce((c, [k, v]) => c.split(k).join(v), code);
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+// a fake office-sim: says ready on stdout only once its SIGTERM handler is on, then idles until signaled
+const FAKE_BIN = "process.on('SIGTERM', () => process.exit(0));\nprocess.stdout.write('ready\\n');\nsetInterval(() => {}, 1000);\n";
+// resolves on the child's first stdout chunk; rejects when it exits first or says nothing within ms, so a broken start
+// fails instead of hanging (the catch only keeps a promise nobody awaits from becoming an unhandled rejection)
+function firstOutput(c, ms = 15_000) {
+  const p = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`pid ${c.pid}: no output within ${ms} ms`)), ms);
+    c.stdout.once('data', () => { clearTimeout(timer); resolve(); });
+    c.once('exit', (code, signal) => { clearTimeout(timer); reject(new Error(`pid ${c.pid} exited (${signal ?? code}) before its first output`)); });
+  });
+  p.catch(() => {});
+  return p;
+}
 
 test('SKILL.md has the seven bash snippets this file runs', () => {
   assert.equal(BLOCKS.length, 7, BLOCKS.join('\n---\n'));
@@ -108,6 +121,7 @@ test('mktemp, start and wait snippets: a private output file, the URL and agents
   const stopGroup = () => { try { process.kill(-child.pid, 'SIGTERM'); } catch { /* already gone */ } };
   cleanups.push(stopGroup);
   try {
+    // the shipped budget (40 polls, 10 s) as is: a real /office start gets no more for the real bin's boot either
     const lines = sh(fill(block('--input-type=module'), { '<out>': out })).split('\n');
     assert.match(lines[0], /^office-sim: http:\/\/127\.0\.0\.1:\d+\/\?t=[A-Za-z0-9_-]{43}$/);
     assert.equal(lines[1], 'office-sim: agents none');
@@ -132,22 +146,23 @@ test('stop snippet: SIGTERMs only node <root>/bin/office-sim.mjs, not shells, ot
   const fakeBin = (root) => path.join(dir, root, 'bin', 'office-sim.mjs');
   for (const root of ['repo', 'other']) {
     await fs.mkdir(path.dirname(fakeBin(root)), { recursive: true });
-    await fs.writeFile(fakeBin(root), "process.on('SIGTERM', () => process.exit(0));\nsetInterval(() => {}, 1000);\n");
+    await fs.writeFile(fakeBin(root), FAKE_BIN);
   }
   const spawned = [];
   const run = (cmd, args) => {
-    const c = spawn(cmd, args, { stdio: 'ignore', detached: true }); // own group: cleanup also ends a shell's child
+    const c = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'ignore'], detached: true }); // own group: cleanup also ends a shell's child
     const exited = new Promise((r) => c.on('exit', (code, signal) => r({ code, signal })));
     spawned.push(c);
-    return { c, exited };
+    return { c, exited, ready: firstOutput(c) };
   };
   cleanups.push(async () => {
     for (const c of spawned) try { process.kill(-c.pid, 'SIGKILL'); } catch { /* already gone */ }
   });
   const target = run(process.execPath, [fakeBin('repo'), '--port', '0']);
-  const shellWrapper = run('/bin/sh', ['-c', `"${process.execPath}" -e "setInterval(() => {}, 1000)" "${fakeBin('repo')}"; true`]);
+  const shellWrapper = run('/bin/sh', ['-c', `"${process.execPath}" -e "process.stdout.write('ready'); setInterval(() => {}, 1000)" "${fakeBin('repo')}"; true`]);
   const otherRoot = run(process.execPath, [fakeBin('other'), '--port', '0']);
-  await new Promise((r) => setTimeout(r, 300));
+  // all three are up: the target handles SIGTERM, and the shell's node child (other args) is there for ps to see
+  await Promise.all([target.ready, shellWrapper.ready, otherRoot.ready]);
   const code = fill(block('"ps"'), { '<root>': path.join(dir, 'repo') });
   assert.equal(sh(code), `stopped pid ${target.c.pid}`);
   assert.deepEqual(await target.exited, { code: 0, signal: null }, 'SIGTERM, handled by the server');
@@ -163,16 +178,16 @@ async function fakeServers() {
   const bin = (root) => path.join(dir, root, 'bin', 'office-sim.mjs');
   for (const root of ['repo', 'other']) {
     await fs.mkdir(path.dirname(bin(root)), { recursive: true });
-    await fs.writeFile(bin(root), "process.on('SIGTERM', () => process.exit(0));\nsetInterval(() => {}, 1000);\n");
+    await fs.writeFile(bin(root), FAKE_BIN);
   }
   const spawned = [];
   cleanups.push(async () => {
     for (const c of spawned) try { process.kill(-c.pid, 'SIGKILL'); } catch { /* already gone */ }
   });
   const run = (root, args = []) => {
-    const c = spawn(process.execPath, [bin(root), ...args], { stdio: 'ignore', detached: true });
+    const c = spawn(process.execPath, [bin(root), ...args], { stdio: ['ignore', 'pipe', 'ignore'], detached: true });
     spawned.push(c);
-    return { pid: c.pid, exited: new Promise((r) => c.on('exit', (code, signal) => r({ code, signal }))) };
+    return { pid: c.pid, ready: firstOutput(c), exited: new Promise((r) => c.on('exit', (code, signal) => r({ code, signal }))) };
   };
   return { dir, run, stopCode: fill(block('"ps"'), { '<root>': path.join(dir, 'repo') }) };
 }
@@ -202,18 +217,30 @@ test('wait snippet returns at once when the server fails to start (EADDRINUSE), 
   const out = path.join(home, 'office-sim.out');
   const blocker = net.createServer();
   await new Promise((r) => blocker.listen(0, '127.0.0.1', r));
+  let child = null;
+  const gone = () => child.exitCode !== null || child.signalCode !== null;
+  // own group: on a failure the shell and the still-starting server end together, before the port is freed for it
+  const killGroup = () => { if (child && !gone()) try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ } };
+  cleanups.push(killGroup);
   try {
     const port = String(blocker.address().port);
     const startCmd = fill(block('--port <port> <flags>'), { '<root>': REPO, '<port>': port, '<flags>': '', '<out>': out });
-    const child = spawn('/bin/sh', ['-c', startCmd], { stdio: 'ignore', env: { ...process.env, HOME: home } });
-    const exited = new Promise((r) => child.on('exit', r));
+    child = spawn('/bin/sh', ['-c', startCmd], { detached: true, stdio: 'ignore', env: { ...process.env, HOME: home } });
+    // the shipped budget (40 polls, 10 s): the server's error line has to come inside it, as in a real /office start
+    const code = fill(block('--input-type=module'), { '<out>': out });
     const t0 = Date.now();
-    const lines = (await shAsync(fill(block('--input-type=module'), { '<out>': out }))).split('\n');
-    assert.ok(Date.now() - t0 < 5000, `took ${Date.now() - t0} ms`);
+    const lines = (await shAsync(code)).split('\n');
+    const ended = Date.now();
+    assert.ok(ended - t0 < 15_000, `took ${ended - t0} ms`); // only a hang guard: the bin's boot counts in it
     assert.equal(lines.length, 1, lines.join('\n'));
     assert.match(lines[0], /^office-sim: .*EADDRINUSE.*\(port in use: try --port 0 or another port\)$/);
-    await exited;
+    // "at once" is timed from the error line (the server's last write to <out>, then it exits), not from the spawn:
+    // one 250 ms poll plus node's exit fit, a snippet that kept polling or slept on does not
+    const since = ended - statSync(out).mtimeMs;
+    assert.ok(since < 2000, `ended ${Math.round(since)} ms after the error line`);
+    await until(gone, 15_000); // the server that failed to listen exits by itself
   } finally {
+    killGroup();
     await new Promise((r) => blocker.close(r));
   }
 });
@@ -234,13 +261,13 @@ test('wait snippet reads only complete lines: a half-written line neither ends t
 test('stop snippet with a port argument only reports: ours pid <n> for this repo on that port, else not ours (finding 2)', unixOnly, async () => {
   const f = await fakeServers();
   const onZero = f.run('repo', ['--port', '0']);
-  f.run('other');
-  await new Promise((r) => setTimeout(r, 300));
+  const other = f.run('other');
+  await Promise.all([onZero.ready, other.ready]);
   assert.equal(sh(`${f.stopCode} 4317`), 'not ours', 'another root on 4317 and ours on port 0 are not it');
   assert.equal(sh(`${f.stopCode} 0`), `ours pid ${onZero.pid}`);
   const plain = f.run('repo'); // no --port: the default 4317
   const eq = f.run('repo', ['--port=4317', '--auth']);
-  await new Promise((r) => setTimeout(r, 300));
+  await Promise.all([plain.ready, eq.ready]);
   const line = sh(`${f.stopCode} 4317`);
   assert.ok(line.startsWith('ours pid '), line);
   assert.deepEqual(pidSet(line, 'ours pid '), new Set([plain.pid, eq.pid]));
@@ -251,7 +278,7 @@ test('stop snippet keeps going past a pid it cannot signal and reports it (findi
   const f = await fakeServers();
   const a = f.run('repo', ['--port', '0']);
   const b = f.run('repo', ['--port', '0']);
-  await new Promise((r) => setTimeout(r, 300));
+  await Promise.all([a.ready, b.ready]); // b handles the SIGTERM it gets
   const preload = path.join(f.dir, 'eperm.cjs');
   await fs.writeFile(preload, [
     'const kill = process.kill;',
@@ -274,7 +301,8 @@ test('open snippet: one classified line for success, a failing or missing opener
     await fs.symlink(process.execPath, path.join(d, 'node'));
   }
   const log = path.join(dir, 'open.log');
-  const script = '#!/bin/sh\nprintf \'%s\\n\' "$#" "$@" >> "$OPEN_LOG"\nif [ -n "$OPEN_SLEEP" ]; then exec /bin/sleep "$OPEN_SLEEP"; fi\nexit "${OPEN_EXIT:-0}"\n';
+  // a sleeping opener leaves its pid (kept by exec) so the test can end it
+  const script = '#!/bin/sh\nprintf \'%s\\n\' "$#" "$@" >> "$OPEN_LOG"\nif [ -n "$OPEN_SLEEP" ]; then echo "$$" > "$OPEN_LOG.pid"; exec /bin/sleep "$OPEN_SLEEP"; fi\nexit "${OPEN_EXIT:-0}"\n';
   for (const name of ['open', 'xdg-open']) await fs.writeFile(path.join(withOpener, name), script, { mode: 0o755 });
   const page = 'http://127.0.0.1:4317/?t=AbC_-123xyz#demo';
   const run = (PATH, extra = {}) => sh(fill(code, { '<page>': page }), { PATH, OPEN_LOG: log, ...extra });
@@ -283,7 +311,19 @@ test('open snippet: one classified line for success, a failing or missing opener
   assert.equal(await fs.readFile(log, 'utf8'), `1\n${page}\n`, 'the page is one argument');
   assert.equal(run(withOpener, { OPEN_EXIT: '3' }), `open failed ${cmd} exit 3`);
   assert.equal(run(without), `open failed ${cmd} ENOENT`);
+  // the opener sleeps 30 s, so a snippet that waited for it cannot pass. The 3 s fallback is timed from the opener's
+  // start (its pid file), which leaves sh and node start-up out of it; 15 s from t0 is only a hang guard
   const t0 = Date.now();
-  assert.equal(run(withOpener, { OPEN_SLEEP: '5' }), 'opener still running');
-  assert.ok(Date.now() - t0 < 4500, `took ${Date.now() - t0} ms`);
+  try {
+    assert.equal(run(withOpener, { OPEN_SLEEP: '30' }), 'opener still running');
+    const ended = Date.now();
+    assert.ok(ended - t0 < 15_000, `took ${ended - t0} ms`);
+    const waited = ended - statSync(`${log}.pid`).mtimeMs;
+    assert.ok(waited < 4500, `waited ${Math.round(waited)} ms after the opener started`);
+  } finally {
+    try {
+      const pid = Number.parseInt(readFileSync(`${log}.pid`, 'utf8'), 10);
+      if (pid > 0) process.kill(pid, 'SIGKILL'); // never 0 or NaN: kill(0) would hit this test's own group
+    } catch { /* never started, or already gone */ }
+  }
 });

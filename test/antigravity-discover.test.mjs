@@ -217,19 +217,41 @@ test('missing roots are empty; a brain that is a file or cannot be read fails th
 test('the preferred file changes while the server runs: one character moves to it, no session_end, live lines follow', async () => {
   const root = await tmp();
   const { plain } = await writeConversation(root, { id: aid(1), full: null, plain: [{ k: 'turn_start' }, { k: 'say', text: 'from the plain file' }] });
+  // 진짜 스캐너를 감싸 끝난 scan 수를 센다: 옮긴 뒤 몇 번의 rescan 을 시간이 아니라 횟수로 기다린다
+  let scans = 0;
+  const realScan = createAntigravityScanner();
+  const scan = async (r, o) => {
+    const refs = await realScan(r, o);
+    scans += 1;
+    return refs;
+  };
   const app = await start({ ...FAST, root: path.join(root, 'no-claude'), agents: ['antigravity'], roots: { antigravity: root },
-    adapters: { ...ADAPTERS, antigravity: antigravityTestAdapter() } });
-  const client = await sse(app.port);
+    adapters: { ...ADAPTERS, antigravity: antigravityTestAdapter({ scan }) } });
+  let client = null;
   try {
+    client = await sse(app.port); // try 안에서: 연결이 실패해도 finally 가 서버를 닫는다
     await app.ready;
     await until(async () => JSON.parse((await request(app.port, { path: '/state' })).body).events.some((e) => e.type === 'session'), 4000);
     await appendLines(plain, [{ k: 'say', text: 'still plain' }]);
     await client.next((fr) => fr.data?.type === 'say' && fr.data.text === 'still plain', 4000);
     // the full file appears with every line: the conversation moves to it (full has caught up)
     await writeConversation(root, { id: aid(1), full: [{ k: 'turn_start' }, { k: 'say', text: 'from the plain file' }, { k: 'say', text: 'still plain' }], plain: null });
-    await sleepMs(400); // a few rescans: the switch happens
+    // 옮겨 갔다: full 파일의 새 항목이 replay 와 announce 까지 끝났다 (announce 가 붙이기의 마지막 단계라 Tailer 는 replay 끝에
+    // 있고, 다음 줄은 라이브로 읽힌다). 옮기기 전에는 이 경로의 항목이 없어 예전 상태로는 참이 되지 않는다.
+    // 상한 20초: 돌던 rescan, 두 파일의 줄을 세는 다음 rescan, replay 와 메타 파일 확인까지라 이 파일에서 가장 무거운 기다림이다
+    // (느린 fs 에서 몇 초). 조건이 서면 바로 끝나므로 보통은 수십 ms 다.
+    await until(() => app.store.entry(fullOf(root, aid(1)))?.announced === true, 20_000);
     await appendLines(fullOf(root, aid(1)), [{ k: 'say', text: 'now from full' }]);
     await client.next((fr) => fr.data?.type === 'say' && fr.data.text === 'now from full', 4000);
+    // 옮긴 것이 유지된다: 다음 rescan 들이 transcript.jsonl 로 되돌리지 않는다 (되돌리면 full 파일의 다음 줄을 잃는다).
+    // 시간이 아니라 횟수로 센다 (느린 기계에서도 같은 수의 rescan): 다섯 번을 보려고 여섯 번을 기다린다. s0 때 돌던 scan 이나
+    // 'defer' 로 한 번 밀린 옮기기가 경계를 하나 옮길 수 있어서다.
+    const s0 = scans;
+    await until(() => scans >= s0 + 6, 30_000);
+    assert.equal(app.store.entry(fullOf(root, aid(1)))?.announced, true, 'still on the full file a few rescans later');
+    assert.equal(app.store.entry(plain), null, 'transcript.jsonl is not attached again');
+    await appendLines(fullOf(root, aid(1)), [{ k: 'say', text: 'later from full' }]);
+    await client.next((fr) => fr.data?.type === 'say' && fr.data.text === 'later from full', 4000);
     const all = client.frames.map((fr) => fr.data).filter(Boolean);
     assert.ok(!all.some((e) => e.type === 'session_end'), 'a move is not an end');
     const ids = new Set(all.filter((e) => e.sessionId).map((e) => e.sessionId));
@@ -238,7 +260,7 @@ test('the preferred file changes while the server runs: one character moves to i
     assert.deepEqual(st.map((e) => e.sessionId), [charOf(1)]);
     assert.equal(app.stats().files, 1);
   } finally {
-    client.close();
+    client?.close();
     await app.close();
   }
 });
@@ -350,14 +372,36 @@ test('bin: "office-sim: agents claude-code,codex,grok,antigravity" when all four
   const child = spawn(process.execPath, [BIN, '--port', '0'], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, HOME: home } });
   let out = '';
   let err = '';
-  child.stdout.on('data', (c) => { out += c; });
   child.stderr.on('data', (c) => { err += c; });
-  const exited = new Promise((r) => child.on('exit', (code) => r(code)));
+  const exited = new Promise((r) => child.on('close', (code) => r(code))); // close: stdout 도 다 읽은 뒤
+  // 자식의 사건으로 기다린다: agents 줄이 끝까지 나오면 이어 가고, 그 전에 자식이 끝나면 (spawn 실패 포함) 바로 실패한다.
+  // 상한 20초: node 를 띄우고 네 기본 루트를 살핀 뒤 listen 하는 진짜 일이라 바쁜 기계에서는 5초를 넘을 수 있다.
+  let timer = null;
+  const failed = new Promise((_, reject) => {
+    child.once('exit', (code, sig) => reject(new Error(`bin ended before it was up (${code ?? sig}): ${err}`)));
+    child.once('error', reject);
+    timer = setTimeout(() => reject(new Error(`bin not up within 20 s: ${err}`)), 20_000);
+  });
+  const printed = new Promise((resolve) => {
+    child.stdout.on('data', (c) => {
+      out += c;
+      if (/^office-sim: agents [^\n]*\n/m.test(out)) resolve();
+    });
+  });
   try {
-    await until(() => out.includes('office-sim: agents'), 5000);
+    await Promise.race([printed, failed]);
+    // bin 은 SIGINT 처리기를 이 줄을 찍은 바로 뒤 (같은 동기 구간) 에 단다. 그 전에 온 SIGINT 는 기본 동작으로 자식을 죽인다
+    // (종료 코드 null). 요청 하나가 돌아오면 그 구간은 끝났다.
+    const url = out.match(/^office-sim: (http:\/\/\S+)$/m)?.[1];
+    assert.ok(url, `no url line before the agents line: ${out}`);
+    await Promise.race([request(Number(new URL(url).port), { path: '/healthz' }), failed]);
+  } catch (e) {
+    child.kill('SIGKILL');
+    throw e;
   } finally {
-    child.kill('SIGINT');
+    clearTimeout(timer);
   }
+  child.kill('SIGINT');
   assert.equal(await exited, 0, err);
   const lines = out.split('\n').filter(Boolean);
   assert.equal(lines[1], 'office-sim: agents claude-code,codex,grok,antigravity');

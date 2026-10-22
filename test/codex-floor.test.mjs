@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { start } from '../src/server.mjs';
+import { start, FIRST_PASS_WAIT_MS } from '../src/server.mjs';
 import { ADAPTERS } from '../src/adapters/index.mjs';
 import { codex, worktreeFloor } from '../src/adapters/codex/index.mjs';
 import { Runner } from '../src/server-runner.mjs';
@@ -24,6 +24,13 @@ import { gid, groupOf, writeSession } from './fixtures/grok-tree.mjs';
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
 const BIN = fileURLToPath(new URL('../bin/office-sim.mjs', import.meta.url));
 const FAST = { port: 0, publicDir: PUBLIC, intervalMs: 50, rescanMs: 60, idleMs: 50, activeMinutes: 30 };
+// Deadline for waits on real work (scans, attaches, the bin's spawn and start): generous so a slow disk or a loaded
+// machine does not fail them (4 s was not enough for four new rollouts at 100 ms per fs call); a regression still fails.
+const WAIT_MS = 15_000;
+// After SIGINT the bin force-exits within 3 s; a child still there after STOP_MS is stuck and gets SIGKILL.
+const STOP_MS = 10_000;
+// One /state round trip to the bin: an answer later than this counts as none, so a frozen child cannot hold until() forever.
+const PROBE_MS = 2000;
 const tmpDirs = [];
 after(async () => {
   for (const d of tmpDirs) await fsp.rm(d, { recursive: true, force: true });
@@ -74,7 +81,7 @@ test('same folder, same floor: a Codex session and a Claude session in one cwd s
   try {
     await app.ready;
     assert.deepEqual(app.agents, ['claude-code', 'codex']);
-    await until(async () => (await sessionsOf(app)).length === 3, 4000);
+    await until(async () => (await sessionsOf(app)).length === 3, WAIT_MS);
     const s = await sessionsOf(app);
     assert.deepEqual(floor(byId(s, CLAUDE_IDS[0])), ['/work/shared', 'shared', null]);
     assert.deepEqual(floor(byId(s, charOf(1))), ['/work/shared', 'shared', null]);
@@ -96,14 +103,14 @@ test('a Codex-made worktree joins the floor labelled <name>, else its own; badge
   let es = null;
   try {
     await app.ready;
-    await until(async () => (await sessionsOf(app)).length === 2, 4000); // the Claude floors exist first
+    await until(async () => (await sessionsOf(app)).length === 2, WAIT_MS); // the Claude floors exist first
     es = await sse(app.port);
-    await es.next((fr) => fr.data?.type === 'snapshot', 4000);
+    await es.next((fr) => fr.data?.type === 'snapshot', WAIT_MS);
     await writeRollout(codexRoot, { id: cid(1), meta: { cwd: wt('a1b2', 'repo-a', 'pkg') }, items: [{ k: 'turn_start', id: 't1' }] });
     await writeRollout(codexRoot, { id: cid(2), meta: { cwd: wt('a1b2', 'repo-a'), source: { parent: cid(1) } } });
     await writeRollout(codexRoot, { id: cid(3), meta: { cwd: wt('c3d4', 'fix-b') } });
     await writeRollout(codexRoot, { id: cid(4), meta: { cwd: wt('e5f6', 'lonely', 'deep') } });
-    await until(async () => (await sessionsOf(app)).length === 6, 4000);
+    await until(async () => (await sessionsOf(app)).length === 6, WAIT_MS);
     let s = await sessionsOf(app);
     assert.deepEqual(floor(byId(s, charOf(1))), ['/work/repo-a', 'repo-a', 'repo-a']);
     assert.deepEqual([...floor(byId(s, charOf(2))), byId(s, charOf(2)).parentSessionId], ['/work/repo-a', 'repo-a', 'repo-a', charOf(1)]);
@@ -118,7 +125,7 @@ test('a Codex-made worktree joins the floor labelled <name>, else its own; badge
     // a matching floor that shows up later does not move the session (4.4: the first cwd decides)
     const mark = es.frames.length;
     await claudeSession(claudeRoot, CLAUDE_IDS[2], '/work/lonely');
-    await until(async () => byId(await sessionsOf(app), CLAUDE_IDS[2]), 4000);
+    await until(async () => byId(await sessionsOf(app), CLAUDE_IDS[2]), WAIT_MS);
     await new Promise((r) => setTimeout(r, 200));
     s = await sessionsOf(app);
     assert.deepEqual(floor(byId(s, charOf(4))), [wt('e5f6', 'lonely'), 'lonely', 'lonely']);
@@ -149,7 +156,7 @@ test('startup: a Codex worktree session already there at start joins its floor e
   try {
     es = await sse(app.port);
     await app.ready;
-    await until(async () => (await sessionsOf(app)).length === 4, 4000);
+    await until(async () => (await sessionsOf(app)).length === 4, WAIT_MS);
     const s = await sessionsOf(app);
     assert.deepEqual(floor(byId(s, charOf(1))), ['/work/office-demo', 'office-demo', 'office-demo']);
     const live = es.frames.filter((fr) => fr.data?.type === 'session' && fr.data.sessionId === charOf(1)).map((fr) => floor(fr.data));
@@ -171,7 +178,7 @@ test('startup, Codex only: a worktree main joins the floor of a plain Codex main
     const app = await start({ ...FAST, root: claudeRoot, agents: ['codex'], roots: { codex: codexRoot }, adapters: { ...ADAPTERS, codex: codexTestAdapter() } });
     try {
       await app.ready;
-      await until(async () => (await sessionsOf(app)).length === 2, 4000);
+      await until(async () => (await sessionsOf(app)).length === 2, WAIT_MS);
       const s = await sessionsOf(app);
       const order = wtId === LOW ? 'worktree uuid first' : 'worktree uuid last';
       assert.deepEqual(floor(byId(s, `codex-${wtId}`)), ['/work/office-demo', 'office-demo', 'office-demo'], order);
@@ -206,28 +213,68 @@ test('bin: "office-sim: agents claude-code,codex,grok" when the three default ro
     child.stderr.on('data', (c) => { err += c; });
     return { child, exited: new Promise((r) => child.on('exit', (code) => r(code))), out: () => out, err: () => err };
   };
+  // The bin's sessions, or null when it does not answer within PROBE_MS (the late request is left to stop()'s kill).
+  const sessionsAt = async (port) => {
+    let timer;
+    const late = new Promise((res) => { timer = setTimeout(res, PROBE_MS, null); });
+    try {
+      const r = await Promise.race([request(port, { path: '/state' }), late]);
+      return r && JSON.parse(r.body).events.filter((e) => e.type === 'session');
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  // SIGINT, then the exit code (null when killed by a signal), or 'timeout' after SIGKILL when the child outlives STOP_MS.
+  // Never throws and never waits unbounded; the body's probes are bounded too (PROBE_MS), so a frozen child fails at the
+  // body's deadline, a failing body keeps its own error, and no server is left behind.
+  const stop = async (r) => {
+    r.child.kill('SIGINT');
+    let timer;
+    const late = new Promise((res) => { timer = setTimeout(() => res('timeout'), STOP_MS); });
+    try {
+      const code = await Promise.race([r.exited, late]);
+      if (code === 'timeout') {
+        r.child.kill('SIGKILL');
+        await r.exited;
+      }
+      return code;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const t0 = Date.now(); // before the spawn, so strictly before the bin's first-pass gate starts its fallback timer
   const all = run([]);
+  let allCode;
   try {
-    await until(() => all.out().includes('office-sim: agents'), 5000);
+    await until(() => all.out().includes('office-sim: agents'), WAIT_MS);
     assert.equal(all.out().split('\n')[1], 'office-sim: agents claude-code,codex,grok');
     const port = Number(/127\.0\.0\.1:(\d+)/.exec(all.out())[1]);
     await until(async () => {
-      const s = JSON.parse((await request(port, { path: '/state' })).body).events.filter((e) => e.type === 'session');
-      return s.length === 3 && s.every((e) => e.project === '/work/bin');
-    }, 5000);
+      const s = await sessionsAt(port);
+      return s?.length === 3 && s.every((e) => e.project === '/work/bin');
+    }, WAIT_MS);
+    // The Codex and Grok Runners went after Claude's first pass, not at the gate's fallback. This bound must stay at or
+    // below FIRST_PASS_WAIT_MS: WAIT_MS is longer, so a gate that only opens at its fallback would pass the wait above.
+    const took = Date.now() - t0;
+    assert.ok(took < FIRST_PASS_WAIT_MS, `three sessions after ${took} ms: the first-pass gate waited for its fallback`);
   } finally {
-    all.child.kill('SIGINT');
-    assert.equal(await all.exited, 0, all.err());
+    allCode = await stop(all);
   }
+  assert.equal(allCode, 0, all.err()); // only when the body passed (a failed wait above reports itself, not this)
   // --codex-root wins over the default; a missing one turns codex off with one log line, no path
   const off = run(['--codex-root', path.join(home, 'no-codex')]);
+  let offCode;
   try {
-    await until(() => off.out().includes('office-sim: agents'), 5000);
+    await until(() => off.out().includes('office-sim: agents'), WAIT_MS);
     assert.equal(off.out().split('\n')[1], 'office-sim: agents claude-code,grok');
-    await until(() => off.err().includes('codex: root not found, adapter off'), 5000);
+    await until(() => off.err().includes('codex: root not found, adapter off'), WAIT_MS);
     assert.ok(!off.err().includes(home));
+    // One answer before SIGINT: the bin installs its SIGINT handler just after the agents line, so a signal sent on that
+    // line alone can meet the default action (exit by signal, code null) although the bin is correct.
+    const offPort = Number(/127\.0\.0\.1:(\d+)/.exec(off.out())[1]);
+    await until(() => sessionsAt(offPort), WAIT_MS);
   } finally {
-    off.child.kill('SIGINT');
-    assert.equal(await off.exited, 0, off.err());
+    offCode = await stop(off);
   }
+  assert.equal(offCode, 0, off.err());
 });

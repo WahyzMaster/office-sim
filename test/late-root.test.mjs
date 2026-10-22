@@ -55,6 +55,8 @@ test('a Claude root created after start switches claude-code on: one log line, /
     await claudeRootAt(root);
     await until(() => app.agents.includes('claude-code'), 3000);
     await until(async () => (await health(app)).files === 1, 3000);
+    // files and sessions count from attach, /state lists the session only once it is announced (after the first read)
+    await until(async () => (await stateEvents(app)).some((e) => e.type === 'session' && e.sessionId === SID), 3000);
     assert.deepEqual(app.agents, ['claude-code']);
     const h = await health(app);
     assert.deepEqual(oldHealth(h), { ok: true, files: 1, sessions: 1, clients: 0, agents: ['claude-code'] });

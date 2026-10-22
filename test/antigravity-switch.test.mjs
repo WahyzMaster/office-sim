@@ -114,8 +114,10 @@ test('finding 6 on a real server: open tools and the ask move to the new file id
   const conv = aid(1);
   await writeConversation(root, { id: conv, full: null, plain: plain.map((s) => JSON.stringify(s)) });
   const app = await start({ ...FAST, root: path.join(root, 'no-claude'), agents: ['antigravity'], roots: { antigravity: root }, adapters: ADAPTERS });
-  const client = await sse(app.port);
+  // SSE 연결이 실패해도 서버는 닫는다 (try 밖에서 던지면 열린 서버가 파일 프로세스를 붙잡아 끝나지 않는다)
+  let client = null;
   try {
+    client = await sse(app.port);
     await app.ready;
     const oldIds = [0, 1].map((i) => toolId(oldPos, i, conv));
     const newIds = [0, 1].map((i) => toolId(newPos, i, conv));
@@ -144,7 +146,7 @@ test('finding 6 on a real server: open tools and the ask move to the new file id
     assert.equal(end.data.ok, true);
     assert.equal(plainOf(root, conv).endsWith('transcript.jsonl'), true);
   } finally {
-    client.close();
+    client?.close();
     await app.close();
   }
 });

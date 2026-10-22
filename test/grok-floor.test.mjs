@@ -107,7 +107,8 @@ test('a Grok-made worktree joins the floor labelled <repo>, else <name>, else it
     await writeSession(grokRoot, { group: groupOf(wt('repo-a', 'feat-1')), id: gid(2), summary: { cwd: wt('repo-a', 'feat-1'), title: 'Its helper' } });
     await writeSession(grokRoot, { group: groupOf(wt('other', 'fix-b')), id: gid(3), summary: { cwd: wt('other', 'fix-b'), title: 'Joins by name' } });
     await writeSession(grokRoot, { group: groupOf(wt('lonely', 'try-3')), id: gid(4), summary: { cwd: wt('lonely', 'try-3', 'deep'), title: 'Own floor' } });
-    await until(async () => (await sessionsOf(app)).length === 6, 4000);
+    // four new sessions: scan, summary.json and replay each, on many fs calls (about 4.3 s with every fs call 100 ms slower)
+    await until(async () => (await sessionsOf(app)).length === 6, 15_000);
     let s = await sessionsOf(app);
     assert.deepEqual(floor(byId(s, charOf(1))), ['/work/repo-a', 'repo-a', 'feat-1']);
     assert.deepEqual([...floor(byId(s, charOf(2))), byId(s, charOf(2)).parentSessionId], ['/work/repo-a', 'repo-a', 'feat-1', charOf(1)]);
@@ -251,9 +252,22 @@ test('bin: "office-sim: agents claude-code,grok" when both default roots exist (
     const child = spawn(process.execPath, [BIN, '--port', '0', ...args], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, HOME: home } });
     let out = '';
     let err = '';
+    // a spawn that fails (ENOENT, or EAGAIN / EMFILE under load) emits 'error' and never 'exit': settle on it too,
+    // with code null and the error in err()
+    const exited = new Promise((r) => {
+      child.on('exit', (code) => r(code));
+      child.on('error', (e) => { err += `${e}\n`; r(null); });
+    });
     child.stdout.on('data', (c) => { out += c; });
     child.stderr.on('data', (c) => { err += c; });
-    return { child, exited: new Promise((r) => child.on('exit', (code) => r(code))), out: () => out, err: () => err };
+    // SIGINT, then SIGKILL if the bin is still there after 10 s (its own force exit is 3 s): the wait always ends,
+    // and a killed or never-started child gives code null, so the code-0 check fails instead of hanging
+    const stop = () => {
+      child.kill('SIGINT');
+      const killer = setTimeout(() => child.kill('SIGKILL'), 10_000);
+      return exited.finally(() => clearTimeout(killer));
+    };
+    return { child, exited, stop, out: () => out, err: () => err };
   };
   const both = run([]);
   try {
@@ -262,8 +276,7 @@ test('bin: "office-sim: agents claude-code,grok" when both default roots exist (
     const port = Number(/127\.0\.0\.1:(\d+)/.exec(both.out())[1]);
     await until(async () => (JSON.parse((await request(port, { path: '/state' })).body).events.filter((e) => e.type === 'session').length === 2), 5000);
   } finally {
-    both.child.kill('SIGINT');
-    assert.equal(await both.exited, 0, both.err());
+    assert.equal(await both.stop(), 0, both.err());
   }
   // --grok-root wins over the default; a missing one turns grok off with one log line, no path
   const off = run(['--grok-root', path.join(home, 'no-grok')]);
@@ -273,7 +286,6 @@ test('bin: "office-sim: agents claude-code,grok" when both default roots exist (
     await until(() => off.err().includes('grok: root not found, adapter off'), 5000);
     assert.ok(!off.err().includes(home));
   } finally {
-    off.child.kill('SIGINT');
-    assert.equal(await off.exited, 0, off.err());
+    assert.equal(await off.stop(), 0, off.err());
   }
 });

@@ -90,7 +90,11 @@ test('one project folder, two agents: Claude and Grok share a floor, the Grok su
     const wtCwd = path.join(grokRoot, 'worktrees', 'office-demo', 'feat-x', 'pkg');
     const file = await writeSession(grokRoot, { group: groupOf(wtCwd), id: gid(13), items: grokRecords(gid(13), 'Work in the worktree'),
       summary: { cwd: wtCwd, title: 'Grok worktree', branch: 'feat-x' } });
-    await until(async () => byId(await sessionsOf(app), charOf(13)), 6000); // the link grace (1 s) holds a new folder first
+    // the link grace (1 s) holds a new folder first; then the next full rescan, attach + replay and the summary.json read
+    // must run, which take as long as the fs is slow. So wait for this new character's own session frame on the open
+    // stream (nothing earlier can match it) with a deadline sized for that work. announce() marks the entry announced
+    // before it sends the frame, so /state read after it has the character.
+    await es.next((fr) => fr.data?.type === 'session' && fr.data.sessionId === charOf(13), 20_000);
     s = await sessionsOf(app);
     assert.deepEqual(floor(byId(s, charOf(13))), [PROJECT, 'office-demo', 'feat-x']);
     const live = es.frames.filter((fr) => fr.data?.type === 'session' && fr.data.sessionId === charOf(13)).map((fr) => floor(fr.data));

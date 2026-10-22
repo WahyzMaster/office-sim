@@ -12,6 +12,7 @@ import { Tally, summarize } from '../src/observe/summary.mjs';
 import {
   tempDirs, fakeTimers, clock, codexRoot, item, readRecords, turns, outputHooks,
 } from './fixtures/observe-ctl.mjs';
+import { until } from './fixtures/sse.mjs';
 
 const T = tempDirs();
 after(() => T.cleanup());
@@ -232,11 +233,32 @@ function stallingLstat() {
   return hang;
 }
 
+// 출력 파일(observe-*.jsonl) 의 핸들을 감싸, close 가 끝난 (성공이든 실패든) 파일 이름을 closed 에 모은다. 끝내기에서 닫기는
+// 요약 쓰기 뒤의 마지막 fs 일이라, 그 뒤로 stop 에 남은 것은 약속 콜백뿐이다. 원본 기록 파일은 이름으로 가린다.
+function watchClose(base) {
+  const closed = new Set();
+  const fsImpl = Object.assign(Object.create(null), base, {
+    open: async (p, ...a) => {
+      const fh = await base.open(p, ...a);
+      const name = path.basename(String(p));
+      if (!/^observe-.*\.jsonl$/.test(name)) return fh;
+      return {
+        chmod: (...x) => fh.chmod(...x),
+        write: (...x) => fh.write(...x),
+        close: () => fh.close().finally(() => closed.add(name)),
+      };
+    },
+  });
+  return { fsImpl, closed };
+}
+
 test('a step stuck on a stalled mount does not hold the time limits: the next tick still comes and starts the stop', async () => {
   const hang = stallingLstat();
-  const { ctl, file, dir, timers, now } = await setup({ fsImpl: hang.fsImpl, maxMs: 1000 });
+  const out = watchClose(hang.fsImpl);
+  const { ctl, file, dir, timers, now } = await setup({ fsImpl: out.fsImpl, maxMs: 1000 });
   await ctl.start();
   const startMs = now();
+  const name = ctl.run.file;
   await timers.fire();
   await fsp.appendFile(file, item());
   hang.on = true;
@@ -250,8 +272,9 @@ test('a step stuck on a stalled mount does not hold the time limits: the next ti
   assert.equal(ctl.run?.busy, busy, 'that tick did not start a second step');
   await turns();
   assert.deepEqual(timers.delays, [1500], 'only the bounded wait for the stuck step');
-  await timers.fire();
-  await turns();
+  await timers.fire(); // 멈춘 단계를 기다리는 시간의 끝: 요약을 쓰고 출력 파일을 닫는다 (진짜 fs 라 몇 바퀴로 셀 수 없다)
+  await until(() => out.closed.has(name));
+  await turns(); // 닫기 뒤로 남은 것은 약속 콜백뿐
   assert.equal(ctl.running, false);
   const s = ctl.status();
   assert.deepEqual([s.last.reason, s.last.elapsedMs], ['duration', 1000]);
@@ -265,9 +288,11 @@ test('a step stuck on a stalled mount does not hold the time limits: the next ti
 
 test('a step stuck past the ready grace ends with reason ready at most one tick late (the countdown never sits at 00:00)', async () => {
   const hang = stallingLstat();
-  const env = await setup({ fsImpl: hang.fsImpl, readyGraceMs: 1000 });
+  const out = watchClose(hang.fsImpl);
+  const env = await setup({ fsImpl: out.fsImpl, readyGraceMs: 1000 });
   const { ctl, file, timers, now } = env;
   await ctl.start();
+  const name = ctl.run.file;
   await timers.fire();
   const readyAt = await fill(env);
   await fsp.appendFile(file, item());
@@ -285,8 +310,9 @@ test('a step stuck past the ready grace ends with reason ready at most one tick 
   assert.equal(timers.pending, 1, 'the ticks go on while the step is stuck');
   await timers.fire();
   await turns();
-  await timers.fire(); // 멈춘 단계를 기다리는 시간의 끝
-  await turns();
+  await timers.fire(); // 멈춘 단계를 기다리는 시간의 끝: 요약을 쓰고 출력 파일을 닫는다 (진짜 fs)
+  await until(() => out.closed.has(name));
+  await turns(); // 닫기 뒤로 남은 것은 약속 콜백뿐
   assert.equal(ctl.status().last?.reason, 'ready');
   hang.release();
   await tick;
@@ -296,8 +322,8 @@ test('a stalled output write holds stop at most stopWaitMs; a start queued behin
   let stalledName = null;
   let release = null;
   const gate = new Promise((r) => { release = r; });
-  const fsImpl = outputHooks({ write: (name) => (name === stalledName ? gate : null) });
-  const { ctl, dir, timers, now } = await setup({ fsImpl });
+  const out = watchClose(outputHooks({ write: (name) => (name === stalledName ? gate : null) }));
+  const { ctl, dir, timers, now } = await setup({ fsImpl: out.fsImpl });
   const first = (await ctl.start()) && (await fsp.readdir(dir))[0];
   stalledName = first; // 결과 폴더의 마운트가 멈췄다: 이 파일에 쓰는 것은 release() 까지 돌아오지 않는다
   let stopped = false;
@@ -314,7 +340,7 @@ test('a stalled output write holds stop at most stopWaitMs; a start queued behin
   assert.equal(s2.running, true, 'a start queued behind the stop still answers');
   await ctl.stop();
   release();
-  await turns(20);
+  await until(() => out.closed.has(first)); // 닫기는 늘 요약 쓰기 뒤다: 닫혔으면 요약은 이미 파일에 있다
   const recs = await readRecords(dir, first);
   assert.deepEqual([recs.at(-1).type, recs.at(-1).reason], ['summary', 'user'], 'the summary goes in once the mount answers');
   assert.equal(recs.filter((r) => r.type === 'summary').length, 1);
