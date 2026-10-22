@@ -21,6 +21,27 @@ export const agentLabel = (id, surface = '') => {
   return sub ? `${base} (${sub})` : base;
 };
 
+export const DEFAULT_CONTROL_PRESET = 'map';
+export const CONTROL_PRESETS = Object.freeze({
+  map: Object.freeze({
+    label: '구글 맵',
+    hint: '구글 맵: 좌클릭 드래그 이동 · 우클릭/Ctrl+드래그 회전·기울기 · 휠 확대 · WASD/방향키 이동 · Shift+방향키 회전·기울기 · R 초기화 · F/더블클릭 따라가기 · 1-9/[/]/0 층 이동',
+  }),
+  figma: Object.freeze({
+    label: '피그마',
+    hint: '피그마: 휠/두손가락 이동 · Ctrl/핀치+휠 확대 · Space+드래그/휠클릭 이동 · 드래그 회전 · Shift+0/1/2 시점·맞춤·포커스 · R 초기화 · 1-9/[/]/0 층 이동',
+  }),
+  orbit: Object.freeze({
+    label: '3D 오빗',
+    hint: '3D 오빗: 좌클릭 드래그 회전 · 우클릭/Shift/Space+드래그 이동 · 휠 확대 · WASD/방향키 이동 · Q/E 회전 · R 초기화 · F/더블클릭 따라가기 · 1-9/[/]/0 층 이동',
+  }),
+  blender: Object.freeze({
+    label: '블렌더',
+    hint: '블렌더: 휠클릭/Alt+드래그 회전 · Shift+휠클릭/좌·우클릭 이동 · 휠 확대 · WASD/방향키 이동 · ./F 선택 포커스 · Home/R 초기화 · 1-9/[/]/0 층 이동',
+  }),
+});
+export const controlPresetOf = (k) => (Object.hasOwn(CONTROL_PRESETS, k) ? k : DEFAULT_CONTROL_PRESET);
+
 // 재생 모드(--replay): 서버가 config 메시지에 싣는 replay { state, speed, loop, round, progress } 를 칩 문구로.
 function replayText(r) {
   const x = `${r.speed}×`;
@@ -66,11 +87,12 @@ export class Hud {
   constructor() {
     const $ = (id) => document.getElementById(id);
     this.el = {
-      source: $('source'), sub: $('sub'), speed: $('speed'), interval: $('interval'), tail: $('tail'),
+      source: $('source'), sub: $('sub'), speed: $('speed'), interval: $('interval'), preset: $('control-preset'), tail: $('tail'),
       logBtn: $('toggle-log'), legendBtn: $('toggle-legend'), floors: $('floors'),
-      log: $('log'), list: $('log-list'), legend: $('legend'), insp: $('inspector'),
+      log: $('log'), list: $('log-list'), legend: $('legend'), legendControls: $('legend-controls'), insp: $('inspector'),
     };
     this.prefs = loadPrefs();
+    this.controlPreset = controlPresetOf(this.prefs.controlPreset);
     this.pings = new Map();
     this.keys = new Set();
     this.statT = 0;
@@ -111,6 +133,23 @@ export class Hud {
       savePrefs(prefs);
     });
 
+    const applyPreset = (id) => {
+      this.controlPreset = controlPresetOf(id);
+      const spec = CONTROL_PRESETS[this.controlPreset];
+      if (el.preset) {
+        el.preset.value = this.controlPreset;
+        el.preset.title = spec.hint;
+      }
+      if (el.legendControls) el.legendControls.textContent = spec.hint;
+      office.stage.setControlPreset?.(this.controlPreset);
+    };
+    applyPreset(this.controlPreset);
+    el.preset?.addEventListener('change', () => {
+      applyPreset(el.preset.value);
+      prefs.controlPreset = this.controlPreset;
+      savePrefs(prefs);
+    });
+
     const narrow = window.matchMedia('(max-width: 720px)').matches;
     const toggle = (btn, panel, key, fallback) => {
       const apply = (open) => {
@@ -148,9 +187,42 @@ export class Hud {
     el.insp.querySelector('[data-act="close"]').addEventListener('click', () => office.select(null));
 
     const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
+    const resetCamera = () => {
+      office.follow = false;
+      office.layout({ snapPan: true });
+      office.stage.resetView?.();
+      if (office.selected) this.inspect(office.selected, office);
+    };
     window.addEventListener('keydown', (e) => {
-      if (e.target.closest('input, textarea, select, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+      if ((e.metaKey || e.ctrlKey) && (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '_')) {
+        e.preventDefault();
+        office.stage.zoomBy?.(e.key === '-' || e.key === '_' ? 1 / 1.2 : 1.2);
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        office.stage.setSpaceDown?.(true);
+        return;
+      }
       const k = e.key.toLowerCase();
+      if (e.shiftKey && this.controlPreset === 'map' && k.startsWith('arrow')) {
+        e.preventDefault();
+        if (k === 'arrowleft') office.stage.rotateBy?.(-0.28, 0);
+        else if (k === 'arrowright') office.stage.rotateBy?.(0.28, 0);
+        else if (k === 'arrowup') office.stage.rotateBy?.(0, -0.14);
+        else if (k === 'arrowdown') office.stage.rotateBy?.(0, 0.14);
+        return;
+      }
+      if (e.shiftKey && this.controlPreset === 'figma' && (e.code === 'Digit0' || e.code === 'Digit1' || e.code === 'Digit2')) {
+        e.preventDefault();
+        if (e.code === 'Digit2' && office.selected) {
+          office.select(office.selected, { focusPan: true });
+          office.stage.zoomTo?.(1.6);
+        } else resetCamera();
+        return;
+      }
       if (MOVE_KEYS.has(k)) {
         this.keys.add(k);
         if (k.startsWith('arrow')) e.preventDefault();
@@ -169,19 +241,24 @@ export class Hud {
       else if (k === 'e') office.stage.rotateBy?.(0.35);
       else if (e.key === '+' || e.key === '=') office.stage.zoomBy?.(1.2);
       else if (e.key === '-' || e.key === '_') office.stage.zoomBy?.(1 / 1.2);
-      else if (k === 'r' || e.key === 'Home') {
-        office.follow = false;
-        office.layout({ snapPan: true });
-        office.stage.resetView?.();
-        if (office.selected) this.inspect(office.selected, office);
-      } else if (k === 'f' && office.selected) {
-        office.follow = !office.follow;
-        if (!office.follow) office.layout({ snapPan: true });
-        this.inspect(office.selected, office);
+      else if (k === 'r' || e.key === 'Home') resetCamera();
+      else if ((k === 'f' || e.key === '.') && office.selected) {
+        if (e.key === '.') office.select(office.selected, { focusPan: true });
+        else {
+          office.follow = !office.follow;
+          if (!office.follow) office.layout({ snapPan: true });
+          this.inspect(office.selected, office);
+        }
       }
     });
-    window.addEventListener('keyup', (e) => { this.keys.delete(e.key.toLowerCase()); });
-    window.addEventListener('blur', () => { this.keys.clear(); });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') office.stage.setSpaceDown?.(false);
+      this.keys.delete(e.key.toLowerCase());
+    });
+    window.addEventListener('blur', () => {
+      office.stage.setSpaceDown?.(false);
+      this.keys.clear();
+    });
   }
 
   setLive(live) {

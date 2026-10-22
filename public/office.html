@@ -220,10 +220,12 @@ body.overview .tag, body.overview .sign { display: none; }
 .seg button + button { border-left: 1px solid var(--line); }
 .seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
 .interval { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1 var(--font-mono); color: var(--muted); }
-.interval input {
-  width: 64px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line);
+.interval input, .interval select {
+  padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line);
   background: var(--panel-solid); color: var(--fg); font: inherit; font-variant-numeric: tabular-nums;
 }
+.interval input { width: 64px; }
+.interval select { font-family: var(--font-ui); cursor: pointer; }
 .ghost {
   border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 12px;
 }
@@ -367,6 +369,7 @@ body.overview .tag, body.overview .sign { display: none; }
         <button type="button" data-speed="4" aria-pressed="false">4×</button>
       </div>
       <label class="interval" for="interval">tail <input id="interval" type="number" min="50" max="5000" step="50" value="250"> ms</label>
+      <label class="interval" for="control-preset">조작 <select id="control-preset" aria-label="카메라 조작 프리셋"><option value="map">구글 맵</option><option value="figma">피그마</option><option value="orbit">3D 오빗</option><option value="blender">블렌더</option></select></label>
       <button type="button" id="toggle-observe" class="ghost" hidden aria-pressed="false" aria-controls="observe" aria-label="기록 관찰">기록 관찰</button>
       <button type="button" id="toggle-legend" class="ghost" aria-pressed="false" aria-controls="legend">방 안내</button>
       <button type="button" id="toggle-log" class="ghost" aria-pressed="true" aria-controls="log">활동 기록</button>
@@ -401,7 +404,7 @@ body.overview .tag, body.overview .sign { display: none; }
   <section id="legend" class="panel" hidden aria-label="방 안내">
     <h2>방 안내</h2>
     <ul></ul>
-    <p>드래그: 회전 · 우클릭/Shift+드래그/WASD/방향키: 이동 · 휠/+/-: 확대 · Q/E: 회전 · R: 시점 초기화 · F/더블클릭: 따라가기 · 1-9/[/]/0: 층 이동</p>
+    <p id="legend-controls">구글 맵: 좌클릭 드래그 이동 · 우클릭/Ctrl+드래그 회전·기울기 · 휠 확대 · WASD/방향키 이동 · Shift+방향키 회전·기울기 · R 초기화 · F/더블클릭 따라가기 · 1-9/[/]/0 층 이동</p>
   </section>
 
   <section id="inspector" class="panel" hidden aria-label="직원 상세">

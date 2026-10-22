@@ -99,8 +99,49 @@ export function createStage(host) {
   const sph = new THREE.Spherical();
   let snapPan = false;
   let onUserPan = null;
+  let preset = 'map';
+  let spaceDown = false;
   let lastTarget = new THREE.Vector3();
   let viewFn = (aspect) => Math.max(9.8, 14.5 / aspect);
+
+  function syncMouseButtons(e = null) {
+    if (preset === 'map') {
+      controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+      controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE;
+      controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+      controls.touches.ONE = THREE.TOUCH.PAN;
+      controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+    } else if (preset === 'figma') {
+      controls.mouseButtons.LEFT = spaceDown ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+      controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
+      controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+      controls.touches.ONE = THREE.TOUCH.PAN;
+      controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+    } else if (preset === 'blender') {
+      controls.mouseButtons.LEFT = e?.altKey ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
+      controls.mouseButtons.MIDDLE = e?.shiftKey ? THREE.MOUSE.PAN : (e?.ctrlKey || e?.metaKey ? THREE.MOUSE.DOLLY : THREE.MOUSE.ROTATE);
+      controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+      controls.touches.ONE = THREE.TOUCH.ROTATE;
+      controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+    } else {
+      controls.mouseButtons.LEFT = spaceDown ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+      controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+      controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+      controls.touches.ONE = THREE.TOUCH.ROTATE;
+      controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+    }
+  }
+  syncMouseButtons();
+
+  renderer.domElement.addEventListener('pointerdown', (e) => syncMouseButtons(e), { capture: true });
+  renderer.domElement.addEventListener('wheel', (e) => {
+    if (preset !== 'figma' || e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX;
+    const dy = e.shiftKey && !e.deltaX ? 0 : e.deltaY;
+    panBy(dx * 0.018, -dy * 0.018);
+  }, { capture: true, passive: false });
 
   controls.addEventListener('change', () => {
     const dx = controls.target.x - lastTarget.x;
@@ -218,6 +259,19 @@ export function createStage(host) {
   return {
     renderer, labels, scene, camera, controls, resize, applyTheme, update,
     panBy, rotateBy, zoomBy, resetView,
+    zoomTo(z) {
+      camera.zoom = Math.min(controls.maxZoom, Math.max(controls.minZoom, z));
+      camera.updateProjectionMatrix();
+    },
+    setControlPreset(p) {
+      preset = p || 'map';
+      syncMouseButtons();
+    },
+    setSpaceDown(down) {
+      if (spaceDown === !!down) return;
+      spaceDown = !!down;
+      syncMouseButtons();
+    },
     setGoal(v, opts = {}) {
       goal.copy(v);
       if (opts.snapPan) snapPan = true;
