@@ -33,7 +33,7 @@ globalThis.window ??= { matchMedia: () => ({ matches: false }) };
 const { Agent } = await import('../public/js/agent.js');
 const { buildBrandFlair } = await import('../public/js/agent-mesh.js');
 const { buildThemeGround } = await import('../public/js/theme-grounds.js');
-const { buildPalaceProps, buildHanokProps, buildStarshipProps } = await import('../public/js/theme-props.js');
+const { buildPalaceProps, buildHanokProps, buildStarshipProps, buildDogsProps, buildCatsProps } = await import('../public/js/theme-props.js');
 const { Office, GLOBAL_FLOOR_KEY, GLOBAL_FLOOR_LABEL } = await import('../public/js/office.js');
 
 const HUD = { renderFloors() {}, log() {}, ping() {}, inspect() {}, clearPing() {}, pings: new Set() };
@@ -326,7 +326,7 @@ test('Office.upsert: workspace-less main sessions share the unified _global floo
   ]);
 });
 
-test('buildBrandFlair and Office.refreshLabels: remodels character costumes and floors across all 5 themes', () => {
+test('buildBrandFlair and Office.refreshLabels: remodels character costumes, pet breeds and floors across all 7 themes', () => {
   globalThis.document ??= {
     createElement: () => ({ getContext: () => ({ fillRect() {} }), style: {} }),
     documentElement: {},
@@ -335,7 +335,7 @@ test('buildBrandFlair and Office.refreshLabels: remodels character costumes and 
   const { office } = setup();
   let rebuilt = null;
   office.floors.push({ rebuildTheme(t) { rebuilt = t; }, refreshSigns() {} });
-  for (const theme of ['studio', 'office', 'palace', 'hanok', 'starship']) {
+  for (const theme of ['studio', 'office', 'palace', 'hanok', 'starship', 'dogs', 'cats']) {
     office.refreshLabels('Global', theme);
     assert.equal(rebuilt, theme);
     const g = { add() {} };
@@ -343,18 +343,21 @@ test('buildBrandFlair and Office.refreshLabels: remodels character costumes and 
     assert.equal(doors.length, 2, `${theme} doors`);
     for (const id of ['claude-code', 'codex', 'grok', 'antigravity']) {
       const dummy = {
-        agent: id, surface: 'app', isSub: true,
+        agent: id, surface: 'app', isSub: true, hue: 18, light: 0.53,
         rig: { add() {}, remove() {} }, head: { add() {}, remove() {} },
-        bodyMat: {}, legsMat: {}, packMesh: { visible: true },
+        bodyMat: { color: { setHSL() {}, setHex() {} } },
+        legsMat: { color: { setHSL() {}, setHex() {} } },
+        packMesh: { visible: true },
       };
       buildBrandFlair(dummy, theme);
       assert.ok(dummy.brandGroup, `${theme}/${id} brandGroup`);
       assert.ok(dummy.costumeGroup, `${theme}/${id} costumeGroup`);
       assert.equal(dummy.packMesh.visible, theme === 'studio' || theme === 'office');
+      if (theme === 'dogs' || theme === 'cats') assert.ok(dummy.tailPivot, `${theme}/${id} tailPivot`);
     }
   }
   const board = { material: {} };
-  for (const fn of [buildPalaceProps, buildHanokProps, buildStarshipProps]) {
+  for (const fn of [buildPalaceProps, buildHanokProps, buildStarshipProps, buildDogsProps, buildCatsProps]) {
     const res = fn({ add() {} }, board);
     assert.ok(res.leds.length > 0 && res.globe);
   }

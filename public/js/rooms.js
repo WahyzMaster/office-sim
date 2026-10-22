@@ -1,6 +1,9 @@
 // 방 배치, 자리(slot), 도구 -> 방 분류 규칙.
 // 방 매핑을 바꾸려면 ROOM_RULES 만 고치면 된다 (위에서부터 먼저 맞는 규칙이 이긴다).
 import { layoutOf } from './theme-layouts.js';
+import { LEGEND_AGENTS, LEGEND_DOGS, LEGEND_CATS, LEGEND_SIGNALS } from './legend-data.js';
+
+export { LEGEND_AGENTS, LEGEND_DOGS, LEGEND_CATS, LEGEND_SIGNALS };
 
 export const FLOOR_W = 24;
 export const FLOOR_D = 16;
@@ -25,6 +28,30 @@ export const DEFAULT_ROOM_THEME = 'studio';
 export const DEFAULT_LANG = 'ko';
 
 export const ROOM_THEMES = Object.freeze({
+  dogs: Object.freeze({
+    name: Object.freeze({ ko: '퍼피 파크', en: 'Puppy Park' }),
+    rooms: Object.freeze({
+      archive:  Object.freeze({ ko: ['노즈워크 숲', '냄새 탐색 · Read · Grep · Glob'],      en: ['Scent Trail Woods', 'Sniffing · Read · Grep · Glob'] }),
+      dev:      Object.freeze({ ko: ['어질리티 훈련장', '장애물 돌파 · Edit · Write'],      en: ['Agility Arena', 'Hurdle Craft · Edit · Write'] }),
+      server:   Object.freeze({ ko: ['우다다 트랙', '전력 질주·공놀이 · Bash · git · 빌드'], en: ['Zoomies Track', 'Ball Fetch · Bash · git · build'] }),
+      research: Object.freeze({ ko: ['전망 언덕', '동네 정찰 · WebSearch · MCP'],           en: ['Lookout Mound', 'Pack Scout · WebSearch · MCP'] }),
+      meeting:  Object.freeze({ ko: ['독 파크 모임터', '작전 회의 · 계획 · 할 일'],         en: ['Bark Council', 'Pack Strategy · Plan · tasks'] }),
+      desk:     Object.freeze({ ko: ['간식·칭찬 부스', '간식 조르기 · 질문 · 승인'],        en: ['Treat & Belly-Rub Booth', 'Treat Request · Ask · approvals'] }),
+      lounge:   Object.freeze({ ko: ['잔디 마당', '일광욕 · 산책 게이트'],                  en: ['Sunny Lawn', 'Sunbathing · Park Gate'] }),
+    }),
+  }),
+  cats: Object.freeze({
+    name: Object.freeze({ ko: '캣 타워 살롱', en: 'Luxury Cat Salon' }),
+    rooms: Object.freeze({
+      archive:  Object.freeze({ ko: ['창가 캣타워', '새 구경·탐색 · Read · Grep · Glob'],   en: ['Window Perch', 'Bird Watch · Read · Grep · Glob'] }),
+      dev:      Object.freeze({ ko: ['스크래처 공방', '발톱 다듬기 · Edit · Write'],        en: ['Scratcher Studio', 'Claw Craft · Edit · Write'] }),
+      server:   Object.freeze({ ko: ['레이저 사냥터', '우다다 사냥 · Bash · git · 빌드'],   en: ['Laser Chase Dome', 'Pounce Ops · Bash · git · build'] }),
+      research: Object.freeze({ ko: ['캣닢 온실', '호기심 탐색 · WebSearch · MCP'],         en: ['Catnip Conservatory', 'Curiosity Lab · WebSearch · MCP'] }),
+      meeting:  Object.freeze({ ko: ['벨벳 라운지', '고양이 회합 · 계획 · 할 일'],          en: ['Velvet Cushion Hall', 'Feline Council · Plan · tasks'] }),
+      desk:     Object.freeze({ ko: ['츄르·집사 호출석', '집사 벨 호출 · 질문 · 승인'],     en: ['Churu Butler Bell', 'Butler Ring · Ask · approvals'] }),
+      lounge:   Object.freeze({ ko: ['햇살 해먹', '골골송 · 캣플랩'],                       en: ['Sunbeam Hammock', 'Purring · Cat Flap'] }),
+    }),
+  }),
   studio: Object.freeze({
     name: Object.freeze({ ko: 'AI 스튜디오', en: 'AI Studio' }),
     rooms: Object.freeze({
@@ -202,129 +229,15 @@ export const UI_TEXT = Object.freeze({
 
 export const uiText = (lang = activeLang) => UI_TEXT[langOf(lang)];
 
-export const LEGEND_AGENTS = Object.freeze([
-  Object.freeze({
-    id: 'claude',
-    swatch: 'background:#d97757;border-radius:50%;box-shadow:0 0 0 2px rgba(217,119,87,0.28)',
-    label: Object.freeze({ ko: 'Claude', en: 'Claude' }),
-    desc: Object.freeze({
-      studio:   Object.freeze({ ko: '테라코타 · 베레모 + 골드 안테나', en: 'Terracotta · Beret + gold antenna' }),
-      office:   Object.freeze({ ko: '테라코타 · 베레모 + 사원증', en: 'Terracotta · Beret + ID lanyard' }),
-      palace:   Object.freeze({ ko: '테라코타 · 정자관 + 홍포 관복', en: 'Terracotta · Jeongjagwan crown + crimson robe' }),
-      hanok:    Object.freeze({ ko: '테라코타 · 선비 유건 + 배자·망태기', en: 'Terracotta · Scholar Yugeon + vest & basket' }),
-      starship: Object.freeze({ ko: '테라코타 · 커맨더 헬멧 + 아크 코어', en: 'Terracotta · Commander helmet + arc core' }),
-    }),
-  }),
-  Object.freeze({
-    id: 'codex',
-    swatch: 'background:#10b981;border-radius:50%;box-shadow:0 0 0 2px rgba(16,185,129,0.28)',
-    label: Object.freeze({ ko: 'Codex', en: 'Codex' }),
-    desc: Object.freeze({
-      studio:   Object.freeze({ ko: '에메랄드 · 사이버 바이저 + 발광 눈', en: 'Emerald · Cyber visor + glowing LEDs' }),
-      office:   Object.freeze({ ko: '에메랄드 · 사이버 바이저 + 사원증', en: 'Emerald · Cyber visor + ID lanyard' }),
-      palace:   Object.freeze({ ko: '에메랄드 · 흑립 갓 + 어사화·청포 관복', en: 'Emerald · Gat hat + royal Eosahwa plume' }),
-      hanok:    Object.freeze({ ko: '에메랄드 · 대나무 삿갓 + 청록 배자', en: 'Emerald · Bamboo Satgat hat + jade vest' }),
-      starship: Object.freeze({ ko: '에메랄드 · 전술 HUD 바이저 + 제트팩', en: 'Emerald · Tactical HUD visor + jetpack' }),
-    }),
-  }),
-  Object.freeze({
-    id: 'grok',
-    swatch: 'background:#a855f7;border-radius:50%;box-shadow:0 0 0 2px rgba(168,85,247,0.28)',
-    label: Object.freeze({ ko: 'Grok', en: 'Grok' }),
-    desc: Object.freeze({
-      studio:   Object.freeze({ ko: '바이올렛 · 블랙홀 궤도 링 + 별 위성', en: 'Violet · Black-hole orbit ring + star' }),
-      office:   Object.freeze({ ko: '바이올렛 · 블랙홀 궤도 링 + 사원증', en: 'Violet · Black-hole orbit ring + lanyard' }),
-      palace:   Object.freeze({ ko: '바이올렛 · 관상감 사모 + 황금 혼천의 링', en: 'Violet · Samo cap + golden armillary ring' }),
-      hanok:    Object.freeze({ ko: '바이올렛 · 전립 + 금빛 상모·별 장식', en: 'Violet · Jeonrip cap + golden plume' }),
-      starship: Object.freeze({ ko: '바이올렛 · 제로G 중력장 실드 + 위성', en: 'Violet · Zero-G gravity shield + orbiter' }),
-    }),
-  }),
-  Object.freeze({
-    id: 'agy-cli',
-    swatch: 'background:#06b6d4;border-radius:50%;box-shadow:0 0 0 2px rgba(6,182,212,0.28)',
-    label: Object.freeze({ ko: 'AGY·CLI', en: 'AGY·CLI' }),
-    desc: Object.freeze({
-      studio:   Object.freeze({ ko: '시안 · 이중 반중력 링 + 부유 크리스탈', en: 'Cyan · Dual anti-gravity halo + crystal' }),
-      office:   Object.freeze({ ko: '시안 · 반중력 헤일로 링 + 사원증', en: 'Cyan · Anti-gravity halo + lanyard' }),
-      palace:   Object.freeze({ ko: '시안 · 금관·옥비녀 + 비취 후광 링', en: 'Cyan · Gold crown & jade pin + halo' }),
-      hanok:    Object.freeze({ ko: '시안 · 망건·옥관자 + 비취 구슬', en: 'Cyan · Headband & jade button + orb' }),
-      starship: Object.freeze({ ko: '시안 · 그래비티 코어 링 + 플라즈마 제트', en: 'Cyan · Gravity core rings + plasma jet' }),
-    }),
-  }),
-  Object.freeze({
-    id: 'agy-app',
-    swatch: 'background:#3b82f6;border-radius:50%;box-shadow:0 0 0 2px rgba(59,130,246,0.28)',
-    label: Object.freeze({ ko: 'AGY·App', en: 'AGY·App' }),
-    desc: Object.freeze({
-      studio:   Object.freeze({ ko: '코발트 · 앱/IDE 반중력 링 + 크리스탈', en: 'Cobalt · App/IDE anti-gravity ring + crystal' }),
-      office:   Object.freeze({ ko: '코발트 · 앱/IDE 반중력 링 + 사원증', en: 'Cobalt · App/IDE anti-gravity ring + lanyard' }),
-      palace:   Object.freeze({ ko: '코발트 · 청옥 비녀 금관 + 청색 관복', en: 'Cobalt · Sapphire pin crown + blue robe' }),
-      hanok:    Object.freeze({ ko: '코발트 · 청옥 관자 망건 + 쪽빛 배자', en: 'Cobalt · Sapphire headband + indigo vest' }),
-      starship: Object.freeze({ ko: '코발트 · 함교 반중력 슈트 + 코발트 코어', en: 'Cobalt · Bridge gravity suit + cobalt core' }),
-    }),
-  }),
-  Object.freeze({
-    id: 'sub',
-    swatch: 'background:conic-gradient(#ffd166,#38bdf8,#a855f7,#ffd166);border-radius:50%',
-    label: Object.freeze({ ko: '서브에이전트', en: 'Subagent' }),
-    desc: Object.freeze({
-      studio:   Object.freeze({ ko: '소형(0.74×) · 회전 프로펠러 모자 (부모 색상 계승)', en: '0.74× mini · Spinning propeller cap (parent hue)' }),
-      office:   Object.freeze({ ko: '소형(0.74×) · 회전 프로펠러 모자 (부모 색상 계승)', en: '0.74× mini · Spinning propeller cap (parent hue)' }),
-      palace:   Object.freeze({ ko: '소형(0.74×) · 색동 바람개비 머리장식 (부모 색상 계승)', en: '0.74× mini · Spinning pinwheel ornament' }),
-      hanok:    Object.freeze({ ko: '소형(0.74×) · 색동 바람개비 머리장식 (부모 색상 계승)', en: '0.74× mini · Spinning pinwheel ornament' }),
-      starship: Object.freeze({ ko: '소형(0.74×) · 호버 드론 로터 (부모 색상 계승)', en: '0.74× mini · Hover drone rotor (parent hue)' }),
-    }),
-  }),
-]);
-
-export const LEGEND_SIGNALS = Object.freeze([
-  Object.freeze({
-    id: 'speech',
-    swatch: 'background:#fffdf8;border:1.5px solid #2b2a27;border-radius:6px',
-    label: Object.freeze({ ko: '일반 말풍선', en: 'Speech Bubble' }),
-    desc: Object.freeze({ ko: '도구 실행 · 대답 · 작업 완료', en: 'Tool execution · reply · task done' }),
-  }),
-  Object.freeze({
-    id: 'think',
-    swatch: 'background:#fffdf8;border:1.5px dotted #6b6358;border-radius:50%',
-    label: Object.freeze({ ko: '구름 말풍선', en: 'Cloud Bubble' }),
-    desc: Object.freeze({ ko: '에이전트 추론 · 생각 중 (손글씨체)', en: 'Internal reasoning · thinking' }),
-  }),
-  Object.freeze({
-    id: 'ask',
-    swatch: 'background:#fff3c4;border:1.5px solid #e0a32a;border-radius:6px',
-    label: Object.freeze({ ko: '노랑·주황 배지', en: 'Amber Badge' }),
-    desc: Object.freeze({ ko: '질문(선택지 칩) · 권한·계획 승인 대기', en: 'User question or tool/plan approval wait' }),
-  }),
-  Object.freeze({
-    id: 'error',
-    swatch: 'background:linear-gradient(135deg,#e5534b 55%,#4fa3ff 55%);border-radius:4px',
-    label: Object.freeze({ ko: '빨강·파란 땀', en: 'Red + Sweat' }),
-    desc: Object.freeze({ ko: '도구 실패·오류 말풍선 + 파란 식은땀 방울', en: 'Tool error bubble + blue sweat drops' }),
-  }),
-  Object.freeze({
-    id: 'denied',
-    swatch: 'background:#ece7dc;border:1.5px dashed #8a8175;border-radius:6px',
-    label: Object.freeze({ ko: '회색 점선', en: 'Dashed Gray' }),
-    desc: Object.freeze({ ko: '권한 요청 거절 · 작업 방향 변경 지시', en: 'Permission denied or redirected by user' }),
-  }),
-  Object.freeze({
-    id: 'floor',
-    swatch: 'background:transparent;border:2px solid #2fb36a;box-shadow:0 0 0 2px rgba(196,61,52,0.35);border-radius:50%',
-    label: Object.freeze({ ko: '층 테두리 링', en: 'Floor Ring' }),
-    desc: Object.freeze({ ko: '초록 펄스 = 다른 층 새 활동 · 빨강 = 오류 발생', en: 'Green pulse = new activity · Red = error' }),
-  }),
-  Object.freeze({
-    id: 'source',
-    swatch: 'background:linear-gradient(90deg,#2fb36a 34%,#e0a32a 34% 67%,#7c5cd6 67%);border-radius:50%',
-    label: Object.freeze({ ko: '연결 상태 점', en: 'Source Dot' }),
-    desc: Object.freeze({ ko: '초록 라이브 · 노랑 재연결 · 보라 재생 · 기본 데모', en: 'Green Live · Amber Retry · Purple Replay' }),
-  }),
-]);
-
 export function legendAgentsFor(themeKey = activeTheme, lang = activeLang) {
   const th = roomThemeOf(themeKey);
   const l = langOf(lang);
+  if (th === 'dogs') {
+    return LEGEND_DOGS.map((d) => ({ id: d.id, swatch: d.swatch, label: d.label[l], desc: d.desc[l] }));
+  }
+  if (th === 'cats') {
+    return LEGEND_CATS.map((c) => ({ id: c.id, swatch: c.swatch, label: c.label[l], desc: c.desc[l] }));
+  }
   return LEGEND_AGENTS.map((a) => ({
     id: a.id,
     swatch: a.swatch,

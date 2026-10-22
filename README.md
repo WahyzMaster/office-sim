@@ -26,25 +26,25 @@ Open `http://127.0.0.1:4317` in your browser to watch your live local sessions, 
 - **Project Floors & Brand-Distinct 3D Characters**:
   - Each repository/workspace gets its own floor (`1F`, `2F`, ...); git worktrees of the same repo share a floor, and workspace-less sessions gather on the `Global · Unassigned` (`전역 · 미지정`) floor.
   - Agents wear distinct brand colors and 3D accessories: **Claude Code** (terracotta beret & starburst), **Codex** (emerald visor & hex crystal), **Grok** (violet sunglasses & orbital ring), and **Antigravity** (cyan/cobalt anti-gravity ring & prism, with CLI cap or App headset). Subagents appear as smaller characters with propeller hats.
-- **5 Switchable 3D Architectural Themes, Costumes & Bilingual UI (`KO / EN`)**:
-  - Switch themes anytime from the top bar (`AI Studio`, `Tech Office`, `Joseon Palace`, `Traditional Hanok`, `Sci-Fi Starship`) and toggle between **Korean (`KO`)** and **English (`EN`)**.
-  - Each theme remodels the **3D floor structure** (e.g., stepped white stone base + central lotus pond for `Joseon Palace`, L/U-shaped timber courtyard + elevated pavilion for `Traditional Hanok`, octagonal hull + central warp core for `Sci-Fi Starship`), **room furniture**, and **character costumes & headgear** (Joseon royal court robes & crowns, Hanok scholar vests & bamboo hats, Starship pressure suits & jetpacks).
+- **7 Switchable 3D Architectural Themes, Costumes, Pet Breeds & Bilingual UI (`KO / EN`)**:
+  - Switch themes anytime from the top bar (`AI Studio`, `Tech Office`, `Joseon Palace`, `Traditional Hanok`, `Sci-Fi Starship`, `Puppy Park`, `Luxury Cat Salon`) and toggle between **Korean (`KO`)** and **English (`EN`)**.
+  - Each theme remodels the **3D floor structure** (e.g., stepped white stone base + lotus pond for `Joseon Palace`, L/U-shaped timber courtyard + pavilion for `Traditional Hanok`, octagonal hull + warp core for `Sci-Fi Starship`, giant bone-shaped lawn + paw fountain for `Puppy Park`, and cat-head velvet salon + 3-tier cat tower for `Luxury Cat Salon`), **room furniture**, and **3D characters** (Joseon royal robes & crowns, Hanok scholar vests & bamboo hats, Starship pressure suits, 8 3D dog breeds including Golden/Labrador Retriever, White/Black/Black-Bear Jindo, Border Collie, Welsh Corgi & Shiba Inu, and 6 luxury cat breeds including Savannah/Ashera, Bengal, British/Russian Blue, Siamese, Ragdoll & Scottish Fold).
   - Instead of cloning a human avatar on every floor, the `desk` room features a **3D Review & Approval Intercom Booth** where agents walk to ask questions or await permission approval.
-  - The **Visual Legend** panel renders interactive **3D character models** (with hover animations and tooltips), room color swatches, and status/bubble color signal guides.
+  - The **Visual Legend** panel renders interactive **3D character & pet breed models** (with hover animations and tooltips), room color swatches, and status/bubble color signal guides.
 - **4 Camera Control Presets**: Choose between **Google Maps**, **Figma**, **3D Orbit (Three.js)**, and **Blender** mouse/trackpad/keyboard controls in the top bar (persisted in `localStorage`).
 - **Privacy by Default**: Loopback-only (`127.0.0.1`), strict `Host`/`Origin`/`Sec-Fetch-Site` guards, optional `--auth` cookie token, and strict scrubbing (only tool categories, file basenames, and URL hostnames are sent to the browser — never file contents, raw commands, or credentials).
 
 ## Room Themes & Tool Mapping
 
-| Room Key | AI Studio (`studio`, Default) | Tech Office (`office`) | Joseon Palace (`palace`) | Traditional Hanok (`hanok`) | Sci-Fi Starship (`starship`) | Agent Activity & Tools |
-|---|---|---|---|---|---|---|
-| `archive` | **Codebase Lab** (`코드 탐색실`) | Library (`라이브러리`) | **Gyujanggak Archives** (`규장각`) | **Jangpangak Library** (`장판각`) | Data Vault (`데이터 볼트`) | `Read`, `Grep`, `Glob`, `codegraph` |
-| `dev` | **Coding Studio** (`코딩 스튜디오`) | Dev Zone (`개발존`) | **Jiphyeonjeon Hall** (`집현전`) | **Geulbang Study** (`글방`) | Forge Bay (`포지 베이`) | `Edit`, `Write`, `NotebookEdit`, `apply_patch` |
-| `server` | **Terminal & Ops** (`터미널·빌드실`) | Server Room (`서버룸`) | **Gungisi Arsenal** (`군기시`) | **Daejanggan Forge** (`대장간`) | Engine Core (`엔진 코어`) | `Bash`, `git`, `gh`, test & build runs |
-| `research` | **Web & MCP Hub** (`웹·MCP 허브`) | Research Lab (`리서치랩`) | **Gwansanggam Observatory** (`관상감`) | **Nugak Pavilion** (`누각`) | Sensor Array (`센서 어레이`) | `WebSearch`, `WebFetch`, external MCP tools |
-| `meeting` | **Strategy Room** (`기획·작전실`) | Boardroom (`보드룸`) | **Bincheong Council** (`빈청`) | **Daecheong Main Hall** (`대청마루`) | Tactical Bridge (`택티컬 브리지`) | Task planning & live 3D whiteboard |
-| `desk` | **Review Booth** (`리뷰·승인 부스`) | Hotline Booth (`핫라인 부스`) | **Seungjeongwon Secretariat** (`승정원`) | **Sarangchae Reception** (`사랑채`) | Holo-Comms Pod (`홀로그램 통신실`) | `AskUserQuestion`, plan & tool approvals |
-| `lounge` | **Lounge** (`라운지`) | Lounge (`라운지`) | **Huwon Garden** (`후원`) | **Anmadang Courtyard** (`안마당`) | Crew Lounge (`크루 라운지`) | Idle standby & arrival/departure elevator |
+| Room Key | AI Studio (`studio`) | Tech Office (`office`) | Joseon Palace (`palace`) | Traditional Hanok (`hanok`) | Sci-Fi Starship (`starship`) | Puppy Park (`dogs`) | Luxury Cat Salon (`cats`) | Agent Activity & Tools |
+|---|---|---|---|---|---|---|---|---|
+| `archive` | **Codebase Lab** (`코드 탐색실`) | Library (`라이브러리`) | **Gyujanggak Archives** (`규장각`) | **Jangpangak Library** (`장판각`) | Data Vault (`데이터 볼트`) | **Scent Trail Woods** (`노즈워크 숲`) | **Window Perch** (`창가 캣타워`) | `Read`, `Grep`, `Glob`, `codegraph` |
+| `dev` | **Coding Studio** (`코딩 스튜디오`) | Dev Zone (`개발존`) | **Jiphyeonjeon Hall** (`집현전`) | **Geulbang Study** (`글방`) | Forge Bay (`포지 베이`) | **Agility Arena** (`어질리티 훈련장`) | **Scratcher Studio** (`스크래처 공방`) | `Edit`, `Write`, `NotebookEdit`, `apply_patch` |
+| `server` | **Terminal & Ops** (`터미널·빌드실`) | Server Room (`서버룸`) | **Gungisi Arsenal** (`군기시`) | **Daejanggan Forge** (`대장간`) | Engine Core (`엔진 코어`) | **Zoomies Track** (`우다다 트랙`) | **Laser Chase Dome** (`레이저 사냥터`) | `Bash`, `git`, `gh`, test & build runs |
+| `research` | **Web & MCP Hub** (`웹·MCP 허브`) | Research Lab (`리서치랩`) | **Gwansanggam Observatory** (`관상감`) | **Nugak Pavilion** (`누각`) | Sensor Array (`Sensor Array`) | **Lookout Mound** (`전망 언덕`) | **Catnip Conservatory** (`캣닢 온실`) | `WebSearch`, `WebFetch`, external MCP tools |
+| `meeting` | **Strategy Room** (`기획·작전실`) | Boardroom (`보드룸`) | **Bincheong Council** (`빈청`) | **Daecheong Main Hall** (`대청마루`) | Tactical Bridge (`택티컬 브리지`) | **Bark Council** (`독 파크 모임터`) | **Velvet Cushion Hall** (`벨벳 라운지`) | Task planning & live 3D whiteboard |
+| `desk` | **Review Booth** (`리뷰·승인 부스`) | Hotline Booth (`핫라인 부스`) | **Seungjeongwon Secretariat** (`승정원`) | **Sarangchae Reception** (`사랑채`) | Holo-Comms Pod (`홀로그램 통신실`) | **Treat & Belly-Rub Booth** (`간식·칭찬 부스`) | **Churu Butler Bell** (`츄르·집사 호출석`) | `AskUserQuestion`, plan & tool approvals |
+| `lounge` | **Lounge** (`라운지`) | Lounge (`라운지`) | **Huwon Garden** (`후원`) | **Anmadang Courtyard** (`안마당`) | Crew Lounge (`크루 라운지`) | **Sunny Lawn** (`잔디 마당`) | **Sunbeam Hammock** (`햇살 해먹`) | Idle standby & arrival/departure elevator |
 
 ## Supported Agents
 

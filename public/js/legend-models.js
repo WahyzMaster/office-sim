@@ -8,12 +8,26 @@ const W = 128;
 const H = 144;
 
 const MODEL_SPECS = Object.freeze({
-  claude:    Object.freeze({ agent: 'claude-code', surface: '',    hue: 18,  light: 0.53, isSub: false }),
-  codex:     Object.freeze({ agent: 'codex',       surface: '',    hue: 158, light: 0.53, isSub: false }),
-  grok:      Object.freeze({ agent: 'grok',        surface: '',    hue: 275, light: 0.53, isSub: false }),
-  'agy-cli': Object.freeze({ agent: 'antigravity', surface: 'cli', hue: 192, light: 0.53, isSub: false }),
-  'agy-app': Object.freeze({ agent: 'antigravity', surface: 'app', hue: 220, light: 0.53, isSub: false }),
-  sub:       Object.freeze({ agent: 'claude-code', surface: '',    hue: 38,  light: 0.62, isSub: true }),
+  claude:            Object.freeze({ agent: 'claude-code', surface: '',    hue: 18,  light: 0.53, isSub: false }),
+  codex:             Object.freeze({ agent: 'codex',       surface: '',    hue: 158, light: 0.53, isSub: false }),
+  grok:              Object.freeze({ agent: 'grok',        surface: '',    hue: 275, light: 0.53, isSub: false }),
+  'agy-cli':         Object.freeze({ agent: 'antigravity', surface: 'cli', hue: 192, light: 0.53, isSub: false }),
+  'agy-app':         Object.freeze({ agent: 'antigravity', surface: 'app', hue: 220, light: 0.53, isSub: false }),
+  sub:               Object.freeze({ agent: 'claude-code', surface: '',    hue: 38,  light: 0.62, isSub: true }),
+  'dog-golden':      Object.freeze({ agent: 'claude-code', surface: '',    hue: 18,  light: 0.53, isSub: false, petBreed: 'golden' }),
+  'dog-labrador':    Object.freeze({ agent: 'codex',       surface: '',    hue: 158, light: 0.53, isSub: false, petBreed: 'labrador' }),
+  'dog-jindo-white': Object.freeze({ agent: 'antigravity', surface: 'cli', hue: 192, light: 0.53, isSub: false, petBreed: 'jindo-white' }),
+  'dog-jindo-black': Object.freeze({ agent: 'codex',       surface: '',    hue: 158, light: 0.53, isSub: false, petBreed: 'jindo-black' }),
+  'dog-jindo-bear':  Object.freeze({ agent: 'antigravity', surface: 'app', hue: 220, light: 0.53, isSub: false, petBreed: 'jindo-bear' }),
+  'dog-collie':      Object.freeze({ agent: 'grok',        surface: '',    hue: 275, light: 0.53, isSub: false, petBreed: 'collie' }),
+  'dog-corgi':       Object.freeze({ agent: 'claude-code', surface: '',    hue: 38,  light: 0.62, isSub: true,  petBreed: 'corgi' }),
+  'dog-shiba':       Object.freeze({ agent: 'codex',       surface: '',    hue: 28,  light: 0.62, isSub: true,  petBreed: 'shiba' }),
+  'cat-savannah':    Object.freeze({ agent: 'claude-code', surface: '',    hue: 18,  light: 0.53, isSub: false, petBreed: 'savannah' }),
+  'cat-bengal':      Object.freeze({ agent: 'codex',       surface: '',    hue: 158, light: 0.53, isSub: false, petBreed: 'bengal' }),
+  'cat-british':     Object.freeze({ agent: 'grok',        surface: '',    hue: 275, light: 0.53, isSub: false, petBreed: 'british' }),
+  'cat-siamese':     Object.freeze({ agent: 'antigravity', surface: 'cli', hue: 192, light: 0.53, isSub: false, petBreed: 'siamese' }),
+  'cat-ragdoll':     Object.freeze({ agent: 'antigravity', surface: 'app', hue: 220, light: 0.53, isSub: false, petBreed: 'ragdoll' }),
+  'cat-fold':        Object.freeze({ agent: 'claude-code', surface: '',    hue: 38,  light: 0.62, isSub: true,  petBreed: 'fold' }),
 });
 
 let studio = null;
@@ -112,6 +126,7 @@ export function mountLegendModels(agentUl) {
       hue: spec.hue,
       light: spec.light,
       isSub: spec.isSub,
+      petBreed: spec.petBreed || '',
       t: 0.8,
       path: [],
       queue: [],

@@ -1,6 +1,7 @@
 // 직원 몸(three.js 메시), 테마별 의상(궁궐 관복·한옥 배자·스타십 우주복·스튜디오/오피스), 브랜드별 액세서리, 몸짓 애니메이션.
 import * as THREE from 'three';
 import { mats } from './furniture.js';
+import { applyPetMesh } from './pet-mesh.js';
 import { activeThemeOf } from './rooms.js';
 import { glowing } from './scene.js';
 
@@ -123,6 +124,8 @@ export function buildBrandFlair(agent, theme = activeThemeOf()) {
   if (agent.baseRing) agent.baseRing.parent?.remove(agent.baseRing);
   agent.flair = null;
   agent.baseRing = null;
+  agent.tailPivot = null;
+  agent.propeller = null;
 
   const key = agent.agent === 'antigravity' && agent.surface === 'cli' ? 'antigravity:cli' : agent.agent;
   const spec = BRAND_ACCENT[key] || BRAND_ACCENT[agent.agent] || { color: 0xe2e8f0, emissive: 0x64748b, glow: 0.6 };
@@ -134,6 +137,14 @@ export function buildBrandFlair(agent, theme = activeThemeOf()) {
 
   const bg = agent.brandGroup = new THREE.Group();
   agent.head.add(bg);
+
+  if (theme === 'dogs' || theme === 'cats') {
+    agent.flair = bg;
+    applyPetMesh(agent, theme);
+    return;
+  }
+  agent.head.material = mats().skin;
+  tintAgent(agent);
 
   if (agent.agent === 'claude-code') {
     // Claude: 궁궐(정자관+옥관자), 한옥(유건+매듭별), 기본/스타십(베레모/크레스트+스파크 스타)
@@ -367,11 +378,14 @@ export function animateAgentMesh(agent, reduced = false) {
   agent.rig.position.y = (reduced ? 0 : bob) + floatOffset;
   agent.rig.position.x = shake;
   agent.head.rotation.z = tilt;
-  if (!reduced && agent.flair) {
+  if (!reduced && agent.flair && !agent.tailPivot) {
     agent.flair.rotation.y = t * 1.8;
     if (agent.agent === 'antigravity' || agent.agent === 'codex') {
       agent.flair.position.y = (agent.agent === 'antigravity' ? 0.48 : 0.43) + Math.sin(t * 3.2) * 0.025;
     }
+  }
+  if (!reduced && agent.tailPivot) {
+    agent.tailPivot.rotation.z = Math.sin(t * (agent.path.length ? 14 : 7.5)) * 0.42;
   }
   if (!reduced && agent.propeller) {
     agent.propeller.rotation.y = t * (agent.path.length ? 18 : 7);
