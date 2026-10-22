@@ -276,8 +276,9 @@ body.overview .sign, body.overview .tag span { display: none; }
 #log li[data-kind="plan"] span { color: var(--accent); }
 
 #legend { grid-column: 1; grid-row: 3; align-self: end; padding: 12px 14px; width: 336px; max-height: min(64vh, 540px); overflow-y: auto; }
-#legend h3 { margin: 11px 0 5px; padding-top: 8px; border-top: 1px solid var(--line); font: 600 11px/1.2 var(--font-ui); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+#legend h3 { margin: 11px 0 5px; padding-top: 8px; border-top: 1px solid var(--line); font: 600 11px/1.2 var(--font-ui); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 #legend h3:first-of-type { margin-top: 6px; padding-top: 0; border-top: 0; }
+#legend #reset-llm-map { font-size: 10px; padding: 2px 7px; text-transform: none; letter-spacing: 0; }
 #legend ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 #legend li { display: grid; grid-template-columns: 12px 84px minmax(0, 1fr); gap: 8px; align-items: center; }
 #legend li i { width: 12px; height: 12px; border-radius: 3px; box-sizing: border-box; }
@@ -289,6 +290,7 @@ body.overview .sign, body.overview .tag span { display: none; }
 #legend ul[data-lg="agents"] canvas.ag-model { width: 68px; height: 76px; display: block; pointer-events: none; }
 #legend ul[data-lg="agents"] .ag-tag { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; }
 #legend ul[data-lg="agents"] .ag-tag i { width: 9px; height: 9px; flex: none; }
+#legend ul[data-lg="agents"] select.ag-map { width: 100%; max-width: 96px; font: 500 10px/1.2 var(--font-ui); padding: 2px 3px; border-radius: 5px; border: 1px solid var(--line); background: var(--panel-solid); color: var(--fg); cursor: pointer; }
 #legend ul[data-lg="agents"] li span { position: absolute; bottom: calc(100% + 5px); left: 50%; transform: translate(-50%, 4px); width: max-content; max-width: 210px; padding: 6px 9px; border-radius: 8px; background: var(--panel-solid); color: var(--fg); border: 1px solid var(--line); box-shadow: var(--shadow); font: 500 11px/1.35 var(--font-ui); text-align: center; white-space: normal; z-index: 6; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.14s ease, transform 0.14s ease; }
 #legend ul[data-lg="agents"] li:nth-child(3n+1) span { left: 0; transform: translate(0, 4px); text-align: left; }
 #legend ul[data-lg="agents"] li:nth-child(3n) span { left: auto; right: 0; transform: translate(0, 4px); text-align: right; }
@@ -300,9 +302,10 @@ body.overview .sign, body.overview .tag span { display: none; }
 #inspector header { display: flex; align-items: center; gap: 8px; }
 #inspector .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 #inspector h2 { flex: 1; font: 400 18px/1.1 var(--font-sign); letter-spacing: 0; color: var(--fg); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#inspector dl { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 10px; margin: 10px 0; }
+#inspector dl { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 4px 10px; margin: 10px 0; align-items: center; }
 #inspector dt { color: var(--muted); font-size: 12px; }
 #inspector dd { margin: 0; font: 400 12px/1.4 var(--font-mono); overflow-wrap: anywhere; }
+#inspector dd select { padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel-solid); color: var(--fg); font: 500 11px/1.2 var(--font-ui); max-width: 100%; }
 #inspector ol { list-style: none; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--line); display: grid; gap: 3px; max-height: 140px; overflow: auto; }
 #inspector ol li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; font: 400 11px/1.4 var(--font-mono); color: var(--muted); }
 #inspector ol li[data-kind="error"] { color: var(--danger); }
@@ -389,12 +392,22 @@ body.overview .sign, body.overview .tag span { display: none; }
       </div>
       <label class="interval" for="interval">tail <input id="interval" type="number" min="50" max="5000" step="50" value="250"> ms</label>
       <label class="interval" for="room-theme"><span id="theme-label">공간</span> <select id="room-theme" aria-label="공간 테마 프리셋"><option value="dogs">퍼피 파크</option><option value="cats">캣 타워 살롱</option><option value="studio">AI 스튜디오</option><option value="office">테크 오피스</option><option value="palace">조선 궁궐</option><option value="hanok">전통 한옥</option><option value="starship">SF 스타십</option></select></label>
-      <label class="interval" for="posture-mode"><span id="posture-label">보행</span> <select id="posture-mode" aria-label="캐릭터 보행 자세"><option value="auto">자동 (테마별)</option><option value="tetrapod">4족 보행 (네발)</option><option value="bipod">2족 보행 (두발)</option></select></label>
+      <label class="interval" for="char-theme"><span id="char-label">캐릭터</span> <select id="char-theme" aria-label="캐릭터 외형 프리셋"><option value="studio">AI 스튜디오</option><option value="office">테크 오피스</option><option value="palace">조선 궁궐</option><option value="hanok">전통 한옥</option><option value="starship">SF 스타십</option><option value="dogs">강아지 팩</option><option value="cats">고양이 팩</option></select></label>
+      <label class="interval" for="posture-mode"><span id="posture-label">보행</span> <select id="posture-mode" aria-label="캐릭터 보행 자세"><option value="auto">자동 (캐릭터별)</option><option value="tetrapod">4족 보행 (네발)</option><option value="bipod">2족 보행 (두발)</option></select></label>
+      <label class="interval" for="voice-mode"><span id="voice-label">소리</span> <select id="voice-mode" aria-label="캐릭터 음성"><option value="auto">자동 (캐릭터별)</option><option value="dogs">강아지 (멍멍)</option><option value="cats">고양이 (야옹)</option><option value="chime">국악 (옥소리)</option><option value="chirp">스타십 (비프)</option><option value="blip">스튜디오 (블립)</option><option value="mute">음소거</option></select></label>
+      <div class="seg" id="llm-filter" role="group" aria-label="LLM 필터">
+        <button type="button" data-llm="all" aria-pressed="true">전체</button>
+        <button type="button" data-llm="claude-code" aria-pressed="false">Claude</button>
+        <button type="button" data-llm="codex" aria-pressed="false">Codex</button>
+        <button type="button" data-llm="grok" aria-pressed="false">Grok</button>
+        <button type="button" data-llm="antigravity" aria-pressed="false">AGY</button>
+      </div>
       <label class="interval" for="control-preset"><span id="control-label">조작</span> <select id="control-preset" aria-label="카메라 조작 프리셋"><option value="map">구글 맵</option><option value="figma">피그마</option><option value="orbit">3D 오빗</option><option value="blender">블렌더</option></select></label>
+      <button type="button" id="color-theme" class="ghost" aria-label="조명 모드 전환">조명: 자동</button>
       <button type="button" id="sound-toggle" class="ghost" aria-pressed="true" aria-label="캐릭터 소리 켜기/끄기">소리 켜짐</button>
       <button type="button" id="lang-toggle" class="ghost" aria-label="언어 전환 (KO/EN)">KO</button>
       <button type="button" id="toggle-observe" class="ghost" hidden aria-pressed="false" aria-controls="observe" aria-label="기록 관찰">기록 관찰</button>
-      <button type="button" id="toggle-legend" class="ghost" aria-pressed="false" aria-controls="legend">범례 안내</button>
+      <button type="button" id="toggle-legend" class="ghost" aria-pressed="false" aria-controls="legend">범례·배정</button>
       <button type="button" id="toggle-log" class="ghost" aria-pressed="true" aria-controls="log">활동 기록</button>
     </div>
   </header>
@@ -425,10 +438,10 @@ body.overview .sign, body.overview .tag span { display: none; }
   </aside>
 
   <section id="legend" class="panel" hidden aria-label="범례 안내">
-    <h2>범례 안내</h2>
+    <h2>범례 및 LLM 캐릭터 배정</h2>
     <h3 data-lg-head="rooms">공간 · 방 안내</h3>
     <ul data-lg="rooms"></ul>
-    <h3 data-lg-head="agents">캐릭터 · 에이전트</h3>
+    <h3><span data-lg-head="agents">LLM별 캐릭터 배정</span><button type="button" id="reset-llm-map" class="ghost">기본 배정 복원</button></h3>
     <ul data-lg="agents"></ul>
     <h3 data-lg-head="signals">상태 · 색깔 신호</h3>
     <ul data-lg="signals"></ul>

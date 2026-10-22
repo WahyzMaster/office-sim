@@ -1,6 +1,10 @@
 // 화면 가장자리 패널: 엘리베이터(층 선택), 활동 기록, 범례, 직원 상세, 기록 관찰(observe-panel.js).
 import {
-  ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf, detectLang, applyRoomTheme, uiText, renderLegend,
+  ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, CHAR_THEMES, charThemeOf, setCharTheme,
+  CHARACTER_CATALOG, activeLlmCharMapOf, setLlmCharMap, resetLlmCharMap,
+  VOICE_MODES, voiceModeOf, setVoiceMode, COLOR_THEMES, colorThemeOf, setColorTheme,
+  llmFilterOf, setLlmFilter, isLlmVisible,
+  langOf, detectLang, applyRoomTheme, uiText, renderLegend,
   postureModeOf, setPostureMode,
 } from './rooms.js';
 import { ObservePanel } from './observe-panel.js';
@@ -15,23 +19,19 @@ const AGENT_BADGE = { 'claude-code': 'Claude', codex: 'Codex', grok: 'Grok', ant
 const AGY_SURFACE_LABEL = { cli: 'CLI', app: 'App', ide: 'IDE' };
 export const agentLabel = (id, surface = '') => {
   if (!Object.hasOwn(AGENT_LABEL, id)) return id;
-  const base = AGENT_LABEL[id];
   const sub = id === 'antigravity' && surface && Object.hasOwn(AGY_SURFACE_LABEL, surface) ? AGY_SURFACE_LABEL[surface] : '';
-  return sub ? `${base} (${sub})` : base;
+  return sub ? `${AGENT_LABEL[id]} (${sub})` : AGENT_LABEL[id];
 };
 export const agentBadge = (id, surface = '') => {
-  if (!id) return '';
-  if (!Object.hasOwn(AGENT_BADGE, id)) return id;
-  const base = AGENT_BADGE[id];
+  if (!id || !Object.hasOwn(AGENT_BADGE, id)) return id || '';
   const sub = id === 'antigravity' && surface && Object.hasOwn(AGY_SURFACE_LABEL, surface) ? AGY_SURFACE_LABEL[surface] : '';
-  return sub ? `${base}·${sub}` : base;
+  return sub ? `${AGENT_BADGE[id]}·${sub}` : AGENT_BADGE[id];
 };
 
 export const DEFAULT_CONTROL_PRESET = 'map';
 export const CONTROL_PRESETS = uiText('ko').controls;
 export const controlPresetOf = (k) => (Object.hasOwn(CONTROL_PRESETS, k) ? k : DEFAULT_CONTROL_PRESET);
 
-// 재생 모드(--replay): 서버가 config 메시지에 싣는 replay { state, speed, loop, round, progress } 를 칩 문구로.
 function replayText(r) {
   const x = `${r.speed}×`;
   switch (r.state) {
@@ -43,19 +43,13 @@ function replayText(r) {
   }
 }
 
-// 21:04:10 처럼 짧게(ko-KR 은 "21시 4분 10초"로 길어진다)
 const time = (d) => d.toLocaleTimeString('en-GB', { hour12: false });
-
-// localStorage 는 꺼내는 순간에도 던질 수 있다(샌드박스 iframe, 차단된 사이트 데이터). storage 를 넘기면 그것을 쓴다(테스트용).
 const storeOf = (storage) => storage ?? globalThis.localStorage;
 
-// 새 키가 비어 있고 옛 키(claude-office:v1)가 있으면 옛 설정을 한 번 복사한다. 복사했으면 true.
-// 복사 뒤에는 새 키가 있으므로 다시 불러도 아무것도 하지 않는다. 옛 키는 그대로 둔다.
 export function migratePrefs(storage) {
   try {
     const s = storeOf(storage);
-    if (s.getItem(STORE) != null) return false;
-    const old = s.getItem(LEGACY_STORE);
+    const old = s.getItem(STORE) == null ? s.getItem(LEGACY_STORE) : null;
     if (old == null) return false;
     s.setItem(STORE, old);
     return true;
@@ -68,39 +62,59 @@ export function loadPrefs(storage) {
     return v && typeof v === 'object' ? v : {};
   } catch { return {}; }
 }
-function savePrefs(p) {
-  try { storeOf().setItem(STORE, JSON.stringify(p)); } catch { /* 저장 불가 환경 */ }
-}
+const savePrefs = (p) => { try { storeOf().setItem(STORE, JSON.stringify(p)); } catch { /* ignore */ } };
 
 export class Hud {
   constructor() {
     const $ = (id) => document.getElementById(id);
     this.el = {
       source: $('source'), sub: $('sub'), speed: $('speed'), interval: $('interval'),
-      roomTheme: $('room-theme'), themeLabel: $('theme-label'), posture: $('posture-mode'), postureLabel: $('posture-label'),
+      roomTheme: $('room-theme'), themeLabel: $('theme-label'), charTheme: $('char-theme'), charLabel: $('char-label'),
+      posture: $('posture-mode'), postureLabel: $('posture-label'), voice: $('voice-mode'), voiceLabel: $('voice-label'),
+      llmFilter: $('llm-filter'), colorBtn: $('color-theme'), resetCastBtn: $('reset-llm-map'),
       preset: $('control-preset'), controlLabel: $('control-label'), soundBtn: $('sound-toggle'), langBtn: $('lang-toggle'), tail: $('tail'),
       logBtn: $('toggle-log'), legendBtn: $('toggle-legend'), floors: $('floors'),
       log: $('log'), list: $('log-list'), legend: $('legend'), legendControls: $('legend-controls'), insp: $('inspector'),
     };
-    this.prefs = loadPrefs();
-    this.roomTheme = roomThemeOf(this.prefs.roomTheme);
-    this.postureMode = setPostureMode(this.prefs.postureMode);
-    this.soundOn = setSoundEnabled(this.prefs.soundOn !== false);
-    this.lang = langOf(this.prefs.lang ?? detectLang());
-    this.controlPreset = controlPresetOf(this.prefs.controlPreset);
+    const p = (this.prefs = loadPrefs());
+    this.roomTheme = roomThemeOf(p.roomTheme);
+    this.charTheme = setCharTheme(p.charTheme ?? this.roomTheme);
+    this.llmCharMap = setLlmCharMap(p.llmCharMap);
+    this.postureMode = setPostureMode(p.postureMode);
+    this.voiceMode = setVoiceMode(p.voiceMode);
+    this.colorTheme = setColorTheme(p.colorTheme);
+    this.llmFilter = setLlmFilter(p.llmFilter);
+    this.soundOn = setSoundEnabled(p.soundOn !== false && this.voiceMode !== 'mute');
+    this.lang = langOf(p.lang ?? detectLang());
+    this.controlPreset = controlPresetOf(p.controlPreset);
     this.pings = new Map();
     this.keys = new Set();
     this.statT = 0;
     applyRoomTheme(this.roomTheme, this.lang);
+    this.applyColorScheme(this.colorTheme);
+    this.populateCharSelect(this.el.charTheme);
     this.buildLegend();
-    // 라이브 서버가 observe 메시지를 보내기 전에는 숨어 있다(데모·벤치에서는 끝까지 숨는다).
     this.observe = new ObservePanel($('toggle-observe'), $('observe'), { announce: $('observe-announce') });
+  }
+
+  populateCharSelect(sel) {
+    if (!sel) return;
+    sel.replaceChildren(...Object.entries(CHAR_THEMES).map(([k, v]) => Object.assign(document.createElement('option'), { value: k, textContent: v[this.lang] || v.ko })));
+    sel.value = this.charTheme;
+  }
+
+  applyColorScheme(mode) {
+    this.colorTheme = setColorTheme(colorThemeOf(mode));
+    if (this.colorTheme === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = this.colorTheme;
+    if (this.el.colorBtn) this.el.colorBtn.textContent = uiText(this.lang).colorLabel[this.colorTheme];
   }
 
   bind(office, cfg, getSource) {
     this.office = office;
     this.cfg = cfg;
     const { el, prefs } = this;
+    const save = () => savePrefs(prefs);
     cfg.speed = prefs.speed || 1;
     cfg.intervalMs = prefs.intervalMs || 250;
 
@@ -111,10 +125,7 @@ export class Hud {
     setSpeed(cfg.speed);
     el.speed.addEventListener('click', (e) => {
       const b = e.target.closest('button');
-      if (!b) return;
-      setSpeed(Number(b.dataset.speed));
-      prefs.speed = cfg.speed;
-      savePrefs(prefs);
+      if (b) { setSpeed(Number(b.dataset.speed)); prefs.speed = cfg.speed; save(); }
     });
 
     const setInterval = (ms) => {
@@ -127,16 +138,13 @@ export class Hud {
       setInterval(Number(el.interval.value));
       getSource()?.setInterval?.(cfg.intervalMs);
       prefs.intervalMs = cfg.intervalMs;
-      savePrefs(prefs);
+      save();
     });
 
     const applyPreset = (id) => {
       this.controlPreset = controlPresetOf(id);
       const spec = uiText(this.lang).controls[this.controlPreset];
-      if (el.preset) {
-        el.preset.value = this.controlPreset;
-        el.preset.title = spec.hint;
-      }
+      if (el.preset) { el.preset.value = this.controlPreset; el.preset.title = spec.hint; }
       if (el.legendControls) el.legendControls.textContent = spec.hint;
       office.stage.setControlPreset?.(this.controlPreset);
     };
@@ -145,6 +153,26 @@ export class Hud {
       el.soundBtn.setAttribute('aria-pressed', String(this.soundOn));
       el.soundBtn.textContent = uiText(this.lang).soundLabel[this.soundOn ? 'on' : 'off'];
     };
+    const syncLlmFilter = (f) => {
+      this.llmFilter = setLlmFilter(llmFilterOf(f));
+      if (el.llmFilter) {
+        const allBtn = el.llmFilter.querySelector('[data-llm="all"]');
+        if (allBtn) allBtn.textContent = uiText(this.lang).llmAll;
+        for (const b of el.llmFilter.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.llm === this.llmFilter));
+      }
+      if (el.list) {
+        for (const li of el.list.children) {
+          const a = office.agents.get(li.dataset.sid);
+          if (a) li.hidden = !isLlmVisible(a);
+        }
+      }
+      office.refreshVisibility?.();
+    };
+    const fillSelect = (sel, map, val) => {
+      if (!sel) return;
+      for (const opt of sel.options) opt.textContent = map(opt.value) || opt.textContent;
+      if (val !== undefined) sel.value = val;
+    };
     const applyThemeAndLang = (themeId, langId, postureChanged = false) => {
       this.roomTheme = roomThemeOf(themeId);
       this.lang = langOf(langId);
@@ -152,20 +180,18 @@ export class Hud {
       const t = uiText(this.lang);
       if (el.langBtn) el.langBtn.textContent = this.lang.toUpperCase();
       if (el.themeLabel) el.themeLabel.textContent = t.themeLabel;
+      if (el.charLabel) el.charLabel.textContent = t.charLabel;
       if (el.postureLabel) el.postureLabel.textContent = t.postureLabel;
+      if (el.voiceLabel) el.voiceLabel.textContent = t.voiceLabel;
       if (el.controlLabel) el.controlLabel.textContent = t.controlLabel;
-      if (el.roomTheme) {
-        for (const opt of el.roomTheme.options) opt.textContent = ROOM_THEMES[opt.value]?.name?.[this.lang] || opt.textContent;
-        el.roomTheme.value = this.roomTheme;
-      }
-      if (el.posture) {
-        for (const opt of el.posture.options) opt.textContent = t.postures[opt.value] || opt.textContent;
-        el.posture.value = this.postureMode;
-      }
-      if (el.preset) {
-        for (const opt of el.preset.options) opt.textContent = t.controls[opt.value]?.label || opt.textContent;
-      }
+      fillSelect(el.roomTheme, (v) => ROOM_THEMES[v]?.name?.[this.lang], this.roomTheme);
+      this.populateCharSelect(el.charTheme);
+      fillSelect(el.posture, (v) => t.postures[v], this.postureMode);
+      fillSelect(el.voice, (v) => t.voices[v], this.voiceMode);
+      fillSelect(el.preset, (v) => t.controls[v]?.label);
+      this.applyColorScheme(this.colorTheme);
       syncSoundBtn();
+      syncLlmFilter(this.llmFilter);
       el.legendBtn.textContent = t.legendBtn;
       el.logBtn.textContent = t.logBtn;
       el.log.querySelector('h2').textContent = t.logTitle;
@@ -182,39 +208,44 @@ export class Hud {
       if (office.selected) this.inspect(office.selected, office);
     };
     applyThemeAndLang(this.roomTheme, this.lang);
-    const save = () => savePrefs(prefs);
+    const refreshCast = () => { office.refreshCharacters?.(); this.buildLegend(); if (office.selected) this.inspect(office.selected, office); save(); };
     el.roomTheme?.addEventListener('change', () => { applyThemeAndLang(el.roomTheme.value, this.lang); prefs.roomTheme = this.roomTheme; save(); });
-    el.posture?.addEventListener('change', () => {
-      this.postureMode = setPostureMode(postureModeOf(el.posture.value));
-      applyThemeAndLang(this.roomTheme, this.lang, true);
-      prefs.postureMode = this.postureMode;
+    el.charTheme?.addEventListener('change', () => { this.charTheme = setCharTheme(charThemeOf(el.charTheme.value)); prefs.charTheme = this.charTheme; refreshCast(); });
+    el.posture?.addEventListener('change', () => { this.postureMode = setPostureMode(postureModeOf(el.posture.value)); prefs.postureMode = this.postureMode; refreshCast(); });
+    el.voice?.addEventListener('change', () => {
+      this.voiceMode = setVoiceMode(voiceModeOf(el.voice.value));
+      this.soundOn = setSoundEnabled(this.voiceMode !== 'mute');
+      syncSoundBtn();
+      prefs.voiceMode = this.voiceMode;
+      prefs.soundOn = this.soundOn;
       save();
     });
+    el.llmFilter?.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (b) { syncLlmFilter(b.dataset.llm); prefs.llmFilter = this.llmFilter; save(); }
+    });
+    el.colorBtn?.addEventListener('click', () => {
+      this.applyColorScheme(COLOR_THEMES[(COLOR_THEMES.indexOf(this.colorTheme) + 1) % COLOR_THEMES.length]);
+      prefs.colorTheme = this.colorTheme;
+      save();
+    });
+    el.resetCastBtn?.addEventListener('click', () => { this.llmCharMap = resetLlmCharMap(); prefs.llmCharMap = this.llmCharMap; refreshCast(); });
     el.soundBtn?.addEventListener('click', () => { this.soundOn = setSoundEnabled(!this.soundOn); syncSoundBtn(); prefs.soundOn = this.soundOn; save(); });
     el.langBtn?.addEventListener('click', () => { applyThemeAndLang(this.roomTheme, this.lang === 'ko' ? 'en' : 'ko'); prefs.lang = this.lang; save(); });
     el.preset?.addEventListener('change', () => { applyPreset(el.preset.value); prefs.controlPreset = this.controlPreset; save(); });
 
     const narrow = window.matchMedia('(max-width: 720px)').matches;
     const toggle = (btn, panel, key, fallback) => {
-      const apply = (open) => {
-        btn.setAttribute('aria-pressed', String(open));
-        panel.hidden = !open;
-      };
+      const apply = (open) => { btn.setAttribute('aria-pressed', String(open)); panel.hidden = !open; };
       apply(prefs[key] ?? fallback);
-      btn.addEventListener('click', () => {
-        const open = btn.getAttribute('aria-pressed') !== 'true';
-        apply(open);
-        prefs[key] = open;
-        savePrefs(prefs);
-      });
+      btn.addEventListener('click', () => { const open = btn.getAttribute('aria-pressed') !== 'true'; apply(open); prefs[key] = open; save(); });
     };
     toggle(el.logBtn, el.log, 'log', !narrow);
     toggle(el.legendBtn, el.legend, 'legend', false);
 
     el.floors.addEventListener('click', (e) => {
       const b = e.target.closest('button');
-      if (!b) return;
-      office.focus(b.dataset.i === 'all' ? 'all' : Number(b.dataset.i));
+      if (b) office.focus(b.dataset.i === 'all' ? 'all' : Number(b.dataset.i));
     });
     el.list.addEventListener('click', (e) => {
       const li = e.target.closest('li');
@@ -223,98 +254,52 @@ export class Hud {
       if (a.floor.index !== office.focusIndex || office.overview) office.focus(a.floor.index);
       office.select(a);
     });
-    el.insp.querySelector('[data-act="pet"]')?.addEventListener('click', () => {
-      office.selected?.pet?.();
-      if (office.selected) this.inspect(office.selected, office);
-    });
-    el.insp.querySelector('[data-act="follow"]').addEventListener('click', () => {
-      office.follow = !office.follow;
-      if (!office.follow) office.layout({ snapPan: true });
-      this.inspect(office.selected, office);
-    });
+    el.insp.querySelector('[data-act="pet"]')?.addEventListener('click', () => { office.selected?.pet?.(); if (office.selected) this.inspect(office.selected, office); });
+    el.insp.querySelector('[data-act="follow"]').addEventListener('click', () => { office.follow = !office.follow; if (!office.follow) office.layout({ snapPan: true }); this.inspect(office.selected, office); });
     el.insp.querySelector('[data-act="close"]').addEventListener('click', () => office.select(null));
 
     const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
-    const resetCamera = () => {
-      office.follow = false;
-      office.layout({ snapPan: true });
-      office.stage.resetView?.();
-      if (office.selected) this.inspect(office.selected, office);
-    };
+    const resetCamera = () => { office.follow = false; office.layout({ snapPan: true }); office.stage.resetView?.(); if (office.selected) this.inspect(office.selected, office); };
     window.addEventListener('keydown', (e) => {
       if (e.target.closest('input, textarea, select, [contenteditable]')) return;
-      if ((e.metaKey || e.ctrlKey) && (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '_')) {
-        e.preventDefault();
-        office.stage.zoomBy?.(e.key === '-' || e.key === '_' ? 1 / 1.2 : 1.2);
-        return;
-      }
+      if ((e.metaKey || e.ctrlKey) && ['+', '=', '-', '_'].includes(e.key)) { e.preventDefault(); office.stage.zoomBy?.(e.key === '-' || e.key === '_' ? 1 / 1.2 : 1.2); return; }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.code === 'Space') {
-        e.preventDefault();
-        office.stage.setSpaceDown?.(true);
-        return;
-      }
+      if (e.code === 'Space') { e.preventDefault(); office.stage.setSpaceDown?.(true); return; }
       const k = e.key.toLowerCase();
       if (e.shiftKey && this.controlPreset === 'map' && k.startsWith('arrow')) {
         e.preventDefault();
-        if (k === 'arrowleft') office.stage.rotateBy?.(-0.28, 0);
-        else if (k === 'arrowright') office.stage.rotateBy?.(0.28, 0);
-        else if (k === 'arrowup') office.stage.rotateBy?.(0, -0.14);
-        else if (k === 'arrowdown') office.stage.rotateBy?.(0, 0.14);
+        const rot = { arrowleft: [-0.28, 0], arrowright: [0.28, 0], arrowup: [0, -0.14], arrowdown: [0, 0.14] }[k];
+        if (rot) office.stage.rotateBy?.(...rot);
         return;
       }
-      if (e.shiftKey && this.controlPreset === 'figma' && (e.code === 'Digit0' || e.code === 'Digit1' || e.code === 'Digit2')) {
+      if (e.shiftKey && this.controlPreset === 'figma' && ['Digit0', 'Digit1', 'Digit2'].includes(e.code)) {
         e.preventDefault();
-        if (e.code === 'Digit2' && office.selected) {
-          office.select(office.selected, { focusPan: true });
-          office.stage.zoomTo?.(1.6);
-        } else resetCamera();
+        if (e.code === 'Digit2' && office.selected) { office.select(office.selected, { focusPan: true }); office.stage.zoomTo?.(1.6); }
+        else resetCamera();
         return;
       }
-      if (MOVE_KEYS.has(k)) {
-        this.keys.add(k);
-        if (k.startsWith('arrow')) e.preventDefault();
-        return;
-      }
+      if (MOVE_KEYS.has(k)) { this.keys.add(k); if (k.startsWith('arrow')) e.preventDefault(); return; }
       if (e.key === 'Escape') office.select(null);
       else if (e.key === '0') office.focus('all');
       else if (/^[1-9]$/.test(e.key) && Number(e.key) <= office.floors.length) office.focus(Number(e.key) - 1);
-      else if ((e.key === '[' || e.key === 'PageDown') && office.floors.length) {
-        e.preventDefault();
-        office.focus(office.overview ? 0 : Math.max(0, office.focusIndex - 1));
-      } else if ((e.key === ']' || e.key === 'PageUp') && office.floors.length) {
-        e.preventDefault();
-        office.focus(office.overview ? office.floors.length - 1 : Math.min(office.floors.length - 1, office.focusIndex + 1));
-      } else if (k === 'q') office.stage.rotateBy?.(-0.35);
+      else if ((e.key === '[' || e.key === 'PageDown') && office.floors.length) { e.preventDefault(); office.focus(office.overview ? 0 : Math.max(0, office.focusIndex - 1)); }
+      else if ((e.key === ']' || e.key === 'PageUp') && office.floors.length) { e.preventDefault(); office.focus(office.overview ? office.floors.length - 1 : Math.min(office.floors.length - 1, office.focusIndex + 1)); }
+      else if (k === 'q') office.stage.rotateBy?.(-0.35);
       else if (k === 'e') office.stage.rotateBy?.(0.35);
       else if (e.key === '+' || e.key === '=') office.stage.zoomBy?.(1.2);
       else if (e.key === '-' || e.key === '_') office.stage.zoomBy?.(1 / 1.2);
       else if (k === 'r' || e.key === 'Home') resetCamera();
       else if ((k === 'f' || e.key === '.') && office.selected) {
         if (e.key === '.') office.select(office.selected, { focusPan: true });
-        else {
-          office.follow = !office.follow;
-          if (!office.follow) office.layout({ snapPan: true });
-          this.inspect(office.selected, office);
-        }
+        else { office.follow = !office.follow; if (!office.follow) office.layout({ snapPan: true }); this.inspect(office.selected, office); }
       }
     });
-    window.addEventListener('keyup', (e) => {
-      if (e.code === 'Space') office.stage.setSpaceDown?.(false);
-      this.keys.delete(e.key.toLowerCase());
-    });
-    window.addEventListener('blur', () => {
-      office.stage.setSpaceDown?.(false);
-      this.keys.clear();
-    });
+    window.addEventListener('keyup', (e) => { if (e.code === 'Space') office.stage.setSpaceDown?.(false); this.keys.delete(e.key.toLowerCase()); });
+    window.addEventListener('blur', () => { office.stage.setSpaceDown?.(false); this.keys.clear(); });
   }
 
-  setLive(live) {
-    this.el.speed.hidden = live;
-    this.observe.setLive(live);
-  }
+  setLive(live) { this.el.speed.hidden = live; this.observe.setLive(live); }
 
-  // 서버가 알려 준 tail 간격을 입력칸과 부제에 반영한다(저장된 개인 설정보다 서버 값이 우선).
   applyConfig(cfg, msg) {
     if (Number.isFinite(msg?.intervalMs)) {
       cfg.intervalMs = msg.intervalMs;
@@ -324,7 +309,6 @@ export class Hud {
     if (msg?.replay) this.setReplay(msg.replay);
   }
 
-  // 재생 모드는 tail 간격이 의미 없으니 입력칸을 숨기고, 다시 연결돼도 '라이브'로 바뀌지 않게 기억해 둔다.
   setReplay(r) {
     this.replay = r;
     this.el.interval.closest('label').hidden = true;
@@ -334,7 +318,7 @@ export class Hud {
 
   setSource(state) {
     if (state === 'live' && this.replay) state = 'replay';
-    this.observe.setConnected(state !== 'retry'); // 기록 관찰: 끊긴 동안 받은 상태는 낡았다(시계와 버튼을 세운다)
+    this.observe.setConnected(state !== 'retry');
     const t = uiText(this.lang);
     this.el.source.dataset.state = state;
     this.el.source.querySelector('span').textContent = state === 'replay' ? replayText(this.replay) : t.source[state] || state;
@@ -350,7 +334,13 @@ export class Hud {
   }
 
   buildLegend() {
-    renderLegend(this.el.legend, this.roomTheme, this.lang);
+    renderLegend(this.el.legend, this.roomTheme, this.lang, () => {
+      this.llmCharMap = activeLlmCharMapOf();
+      this.prefs.llmCharMap = this.llmCharMap;
+      savePrefs(this.prefs);
+      this.office?.refreshCharacters?.();
+      this.buildLegend();
+    });
   }
 
   renderFloors(office) {
@@ -386,7 +376,7 @@ export class Hud {
     for (const f of office.floors) {
       const b = this.el.floors.querySelector(`[data-i="${f.index}"]`);
       if (!b) continue;
-      const agents = [...f.agents];
+      const agents = [...f.agents].filter((a) => isLlmVisible(a));
       const asking = agents.filter((a) => a.mode === 'ask').length;
       const approving = agents.filter((a) => a.mode === 'ask' && a.current?.approval).length;
       const counts = new Map();
@@ -421,6 +411,7 @@ export class Hud {
     const li = document.createElement('li');
     li.dataset.kind = kind || '';
     li.dataset.sid = agent.id;
+    li.hidden = !isLlmVisible(agent);
     li.innerHTML = '<time></time><i></i><b></b><span></span>';
     li.querySelector('time').textContent = time(new Date());
     li.querySelector('i').style.background = agent.color;
@@ -433,10 +424,7 @@ export class Hud {
 
   inspect(a, office) {
     const box = this.el.insp;
-    if (!a) {
-      box.hidden = true;
-      return;
-    }
+    if (!a) { box.hidden = true; return; }
     const t = uiText(this.lang);
     box.hidden = false;
     box.querySelector('.dot').style.background = a.color;
@@ -460,6 +448,19 @@ export class Hud {
       dd.textContent = val;
       return [dt, dd];
     }));
+    const addSelectRow = (label, opts, value, onChange) => {
+      const dt = document.createElement('dt');
+      const dd = document.createElement('dd');
+      const sel = document.createElement('select');
+      dt.textContent = label;
+      sel.replaceChildren(...opts.map(([k, text]) => { const o = document.createElement('option'); o.value = k; o.textContent = text; return o; }));
+      sel.value = value || 'auto';
+      sel.addEventListener('change', () => onChange(sel.value));
+      dd.append(sel);
+      dl.append(dt, dd);
+    };
+    addSelectRow(t.rows.charOverride, Object.entries(CHARACTER_CATALOG).map(([k, v]) => [k, v[this.lang] || v.ko]), a.charOverride, (v) => { a.charOverride = v; a.refreshCharacter?.(); });
+    addSelectRow(t.rows.postureOverride, Object.entries(t.postures), a.postureOverride, (v) => { a.postureOverride = v; a.refreshCharacter?.(); });
     const ol = box.querySelector('ol');
     ol.replaceChildren(...a.history.slice(0, 7).map((h) => {
       const li = document.createElement('li');
@@ -478,8 +479,7 @@ export class Hud {
       const fz = (this.keys.has('w') || this.keys.has('arrowup') ? 1 : 0) - (this.keys.has('s') || this.keys.has('arrowdown') ? 1 : 0);
       if (rx || fz) office.stage.panBy(rx * 11 * realDt, fz * 11 * realDt);
     }
-    this.statT -= realDt;
-    if (this.statT > 0) return;
+    if ((this.statT -= realDt) > 0) return;
     this.statT = 0.5;
     this.observe.tick();
     this.floorStats(office);

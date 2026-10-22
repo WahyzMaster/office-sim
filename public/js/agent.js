@@ -2,10 +2,10 @@
 // 이벤트는 바로 실행하지 않고 "할 일(intent)" 대기열에 쌓은 뒤, 방까지 걸어가서 하나씩 처리한다.
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { activeThemeOf, ELEVATOR } from './rooms.js';
+import { activeThemeOf, ELEVATOR, isLlmVisible, resolveAgentAppearance } from './rooms.js';
 import { buildAgentMesh, buildBrandFlair, tintAgent, animateAgentMesh } from './agent-mesh.js';
 import { compactQueue, collapse, QUEUE_CAP, softKind } from './agent-queue.js';
-import { hueOf, brandHue, familyHue, familyLight, laneOffset, route, wrapAngle } from './placement.js';
+import { hueOf, brandHue, familyHue, familyLight, laneOffset, route, wrapAngle, safeSpawnPos, resolveObstacleCollision } from './placement.js';
 import { agentBadge } from './hud.js';
 import { makeSound } from './sound.js';
 
@@ -31,6 +31,8 @@ export class Agent {
     this.agentType = info.agentType || '';
     this.agent = info.agent || ''; // 세션을 만든 에이전트 출처 id ('claude-code', 'codex' ...)
     this.surface = info.surface || '';
+    this.charOverride = info.charOverride || 'auto';
+    this.postureOverride = info.postureOverride || 'auto';
     this.name = info.title || (this.isSub ? this.agentType : `세션 ${this.id.slice(0, 6)}`);
     this.childSeq = 0;
     this.paint(this.parentId ? office.agents.get(this.parentId) : null);
@@ -44,10 +46,7 @@ export class Agent {
     this.history = [];
     this.mode = 'idle';
     this.activity = '출근';
-    this.idleT = 0;
-    this.bubbleT = 0;
-    this.panicT = 0;
-    this.soundT = 0;
+    this.idleT = this.bubbleT = this.panicT = this.soundT = 0;
     this.vocalText = '';
     this.t = Math.random() * 10;
     // lane 은 층마다 비어 있는 번호를 받아 같은 부모를 둔 형제끼리도 다른 길로 걷는다.
@@ -57,7 +56,9 @@ export class Agent {
     this.buildLabels();
     const p = spawnAt || ELEVATOR;
     const j = spawnAt?.jitter ? this.lane : 0;
-    this.group.position.set(p.x + j, 0, p.z + j * 0.5);
+    const occ = [...floor.agents].map((o) => o.group.position);
+    const sp = safeSpawnPos(p.x + j, p.z + j * 0.5, 0.24, activeThemeOf(), occ);
+    this.group.position.set(sp.x, 0, sp.z);
     floor.group.add(this.group);
     floor.agents.add(this);
     if (!spawnAt) floor.openElevator();
@@ -103,9 +104,16 @@ export class Agent {
   }
 
   setLabelsVisible(vis) {
-    this.label.visible = vis;
-    this.sweat.visible = vis;
-    if (!vis) this.label.element.style.display = this.sweat.element.style.display = 'none'; // 렌더러가 이 층을 돌지 않을 때도
+    const show = vis && isLlmVisible(this);
+    this.group.visible = isLlmVisible(this);
+    this.label.visible = show;
+    this.sweat.visible = show;
+    if (!show) this.label.element.style.display = this.sweat.element.style.display = 'none';
+  }
+
+  refreshCharacter() {
+    buildBrandFlair(this);
+    if (!this.floor.shadows && this.floor.setShadows) this.floor.setShadows(false, this.group);
   }
 
   rename(info) {
@@ -128,9 +136,8 @@ export class Agent {
     this.refreshTag();
   }
 
-  refreshTheme(theme) {
-    buildBrandFlair(this, theme);
-    if (!this.floor.shadows && this.floor.setShadows) this.floor.setShadows(false, this.group);
+  refreshTheme() {
+    this.refreshCharacter();
     if (this.current?.kind === 'leave') {
       this.walkTo('lounge', ELEVATOR.x, ELEVATOR.z, -Math.PI / 2);
       return;
@@ -275,7 +282,7 @@ export class Agent {
       case 'tool':
         this.mode = 'work';
         if (it.error) this.panic(it.error, it.errorKind);
-        else if (activeThemeOf() === 'cats') this.makeSound('work');
+        else if (resolveAgentAppearance(this).family === 'cats') this.makeSound('work');
         break;
       case 'think':
         this.mode = 'think';
@@ -444,6 +451,7 @@ export class Agent {
         pos.x += (dx / dist) * step;
         pos.z += (dz / dist) * step;
       }
+      resolveObstacleCollision(pos, 0.2, activeThemeOf());
       if (dist > 0.01) this.turnTo(Math.atan2(dx, dz), dt);
       if (!this.path.length) this.arrived();
     } else {
@@ -462,16 +470,10 @@ export class Agent {
       }
     }
 
-    if (this.bubbleT !== Infinity && this.bubbleT > 0) {
-      this.bubbleT -= dt;
-      if (this.bubbleT <= 0) this.bubbleEl.hidden = true;
-    }
-    if (this.panicT > 0) {
-      this.panicT -= dt;
-      if (this.panicT <= 0) {
-        this.sweatEl.hidden = true;
-        this.refreshTag();
-      }
+    if (this.bubbleT !== Infinity && this.bubbleT > 0 && (this.bubbleT -= dt) <= 0) this.bubbleEl.hidden = true;
+    if (this.panicT > 0 && (this.panicT -= dt) <= 0) {
+      this.sweatEl.hidden = true;
+      this.refreshTag();
     }
     if (this.soundT > 0 && (this.soundT -= dt) <= 0) {
       this.vocalText = '';
@@ -481,13 +483,10 @@ export class Agent {
   }
 
   turnTo(angle, dt) {
-    const d = wrapAngle(angle - this.group.rotation.y);
-    this.group.rotation.y += d * Math.min(1, dt * 10);
+    this.group.rotation.y += wrapAngle(angle - this.group.rotation.y) * Math.min(1, dt * 10);
   }
 
-  animate() {
-    animateAgentMesh(this, REDUCED);
-  }
+  animate() { animateAgentMesh(this, REDUCED); }
 
   dispose() {
     this.floor.release(this.room, this);

@@ -1,6 +1,6 @@
 // 캐릭터 음성 추상화(CharacterVoice.makeSound) 및 품종·테마별 구체 구현(DogVoice.bark, CatVoice.meow/purr, SynthVoice).
-// 외부 오디오 파일 없이 Web Audio API 로 합성하며, 오디오가 꺼져 있어도 시각적 의성어·몸짓 신호를 반환한다.
-import { activeThemeOf, langOf } from './rooms.js';
+// 외부 오디오 파일 없이 Web Audio API 로 합성하며, 공간 테마와 완전히 독립적으로 캐릭터/보이스 설정을 따른다.
+import { activeCharThemeOf, activeVoiceModeOf, langOf, resolveAgentAppearance } from './rooms.js';
 
 const DOG_ORDER = ['golden', 'labrador', 'jindo-white', 'jindo-black', 'jindo-bear', 'collie', 'corgi', 'shiba'];
 const CAT_ORDER = ['savannah', 'bengal', 'british', 'siamese', 'ragdoll', 'fold'];
@@ -11,10 +11,13 @@ function hashId(s = '') {
   return h;
 }
 
-export function pickPetBreed(agent = {}, theme = 'dogs') {
+export function pickPetBreed(agent = {}, theme = activeCharThemeOf()) {
   if (agent.petBreed) return agent.petBreed;
+  const resolved = resolveAgentAppearance(agent, { charTheme: theme });
+  if (resolved.breed) return resolved.breed;
   const h = hashId(agent.id || '');
-  if (theme === 'dogs') {
+  const isCat = theme === 'cats' || String(theme).startsWith('cat:');
+  if (!isCat) {
     if (agent.isSub) return h % 2 === 0 ? 'corgi' : 'shiba';
     if (agent.agent === 'claude-code') return h % 3 === 0 ? 'jindo-white' : 'golden';
     if (agent.agent === 'codex') return h % 3 === 0 ? 'jindo-black' : 'labrador';
@@ -227,20 +230,27 @@ export class SynthVoice extends CharacterVoice {
   }
 }
 
-export function voiceFor(agent, theme = activeThemeOf()) {
-  if (theme === 'dogs') return new DogVoice(pickPetBreed(agent, 'dogs'), !!agent?.isSub);
-  if (theme === 'cats') return new CatVoice(pickPetBreed(agent, 'cats'), !!agent?.isSub);
-  return new SynthVoice(theme, !!agent?.isSub);
+export function voiceFor(agent, theme = activeCharThemeOf(), voiceMode = activeVoiceModeOf()) {
+  const resolved = resolveAgentAppearance(agent || {}, { charTheme: theme, voiceMode });
+  if (resolved.voiceKind === 'dogs' || theme === 'dogs') {
+    return new DogVoice(resolved.breed || pickPetBreed(agent, 'dogs'), !!agent?.isSub);
+  }
+  if (resolved.voiceKind === 'cats' || theme === 'cats') {
+    return new CatVoice(resolved.breed || pickPetBreed(agent, 'cats'), !!agent?.isSub);
+  }
+  return new SynthVoice(resolved.voiceStyle || theme, !!agent?.isSub);
 }
 
 export function makeSound(agent, trigger = 'click', opts = {}) {
-  const theme = opts.theme || activeThemeOf();
+  const charTheme = opts.charTheme ?? opts.theme ?? activeCharThemeOf();
+  const vMode = opts.voiceMode ?? activeVoiceModeOf();
+  if (vMode === 'mute' && !opts.force) return null;
   const lang = langOf(opts.lang);
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
   if (!opts.force && agent?.lastSoundAt && now - agent.lastSoundAt < 1400) return null;
   if (agent) agent.lastSoundAt = now;
-  const voice = voiceFor(agent || {}, theme);
-  const spec = voice.makeSound(trigger, opts);
+  const voice = voiceFor(agent || {}, charTheme, vMode === 'mute' ? 'auto' : vMode);
+  const spec = voice.makeSound(trigger, { ...opts, silent: opts.silent || vMode === 'mute' });
   const text = spec[lang] || spec.ko;
   if (agent) {
     agent.soundT = spec.duration;

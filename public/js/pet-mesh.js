@@ -56,10 +56,10 @@ export const CAT_BREEDS = Object.freeze({
   fold:     Object.freeze({ body: 0xf2b365, legs: 0xfaf8f5, ear: 'fold',   tail: 'cat', bib: 'white', eye: 0x10b981 }),
 });
 
-export function applyPetMesh(agent, theme, posture = 'tetrapod') {
-  const isDog = theme === 'dogs';
+export function applyPetMesh(agent, theme, posture = 'tetrapod', explicitBreed = '') {
+  const isDog = theme === 'dogs' || String(theme).startsWith('dog:');
   const isTetra = posture === 'tetrapod';
-  const breedKey = pickPetBreed(agent, theme);
+  const breedKey = explicitBreed || pickPetBreed(agent, theme);
   const spec = isDog ? (DOG_BREEDS[breedKey] || DOG_BREEDS.golden) : (CAT_BREEDS[breedKey] || CAT_BREEDS.savannah);
 
   agent.bodyMat.color.setHex(spec.body);
@@ -233,7 +233,7 @@ export function applyPetMesh(agent, theme, posture = 'tetrapod') {
 // 2족(bipod) ↔ 4족(tetrapod) 골격 변환: 몸통·목깃·가방·머리·앞다리(arms)·뒷다리(legs)·꼬리 위치를 재배치한다.
 export function applyPostureRig(agent, theme, posture, skinMat) {
   const isTetra = posture === 'tetrapod';
-  const isPet = theme === 'dogs' || theme === 'cats';
+  const isPet = theme === 'dogs' || theme === 'cats' || String(theme).startsWith('dog:') || String(theme).startsWith('cat:');
   agent.posture = isTetra ? 'tetrapod' : 'bipod';
 
   if (agent.torsoMesh) {

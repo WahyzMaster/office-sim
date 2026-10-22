@@ -1,7 +1,8 @@
-// 범례 안내 패널(#legend)의 에이전트·품종 카드 및 상태·색깔 신호 데이터와 DOM 렌더러.
+// 범례 안내 패널(#legend)의 에이전트·품종 카드, 캐릭터 카탈로그, LLM별 캐릭터 배정(llmCharMap), 독립 선택 상태 관리.
 export const LEGEND_AGENTS = Object.freeze([
   Object.freeze({
     id: 'claude',
+    slot: 'claude-code',
     swatch: 'background:#d97757;border-radius:50%;box-shadow:0 0 0 2px rgba(217,119,87,0.28)',
     label: Object.freeze({ ko: 'Claude', en: 'Claude' }),
     desc: Object.freeze({
@@ -14,6 +15,7 @@ export const LEGEND_AGENTS = Object.freeze([
   }),
   Object.freeze({
     id: 'codex',
+    slot: 'codex',
     swatch: 'background:#10b981;border-radius:50%;box-shadow:0 0 0 2px rgba(16,185,129,0.28)',
     label: Object.freeze({ ko: 'Codex', en: 'Codex' }),
     desc: Object.freeze({
@@ -26,6 +28,7 @@ export const LEGEND_AGENTS = Object.freeze([
   }),
   Object.freeze({
     id: 'grok',
+    slot: 'grok',
     swatch: 'background:#a855f7;border-radius:50%;box-shadow:0 0 0 2px rgba(168,85,247,0.28)',
     label: Object.freeze({ ko: 'Grok', en: 'Grok' }),
     desc: Object.freeze({
@@ -38,6 +41,7 @@ export const LEGEND_AGENTS = Object.freeze([
   }),
   Object.freeze({
     id: 'agy-cli',
+    slot: 'antigravity:cli',
     swatch: 'background:#06b6d4;border-radius:50%;box-shadow:0 0 0 2px rgba(6,182,212,0.28)',
     label: Object.freeze({ ko: 'AGY·CLI', en: 'AGY·CLI' }),
     desc: Object.freeze({
@@ -50,6 +54,7 @@ export const LEGEND_AGENTS = Object.freeze([
   }),
   Object.freeze({
     id: 'agy-app',
+    slot: 'antigravity:app',
     swatch: 'background:#3b82f6;border-radius:50%;box-shadow:0 0 0 2px rgba(59,130,246,0.28)',
     label: Object.freeze({ ko: 'AGY·App', en: 'AGY·App' }),
     desc: Object.freeze({
@@ -62,6 +67,7 @@ export const LEGEND_AGENTS = Object.freeze([
   }),
   Object.freeze({
     id: 'sub',
+    slot: 'sub',
     swatch: 'background:conic-gradient(#ffd166,#38bdf8,#a855f7,#ffd166);border-radius:50%',
     label: Object.freeze({ ko: '서브에이전트', en: 'Subagent' }),
     desc: Object.freeze({
@@ -77,48 +83,56 @@ export const LEGEND_AGENTS = Object.freeze([
 export const LEGEND_DOGS = Object.freeze([
   Object.freeze({
     id: 'dog-golden',
+    spec: 'dog:golden',
     swatch: 'background:#d97757;border-radius:50%',
     label: Object.freeze({ ko: '골든 리트리버', en: 'Golden Retriever' }),
     desc: Object.freeze({ ko: 'Claude(테라코타 목줄) · 황금빛 장모 · 처진 귀 · 깃털 꼬리', en: 'Claude (Terracotta collar) · Golden coat · floppy ears' }),
   }),
   Object.freeze({
     id: 'dog-labrador',
+    spec: 'dog:labrador',
     swatch: 'background:#10b981;border-radius:50%',
     label: Object.freeze({ ko: '래브라도', en: 'Labrador' }),
     desc: Object.freeze({ ko: 'Codex(에메랄드 목줄) · 크림 옐로 단모 · 처진 귀 · 수달 꼬리', en: 'Codex (Emerald collar) · Cream Lab coat · otter tail' }),
   }),
   Object.freeze({
     id: 'dog-jindo-white',
+    spec: 'dog:jindo-white',
     swatch: 'background:#06b6d4;border-radius:50%',
     label: Object.freeze({ ko: '진돗개 백구', en: 'White Jindo' }),
     desc: Object.freeze({ ko: 'AGY·CLI / Claude · 순백색 털 · 쫑긋한 삼각 귀 · 말린 꼬리', en: 'AGY·CLI / Claude · Snow-white coat · prick ears · curled tail' }),
   }),
   Object.freeze({
     id: 'dog-jindo-black',
+    spec: 'dog:jindo-black',
     swatch: 'background:#10b981;border-radius:50%',
     label: Object.freeze({ ko: '진돗개 흑구', en: 'Black Jindo' }),
     desc: Object.freeze({ ko: 'AGY·CLI / Codex · 윤기 나는 흑색 털 · 쫑긋한 삼각 귀 · 말린 꼬리', en: 'AGY·CLI / Codex · Obsidian black coat · prick ears · curled tail' }),
   }),
   Object.freeze({
     id: 'dog-jindo-bear',
+    spec: 'dog:jindo-bear',
     swatch: 'background:#3b82f6;border-radius:50%',
     label: Object.freeze({ ko: '진돗개 반달곰', en: 'Bear Jindo' }),
     desc: Object.freeze({ ko: 'AGY·App(코발트 목줄) · 네눈박이 황갈색 눈점 + 흰 반달 가슴털', en: 'AGY·App (Cobalt) · Tan eyebrow spots + white moon-bear chest crest' }),
   }),
   Object.freeze({
     id: 'dog-collie',
+    spec: 'dog:collie',
     swatch: 'background:#a855f7;border-radius:50%',
     label: Object.freeze({ ko: '보더 콜리', en: 'Border Collie' }),
     desc: Object.freeze({ ko: 'Grok(바이올렛 목줄) · 흑백 턱시도 · 흰 이마 줄무늬 · 반접힌 귀', en: 'Grok (Violet collar) · Black & white coat · white blaze · semi-prick ears' }),
   }),
   Object.freeze({
     id: 'dog-corgi',
+    spec: 'dog:corgi',
     swatch: 'background:conic-gradient(#ffd166,#38bdf8,#a855f7,#ffd166);border-radius:50%',
     label: Object.freeze({ ko: '웰시 코기', en: 'Welsh Corgi' }),
     desc: Object.freeze({ ko: '서브에이전트(0.74×) · 황갈색·흰 가슴털 · 식빵 엉덩이 단미', en: 'Subagent (0.74×) · Ginger & white bib · fluffy Corgi bobtail' }),
   }),
   Object.freeze({
     id: 'dog-shiba',
+    spec: 'dog:shiba',
     swatch: 'background:conic-gradient(#ffd166,#38bdf8,#a855f7,#ffd166);border-radius:50%',
     label: Object.freeze({ ko: '시바견', en: 'Shiba Inu' }),
     desc: Object.freeze({ ko: '서브에이전트(0.74×) · 적시바 · 크림색 볼(우라지로) · 도넛 꼬리', en: 'Subagent (0.74×) · Red sesame · cream cheeks · curled donut tail' }),
@@ -128,36 +142,42 @@ export const LEGEND_DOGS = Object.freeze([
 export const LEGEND_CATS = Object.freeze([
   Object.freeze({
     id: 'cat-savannah',
+    spec: 'cat:savannah',
     swatch: 'background:#d97757;border-radius:50%',
     label: Object.freeze({ ko: '사바나·아세라', en: 'Savannah·Ashera' }),
     desc: Object.freeze({ ko: 'Claude(테라코타 방울) · 최고가 캣 · 황금빛 치타 점무늬 · 서벌 귀', en: 'Claude (Terracotta bell) · Highest-priced cat · cheetah spots & serval ears' }),
   }),
   Object.freeze({
     id: 'cat-bengal',
+    spec: 'cat:bengal',
     swatch: 'background:#10b981;border-radius:50%',
     label: Object.freeze({ ko: '벵갈', en: 'Bengal' }),
     desc: Object.freeze({ ko: 'Codex(에메랄드 방울) · 호박색 표범 로제트 무늬 · 에메랄드 눈', en: 'Codex (Emerald bell) · Amber leopard rosettes · emerald eyes' }),
   }),
   Object.freeze({
     id: 'cat-british',
+    spec: 'cat:british',
     swatch: 'background:#a855f7;border-radius:50%',
     label: Object.freeze({ ko: '브리티시·러시안', en: 'British·Russian' }),
     desc: Object.freeze({ ko: 'Grok(바이올렛 방울) · 은청색 벨벳 모질 · 통통한 볼 · 호박색 눈', en: 'Grok (Violet bell) · Plush silver-blue coat · chubby cheeks' }),
   }),
   Object.freeze({
     id: 'cat-siamese',
+    spec: 'cat:siamese',
     swatch: 'background:#06b6d4;border-radius:50%',
     label: Object.freeze({ ko: '샤미즈(샴)', en: 'Siamese' }),
     desc: Object.freeze({ ko: 'AGY·CLI(시안 방울) · 크림색 몸통 + 초콜릿 얼굴·귀·발 포인트', en: 'AGY·CLI (Cyan bell) · Cream body + chocolate seal-point mask & ears' }),
   }),
   Object.freeze({
     id: 'cat-ragdoll',
+    spec: 'cat:ragdoll',
     swatch: 'background:#3b82f6;border-radius:50%',
     label: Object.freeze({ ko: '랙돌·페르시안', en: 'Ragdoll·Persian' }),
     desc: Object.freeze({ ko: 'AGY·App(코발트 방울) · 풍성한 흰 목 갈기 털 · 블루 바이컬러', en: 'AGY·App (Cobalt bell) · Fluffy white neck ruff · blue-bicolor coat' }),
   }),
   Object.freeze({
     id: 'cat-fold',
+    spec: 'cat:fold',
     swatch: 'background:conic-gradient(#ffd166,#38bdf8,#a855f7,#ffd166);border-radius:50%',
     label: Object.freeze({ ko: '스코티시 폴드', en: 'Scottish Fold' }),
     desc: Object.freeze({ ko: '서브에이전트(0.74×) · 동그랗게 접힌 귀 · 살구빛 치즈 태비', en: 'Subagent (0.74×) · Adorable folded ears · honey-apricot tabby' }),
@@ -208,3 +228,159 @@ export const LEGEND_SIGNALS = Object.freeze([
     desc: Object.freeze({ ko: '초록 라이브 · 노랑 재연결 · 보라 재생 · 기본 데모', en: 'Green Live · Amber Retry · Purple Replay' }),
   }),
 ]);
+
+// ---- 독립 캐릭터 카탈로그 및 LLM별 캐릭터 매핑 ----
+
+export const CHAR_THEMES = Object.freeze({
+  studio:          Object.freeze({ ko: 'AI 스튜디오 대원',   en: 'AI Studio Chibi' }),
+  office:          Object.freeze({ ko: '테크 오피스 사원',   en: 'Tech Office Staff' }),
+  palace:          Object.freeze({ ko: '조선 궁궐 관원',     en: 'Joseon Royal Official' }),
+  hanok:           Object.freeze({ ko: '전통 한옥 선비',     en: 'Traditional Hanok Scholar' }),
+  starship:        Object.freeze({ ko: 'SF 스타십 크루',     en: 'Sci-Fi Starship Crew' }),
+  dogs:            Object.freeze({ ko: '강아지 군단 (기본)', en: 'Dog Pack (Default)' }),
+  cats:            Object.freeze({ ko: '고양이 살롱 (기본)', en: 'Cat Pack (Default)' }),
+  mix:             Object.freeze({ ko: '동물·캐릭터 혼합',   en: 'Mixed Cast' }),
+  'dog:golden':      Object.freeze({ ko: '강아지 · 골든 리트리버', en: 'Dog · Golden Retriever' }),
+  'dog:labrador':    Object.freeze({ ko: '강아지 · 래브라도',      en: 'Dog · Labrador' }),
+  'dog:jindo-white': Object.freeze({ ko: '강아지 · 진돗개 백구',   en: 'Dog · White Jindo' }),
+  'dog:jindo-black': Object.freeze({ ko: '강아지 · 진돗개 흑구',   en: 'Dog · Black Jindo' }),
+  'dog:jindo-bear':  Object.freeze({ ko: '강아지 · 진돗개 반달곰', en: 'Dog · Bear Jindo' }),
+  'dog:collie':      Object.freeze({ ko: '강아지 · 보더 콜리',     en: 'Dog · Border Collie' }),
+  'dog:corgi':       Object.freeze({ ko: '강아지 · 웰시 코기',     en: 'Dog · Welsh Corgi' }),
+  'dog:shiba':       Object.freeze({ ko: '강아지 · 시바견',        en: 'Dog · Shiba Inu' }),
+  'cat:savannah':    Object.freeze({ ko: '고양이 · 사바나·아세라', en: 'Cat · Savannah·Ashera' }),
+  'cat:bengal':      Object.freeze({ ko: '고양이 · 벵갈',          en: 'Cat · Bengal' }),
+  'cat:british':     Object.freeze({ ko: '고양이 · 브리티시·러시안', en: 'Cat · British·Russian' }),
+  'cat:siamese':     Object.freeze({ ko: '고양이 · 샤미즈(샴)',    en: 'Cat · Siamese' }),
+  'cat:ragdoll':     Object.freeze({ ko: '고양이 · 랙돌·페르시안', en: 'Cat · Ragdoll·Persian' }),
+  'cat:fold':        Object.freeze({ ko: '고양이 · 스코티시 폴드', en: 'Cat · Scottish Fold' }),
+});
+
+export const DEFAULT_CHAR_THEME = 'studio';
+
+export const CHARACTER_CATALOG = Object.freeze({
+  auto:              Object.freeze({ ko: '자동 (캐릭터 테마 기본)', en: 'Auto (Pack Default)' }),
+  'human:studio':    Object.freeze({ ko: '치비 · AI 스튜디오',      en: 'Chibi · AI Studio' }),
+  'human:office':    Object.freeze({ ko: '치비 · 테크 오피스',      en: 'Chibi · Tech Office' }),
+  'human:palace':    Object.freeze({ ko: '치비 · 조선 궁궐 관원',   en: 'Chibi · Joseon Official' }),
+  'human:hanok':     Object.freeze({ ko: '치비 · 전통 한옥 선비',   en: 'Chibi · Hanok Scholar' }),
+  'human:starship':  Object.freeze({ ko: '치비 · SF 스타십 크루',   en: 'Chibi · Starship Crew' }),
+  'dog:golden':      Object.freeze({ ko: '강아지 · 골든 리트리버',  en: 'Dog · Golden Retriever' }),
+  'dog:labrador':    Object.freeze({ ko: '강아지 · 래브라도',       en: 'Dog · Labrador' }),
+  'dog:jindo-white': Object.freeze({ ko: '강아지 · 진돗개 백구',    en: 'Dog · White Jindo' }),
+  'dog:jindo-black': Object.freeze({ ko: '강아지 · 진돗개 흑구',    en: 'Dog · Black Jindo' }),
+  'dog:jindo-bear':  Object.freeze({ ko: '강아지 · 진돗개 반달곰',  en: 'Dog · Bear Jindo' }),
+  'dog:collie':      Object.freeze({ ko: '강아지 · 보더 콜리',      en: 'Dog · Border Collie' }),
+  'dog:corgi':       Object.freeze({ ko: '강아지 · 웰시 코기',      en: 'Dog · Welsh Corgi' }),
+  'dog:shiba':       Object.freeze({ ko: '강아지 · 시바견',         en: 'Dog · Shiba Inu' }),
+  'cat:savannah':    Object.freeze({ ko: '고양이 · 사바나·아세라',  en: 'Cat · Savannah·Ashera' }),
+  'cat:bengal':      Object.freeze({ ko: '고양이 · 벵갈',           en: 'Cat · Bengal' }),
+  'cat:british':     Object.freeze({ ko: '고양이 · 브리티시·러시안', en: 'Cat · British·Russian' }),
+  'cat:siamese':     Object.freeze({ ko: '고양이 · 샤미즈(샴)',     en: 'Cat · Siamese' }),
+  'cat:ragdoll':     Object.freeze({ ko: '고양이 · 랙돌·페르시안',  en: 'Cat · Ragdoll·Persian' }),
+  'cat:fold':        Object.freeze({ ko: '고양이 · 스코티시 폴드',  en: 'Cat · Scottish Fold' }),
+});
+
+export const LLM_SLOTS = Object.freeze(['claude-code', 'codex', 'grok', 'antigravity:cli', 'antigravity:app', 'sub']);
+
+export const DEFAULT_LLM_CHAR_MAP = Object.freeze({
+  dogs: Object.freeze({
+    'claude-code': 'dog:golden',
+    codex: 'dog:labrador',
+    grok: 'dog:collie',
+    'antigravity:cli': 'dog:jindo-white',
+    'antigravity:app': 'dog:jindo-bear',
+    sub: 'dog:corgi',
+  }),
+  cats: Object.freeze({
+    'claude-code': 'cat:savannah',
+    codex: 'cat:bengal',
+    grok: 'cat:british',
+    'antigravity:cli': 'cat:siamese',
+    'antigravity:app': 'cat:ragdoll',
+    sub: 'cat:fold',
+  }),
+  mix: Object.freeze({
+    'claude-code': 'dog:golden',
+    codex: 'cat:bengal',
+    grok: 'human:starship',
+    'antigravity:cli': 'dog:jindo-white',
+    'antigravity:app': 'cat:ragdoll',
+    sub: 'dog:corgi',
+  }),
+  studio: Object.freeze({
+    'claude-code': 'human:studio',
+    codex: 'human:studio',
+    grok: 'human:studio',
+    'antigravity:cli': 'human:studio',
+    'antigravity:app': 'human:studio',
+    sub: 'human:studio',
+  }),
+  office: Object.freeze({
+    'claude-code': 'human:office',
+    codex: 'human:office',
+    grok: 'human:office',
+    'antigravity:cli': 'human:office',
+    'antigravity:app': 'human:office',
+    sub: 'human:office',
+  }),
+  palace: Object.freeze({
+    'claude-code': 'human:palace',
+    codex: 'human:palace',
+    grok: 'human:palace',
+    'antigravity:cli': 'human:palace',
+    'antigravity:app': 'human:palace',
+    sub: 'human:palace',
+  }),
+  hanok: Object.freeze({
+    'claude-code': 'human:hanok',
+    codex: 'human:hanok',
+    grok: 'human:hanok',
+    'antigravity:cli': 'human:hanok',
+    'antigravity:app': 'human:hanok',
+    sub: 'human:hanok',
+  }),
+  starship: Object.freeze({
+    'claude-code': 'human:starship',
+    codex: 'human:starship',
+    grok: 'human:starship',
+    'antigravity:cli': 'human:starship',
+    'antigravity:app': 'human:starship',
+    sub: 'human:starship',
+  }),
+});
+
+export const VOICE_MODES = Object.freeze(['auto', 'dogs', 'cats', 'chime', 'chirp', 'blip', 'mute']);
+export const DEFAULT_VOICE_MODE = 'auto';
+
+export const COLOR_THEMES = Object.freeze(['system', 'light', 'dark']);
+export const DEFAULT_COLOR_THEME = 'system';
+
+export const LLM_FILTERS = Object.freeze(['all', 'claude-code', 'codex', 'grok', 'antigravity']);
+export const DEFAULT_LLM_FILTER = 'all';
+
+export function llmSlotOf(agent = {}) {
+  if (agent.isSub) return 'sub';
+  const id = agent.brandOverride || agent.agent || 'claude-code';
+  const surface = agent.surface || '';
+  if (id === 'antigravity') return surface === 'cli' ? 'antigravity:cli' : 'antigravity:app';
+  if (LLM_SLOTS.includes(id)) return id;
+  return 'claude-code';
+}
+
+export function charSpecOf(spec) {
+  return Object.hasOwn(CHARACTER_CATALOG, spec) ? spec : 'auto';
+}
+
+export function defaultLlmCharMap() {
+  return Object.fromEntries(LLM_SLOTS.map((k) => [k, 'auto']));
+}
+
+export function llmCharMapOf(raw) {
+  const out = defaultLlmCharMap();
+  if (!raw || typeof raw !== 'object') return out;
+  for (const k of LLM_SLOTS) {
+    if (Object.hasOwn(raw, k) && Object.hasOwn(CHARACTER_CATALOG, raw[k])) out[k] = raw[k];
+  }
+  return out;
+}

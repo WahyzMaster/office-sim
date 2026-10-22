@@ -78,8 +78,8 @@ export function buildPalaceProps(g, board) {
   const tm = themeMats();
   // 규장각 (archive): 주칠 어서각 서가 + 어람 서안
   populateShelves(g, tm.vermilion, [0xd9a441, 0xc0533f, 0x246b5b, 0xe8dfca, 0x3f6fb0], [-10.4, -8, -5.6]);
-  lowTable(g, tm.vermilion, tm.hanokDark, -8, -3.9, 2.6, 1.0, 0.65);
-  box(g, tm.gold, 0.45, 0.06, 0.32, -8, 0.73, -3.9, false);
+  lowTable(g, tm.vermilion, tm.hanokDark, -8, -4.35, 2.4, 0.75, 0.65);
+  box(g, tm.gold, 0.45, 0.06, 0.32, -8, 0.73, -4.35, false);
 
   // 집현전 (dev): 학사 서안 3조 + 한지 두루마리 화면
   for (const x of [-2.5, 0, 2.5]) {
@@ -94,15 +94,15 @@ export function buildPalaceProps(g, board) {
     box(g, tm.gold, 1.36, 0.08, 0.86, x, 1.98, -7.2);
     // 화로 기단과 불꽃(LED 역할)
     const brazier = new THREE.Mesh(CYL, tm.graniteDark);
-    brazier.scale.set(0.32, 0.45, 0.32);
-    brazier.position.set(x, 0.3, -6.35);
+    brazier.scale.set(0.28, 0.45, 0.28);
+    brazier.position.set(x, 0.3, -6.55);
     g.add(brazier);
     for (const dx of [-0.12, 0.12]) {
-      leds.push(box(g, M.ledBusy, 0.16, 0.22, 0.16, x + dx, 0.54, -6.35, false));
+      leds.push(box(g, M.ledBusy, 0.16, 0.22, 0.16, x + dx, 0.54, -6.55, false));
     }
   }
-  lowTable(g, tm.vermilion, tm.hanokDark, 8, -3.7, 1.6, 0.75, 0.68);
-  scrollScreen(g, tm.gold, M.screens.term, 8, 0.74, -3.85, 0, 0.85, 0.52);
+  lowTable(g, tm.vermilion, tm.hanokDark, 8, -3.9, 1.5, 0.65, 0.68);
+  scrollScreen(g, tm.gold, M.screens.term, 8, 0.74, -4.05, 0, 0.85, 0.52);
 
   // 관상감 (research): 화강암 기단 위 회전하는 황금 혼천의(globe) + 관측 서안
   box(g, tm.granite, 1.1, 0.75, 1.1, -8, 0.08, 5);
@@ -141,7 +141,7 @@ export function buildPalaceProps(g, board) {
     box(g, mat, 0.32, 0.48, 0.32, 10.6, 1.25, 5 + dz);
   }
   // 후원 평상
-  lowTable(g, tm.hanokWood, tm.hanokDark, 8.8, 1.45, 2.8, 0.85, 0.42);
+  lowTable(g, tm.hanokWood, tm.hanokDark, 10.1, 1.58, 2.0, 0.55, 0.42);
   return { leds, globe };
 }
 
@@ -151,7 +151,7 @@ export function buildHanokProps(g, board) {
   const tm = themeMats();
   // 장판각 (archive): 팔만대장경 스타일 원목 경판 서가 + 독서상
   populateShelves(g, tm.hanokDark, [0x8c5a32, 0xd8ccb8, 0x6e4726, 0xc9b496], [-10.3, -8, -5.7]);
-  lowTable(g, tm.hanokWood, tm.hanokDark, -8, -3.9, 2.5, 0.95, 0.62);
+  lowTable(g, tm.hanokWood, tm.hanokDark, -8, -4.35, 2.4, 0.75, 0.62);
 
   // 글방 (dev): 선비 서안 3조 + 한지 두루마리 모니터 + 호롱불
   for (const x of [-2.4, 0, 2.4]) {
@@ -169,10 +169,10 @@ export function buildHanokProps(g, board) {
       leds.push(box(g, M.ledBusy, 0.2, 0.18, 0.14, x + dx, 0.55, -6.62, false));
     }
   }
-  box(g, M.dark, 0.75, 0.55, 0.42, 8, 0.14, -3.7); // 모루(Anvil)
+  box(g, M.dark, 0.75, 0.55, 0.42, 7.65, 0.14, -3.9); // 모루(Anvil)
   const barrel = new THREE.Mesh(CYL, tm.hanokDark);
   barrel.scale.set(0.32, 0.62, 0.32);
-  barrel.position.set(9.4, 0.45, -3.7);
+  barrel.position.set(8.6, 0.45, -3.9);
   g.add(barrel);
 
   // 누각 (research): 정자 계자난간 + 천문 풍향구의(globe) + 서안
@@ -209,7 +209,7 @@ export function buildHanokProps(g, board) {
   lantern.userData.blink = true;
   box(g, tm.tile, 0.58, 0.16, 0.58, 10.8, 1.36, 5);
   // 안마당 평상
-  lowTable(g, tm.hanokWood, tm.hanokDark, 7.6, 1.35, 2.8, 0.85, 0.42);
+  lowTable(g, tm.hanokWood, tm.hanokDark, 10.1, 1.58, 2.0, 0.55, 0.42);
   return { leds, globe };
 }
 
@@ -227,7 +227,7 @@ export function buildStarshipProps(g, board) {
     crystal.position.set(x, 1.25, -7.2);
     g.add(base, crystal);
   }
-  lowTable(g, tm.hullTrim, tm.hull, -8, -3.9, 2.4, 0.9, 0.72);
+  lowTable(g, tm.hullTrim, tm.hull, -8, -4.35, 2.4, 0.75, 0.72);
 
   // 포지 베이 (dev): 플로팅 홀로그램 워크스테이션 3기
   for (const x of [-2.5, 0, 2.5]) {
@@ -246,8 +246,8 @@ export function buildStarshipProps(g, board) {
       leds.push(box(g, M.ledOn, 0.58, 0.08, 0.58, x, 0.42 + r * 0.38, -7.1, false));
     }
   }
-  lowTable(g, tm.hullTrim, tm.hull, 8, -3.7, 1.6, 0.75, 0.72);
-  scrollScreen(g, tm.plasmaCyan, M.screens.term, 8, 0.78, -3.85, 0);
+  lowTable(g, tm.hullTrim, tm.hull, 8, -3.9, 1.5, 0.65, 0.72);
+  scrollScreen(g, tm.plasmaCyan, M.screens.term, 8, 0.78, -4.05, 0);
 
   // 센서 어레이 (research): 홀로그램 성도 구체(globe) + 딥스페이스 스캐너
   const ped = new THREE.Mesh(CYL, tm.hullTrim);
@@ -287,7 +287,7 @@ export function buildStarshipProps(g, board) {
   holoCore.scale.setScalar(0.32);
   holoCore.position.set(10.8, 1.25, 5);
   g.add(pod, holoRing, holoCore);
-  lowTable(g, tm.hullTrim, tm.hull, 7.6, 1.35, 2.8, 0.8, 0.42);
+  lowTable(g, tm.hullTrim, tm.hull, 10.1, 1.58, 2.0, 0.55, 0.42);
   return { leds, globe };
 }
 
@@ -301,21 +301,23 @@ export function buildDogsProps(g, board) {
     box(g, tm.agilityYellow, 1.5, 0.14, 0.55, x, 0.55, -7.15, false);
     box(g, tm.agilityBlue, 1.5, 0.14, 0.55, x, 1.05, -7.15, false);
   }
-  lowTable(g, tm.fenceWood, tm.hanokDark, -8, -4.1, 3.0, 1.0, 0.55);
-  for (const x of [-8.8, -7.2]) scrollScreen(g, tm.fenceWood, M.screens.doc, x, 0.6, -4.25, 0, 0.78, 0.46);
+  lowTable(g, tm.fenceWood, tm.hanokDark, -8, -4.35, 2.4, 0.75, 0.55);
+  for (const x of [-8.6, -7.4]) scrollScreen(g, tm.fenceWood, M.screens.doc, x, 0.6, -4.5, 0, 0.78, 0.46);
   for (const x of [-2.5, 0, 2.5]) {
-    box(g, tm.agilityBlue, 0.12, 0.9, 0.12, x - 0.7, 0, -6.4);
-    box(g, tm.agilityBlue, 0.12, 0.9, 0.12, x + 0.7, 0, -6.4);
-    box(g, tm.agilityYellow, 1.5, 0.1, 0.1, x, 0.58, -6.4);
-    lowTable(g, tm.fenceWood, tm.hanokDark, x, -4.2, 1.5, 0.75, 0.58);
-    scrollScreen(g, tm.agilityBlue, M.screens.code, x, 0.62, -4.35, 0, 0.82, 0.5);
+    box(g, tm.agilityBlue, 0.12, 0.9, 0.12, x - 0.7, 0, -6.5);
+    box(g, tm.agilityBlue, 0.12, 0.9, 0.12, x + 0.7, 0, -6.5);
+    box(g, tm.agilityYellow, 1.5, 0.1, 0.1, x, 0.58, -6.5);
+  }
+  for (const x of [-1.3, 1.3]) {
+    lowTable(g, tm.fenceWood, tm.hanokDark, x, -4.1, 1.2, 0.65, 0.58);
+    scrollScreen(g, tm.agilityBlue, M.screens.code, x, 0.62, -4.25, 0, 0.82, 0.5);
   }
   for (const x of [5.5, 7.2, 8.8, 10.4]) {
     box(g, tm.agilityBlue, 1.1, 1.6, 0.75, x, 0, -7.1);
     for (let r = 0; r < 4; r++) leds.push(box(g, M.ledOn, 0.42, 0.1, 0.42, x, 0.38 + r * 0.34, -6.8, false));
   }
-  lowTable(g, tm.fenceWood, tm.hanokDark, 8, -3.7, 1.6, 0.75, 0.58);
-  scrollScreen(g, tm.agilityYellow, M.screens.term, 8, 0.62, -3.85, 0);
+  lowTable(g, tm.fenceWood, tm.hanokDark, 8, -3.9, 1.5, 0.65, 0.58);
+  scrollScreen(g, tm.agilityYellow, M.screens.term, 8, 0.62, -4.05, 0);
   // 전망 언덕: 빨간 소화전 + 회전 대형 테니스공(globe)
   const hyd = new THREE.Mesh(CYL, tm.vermilion);
   hyd.scale.set(0.32, 0.85, 0.32);
@@ -358,13 +360,15 @@ export function buildCatsProps(g, board) {
     box(g, tm.plushPink, 1.3, 0.14, 0.9, x, 0.9, -7.2);
     box(g, tm.velvetCream, 1.1, 0.14, 0.8, x, 1.75, -7.2);
   }
-  lowTable(g, tm.roseGold, tm.sisal, -8, -4.1, 3.0, 1.0, 0.55);
-  for (const x of [-8.8, -7.2]) scrollScreen(g, tm.roseGold, M.screens.doc, x, 0.6, -4.25, 0, 0.78, 0.46);
+  lowTable(g, tm.roseGold, tm.sisal, -8, -4.35, 2.4, 0.75, 0.55);
+  for (const x of [-8.6, -7.4]) scrollScreen(g, tm.roseGold, M.screens.doc, x, 0.6, -4.5, 0, 0.78, 0.46);
   for (const x of [-2.5, 0, 2.5]) {
     box(g, tm.sisal, 1.6, 0.48, 0.7, x, 0, -6.5);
     box(g, tm.plushPink, 1.5, 0.1, 0.62, x, 0.48, -6.5, false);
-    lowTable(g, tm.roseGold, tm.sisal, x, -4.2, 1.5, 0.75, 0.58);
-    scrollScreen(g, tm.plushPink, M.screens.code, x, 0.62, -4.35, 0, 0.82, 0.5);
+  }
+  for (const x of [-1.3, 1.3]) {
+    lowTable(g, tm.roseGold, tm.sisal, x, -4.1, 1.2, 0.65, 0.58);
+    scrollScreen(g, tm.plushPink, M.screens.code, x, 0.62, -4.25, 0, 0.82, 0.5);
   }
   for (const x of [5.6, 7.2, 8.8, 10.2]) {
     const tower = new THREE.Mesh(CYL, tm.roseGold);
@@ -373,8 +377,8 @@ export function buildCatsProps(g, board) {
     g.add(tower);
     for (let r = 0; r < 4; r++) leds.push(box(g, M.ledOn, 0.36, 0.09, 0.36, x, 0.38 + r * 0.35, -6.65, false));
   }
-  lowTable(g, tm.roseGold, tm.sisal, 8, -3.7, 1.6, 0.75, 0.58);
-  scrollScreen(g, tm.roseGold, M.screens.term, 8, 0.62, -3.85, 0);
+  lowTable(g, tm.roseGold, tm.sisal, 8, -3.9, 1.5, 0.65, 0.58);
+  scrollScreen(g, tm.roseGold, M.screens.term, 8, 0.62, -4.05, 0);
   // 캣닢 온실: 캣닢 화분대 + 회전 황금 실타래(globe)
   const ped = new THREE.Mesh(CYL, tm.sisal);
   ped.scale.set(0.38, 0.9, 0.38);

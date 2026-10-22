@@ -2,7 +2,8 @@
 import * as THREE from 'three';
 import { Floor, FLOOR_GAP, EXPLODE_GAP } from './floor.js';
 import { Agent } from './agent.js';
-import { ROOMS, classify, toolLabel } from './rooms.js';
+import { ROOMS, activeThemeOf, classify, toolLabel } from './rooms.js';
+import { separateAgents } from './placement.js';
 import { Inbox } from './office-inbox.js';
 import { floorDetail, labelRootIndex } from './detail.js';
 import { waitStart, waitEnd, reconcileWaits, snapshotWaits, liveAskStays, textKey, rememberText, forgetText, forgetTexts } from './approval.js';
@@ -218,6 +219,8 @@ export class Office {
       agentType: info.agentType || old.agentType,
       agent: info.agent || old.agent,
       surface: info.surface || old.surface || '',
+      charOverride: old.charOverride || 'auto',
+      postureOverride: old.postureOverride || 'auto',
     };
     const carry = old.current && old.current.kind !== 'leave' ? [old.current] : [];
     for (const it of carry) {
@@ -367,6 +370,18 @@ export class Office {
     }
   }
 
+  refreshCharacters() {
+    for (const a of this.agents.values()) a.refreshCharacter?.();
+  }
+
+  refreshVisibility() {
+    for (const f of this.floors) {
+      const vis = this.labelsVisible(f);
+      for (const a of f.agents) a.setLabelsVisible(vis);
+    }
+    this.hud.renderFloors(this);
+  }
+
   labelsVisible(floor) { return this.overview || floor.index === this.focusIndex; }
 
   // 새 직원도 자기 층의 자세히 그리기 수준(라벨, 그림자)을 따른다.
@@ -453,6 +468,7 @@ export class Office {
       f.update(dt, realDt);
     }
     for (const a of [...this.agents.values()]) a.update(dt);
+    separateAgents([...this.agents.values()], dt, 0.56, activeThemeOf());
     if (this.follow && this.selected) {
       this.selected.group.getWorldPosition(this.tmp);
       this.tmp.y += 0.6;

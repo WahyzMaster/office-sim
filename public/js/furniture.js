@@ -37,7 +37,7 @@ export function mats() {
     water: new THREE.MeshStandardMaterial({ color: 0x9fd4ff, roughness: 0.1, transparent: true, opacity: 0.75 }),
     books: new THREE.MeshStandardMaterial({ roughness: 0.8 }),
   };
-  M.screens = { code: screenMat('code'), web: screenMat('web'), term: screenMat('term') };
+  M.screens = { code: screenMat('code'), web: screenMat('web'), term: screenMat('term'), doc: screenMat('web') };
   return M;
 }
 
@@ -134,9 +134,9 @@ export function buildArchive(g) {
   });
   inst.receiveShadow = true;
   g.add(inst);
-  desk(g, -8, -3.9, 2.6, 1.0, 0.7);
+  desk(g, -8, -4.35, 2.4, 0.75, 0.7);
   box(g, M.metal, 0.8, 1.2, 0.7, -11.3, 0, -3.1);
-  box(g, M.wall, 0.5, 0.04, 0.36, -8.5, 0.77, -3.9, false);
+  box(g, M.wall, 0.5, 0.04, 0.36, -8.5, 0.77, -4.35, false);
 }
 
 export function buildDev(g) {
@@ -160,8 +160,8 @@ export function buildServer(g) {
       box(g, M.dark, 0.5, 0.012, 0.02, x, 0.36 + r * 0.27, -6.79, false);
     }
   }
-  desk(g, 8, -3.7, 1.6, 0.7);
-  monitor(g, M.screens.term, 8, 0.79, -3.85, 0);
+  desk(g, 8, -3.9, 1.5, 0.65);
+  monitor(g, M.screens.term, 8, 0.79, -4.05, 0);
   return leds;
 }
 
@@ -243,16 +243,16 @@ export function buildDesk(g) {
 }
 
 export function buildLoungeProps(g) {
-  box(g, M.sofa, 3.0, 0.42, 0.8, 8.8, 0, 1.4);
-  box(g, M.sofa, 3.0, 0.55, 0.2, 8.8, 0.42, 1.75);
-  box(g, M.sofa, 0.2, 0.62, 0.8, 7.3, 0, 1.4);
-  box(g, M.sofa, 0.2, 0.62, 0.8, 10.3, 0, 1.4);
+  box(g, M.sofa, 2.0, 0.42, 0.55, 10.1, 0, 1.58);
+  box(g, M.sofa, 2.0, 0.55, 0.16, 10.1, 0.42, 1.80);
+  box(g, M.sofa, 0.16, 0.62, 0.55, 9.1, 0, 1.58);
+  box(g, M.sofa, 0.16, 0.62, 0.55, 11.1, 0, 1.58);
   box(g, M.wall, 0.45, 1.0, 0.45, 11.4, 0, -1.55);
   const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.5, 12), M.water);
   bottle.position.set(11.4, 1.25, -1.55);
   g.add(bottle);
-  plant(g, -10.4, 1.5, 1.0);
-  plant(g, 11.5, 1.5, 1.2);
+  plant(g, -10.4, 1.55, 0.9);
+  plant(g, 11.55, 1.55, 0.85);
 }
 
 export function buildLounge(g) {
