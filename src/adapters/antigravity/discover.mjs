@@ -19,8 +19,8 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 
 export const ANTIGRAVITY_AGENT = 'antigravity';
-/** The sub-roots under the Antigravity root that hold readable transcripts (D6: never `antigravity/`). */
-export const BASES = Object.freeze(['antigravity-cli', 'antigravity-ide']);
+/** The sub-roots under the Antigravity root that hold readable transcripts (CLI, legacy IDE, and 2.x desktop app). */
+export const BASES = Object.freeze(['antigravity-cli', 'antigravity-ide', 'antigravity']);
 export const FULL = 'transcript_full.jsonl';
 export const PLAIN = 'transcript.jsonl';
 /**
@@ -92,8 +92,9 @@ function better(c, prev) {
 export async function collectConversations(root, limits = SCAN_LIMITS) {
   const out = new Map();
   let budget = limits.conversations;
-  for (const base of BASES) {
-    const baseDir = path.join(root, base);
+  const selfBase = typeof root === 'string' && BASES.includes(path.basename(root)) ? path.basename(root) : null;
+  const subRoots = selfBase ? [[selfBase, root]] : BASES.map((base) => [base, path.join(root, base)]);
+  for (const [base, baseDir] of subRoots) {
     if (!(await lstatIf(baseDir, 'dir'))) continue; // 없음, 링크, 파일: 이 하위 루트에는 대화가 없다
     for (const id of await brainEntries(baseDir)) {
       if (budget-- <= 0) throw capped('conversations');

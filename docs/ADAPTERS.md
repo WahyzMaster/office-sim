@@ -560,10 +560,10 @@ Antigravity 칸의 "세션 끝"에 적은 요약 proto 의 상태는 P5e 에서 
 | 자료실 | `view_image`, `ImageView` | `read_file`, `grep`, `list_dir` | `view_file`, `read_file`, `grep_search`, `find_by_name`, `list_dir` |
 | 개발실 | `apply_patch`, `FileChange` 항목 | `search_replace`, `write` | `write_to_file`, `write_file`, `edit_file`, `replace_file_content`, `multi_replace_file_content` |
 | 서버실 | `exec_command`, `shell`, `shell_command`, `CommandExecution` 항목 (프로그램 이름 규칙) | `run_terminal_command`, `monitor` (프로그램 이름 규칙), `get_command_or_subagent_output`, `kill_command_or_subagent` | `run_command` (프로그램 이름 규칙), `command_status`, `manage_task` |
-| 정보검색실 | `web.run`, `WebSearch` 항목, MCP | `web_fetch`, 서버 측 웹 검색, `use_tool` (MCP) | `search_web`, `read_url_content`, `call_mcp_tool` (MCP) |
+| 정보검색실 | `web.run`, `WebSearch` 항목, MCP | `web_fetch`, 서버 측 웹 검색, `use_tool` (MCP) | `search_web`, `read_url_content`, `call_mcp_tool` (MCP), `list_resources`, `read_resource` |
 | 회의실 | `update_plan` (`plan` 이벤트만, `tool_start` 없음) | `todo_write` (숨기고 `plan` 레코드로 보드 갱신), `enter_plan_mode` | (IDE `task.md` 는 `plan` 이벤트만) |
 | 내 자리 | `request_user_input` | `ask_user_question`, `exit_plan_mode` | `ask_question` |
-| 제자리 | `spawn_agent`, `collaboration.*`, `wait_agent`, `close_agent`, `send_input` | `spawn_subagent` | `manage_subagents`, `browser_subagent`, `generate_image` |
+| 제자리 | `spawn_agent`, `collaboration.*`, `wait_agent`, `close_agent`, `send_input` | `spawn_subagent` | `define_subagent`, `invoke_subagent`, `send_message`, `manage_subagents`, `browser_subagent`, `generate_image` |
 | 라운지 | `clock.sleep` | (해당 없음) | `schedule` |
 | 무시 (배관) | `write_stdin`, `wait` (돌고 있는 명령 들여다보기), `search_tool_bm25`, `list_mcp_resources`, `get_goal` | `search_tool` (도구 검색으로 보임, 미확인) | `list_permissions` |
 

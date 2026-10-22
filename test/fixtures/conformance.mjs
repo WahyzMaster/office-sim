@@ -15,7 +15,7 @@ const PUBLIC = fileURLToPath(new URL('../../public', import.meta.url));
 // CONTRACT 2: per-type fields besides type/sessionId/ts. awaitsApproval is replay-only (section 7), so never live; a live
 // approval wait is its own tool_wait event (P5g).
 const FIELDS = {
-  session: { required: ['agent', 'project', 'projectLabel', 'title', 'branch', 'worktree', 'isSubagent', 'parentSessionId'], optional: ['agentType'] },
+  session: { required: ['agent', 'project', 'projectLabel', 'title', 'branch', 'worktree', 'isSubagent', 'parentSessionId'], optional: ['agentType', 'surface'] },
   session_end: { required: ['reason'], optional: [] },
   prompt: { required: ['text'], optional: [] },
   tool_start: { required: ['toolUseId', 'tool', 'summary'], optional: ['room', 'question', 'options', 'background'] },
@@ -59,6 +59,7 @@ function eventProblems(ev, agent) {
       if (typeof ev.isSubagent !== 'boolean') bad('isSubagent');
       if (ev.isSubagent ? !(publicSessionId(ev.parentSessionId) && agentScopedId(agent, ev.parentSessionId)) : ev.parentSessionId !== null) bad('parentSessionId');
       if ('agentType' in ev && (!ev.isSubagent || !label(ev.agentType))) bad('agentType');
+      if ('surface' in ev && !label(ev.surface)) bad('surface');
       break;
     }
     case 'session_end': if (!END_REASONS.has(ev.reason)) bad('reason'); break;

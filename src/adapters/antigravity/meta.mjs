@@ -23,10 +23,11 @@ import { fileURLToPath } from 'node:url';
 import { SidecarWatcher } from '../../core/sidecar.mjs';
 import { readFields, firstField, allFields, textOf, smallIntOf, WIRE } from './proto.mjs';
 
-/** The summaries file of each sub-root (CLI and legacy IDE; the desktop app root antigravity/ is never read, D6). */
+/** The summaries file of each sub-root (CLI, legacy IDE, and 2.x desktop app). */
 export const SUMMARY_FILES = Object.freeze({
   'antigravity-cli': 'jetbox_summaries_proto.pb',
   'antigravity-ide': 'agyhub_summaries_proto.pb',
+  'antigravity': 'agyhub_summaries_proto.pb',
 });
 export const TRANSCRIPTS = Object.freeze(['transcript_full.jsonl', 'transcript.jsonl']);
 

@@ -89,6 +89,11 @@ export const call = {
     name: 'ask_question', args: { questions, ...LABELS },
   }),
   schedule: () => ({ name: 'schedule', args: { DurationSeconds: 120, TimerCondition: 'BAIT_TIMER_CONDITION', Prompt: 'BAIT_SCHEDULE_PROMPT', ...LABELS } }),
+  defineSubagent: () => ({ name: 'define_subagent', args: { Name: 'helper', Description: 'BAIT_DESC', SystemPrompt: 'BAIT_SYS_PROMPT' } }),
+  invokeSubagent: () => ({ name: 'invoke_subagent', args: { TypeName: 'research', Role: 'BAIT_ROLE', Prompt: 'BAIT_SUB_PROMPT' } }),
+  sendMessage: () => ({ name: 'send_message', args: { Recipient: 'BAIT_RECIPIENT', Message: 'BAIT_MESSAGE' } }),
+  listResources: () => ({ name: 'list_resources', args: { ServerName: 'BAIT_SERVER' } }),
+  readResource: () => ({ name: 'read_resource', args: { ServerName: 'BAIT_SERVER', Uri: 'BAIT_URI' } }),
   manageSubagents: () => ({ name: 'manage_subagents', args: { Action: 'list', ...LABELS } }),
   browserSubagent: () => ({
     name: 'browser_subagent', args: {

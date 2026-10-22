@@ -168,11 +168,11 @@ async function writeBaitFiles(root) {
   const secret = (tag) => `${JSON.stringify({ secret: `BAIT_${tag}`, prompt: 'BAIT_RAW_PROMPT', workspace: '/Users/agtester/BAIT_WS' })}\n`;
   const desk = createAntigravityBuilder({ format: 'full', start: START });
   const deskSteps = [desk.userInput('BAIT_DESKTOP prompt'), desk.planner({ content: 'BAIT_DESKTOP say' })];
-  const deskConv = await writeConversation(root, { id: A.desk, base: 'antigravity', full: deskSteps, plain: deskSteps });
+  const deskConv = await writeConversation(root, { id: A.desk, base: 'antigravity-bait', full: deskSteps, plain: deskSteps });
   files.push(deskConv.full, deskConv.plain);
   const g = (id, base = CLI) => path.join(brainDir(root, id, base), '.system_generated');
   for (const rel of [
-    ['antigravity', 'agyhub_summaries_proto.pb'], ['antigravity', 'brain', A.desk, 'task.md'], ['antigravity', 'annotations', `${A.desk}.pbtxt`],
+    ['antigravity-bait', 'agyhub_summaries_proto.pb'], ['antigravity-bait', 'brain', A.desk, 'task.md'], ['antigravity-bait', 'annotations', `${A.desk}.pbtxt`],
     ['antigravity', 'conversations', `${A.desk}.pb`], [CLI, 'conversations', `${A.a1}.db`], [CLI, 'conversations', `${A.a1}.db-wal`],
     [CLI, 'conversation_summaries.db'], [CLI, 'history.jsonl'], [CLI, 'cache', 'last_conversations.json'], [CLI, 'log', 'cli.log'],
     [CLI, 'implicit', `${A.a1}.pb`], [IDE, 'conversations', `${A.b1}.pb`], ['oauth_creds.json'], ['google_accounts.json'],

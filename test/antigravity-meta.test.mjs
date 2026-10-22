@@ -89,7 +89,7 @@ test('parseTaskMd: [ ] pending, [/] in_progress, [x] completed at any indent; he
   assert.ok(long[0].content.length < 1000, 'the raw line is cut before parsing');
 });
 
-test('locate / metaPaths: only <root>/antigravity-{cli,ide}/brain/<uuid>/.system_generated/logs/<transcript>', () => {
+test('locate / metaPaths: only <root>/antigravity{-cli,-ide,}/brain/<uuid>/.system_generated/logs/<transcript>', () => {
   const root = '/h/.gemini';
   const full = `${root}/antigravity-cli/brain/${aid(1)}/.system_generated/logs/transcript_full.jsonl`;
   assert.deepEqual(locate(full), { root, base: CLI, baseDir: `${root}/${CLI}`, uuid: aid(1), brainDir: `${root}/${CLI}/brain/${aid(1)}` });
@@ -99,8 +99,10 @@ test('locate / metaPaths: only <root>/antigravity-{cli,ide}/brain/<uuid>/.system
   });
   const ide = `${root}/antigravity-ide/brain/${aid(2)}/.system_generated/logs/transcript.jsonl`;
   assert.equal(metaPaths(ide).summary, `${root}/${IDE}/agyhub_summaries_proto.pb`);
+  const app = `${root}/antigravity/brain/${aid(3)}/.system_generated/logs/transcript_full.jsonl`;
+  assert.equal(metaPaths(app).summary, `${root}/antigravity/agyhub_summaries_proto.pb`);
   for (const bad of [
-    `${root}/antigravity/brain/${aid(1)}/.system_generated/logs/transcript_full.jsonl`, // the desktop app root (D6)
+    `${root}/antigravity-other/brain/${aid(1)}/.system_generated/logs/transcript_full.jsonl`,
     `${root}/antigravity-cli/brain/not-a-uuid/.system_generated/logs/transcript.jsonl`,
     `${root}/antigravity-cli/brain/${aid(1)}/.system_generated/logs/chunks.jsonl`,
     `${root}/antigravity-cli/brain/${aid(1)}/logs/transcript.jsonl`, 'relative/x.jsonl', null,
@@ -175,19 +177,21 @@ test('watcher: the shared summaries file is read once per change for every conve
   assert.deepEqual(opened, [summaryOf(root)]);
 });
 
-test('watcher: IDE conversations use agyhub_summaries_proto.pb; the desktop app root antigravity/ is never touched', async () => {
+test('watcher: IDE and 2.x app conversations use agyhub_summaries_proto.pb in their own sub-root', async () => {
   const root = await tmp();
   await writeConversation(root, { id: aid(3), base: IDE, plain: ['{}'], full: null });
   await writeSummaries(root, [{ id: aid(3), title: 'IDE title', cwd: '/work/ide' }], IDE);
   await writeSummaries(root, [{ id: aid(3), title: 'BAIT CLI title' }], CLI);
-  await fsp.mkdir(path.join(root, 'antigravity'), { recursive: true });
-  await fsp.writeFile(path.join(root, 'antigravity', 'agyhub_summaries_proto.pb'), 'BAIT');
+  await writeConversation(root, { id: aid(4), base: 'antigravity', full: ['{}'], plain: null });
+  await writeSummaries(root, [{ id: aid(4), title: 'App title', cwd: '/work/app' }], 'antigravity');
   const w = new AntigravityMeta();
   const opened = await countOpens(root, async () => {
     assert.deepEqual(await w.check({ path: path.join(root, IDE, 'brain', aid(3), '.system_generated', 'logs', 'transcript.jsonl') }),
       { title: 'IDE title', cwd: '/work/ide' });
   });
   assert.ok(opened.every((p) => p.startsWith(path.join(root, IDE))), opened.join(', '));
+  assert.deepEqual(await w.check({ path: path.join(root, 'antigravity', 'brain', aid(4), '.system_generated', 'logs', 'transcript_full.jsonl') }),
+    { title: 'App title', cwd: '/work/app' });
 });
 
 test('watcher: caps, symlinks, junk and parse errors are skipped quietly; never throws', async () => {

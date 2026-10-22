@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ANTIGRAVITY_AGENT, CLOSERS, PASSING, parseStep, callsOf, userRequestOf, resultEndOf, errorMessageText, planItemsOf,
+  ANTIGRAVITY_AGENT, CLOSERS, PASSING, parseStep, callsOf, userRequestOf, userCwdOf, resultEndOf, errorMessageText, planItemsOf,
   runStatusOf,
 } from '../src/adapters/antigravity/records.mjs';
 import { TOOLS, argString, argList, argsOf, toolNameOf, callStartOf, cwdOfCall } from '../src/adapters/antigravity/tools.mjs';
@@ -104,6 +104,18 @@ test('userRequestOf: no block -> null (raw content is never a prompt); a cut blo
   assert.equal(userRequestOf('<USER_REQUEST></USER_REQUEST>'), null);
 });
 
+test('userCwdOf: extracts Command Working Directory or Active Workspaces from <user_information> as a cwd fallback', () => {
+  const info = '<user_information>\nThe USER\'s OS version is mac.\nActive Workspaces:\n- /work/ws-one\nCommand Working Directory: /work/cwd-dir/\n</user_information><USER_REQUEST>Hello</USER_REQUEST>';
+  assert.equal(userCwdOf(info), '/work/cwd-dir');
+  assert.equal(userCwdOf('<user_information>\nActive Workspaces:\n- /work/ws-only/\n</user_information>'), '/work/ws-only');
+  assert.equal(userCwdOf('<user_information>\nNo paths here\n</user_information>'), null);
+  assert.equal(userCwdOf('<USER_REQUEST>Command Working Directory: /work/nope</USER_REQUEST>'), null);
+  const { s, b } = mk();
+  s.apply(b.userInput('Hi', { raw: info }), { replay: true });
+  s.idle(SERVER_T);
+  assert.equal(s.firstCwd, '/work/cwd-dir');
+});
+
 // ---------------------------------------------------------------------------------------------- results
 
 test('resultEndOf: DONE or no status -> ok; RUNNING -> ok + background (a backgrounded command, never rewritten)', () => {
@@ -185,10 +197,10 @@ test('argList / argsOf / toolNameOf: native or encoded arrays, encoded args obje
 
 test('the name table covers both eras of ADAPTERS 6.2 (Antigravity column)', () => {
   assert.deepEqual(Object.keys(TOOLS).sort(), [
-    'ask_question', 'browser_subagent', 'call_mcp_tool', 'command_status', 'edit_file', 'find_by_name', 'generate_image', 'grep_search',
-    'list_dir', 'list_permissions', 'manage_subagents', 'manage_task', 'multi_replace_file_content', 'read_file',
-    'read_url_content', 'replace_file_content', 'run_command', 'schedule', 'search_web', 'view_file', 'write_file',
-    'write_to_file',
+    'ask_question', 'browser_subagent', 'call_mcp_tool', 'command_status', 'define_subagent', 'edit_file', 'find_by_name',
+    'generate_image', 'grep_search', 'invoke_subagent', 'list_dir', 'list_permissions', 'list_resources', 'manage_subagents',
+    'manage_task', 'multi_replace_file_content', 'read_file', 'read_resource', 'read_url_content', 'replace_file_content',
+    'run_command', 'schedule', 'search_web', 'send_message', 'view_file', 'write_file', 'write_to_file',
   ]);
 });
 
@@ -212,6 +224,11 @@ const ROWS = [
   ['manage_task', call.manageTask('kill'), 'manage_task', 'manage_task', 'server'],
   ['search_web', call.searchWeb(), 'search_web', 'oauth refresh token rotation', 'research'],
   ['read_url_content', call.readUrl(), 'read_url_content', 'docs.example.com', 'research'],
+  ['list_resources (2.x)', call.listResources(), 'list_resources', 'list_resources', 'research'],
+  ['read_resource (2.x)', call.readResource(), 'read_resource', 'read_resource', 'research'],
+  ['define_subagent (2.x)', call.defineSubagent(), 'define_subagent', 'define_subagent', 'here'],
+  ['invoke_subagent (2.x)', call.invokeSubagent(), 'invoke_subagent', 'invoke_subagent', 'here'],
+  ['send_message (2.x)', call.sendMessage(), 'send_message', 'send_message', 'here'],
   ['manage_subagents', call.manageSubagents(), 'manage_subagents', 'manage_subagents', 'here'],
   ['browser_subagent', call.browserSubagent(), 'browser_subagent', 'browser_subagent', 'here'],
   ['generate_image', call.generateImage(), 'generate_image', 'generate_image', 'here'],
