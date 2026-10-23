@@ -4,6 +4,27 @@
   "description": "Local 3D office visualizer for AI coding agents — tails Claude Code, Codex, Grok (xAI Grok Build), and Antigravity session logs in real time with zero dependencies.",
   "license": "MIT",
   "type": "module",
+  "homepage": "https://wahyzmaster.github.io/office-sim/?lang=en#demo",
+  "bugs": {
+    "url": "https://github.com/WahyzMaster/office-sim/issues"
+  },
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/WahyzMaster"
+    },
+    {
+      "type": "polar",
+      "url": "https://polar.sh/WahyzMaster"
+    },
+    {
+      "type": "buymeacoffee",
+      "url": "https://www.buymeacoffee.com/wahyzdad"
+    }
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "office-sim": "bin/office-sim.mjs"
   },
@@ -12,7 +33,7 @@
     "src/",
     "public/",
     "skills/",
-    "scripts/",
+    "scripts/install-skill.mjs",
     "README.md",
     "README.ko.md",
     "LICENSE"
