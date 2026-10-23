@@ -16,17 +16,22 @@ export const LEGACY_STORE = 'claude-office:v1'; // 이름을 바꾸기 전(claud
 // session 이벤트의 agent(출처 id) -> 화면 이름. 모르는 id 는 그대로 보여 준다.
 const AGENT_LABEL = { 'claude-code': 'Claude Code', codex: 'Codex', grok: 'Grok', antigravity: 'Antigravity' };
 const AGENT_BADGE = { 'claude-code': 'Claude', codex: 'Codex', grok: 'Grok', antigravity: 'AGY' };
-const AGY_SURFACE_LABEL = { cli: 'CLI', app: 'App', ide: 'IDE' };
-export const agentLabel = (id, surface = '') => {
-  if (!Object.hasOwn(AGENT_LABEL, id)) return id;
-  const sub = id === 'antigravity' && surface && Object.hasOwn(AGY_SURFACE_LABEL, surface) ? AGY_SURFACE_LABEL[surface] : '';
-  return sub ? `${AGENT_LABEL[id]} (${sub})` : AGENT_LABEL[id];
+const SURFACE_LABEL = {
+  'claude-code:app': 'Claude/Claude Code·App', 'claude-code:cli': 'Claude Code·CLI', 'claude-code:ide': 'Claude Code·IDE',
+  'codex:app': 'ChatGPT/Codex·App', 'codex:cli': 'Codex·CLI', 'codex:ide': 'Codex·IDE', 'grok:cli': 'Grok Build·CLI',
+  'antigravity:cli': 'Antigravity·CLI', 'antigravity:app': 'Antigravity·App', 'antigravity:ide': 'Antigravity·IDE',
 };
-export const agentBadge = (id, surface = '') => {
-  if (!id || !Object.hasOwn(AGENT_BADGE, id)) return id || '';
-  const sub = id === 'antigravity' && surface && Object.hasOwn(AGY_SURFACE_LABEL, surface) ? AGY_SURFACE_LABEL[surface] : '';
-  return sub ? `${AGENT_BADGE[id]}·${sub}` : AGENT_BADGE[id];
+const SURFACE_BADGE = {
+  'claude-code:app': 'Claude·App', 'claude-code:cli': 'Claude·CLI', 'claude-code:ide': 'Claude·IDE',
+  'codex:app': 'ChatGPT·App', 'codex:cli': 'Codex·CLI', 'codex:ide': 'Codex·IDE', 'grok:cli': 'Grok·CLI',
+  'antigravity:cli': 'AGY·CLI', 'antigravity:app': 'AGY·App', 'antigravity:ide': 'AGY·IDE',
 };
+export const agentLabel = (id, surface = '') => (
+  surface && Object.hasOwn(SURFACE_LABEL, `${id}:${surface}`) ? SURFACE_LABEL[`${id}:${surface}`] : Object.hasOwn(AGENT_LABEL, id) ? AGENT_LABEL[id] : id
+);
+export const agentBadge = (id, surface = '') => (
+  surface && Object.hasOwn(SURFACE_BADGE, `${id}:${surface}`) ? SURFACE_BADGE[`${id}:${surface}`] : id && Object.hasOwn(AGENT_BADGE, id) ? AGENT_BADGE[id] : id || ''
+);
 
 export const DEFAULT_CONTROL_PRESET = 'map';
 export const CONTROL_PRESETS = uiText('ko').controls;
@@ -442,7 +447,7 @@ export class Hud {
     box.querySelector('h2').textContent = a.name;
     const mode = a.path.length ? t.mode.moving : a.mode === 'ask' && a.current?.approval ? t.mode.approval
       : t.mode[a.panicT > 0 ? 'panic' : a.mode] || a.mode;
-    const agentText = a.agent ? agentLabel(a.agent, a.surface) : '-';
+    const agentText = a.agent ? agentLabel(a.agent, a.surface || (a.agent === 'grok' ? 'cli' : '')) : '-';
     const rows = [
       [t.rows.project, `${a.floor.number} · ${a.floor.label}`],
       [t.rows.agent, a.isSub ? `${agentText} · ${t.subBadge(a.agentType)}` : agentText],
@@ -452,19 +457,15 @@ export class Hud {
       [t.rows.queue, t.queueCount(a.queue.length)],
     ];
     const dl = box.querySelector('dl');
-    dl.replaceChildren(...rows.flatMap(([k, val]) => {
-      const dt = document.createElement('dt');
-      const dd = document.createElement('dd');
-      dt.textContent = k;
-      dd.textContent = val;
-      return [dt, dd];
-    }));
+    dl.replaceChildren(...rows.flatMap(([k, val]) => [
+      Object.assign(document.createElement('dt'), { textContent: k }),
+      Object.assign(document.createElement('dd'), { textContent: val }),
+    ]));
     const addSelectRow = (label, opts, value, onChange) => {
-      const dt = document.createElement('dt');
+      const dt = Object.assign(document.createElement('dt'), { textContent: label });
       const dd = document.createElement('dd');
       const sel = document.createElement('select');
-      dt.textContent = label;
-      sel.replaceChildren(...opts.map(([k, text]) => { const o = document.createElement('option'); o.value = k; o.textContent = text; return o; }));
+      sel.replaceChildren(...opts.map(([k, text]) => Object.assign(document.createElement('option'), { value: k, textContent: text })));
       sel.value = value || 'auto';
       sel.addEventListener('change', () => onChange(sel.value));
       dd.append(sel);
@@ -474,9 +475,8 @@ export class Hud {
     addSelectRow(t.rows.postureOverride, Object.entries(t.postures), a.postureOverride, (v) => { a.postureOverride = v; a.refreshCharacter?.(); });
     const ol = box.querySelector('ol');
     ol.replaceChildren(...a.history.slice(0, 7).map((h) => {
-      const li = document.createElement('li');
+      const li = Object.assign(document.createElement('li'), { innerHTML: '<time></time><span></span>' });
       li.dataset.kind = h.kind;
-      li.innerHTML = '<time></time><span></span>';
       li.querySelector('time').textContent = time(h.at);
       li.querySelector('span').textContent = h.text;
       return li;

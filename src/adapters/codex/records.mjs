@@ -75,11 +75,28 @@ export function textSource(cliVersion) {
 
 // --------------------------------------------------------------------------------------------- session_meta
 
+const CODEX_ORIGINATOR_SURFACE = Object.freeze({
+  'Codex Desktop': 'app',
+  codex_work_desktop: 'app',
+  codex_vscode: 'ide',
+  codex_cli_rs: 'cli',
+  'codex-tui': 'cli',
+  codex_exec: 'cli',
+});
+
+export function codexSurfaceOf(p) {
+  const orig = str(p?.originator);
+  if (orig && Object.hasOwn(CODEX_ORIGINATOR_SURFACE, orig)) return CODEX_ORIGINATOR_SURFACE[orig];
+  const src = str(p?.source);
+  if (src === 'cli' || src === 'exec') return 'cli';
+  return undefined;
+}
+
 /**
  * session_meta payload -> the facts the session uses. Nothing else of the line is read (creator_* account ids,
- * base_instructions, git.repository_url, commit hashes, originator, model ...).
+ * base_instructions, git.repository_url, commit hashes, model ...).
  * @returns {{ id: string|null, cwd?: string, branch?: string, cliVersion?: string, historyStart: number|null,
- *   spawn: boolean, guardian: boolean, review: boolean, role?: string, nickname?: string, pathName?: string }}
+ *   spawn: boolean, guardian: boolean, review: boolean, role?: string, nickname?: string, pathName?: string, surface?: string }}
  */
 export function sessionMetaOf(p) {
   const sub = isObj(p.source) ? p.source.subagent : undefined;
@@ -87,6 +104,7 @@ export function sessionMetaOf(p) {
   const h = p.subagent_history_start_ordinal;
   const path = str(spawn?.agent_path) ?? str(p.agent_path);
   const last = path ? path.split('/').filter(Boolean).pop() : undefined;
+  const surface = codexSurfaceOf(p);
   return {
     id: str(p.id) ?? null,
     cwd: str(p.cwd)?.startsWith('/') ? p.cwd : undefined,
@@ -99,6 +117,7 @@ export function sessionMetaOf(p) {
     role: str(spawn?.agent_role) ?? str(p.agent_role),
     nickname: str(spawn?.agent_nickname) ?? str(p.agent_nickname),
     pathName: last,
+    ...(surface ? { surface } : {}),
   };
 }
 

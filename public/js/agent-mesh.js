@@ -40,7 +40,11 @@ const GOLD_MAT = new THREE.MeshStandardMaterial({ color: 0xd9a441, roughness: 0.
 
 const BRAND_ACCENT = {
   'claude-code': { color: 0xffd9b3, emissive: 0xff9e5e, glow: 0.9 },
+  'claude-code:app': { color: 0xffe4cc, emissive: 0xffb366, glow: 1.2 },
+  'claude-code:cli': { color: 0xffd9b3, emissive: 0xff9e5e, glow: 0.9 },
   codex: { color: 0xa7f3d0, emissive: 0x10b981, glow: 1.2 },
+  'codex:app': { color: 0x99f6e4, emissive: 0x14b8a6, glow: 1.3 },
+  'codex:cli': { color: 0xa7f3d0, emissive: 0x10b981, glow: 1.2 },
   grok: { color: 0xe9d5ff, emissive: 0xa855f7, glow: 1.25 },
   antigravity: { color: 0xbfdbfe, emissive: 0x3b82f6, glow: 1.3 },
   'antigravity:cli': { color: 0xa5f3fc, emissive: 0x06b6d4, glow: 1.35 },
@@ -135,7 +139,7 @@ export function buildBrandFlair(agent, theme = activeCharThemeOf(), posture = un
   agent.charSpec = resolved.charSpec;
 
   const brandId = agent.brandOverride || agent.agent;
-  const key = brandId === 'antigravity' && agent.surface === 'cli' ? 'antigravity:cli' : brandId;
+  const key = agent.surface && BRAND_ACCENT[`${brandId}:${agent.surface}`] ? `${brandId}:${agent.surface}` : brandId;
   const spec = BRAND_ACCENT[key] || BRAND_ACCENT[brandId] || { color: 0xe2e8f0, emissive: 0x64748b, glow: 0.6 };
   agent.accentMat = glowing(
     new THREE.MeshStandardMaterial({ color: spec.color, emissive: spec.emissive, roughness: 0.25, metalness: 0.2 }),
@@ -156,13 +160,27 @@ export function buildBrandFlair(agent, theme = activeCharThemeOf(), posture = un
   tintAgent(agent);
 
   if (brandId === 'claude-code') {
-    // Claude: 궁궐(정자관+옥관자), 한옥(유건+매듭별), 기본/스타십(베레모/크레스트+스파크 스타)
+    // Claude: 궁궐(정자관+옥관자), 한옥(유건+매듭별), 기본/스타십(베레모/크레스트+스파크 스타 + App 헤일로 / CLI 챙)
     const hat = new THREE.Group();
     hat.position.set(style === 'palace' || style === 'hanok' ? 0 : 0.03, 0.26, -0.01);
     if (style !== 'palace' && style !== 'hanok') hat.rotation.set(-0.12, 0, -0.18);
     const crown = new THREE.Mesh(style === 'palace' ? GAT_CROWN : BERET, style === 'palace' ? GAT_MAT : agent.bodyMat);
     crown.castShadow = true;
     hat.add(crown);
+    if (style !== 'palace' && style !== 'hanok') {
+      if (agent.surface === 'app') {
+        const halo = new THREE.Mesh(LEV_RING, agent.accentMat);
+        halo.rotation.x = Math.PI / 2;
+        halo.scale.setScalar(0.88);
+        halo.position.y = 0.04;
+        hat.add(halo);
+      } else if (agent.surface === 'cli') {
+        const bill = new THREE.Mesh(BILL, agent.accentMat);
+        bill.position.set(0, -0.02, 0.22);
+        bill.rotation.x = 0.12;
+        hat.add(bill);
+      }
+    }
     const star = new THREE.Group();
     star.position.set(0, style === 'palace' ? 0.16 : 0.11, 0.14);
     const g1 = new THREE.Mesh(GEM, agent.accentMat);
@@ -174,7 +192,7 @@ export function buildBrandFlair(agent, theme = activeCharThemeOf(), posture = un
     bg.add(hat);
     agent.flair = star;
   } else if (brandId === 'codex') {
-    // Codex: 궁궐(흑립 갓+어사화), 한옥(대나무 삿갓+에메랄드 구슬), 기본/스타십(사이버 바이저+육각 헤드셋)
+    // Codex: 궁궐(흑립 갓+어사화), 한옥(대나무 삿갓+에메랄드 구슬), 기본/스타십(사이버 바이저+육각 헤드셋 + App 헤드밴드 / CLI 챙)
     const visor = new THREE.Mesh(VISOR, agent.accentMat);
     visor.position.set(0, 0.02, 0.03);
     visor.rotation.set(Math.PI / 2, 0, -Math.PI * 0.34);
@@ -190,6 +208,16 @@ export function buildBrandFlair(agent, theme = activeCharThemeOf(), posture = un
       cone.position.set(0, 0.32, 0);
       bg.add(cone);
     } else {
+      if (agent.surface === 'app') {
+        const band = new THREE.Mesh(HEADBAND, agent.accentMat);
+        band.position.set(0, 0.02, 0);
+        bg.add(band);
+      } else if (agent.surface === 'cli') {
+        const bill = new THREE.Mesh(BILL, agent.accentMat);
+        bill.position.set(0, 0.17, 0.24);
+        bill.rotation.x = 0.12;
+        bg.add(bill);
+      }
       for (const sx of [-1, 1]) {
         const ear = new THREE.Mesh(EAR_HEX, agent.legsMat);
         ear.position.set(sx * 0.31, 0.02, 0);

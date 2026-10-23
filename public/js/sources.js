@@ -57,7 +57,7 @@ function roomHint(agent, tool, summary) {
 
 const SCENARIOS = [
   {
-    sessionId: 'demo-auth', project: 'web-app', title: L('OAuth 세션 가드 점검', 'Audit OAuth Session Guard'), branch: 'fix/auth-guard', start: 0.4, gap: 9,
+    sessionId: 'demo-auth', agent: 'claude-code', surface: 'cli', project: 'web-app', title: L('OAuth 세션 가드 점검', 'Audit OAuth Session Guard'), branch: 'fix/auth-guard', start: 0.4, gap: 9,
     steps: [
       ['think', L('세션 가드부터 보자. 기존 토큰 검증 흐름을 먼저 읽어야겠다.', 'Let us inspect the session guard and trace the existing token verification flow.'), 2600],
       ['plan', [[L('토큰 검증 흐름 파악', 'Trace token verification flow'), 1], [L('가드 테스트 작성', 'Write session guard tests'), 0], [L('세션 가드 구현', 'Enforce session guard'), 0], [L('테스트 실행', 'Run test suite'), 0]]],
@@ -80,7 +80,7 @@ const SCENARIOS = [
     ],
   },
   {
-    sessionId: 'grok-demo-rules', agent: 'grok', project: 'web-app', title: L('권한 규칙 점검', 'Verify Access Control Rules'), branch: 'chore/access-rules',
+    sessionId: 'grok-demo-rules', agent: 'grok', surface: 'cli', project: 'web-app', title: L('권한 규칙 점검', 'Verify Access Control Rules'), branch: 'chore/access-rules',
     start: 2.4, gap: 12,
     steps: [
       ['think', L('보안 규칙 문서부터 최신 내용을 확인하자.', 'Checking the latest security rules documentation first.'), 2200],
@@ -107,7 +107,7 @@ const SCENARIOS = [
     ],
   },
   {
-    sessionId: 'codex-demo-push', agent: 'codex', project: 'web-app', title: L('웹훅 재시도 큐', 'Webhook Retry Backoff Queue'), branch: 'fix/webhook-retry',
+    sessionId: 'codex-demo-push', agent: 'codex', surface: 'app', project: 'web-app', title: L('웹훅 재시도 큐', 'Webhook Retry Backoff Queue'), branch: 'fix/webhook-retry',
     start: 1.6, gap: 11,
     steps: [
       ['think', L('실패한 웹훅이 다시 나가지 않는다. 발송 큐부터 보자.', 'Failed webhooks are not retrying. Inspecting the dispatch queue.'), 2000],
@@ -127,7 +127,7 @@ const SCENARIOS = [
     ],
   },
   {
-    sessionId: 'antigravity-demo-scan', agent: 'antigravity', project: 'web-app', title: L('온보딩 모달 UI 정리', 'Polish Onboarding Modal UI'),
+    sessionId: 'antigravity-demo-scan', agent: 'antigravity', surface: 'app', project: 'web-app', title: L('온보딩 모달 UI 정리', 'Polish Onboarding Modal UI'),
     branch: 'ui/onboarding-modal', start: 3.0, gap: 13,
     steps: [
       ['think', L('온보딩 화면의 단축키 안내부터 확인하자.', 'Checking keyboard shortcut hints in the onboarding modal.'), 2400],
@@ -147,7 +147,7 @@ const SCENARIOS = [
     ],
   },
   {
-    sessionId: 'demo-score', project: 'api-server', title: L('검색 랭킹 리팩터링', 'Refactor Search Ranking Score'), branch: 'refactor/ranking', start: 1.2, gap: 10,
+    sessionId: 'demo-score', agent: 'claude-code', surface: 'app', project: 'api-server', title: L('검색 랭킹 리팩터링', 'Refactor Search Ranking Score'), branch: 'refactor/ranking', start: 1.2, gap: 10,
     steps: [
       ['plan', [[L('점수 계산 위치 찾기', 'Locate score calculation sites'), 1], [L('계산 로직 통합', 'Unify scoring module'), 0], [L('타입 검사와 테스트', 'Typecheck and run tests'), 0]]],
       ['agent', 'Explore', L('점수 계산 사용처 조사', 'Find calcScore call sites'), [
@@ -169,15 +169,15 @@ const SCENARIOS = [
     ],
   },
   {
-    sessionId: 'demo-hero', project: 'docs-site', title: L('문서 히어로 카피 수정', 'Update Docs Hero Copy'), branch: 'copy/hero', start: 3.6, gap: 14,
+    sessionId: 'demo-hero', agent: 'codex', surface: 'cli', project: 'docs-site', title: L('문서 히어로 카피 수정', 'Update Docs Hero Copy'), branch: 'copy/hero', start: 3.6, gap: 14,
     steps: [
-      ['tool', 'WebFetch', 'brand guide'],
-      ['tool', 'Read', 'content/hero.md'],
+      ['tool', 'web_fetch', 'brand guide'],
+      ['tool', 'exec_command', 'cat content/hero.md'],
       ['think', null, 1400],
-      ['tool', 'Edit', 'content/hero.md'],
+      ['tool', 'apply_patch', 'content/hero.md'],
       ['ask', L('헤드라인 후보 두 개 중 어느 쪽으로 갈까요?', 'Which hero headline option do you prefer?'), [L('A: 더 빠르게', 'A: Faster setup'), L('B: 더 가볍게', 'B: Zero deps')], 7],
-      ['tool', 'Edit', 'content/hero.md'],
-      ['tool', 'Bash', 'git status'],
+      ['tool', 'apply_patch', 'content/hero.md'],
+      ['tool', 'exec_command', 'git status'],
       ['end'],
     ],
   },
@@ -192,9 +192,9 @@ export class MockSource {
     this.timeline = [];
     this.buffer = [];
     this.onBatch = null;
-    this.scn = SCENARIOS.map((s) => ({ agent: 'claude-code', ...s, next: s.start + 0.8 }));
+    this.scn = SCENARIOS.map((s) => ({ agent: 'claude-code', surface: 'cli', ...s, next: s.start + 0.8 }));
     for (const s of this.scn) {
-      this.timeline.push([s.start, { type: 'session', sessionId: s.sessionId, agent: s.agent, project: s.project, title: s.title, branch: s.branch }]);
+      this.timeline.push([s.start, { type: 'session', sessionId: s.sessionId, agent: s.agent, surface: s.surface, project: s.project, title: s.title, branch: s.branch }]);
     }
     this.timeline.sort((a, b) => a[0] - b[0]);
   }
@@ -206,7 +206,7 @@ export class MockSource {
     return `toolu_demo_${this.seq.toString(36)}`;
   }
 
-  compile(steps, sid, project, t0, agent = 'claude-code') {
+  compile(steps, sid, project, t0, agent = 'claude-code', surface = 'cli') {
     const tools = AGENT_TOOLS[agent];
     const out = [];
     let t = t0;
@@ -256,8 +256,8 @@ export class MockSource {
         const summary = agent === 'claude-code' ? L(`${step[1]} · ${pick(step[2])}`, `${step[1]} · ${step[2]?.en || pick(step[2])}`) : step[1];
         const room = roomHint(agent, tools.spawn, pick(summary));
         out.push([t, { type: 'tool_start', sessionId: sid, toolUseId: id, tool: tools.spawn, summary, ...(room ? { room } : {}) }]);
-        out.push([t + 0.4, { type: 'session', sessionId: subId, agent, project, title: step[2], agentType: step[1], isSubagent: true, parentSessionId: sid }]);
-        const sub = this.compile(step[3], subId, project, t + 1.4, agent);
+        out.push([t + 0.4, { type: 'session', sessionId: subId, agent, surface, project, title: step[2], agentType: step[1], isSubagent: true, parentSessionId: sid }]);
+        const sub = this.compile(step[3], subId, project, t + 1.4, agent, surface);
         out.push(...sub.events);
         out.push([sub.end + 0.2, { type: 'session_end', sessionId: subId }]);
         if (tools.async) {
@@ -278,7 +278,7 @@ export class MockSource {
     const ts = new Date().toISOString();
     for (const s of this.scn) {
       if (this.t >= s.start) {
-        this.emit({ ts, replay: true, type: 'session', sessionId: s.sessionId, agent: s.agent, project: s.project, title: pick(s.title), branch: s.branch });
+        this.emit({ ts, replay: true, type: 'session', sessionId: s.sessionId, agent: s.agent, surface: s.surface, project: s.project, title: pick(s.title), branch: s.branch });
       }
     }
   }
@@ -288,7 +288,7 @@ export class MockSource {
     this.t += simDt;
     for (const s of this.scn) {
       if (this.t < s.next) continue;
-      const { events, end } = this.compile(s.steps, s.sessionId, s.project, this.t, s.agent);
+      const { events, end } = this.compile(s.steps, s.sessionId, s.project, this.t, s.agent, s.surface);
       this.timeline.push(...events);
       this.timeline.sort((a, b) => a[0] - b[0]);
       s.next = end + s.gap;

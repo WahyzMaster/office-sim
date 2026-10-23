@@ -3,7 +3,7 @@
 import { activeCharThemeOf, activeVoiceModeOf, langOf, resolveAgentAppearance } from './rooms.js';
 
 const DOG_ORDER = ['golden', 'labrador', 'jindo-white', 'jindo-black', 'jindo-bear', 'collie', 'corgi', 'shiba'];
-const CAT_ORDER = ['savannah', 'bengal', 'british', 'siamese', 'ragdoll', 'fold'];
+const CAT_ORDER = ['savannah', 'mainecoon', 'persian', 'bengal', 'british', 'siamese', 'ragdoll', 'fold'];
 
 function hashId(s = '') {
   let h = 0;
@@ -19,15 +19,15 @@ export function pickPetBreed(agent = {}, theme = activeCharThemeOf()) {
   const isCat = theme === 'cats' || String(theme).startsWith('cat:');
   if (!isCat) {
     if (agent.isSub) return h % 2 === 0 ? 'corgi' : 'shiba';
-    if (agent.agent === 'claude-code') return h % 3 === 0 ? 'jindo-white' : 'golden';
-    if (agent.agent === 'codex') return h % 3 === 0 ? 'jindo-black' : 'labrador';
+    if (agent.agent === 'claude-code') return agent.surface === 'app' ? 'golden' : 'shiba';
+    if (agent.agent === 'codex') return agent.surface === 'app' ? 'jindo-black' : 'labrador';
     if (agent.agent === 'grok') return 'collie';
-    if (agent.agent === 'antigravity') return agent.surface === 'cli' ? (h % 2 === 0 ? 'jindo-white' : 'jindo-black') : 'jindo-bear';
+    if (agent.agent === 'antigravity') return agent.surface === 'cli' ? 'jindo-white' : 'jindo-bear';
     return DOG_ORDER[h % DOG_ORDER.length];
   }
   if (agent.isSub) return 'fold';
-  if (agent.agent === 'claude-code') return 'savannah';
-  if (agent.agent === 'codex') return 'bengal';
+  if (agent.agent === 'claude-code') return agent.surface === 'app' ? 'savannah' : 'mainecoon';
+  if (agent.agent === 'codex') return agent.surface === 'app' ? 'persian' : 'bengal';
   if (agent.agent === 'grok') return 'british';
   if (agent.agent === 'antigravity') return agent.surface === 'cli' ? 'siamese' : 'ragdoll';
   return CAT_ORDER[h % CAT_ORDER.length];

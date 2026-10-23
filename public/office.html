@@ -402,10 +402,10 @@ body.overview .sign, body.overview .tag span { display: none; }
       <label class="interval" for="voice-mode"><span id="voice-label">소리</span> <select id="voice-mode" aria-label="캐릭터 음성"><option value="auto">자동 (캐릭터별)</option><option value="dogs">강아지 (멍멍)</option><option value="cats">고양이 (야옹)</option><option value="chime">국악 (옥소리)</option><option value="chirp">스타십 (비프)</option><option value="blip">스튜디오 (블립)</option><option value="mute">음소거</option></select></label>
       <div class="seg" id="llm-filter" role="group" aria-label="LLM 필터">
         <button type="button" data-llm="all" aria-pressed="true">전체</button>
-        <button type="button" data-llm="claude-code" aria-pressed="false">Claude</button>
-        <button type="button" data-llm="codex" aria-pressed="false">Codex</button>
-        <button type="button" data-llm="grok" aria-pressed="false">Grok</button>
-        <button type="button" data-llm="antigravity" aria-pressed="false">AGY</button>
+        <button type="button" data-llm="claude-code" aria-pressed="false">Claude·Claude Code</button>
+        <button type="button" data-llm="codex" aria-pressed="false">ChatGPT·Codex</button>
+        <button type="button" data-llm="grok" aria-pressed="false">Grok Build</button>
+        <button type="button" data-llm="antigravity" aria-pressed="false">Antigravity</button>
       </div>
       <label class="interval" for="control-preset"><span id="control-label">조작</span> <select id="control-preset" aria-label="카메라 조작 프리셋"><option value="map">구글 맵</option><option value="figma">피그마</option><option value="orbit">3D 오빗</option><option value="blender">블렌더</option></select></label>
       <button type="button" id="color-theme" class="ghost" aria-label="조명 모드 전환">조명: 자동</button>
@@ -446,7 +446,7 @@ body.overview .sign, body.overview .tag span { display: none; }
     <header class="lg-head"><h2>범례 및 LLM 캐릭터 배정</h2><button type="button" id="close-legend" class="ghost">닫기</button></header>
     <h3><span data-lg-head="agents">LLM별 캐릭터 배정</span><button type="button" id="reset-llm-map" class="ghost">기본 배정 복원</button></h3>
     <ul data-lg="agents"></ul>
-    <h3><span data-lg-head="catalog">캐릭터 · 품종 도감 (19종)</span><span class="seg" data-cat-tabs role="group"></span></h3>
+    <h3><span data-lg-head="catalog">캐릭터 · 품종 도감 (21종)</span><span class="seg" data-cat-tabs role="group"></span></h3>
     <ul data-lg="catalog"></ul>
     <h3 data-lg-head="rooms">공간 · 방 안내</h3>
     <ul data-lg="rooms"></ul>
