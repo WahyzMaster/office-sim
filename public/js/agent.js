@@ -2,7 +2,7 @@
 // 이벤트는 바로 실행하지 않고 "할 일(intent)" 대기열에 쌓은 뒤, 방까지 걸어가서 하나씩 처리한다.
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { activeThemeOf, ELEVATOR, isLlmVisible, resolveAgentAppearance } from './rooms.js';
+import { activeThemeOf, ELEVATOR, isLlmVisible, resolveAgentAppearance, tr } from './rooms.js';
 import { buildAgentMesh, buildBrandFlair, tintAgent, animateAgentMesh } from './agent-mesh.js';
 import { compactQueue, collapse, QUEUE_CAP, softKind } from './agent-queue.js';
 import { hueOf, brandHue, familyHue, familyLight, laneOffset, route, wrapAngle, safeSpawnPos, resolveObstacleCollision } from './placement.js';
@@ -33,7 +33,7 @@ export class Agent {
     this.surface = info.surface || '';
     this.charOverride = info.charOverride || 'auto';
     this.postureOverride = info.postureOverride || 'auto';
-    this.name = info.title || (this.isSub ? this.agentType : `세션 ${this.id.slice(0, 6)}`);
+    this.name = info.title || (this.isSub ? this.agentType : tr(`세션 ${this.id.slice(0, 6)}`, `Session ${this.id.slice(0, 6)}`));
     this.childSeq = 0;
     this.paint(this.parentId ? office.agents.get(this.parentId) : null);
     this.queue = [];
@@ -45,7 +45,7 @@ export class Agent {
     this.pending = new Map();
     this.history = [];
     this.mode = 'idle';
-    this.activity = '출근';
+    this.activity = tr('출근', 'Arrived');
     this.idleT = this.bubbleT = this.panicT = this.soundT = 0;
     this.vocalText = '';
     this.t = Math.random() * 10;
@@ -197,7 +197,7 @@ export class Agent {
 
   leave() {
     if (this.current?.kind === 'leave' || this.queue.some((i) => i.kind === 'leave')) return;
-    this.push({ kind: 'leave', room: 'lounge', activity: '퇴근' });
+    this.push({ kind: 'leave', room: 'lounge', activity: tr('퇴근', 'Leaving') });
   }
 
   // 퇴근하려던 직원에게 다시 session 이 오면(서버가 되살림, 재시작 뒤 재공지) 퇴근을 취소한다.
@@ -212,8 +212,8 @@ export class Agent {
       this.floor.release(this.room, this);
       this.slot = -1;
       this.mode = 'idle';
-      this.activity = '대기 중';
-      if (!this.queue.length) this.queue.push({ kind: 'idle', room: 'lounge', activity: '대기 중' });
+      this.activity = tr('대기 중', 'Idle');
+      if (!this.queue.length) this.queue.push({ kind: 'idle', room: 'lounge', activity: tr('대기 중', 'Idle') });
     }
     this.refreshTag();
     return true;
@@ -234,7 +234,7 @@ export class Agent {
       this.toolEnd({ toolUseId: id, ...ABANDON });
       n += 1;
     }
-    if (n) this.note('질문 닫힘 · 다음 일 시작', 'muted');
+    if (n) this.note(tr('질문 닫힘 · 다음 일 시작', 'Question closed · continuing'), 'muted');
     return n;
   }
 
@@ -286,7 +286,7 @@ export class Agent {
         break;
       case 'think':
         this.mode = 'think';
-        this.bubble('think', it.text || '생각 중…', it.ttl);
+        this.bubble('think', it.text || tr('생각 중…', 'Thinking…'), it.ttl);
         break;
       case 'say':
         this.mode = 'idle';
@@ -302,7 +302,7 @@ export class Agent {
         }
         if (it.live && it.answered) { // 라이브 승인 대기: 걸어오는 사이에 답이 왔다. 열린 질문(칩) 대신 결과만 보인다
           this.mode = 'idle';
-          if (!it.denied && !it.error) this.bubble('info', '승인됨', 1.8);
+          if (!it.denied && !it.error) this.bubble('info', tr('승인됨', 'Approved'), 1.8);
           break;
         }
         this.mode = 'ask';
@@ -321,7 +321,7 @@ export class Agent {
         return;
       default:
         this.mode = 'idle';
-        this.activity = '대기 중';
+        this.activity = tr('대기 중', 'Idle');
     }
     this.refreshTag();
   }
@@ -350,7 +350,7 @@ export class Agent {
     it.t = 0;
     if (it !== this.current || !it.arrived) return;
     this.mode = 'idle';
-    this.bubble('info', '승인됨', 1.8);
+    this.bubble('info', tr('승인됨', 'Approved'), 1.8);
     this.office.onAsk(this, false);
     this.refreshTag();
   }
@@ -358,7 +358,7 @@ export class Agent {
   finish(it) {
     if (it.kind === 'ask') {
       if (it.error) this.panic(it.error, 'failed'); // 승인된 뒤 실행이 실패했다
-      else this.bubble(it.denied ? 'denied' : 'info', it.denied ? '거절됨' : it.closed ? '질문 닫힘' : it.approval ? '승인됨' : '답변 받음', 1.8);
+      else this.bubble(it.denied ? 'denied' : 'info', it.denied ? tr('거절됨', 'Denied') : it.closed ? tr('질문 닫힘', 'Closed') : it.approval ? tr('승인됨', 'Approved') : tr('답변 받음', 'Answered'), 1.8);
       this.office.onAsk(this, false);
     }
     if (this.mode !== 'idle') this.mode = 'idle';
@@ -376,14 +376,14 @@ export class Agent {
       it.answered = true;
       it.closed = ev.errorKind === 'abandoned';
       it.denied = !ev.ok && !it.closed && !(it.approval && ev.errorKind === 'failed');
-      if (it.approval && ev.errorKind === 'failed') it.error = ev.error || '도구 실행 실패';
+      if (it.approval && ev.errorKind === 'failed') it.error = ev.error || tr('도구 실행 실패', 'Tool failed');
       // 아직 줄에 서 있는 닫힌 질문은 보여 줄 필요가 없다.
       const q = it.closed ? this.queue.indexOf(it) : -1;
       if (q >= 0) this.queue.splice(q, 1);
       return;
     }
     if (ev.ok || ev.errorKind === 'abandoned') return;
-    const err = ev.error || (ev.errorKind === 'interrupted' ? '사용자가 중단함' : '도구 실행 실패');
+    const err = ev.error || (ev.errorKind === 'interrupted' ? tr('사용자가 중단함', 'Interrupted by user') : tr('도구 실행 실패', 'Tool failed'));
     if (!it.error || (softKind(it.errorKind) && !softKind(ev.errorKind))) {
       it.error = err;
       it.errorKind = ev.errorKind;
@@ -395,7 +395,7 @@ export class Agent {
 
   panic(text, kind) {
     if (kind === 'denied' || kind === 'interrupted') {
-      this.bubble('denied', `${kind === 'denied' ? '거절됨' : '중단됨'} · ${text}`, 3.6);
+      this.bubble('denied', `${kind === 'denied' ? tr('거절됨', 'Denied') : tr('중단됨', 'Interrupted')} · ${text}`, 3.6);
       return;
     }
     this.panicT = 2.8;
@@ -466,7 +466,7 @@ export class Agent {
       if (this.queue.length) this.start(this.queue.shift());
       else {
         this.idleT += dt;
-        if (this.idleT > IDLE_AFTER && this.room !== 'lounge') this.push({ kind: 'idle', room: 'lounge', activity: '대기 중' });
+        if (this.idleT > IDLE_AFTER && this.room !== 'lounge') this.push({ kind: 'idle', room: 'lounge', activity: tr('대기 중', 'Idle') });
       }
     }
 

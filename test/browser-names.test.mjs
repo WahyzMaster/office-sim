@@ -19,6 +19,7 @@ import {
   CharacterVoice, DogVoice, CatVoice, SynthVoice, voiceFor, makeSound, setSoundEnabled, isSoundEnabled,
 } from '../public/js/sound.js';
 import { THEME_LAYOUTS, corridorWaypoints, obstaclesOf } from '../public/js/theme-layouts.js';
+import { MockSource } from '../public/js/sources.js';
 
 // Map 으로 만든 가짜 localStorage. 실제 브라우저 저장소는 건드리지 않는다.
 function fakeStorage(init = {}) {
@@ -359,4 +360,27 @@ test('Materialized non-overlapping obstacles, safe pathfinding and dynamic agent
   const a2 = { floor: f, path: [], group: { visible: true, position: { x: 0.1, z: 0 } } };
   for (let i = 0; i < 10; i++) separateAgents([a1, a2], 0.05, 0.56, 'studio');
   assert.ok(Math.hypot(a2.group.position.x - a1.group.position.x, a2.group.position.z - a1.group.position.z) >= 0.55);
+});
+
+test('MockSource localizes demo session titles, thoughts, plans, questions and speech bubbles between KO and EN', () => {
+  applyRoomTheme('studio', 'en');
+  const enEvents = [];
+  const enSrc = new MockSource((ev) => enEvents.push(ev));
+  for (let i = 0; i < 60; i++) enSrc.tick(0.5, 0.3, 250);
+  const enSession = enEvents.find((e) => e.type === 'session' && e.sessionId === 'demo-auth');
+  const enThink = enEvents.find((e) => e.type === 'thinking' && e.sessionId === 'demo-auth' && e.text);
+  const enPlan = enEvents.find((e) => e.type === 'plan' && e.sessionId === 'demo-auth');
+  assert.equal(enSession?.title, 'Audit OAuth Session Guard');
+  assert.match(enThink?.text || '', /session guard/i);
+  assert.equal(enPlan?.items?.[0]?.content, 'Trace token verification flow');
+  for (const e of enEvents) {
+    if (e.title) assert.doesNotMatch(e.title, /[가-힣]/);
+    if (e.text) assert.doesNotMatch(e.text, /[가-힣]/);
+    if (e.question) assert.doesNotMatch(e.question, /[가-힣]/);
+  }
+
+  applyRoomTheme('studio', 'ko');
+  enSrc.setLang();
+  const koRelocalized = enEvents.filter((e) => e.type === 'session' && e.sessionId === 'demo-auth').pop();
+  assert.equal(koRelocalized?.title, 'OAuth 세션 가드 점검');
 });
