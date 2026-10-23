@@ -9,6 +9,17 @@ const PLANE = new THREE.PlaneGeometry(1, 1);
 const POT = new THREE.CylinderGeometry(0.22, 0.17, 0.4, 10);
 const LEAF = new THREE.IcosahedronGeometry(0.42, 0);
 const LEAF_S = new THREE.IcosahedronGeometry(0.3, 0);
+// 테마를 다시 지을 때마다 새로 만들지 않도록 소품 기하는 모듈에서 한 번만 만든다(층·테마 수만큼 새면 GPU 메모리가 는다).
+const RESEARCH_PED = new THREE.CylinderGeometry(0.2, 0.3, 0.95, 12);
+const GLOBE_BALL = new THREE.IcosahedronGeometry(0.8, 2);
+const GLOBE_WIRE = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(0.84, 1));
+const MAST = new THREE.CylinderGeometry(0.04, 0.06, 1.8, 8);
+const DISH = new THREE.SphereGeometry(0.42, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2.6);
+const MUG = new THREE.CylinderGeometry(0.07, 0.07, 0.16, 10);
+const BOOTH_PED = new THREE.CylinderGeometry(0.4, 0.48, 0.86, 16);
+const BOOTH_RING = new THREE.TorusGeometry(0.38, 0.026, 8, 24);
+const BOOTH_CORE = new THREE.IcosahedronGeometry(0.26, 1);
+const BOTTLE = new THREE.CylinderGeometry(0.17, 0.17, 0.5, 12);
 export const SCREEN_TEX = [];
 
 let M = null;
@@ -37,6 +48,7 @@ export function mats() {
     globe: new THREE.MeshStandardMaterial({ color: 0x3e7fc2, roughness: 0.55, flatShading: true }),
     water: new THREE.MeshStandardMaterial({ color: 0x9fd4ff, roughness: 0.1, transparent: true, opacity: 0.75 }),
     books: new THREE.MeshStandardMaterial({ roughness: 0.8 }),
+    wire: new THREE.LineBasicMaterial({ color: 0xdff1ff, transparent: true, opacity: 0.55 }),
   };
   M.screens = { code: screenMat('code'), web: screenMat('web'), term: screenMat('term'), doc: screenMat('web') };
   return M;
@@ -169,17 +181,17 @@ export function buildServer(g) {
 }
 
 export function buildResearch(g) {
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.95, 12), M.metal);
+  const ped = new THREE.Mesh(RESEARCH_PED, M.metal);
   ped.position.set(-8, 0.475, 5);
   ped.castShadow = true;
   g.add(ped);
   const globe = new THREE.Group();
   globe.position.set(-8, 1.78, 5);
-  const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 2), M.globe);
+  const ball = new THREE.Mesh(GLOBE_BALL, M.globe);
   ball.castShadow = true;
   const wire = new THREE.LineSegments(
-    new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(0.84, 1)),
-    new THREE.LineBasicMaterial({ color: 0xdff1ff, transparent: true, opacity: 0.55 }),
+    GLOBE_WIRE,
+    M.wire,
   );
   globe.add(ball, wire);
   globe.rotation.z = 0.35;
@@ -188,9 +200,9 @@ export function buildResearch(g) {
     desk(g, -11.2, z, 0.8, 1.6);
     monitor(g, M.screens.web, -11.4, 0.79, z, E);
   }
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 1.8, 8), M.metal);
+  const mast = new THREE.Mesh(MAST, M.metal);
   mast.position.set(-4.7, 0.9, 7.3);
-  const dish = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2.6), M.metal);
+  const dish = new THREE.Mesh(DISH, M.metal);
   dish.position.set(-4.7, 1.85, 7.3);
   dish.rotation.set(-0.9, 0.6, 0);
   const tip = box(g, M.lamp, 0.08, 0.08, 0.08, -4.7, 1.9, 7.3, false);
@@ -226,18 +238,18 @@ export function buildDesk(g) {
   box(g, M.ledBusy, 0.12, 0.03, 0.14, 9.68, 0.83, 5.12, false);
   box(g, M.metal, 0.04, 0.24, 0.04, 9.52, 0.79, 5.0, false);
   box(g, M.dark, 0.1, 0.07, 0.07, 9.48, 1.03, 5.0, false);
-  const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.16, 10), M.rug.desk);
+  const mug = new THREE.Mesh(MUG, M.rug.desk);
   mug.position.set(9.9, 0.87, 6.1);
   g.add(mug);
   // 리뷰·승인 홀로그램 인터콤 부스 (층마다 사람이 복제되지 않도록 원격 홀로그램 비콘으로 구성)
   for (const dz of [-1.55, 1.55]) box(g, M.part, 1.5, 1.55, 0.1, 10.45, 0, 5 + dz);
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.48, 0.86, 16), M.metal);
+  const ped = new THREE.Mesh(BOOTH_PED, M.metal);
   ped.position.set(10.8, 0.43, 5);
   ped.castShadow = true;
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.026, 8, 24), M.ledOn);
+  const ring = new THREE.Mesh(BOOTH_RING, M.ledOn);
   ring.position.set(10.8, 1.28, 5);
   ring.rotation.x = Math.PI / 2;
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.26, 1), M.water);
+  const core = new THREE.Mesh(BOOTH_CORE, M.water);
   core.position.set(10.8, 1.28, 5);
   const beacon = box(g, M.lamp, 0.1, 0.1, 0.1, 10.8, 1.62, 5, false);
   beacon.userData.blink = true;
@@ -251,7 +263,7 @@ export function buildLoungeProps(g) {
   box(g, M.sofa, 0.16, 0.62, 0.55, 9.1, 0, 1.58);
   box(g, M.sofa, 0.16, 0.62, 0.55, 11.1, 0, 1.58);
   box(g, M.wall, 0.45, 1.0, 0.45, 11.4, 0, -1.55);
-  const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.5, 12), M.water);
+  const bottle = new THREE.Mesh(BOTTLE, M.water);
   bottle.position.set(11.4, 1.25, -1.55);
   g.add(bottle);
   plant(g, -10.4, 1.55, 0.9);

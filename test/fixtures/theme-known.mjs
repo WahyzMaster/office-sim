@@ -31,8 +31,6 @@ export const KNOWN = {
   'coplanar:palace': 1, // palace-02 연못 (Task 15)
   'coplanar:hanok': 1, // hanok-12 누각 기단
   // 다시 지을 때 새로 만드는 기하·재질
-  'alloc:studio': 12, // xcut-11
-  'alloc:office': 12,
   'alloc:dogs': 1, // triage: theme-props 의 M.white 가 mats() 에 없어 Mesh 기본 재질을 매번 만든다
   // theme-layouts 순수 검사
 };

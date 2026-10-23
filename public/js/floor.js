@@ -63,6 +63,9 @@ export class Floor {
 
   rebuildTheme(theme = activeThemeOf()) {
     this.theme = theme;
+    // 서가 책 같은 InstancedMesh 는 인스턴스 버퍼를 따로 가진다 -> 지우기 전에 풀어 준다.
+    // 기하·재질은 모듈에서 함께 쓰는 것이라 여기서 dispose 하지 않는다.
+    this.archGroup.traverse((o) => { if (o.isInstancedMesh) o.dispose(); });
     this.archGroup.clear();
     const ag = this.archGroup;
     this.doors = buildThemeGround(ag, theme);
@@ -205,6 +208,8 @@ export class Floor {
 
   dispose(stage) {
     for (const o of this.labels) o.element.remove();
+    this.archGroup.traverse((o) => { if (o.isInstancedMesh) o.dispose(); });
+    this.board?.tex?.dispose?.();
     stage.scene.remove(this.group);
   }
 }
