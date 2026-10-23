@@ -50,6 +50,7 @@ export function themeMats() {
     roseGold: new THREE.MeshStandardMaterial({ color: 0xd69f7e, roughness: 0.35, metalness: 0.45 }),
     plushPink: new THREE.MeshStandardMaterial({ color: 0xf4acb7, roughness: 0.65 }),
     sisal: new THREE.MeshStandardMaterial({ color: 0xcba376, roughness: 0.88 }),
+    scrollBack: new THREE.MeshStandardMaterial({ color: 0xe8dfca, roughness: 0.6 }),
   };
   return TM;
 }
@@ -121,16 +122,19 @@ export function lowTable(g, mat, legMat, x, z, w, d, h = 0.58) {
   }
 }
 
-export function scrollScreen(g, frameMat, screenMat, x, y, z, rotY, w = 0.95, h = 0.58) {
+// 두루마리·홀로 화면: 아래 막대는 책상 윗면에 살짝 묻히고(caller y 기준 0..0.06), 화면 뒤에는 불투명 뒤판을 댄다.
+// 뒤판이 없으면 반대쪽에서 볼 때 화면 평면이 사라진다(한쪽 면만 그린다). 뒤판에 frameMat(빛나는 재질)은 쓰지 않는다.
+export function scrollScreen(g, frameMat, screenMat, x, y, z, rotY, w = 0.95, h = 0.58, backMat = mats().dark) {
   const grp = new THREE.Group();
   grp.position.set(x, y, z);
   grp.rotation.y = rotY;
-  box(grp, frameMat, w + 0.12, 0.06, 0.06, 0, h + 0.12, 0);
-  box(grp, frameMat, w + 0.12, 0.06, 0.06, 0, 0.06, 0);
+  box(grp, frameMat, w + 0.12, 0.06, 0.06, 0, 0, 0);
+  box(grp, frameMat, w + 0.12, 0.06, 0.06, 0, h + 0.06, 0);
   const s = new THREE.Mesh(PLANE, screenMat);
   s.scale.set(w, h, 1);
-  s.position.set(0, 0.09 + h / 2, 0.02);
+  s.position.set(0, 0.03 + h / 2, 0.02);
   grp.add(s);
+  box(grp, backMat, w + 0.04, h + 0.1, 0.02, 0, 0.01, -0.025);
   g.add(grp);
 }
 

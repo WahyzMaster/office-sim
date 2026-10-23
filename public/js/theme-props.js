@@ -24,7 +24,7 @@ export function buildPalaceProps(g, board) {
   // 집현전 (dev): 학사 서안 3조 + 한지 두루마리 화면
   for (const x of [-2.5, 0, 2.5]) {
     lowTable(g, tm.hanokDark, tm.vermilion, x, -6.6, 2.0, 0.9, 0.68);
-    scrollScreen(g, tm.gold, M.screens.code, x, 0.74, -6.85, 0);
+    scrollScreen(g, tm.gold, M.screens.code, x, 0.74, -6.85, 0, 0.95, 0.58, tm.scrollBack);
   }
 
   // 군기시 (server): 병기·화포 가대 + 봉수대 화로 불꽃(leds)
@@ -42,7 +42,7 @@ export function buildPalaceProps(g, board) {
     }
   }
   lowTable(g, tm.vermilion, tm.hanokDark, 8, -3.9, 1.5, 0.65, 0.68);
-  scrollScreen(g, tm.gold, M.screens.term, 8, 0.74, -4.05, 0, 0.85, 0.52);
+  scrollScreen(g, tm.gold, M.screens.term, 8, 0.74, -4.05, 0, 0.85, 0.52, tm.scrollBack);
 
   // 관상감 (research): 화강암 기단 위 회전하는 황금 혼천의(globe) + 관측 서안
   box(g, tm.granite, 1.1, 0.75, 1.1, -8, 0.03, 5);
@@ -60,7 +60,7 @@ export function buildPalaceProps(g, board) {
   g.add(globe);
   for (const z of [3.7, 6.3]) {
     lowTable(g, tm.hanokDark, tm.vermilion, -11.1, z, 0.85, 1.5, 0.68);
-    scrollScreen(g, tm.gold, M.screens.web, -11.3, 0.74, z, E);
+    scrollScreen(g, tm.gold, M.screens.web, -11.3, 0.74, z, E, 0.95, 0.58, tm.scrollBack);
   }
 
   // 빈청 (meeting): 어전 병풍 보드 + 대신 회의 탁자
@@ -69,8 +69,8 @@ export function buildPalaceProps(g, board) {
 
   // 승정원 (desk): 왕명 출납 단상 + 황금 옥새(어보) + 청사초롱 비콘
   lowTable(g, tm.vermilion, tm.gold, 9.5, 5, 1.0, 2.5, 0.72);
-  scrollScreen(g, tm.gold, M.screens.code, 9.3, 0.78, 4.35, E, 0.86, 0.52);
-  scrollScreen(g, tm.gold, M.screens.web, 9.3, 0.78, 5.65, E, 0.86, 0.52);
+  scrollScreen(g, tm.gold, M.screens.code, 9.3, 0.78, 4.35, E, 0.86, 0.52, tm.scrollBack);
+  scrollScreen(g, tm.gold, M.screens.web, 9.3, 0.78, 5.65, E, 0.86, 0.52, tm.scrollBack);
   // 황금 옥새 단상과 청사초롱 등불
   box(g, tm.vermilion, 0.85, 0.92, 0.85, 10.8, 0.03, 5);
   box(g, tm.gold, 0.42, 0.28, 0.42, 10.8, 0.95, 5);
@@ -97,7 +97,7 @@ export function buildHanokProps(g, board) {
   // 글방 (dev): 선비 서안 3조 + 한지 두루마리 모니터 + 호롱불
   for (const x of [-2.4, 0, 2.4]) {
     lowTable(g, tm.hanokWood, tm.hanokDark, x, -6.5, 1.9, 0.85, 0.62);
-    scrollScreen(g, tm.hanokDark, M.screens.code, x, 0.68, -6.75, 0);
+    scrollScreen(g, tm.hanokDark, M.screens.code, x, 0.68, -6.75, 0, 0.95, 0.58, tm.scrollBack);
     box(g, M.lamp, 0.1, 0.14, 0.1, x + 0.68, 0.68, -6.35, false);
   }
 
@@ -134,7 +134,7 @@ export function buildHanokProps(g, board) {
   g.add(globe);
   for (const z of [3.9, 6.5]) {
     lowTable(g, tm.hanokWood, tm.hanokDark, -11.4, z, 0.8, 1.4, 0.62);
-    scrollScreen(g, tm.hanokDark, M.screens.web, -11.6, 0.68, z, E);
+    scrollScreen(g, tm.hanokDark, M.screens.web, -11.6, 0.68, z, E, 0.95, 0.58, tm.scrollBack);
   }
 
   // 대청마루 (meeting): 원목 한지 현판 보드 + 대청 다과 탁자
@@ -143,8 +143,8 @@ export function buildHanokProps(g, board) {
 
   // 사랑채 (desk): 주인장 문답 다상 + 석등 비콘 + 다기 세트
   lowTable(g, tm.hanokWood, tm.hanokDark, 9.5, 5, 1.0, 2.4, 0.66);
-  scrollScreen(g, tm.hanokDark, M.screens.code, 9.3, 0.72, 4.35, E, 0.84, 0.5);
-  scrollScreen(g, tm.hanokDark, M.screens.web, 9.3, 0.72, 5.65, E, 0.84, 0.5);
+  scrollScreen(g, tm.hanokDark, M.screens.code, 9.3, 0.72, 4.35, E, 0.84, 0.5, tm.scrollBack);
+  scrollScreen(g, tm.hanokDark, M.screens.web, 9.3, 0.72, 5.65, E, 0.84, 0.5, tm.scrollBack);
   box(g, tm.graniteDark, 0.65, 0.85, 0.65, 10.8, 0.03, 5);
   const lantern = box(g, M.lamp, 0.34, 0.34, 0.34, 10.8, 0.89, 5, false);
   lantern.userData.blink = true;

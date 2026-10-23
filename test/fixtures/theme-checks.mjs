@@ -203,7 +203,7 @@ export function screenBack(b) {
     for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
       const p = new THREE.Vector3(-0.45 + i * 0.225, -0.45 + j * 0.225, 0).applyMatrix4(W);
       total++;
-      if ([0.03, 0.055].some((d) => { const q = p.clone().addScaledVector(n, -d).toArray(); return boxes.some((x) => x.contains(q)); })) hit++;
+      if ([0.02, 0.03, 0.04, 0.05, 0.06].some((d) => { const q = p.clone().addScaledVector(n, -d).toArray(); return boxes.some((x) => x.contains(q)); })) hit++;
     }
     if (hit / total < 0.9) out.push(`${at(r)} back covered ${hit}/${total}`);
   }

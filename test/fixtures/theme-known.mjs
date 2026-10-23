@@ -31,12 +31,6 @@ export const KNOWN = {
   'routeClear:office': 1, // triage: 같은 데스크 다리
   'routeClear:palace': 1, // palace-04 혼천의 받침(1.1)이 충돌 상자(1.0)보다 큼
   'routeClear:hanok': 1, // hanok-13 담금질 물통
-  // 화면 뒤판 없음
-  'screenBack:palace': 8, // xcut-08
-  'screenBack:hanok': 7,
-  'screenBack:starship': 8,
-  'screenBack:dogs': 9,
-  'screenBack:cats': 9,
   // 같은 높이 다른 재질
   'coplanar:studio': 6, // studio-06 발코니 포드 2개 x 슬래브 3겹
   'coplanar:palace': 1, // palace-02 연못 (Task 15)
