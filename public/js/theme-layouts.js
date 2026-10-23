@@ -35,13 +35,14 @@ const RING_LOUNGE_SLOTS = Object.freeze([
 export const THEME_LAYOUTS = Object.freeze({
   studio: Object.freeze({
     walkway: 'spine',
-    elevator: { x: -11.2, z: 0 },
+    // x,z = 직원이 나타나고 사라지는 곳, frameX = 엘리베이터 틀(포털) 또는 대문 문짝(gate)의 x
+    elevator: { x: -11.2, z: 0, frameX: -11.82, kind: 'portal' },
     doors: BASE_DOORS,
     slots: BASE_SLOTS,
   }),
   office: Object.freeze({
     walkway: 'spine',
-    elevator: { x: -11.2, z: 0 },
+    elevator: { x: -11.2, z: 0, frameX: -11.82, kind: 'portal' },
     doors: BASE_DOORS,
     slots: BASE_SLOTS,
   }),
@@ -49,11 +50,11 @@ export const THEME_LAYOUTS = Object.freeze({
     // 중앙 후원 연못(방지원도, x: -3.2 ~ 3.2)을 피해 남북 회랑(z = ±1.45)으로 우회 보행
     walkway: 'ring',
     obstacle: { x0: -3.4, x1: 3.4, zNorth: -1.45, zSouth: 1.45 },
-    elevator: { x: -11.8, z: 0 },
+    elevator: { x: -11.45, z: 0, frameX: -11.85, kind: 'gate' },
     doors: Object.freeze({
       ...BASE_DOORS,
-      dev:    { x: 0,     z: -2, inner: -3.1, sign: [0, 1.85, -2] },
-      lounge: { x: -11.8, z: 0,  inner: 0,    sign: [-12.1, 3.1, 0] },
+      dev:    { x: 0,      z: -2, inner: -3.1, sign: [0, 1.85, -2] },
+      lounge: { x: -11.45, z: 0,  inner: 0,    sign: [-12.1, 3.1, 0] },
     }),
     slots: Object.freeze({
       archive:  [[-10.4, -6.2, N], [-8, -6.2, N], [-5.6, -6.2, N], [-8.8, -3.2, N], [-7.2, -3.2, N]],
@@ -70,7 +71,7 @@ export const THEME_LAYOUTS = Object.freeze({
     // 중앙 안마당 화단·우물(x: -3.0 ~ 3.0)을 피해 툇마루/디딤돌 둘레길(z = ±1.4)로 보행
     walkway: 'ring',
     obstacle: { x0: -3.2, x1: 3.2, zNorth: -1.4, zSouth: 1.4 },
-    elevator: { x: -11.6, z: 0 },
+    elevator: { x: -11.6, z: 0, frameX: -11.95, kind: 'gate' },
     doors: Object.freeze({
       ...BASE_DOORS,
       research: { x: -8.4, z: 2, inner: 3.1, sign: [-8.4, 1.75, 2] },
@@ -90,10 +91,10 @@ export const THEME_LAYOUTS = Object.freeze({
     // 중앙 홀로그램 워프 코어 링(x: -2.6 ~ 2.6) 둘레의 브리지 링 통로(z = ±1.4)로 보행
     walkway: 'ring',
     obstacle: { x0: -2.8, x1: 2.8, zNorth: -1.4, zSouth: 1.4 },
-    elevator: { x: -11.8, z: 0 },
+    elevator: { x: -11.2, z: 0, frameX: -11.82, kind: 'portal' },
     doors: Object.freeze({
       ...BASE_DOORS,
-      lounge: { x: -11.8, z: 0, inner: 0, sign: [-12.1, 3.0, 0] },
+      lounge: { x: -11.2, z: 0, inner: 0, sign: [-12.1, 3.0, 0] },
     }),
     slots: Object.freeze({
       archive:  [[-10.2, -6.1, N], [-8, -6.1, N], [-5.8, -6.1, N], [-8.8, -3.1, N], [-7.2, -3.1, N]],
@@ -109,10 +110,10 @@ export const THEME_LAYOUTS = Object.freeze({
     // 중앙 강아지 발바닥 분수대·어질리티 링(x: -2.6 ~ 2.6) 둘레의 잔디 산책로(z = ±1.4)로 보행
     walkway: 'ring',
     obstacle: { x0: -2.8, x1: 2.8, zNorth: -1.4, zSouth: 1.4 },
-    elevator: { x: -11.4, z: 0 },
+    elevator: { x: -10.8, z: 0, frameX: -11.42, kind: 'portal' },
     doors: Object.freeze({
       ...BASE_DOORS,
-      lounge: { x: -11.4, z: 0, inner: 0, sign: [-11.8, 3.0, 0] },
+      lounge: { x: -10.8, z: 0, inner: 0, sign: [-11.8, 3.0, 0] },
     }),
     slots: Object.freeze({
       archive:  [[-10.4, -6.2, N], [-8, -6.2, N], [-5.6, -6.2, N], [-8.8, -3.1, N], [-7.2, -3.1, N]],
@@ -128,10 +129,10 @@ export const THEME_LAYOUTS = Object.freeze({
     // 중앙 대형 캣타워·실타래 분수(x: -2.5 ~ 2.5) 둘레의 벨벳 캣워크(z = ±1.4)로 보행
     walkway: 'ring',
     obstacle: { x0: -2.7, x1: 2.7, zNorth: -1.4, zSouth: 1.4 },
-    elevator: { x: -11.4, z: 0 },
+    elevator: { x: -10.8, z: 0, frameX: -11.42, kind: 'portal' },
     doors: Object.freeze({
       ...BASE_DOORS,
-      lounge: { x: -11.4, z: 0, inner: 0, sign: [-11.8, 3.0, 0] },
+      lounge: { x: -10.8, z: 0, inner: 0, sign: [-11.8, 3.0, 0] },
     }),
     slots: Object.freeze({
       archive:  [[-10.2, -6.2, N], [-8, -6.2, N], [-5.8, -6.2, N], [-8.8, -3.1, N], [-7.2, -3.1, N]],
@@ -150,6 +151,16 @@ export function layoutOf(theme) {
 }
 
 const OBSTACLE_CACHE = new Map();
+
+// 연구실 구체 충돌 상자: 돌아가는 구체·고리(반지름 R, 높이 y)와 걷는 직원 머리(반지름 0.31, 높이 1.44) 사이가
+// R + 0.31 이상 떨어지도록 테마마다 잡는다 (test/fixtures/theme-checks.mjs 의 globe 검사).
+const RESEARCH_GLOBE = Object.freeze({
+  studio: { x0: -8.9, x1: -7.1, z0: 4.1, z1: 5.9 },
+  office: { x0: -8.9, x1: -7.1, z0: 4.1, z1: 5.9 },
+  palace: { x0: -9.05, x1: -6.95, z0: 3.95, z1: 6.05 },
+  hanok: { x0: -9.35, x1: -7.45, z0: 4.35, z1: 6.25 },
+  default: { x0: -8.5, x1: -7.5, z0: 4.5, z1: 5.5 },
+});
 
 // 방 벽체·칸막이·중정 구조물·책상·서버랙·글로브·소파의 2D AABB 충돌 박스 목록을 반환한다.
 export function obstaclesOf(theme = 'studio') {
@@ -188,9 +199,7 @@ export function obstaclesOf(theme = 'studio') {
     { x0: 4.6, x1: 11.4, z0: -7.8, z1: -6.28, tag: 'server-racks' },
     { x0: 7.25, x1: 8.75, z0: -4.23, z1: -3.57, tag: 'server-desk' },
     // research 가구 (중앙 구체 기단 + 서쪽 벽 연구 테이블)
-    key === 'hanok'
-      ? { x0: -8.9, x1: -7.9, z0: 4.8, z1: 5.8, tag: 'research-globe' }
-      : { x0: -8.5, x1: -7.5, z0: 4.5, z1: 5.5, tag: 'research-globe' },
+    { ...(RESEARCH_GLOBE[key] || RESEARCH_GLOBE.default), tag: 'research-globe' },
     key === 'hanok'
       ? { x0: -11.8, x1: -11.0, z0: 3.2, z1: 7.2, tag: 'research-desks' }
       : { x0: -11.6, x1: -10.65, z0: 2.7, z1: 7.3, tag: 'research-desks' },

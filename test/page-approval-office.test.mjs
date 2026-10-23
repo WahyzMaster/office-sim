@@ -380,3 +380,21 @@ test('buildBrandFlair and Office.refreshLabels: remodels character costumes, pet
   assert.ok(a.soundT > 0);
   assert.deepEqual(lastBubble(a), ['say', petRes.text]);
 });
+
+// 라운지 자리에 앉아 있던 직원이 퇴근할 때: 그 자리에서 사라지지 말고 엘리베이터까지 걸어간다.
+// (엘리베이터 문은 다가갈 때 Agent.update 가 연다. 자리에서 바로 사라지면 먼 엘리베이터 문만 혼자 열린다.)
+test('Agent.start: leaving from a lounge seat walks to the elevator instead of vanishing at the seat', async () => {
+  const { ELEVATOR } = await import('../public/js/rooms.js');
+  const { office, a } = setup('leaver');
+  let opened = 0;
+  a.floor = { ...FLOOR, openElevator() { opened++; } };
+  a.room = 'lounge';
+  a.slot = 2;
+  a.dispose = () => {};
+  let walked = null;
+  a.walkTo = function walkTo(room, x, z) { walked = [room, x, z]; this.path = [{ x, z }]; };
+  a.start({ kind: 'leave', room: 'lounge' });
+  assert.ok(office.agents.has('leaver'), 'still on the floor while walking out');
+  assert.deepEqual(walked, ['lounge', ELEVATOR.x, ELEVATOR.z]);
+  assert.equal(opened, 0, 'no door opens while the agent is still at its seat');
+});

@@ -1,0 +1,176 @@
+// 스타십·퍼피 파크·캣 살롱 건물 외형: 비직사각형 선체·잔디·고양이 얼굴 바닥, 중앙 장식, 출입문.
+import * as THREE from 'three';
+import { ROOMS, FLOOR_W, FLOOR_D } from './rooms.js';
+import { box } from './scene.js';
+import { mats } from './furniture.js';
+import { themeMats, cyl, pineTree, buildElevatorDoors, buildCorridorRails, RAIL_STYLES, CYL48, CYL32, DIAMOND4 } from './theme-kit.js';
+import { layoutOf } from './theme-layouts.js';
+import { catOutline } from './theme-geometry.js';
+
+const CYL = new THREE.CylinderGeometry(1, 1, 1, 16);
+const HEX = new THREE.CylinderGeometry(1, 1, 1, 6);
+const OCT = new THREE.CylinderGeometry(1, 1, 1, 8);
+const TORUS = new THREE.TorusGeometry(1, 0.06, 8, 24);
+const ICOSA = new THREE.IcosahedronGeometry(1, 0);
+
+// 캣 살롱 바닥: catOutline 한 장을 밀어낸다(도형 y -> 월드 z, 깊이 -> 아래쪽). 바닥 윗면 0.04, 테두리 턱은 0.3 넓게 0..-0.44.
+const shapeOf = (pts) => new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, z)));
+const CAT_FLOOR = new THREE.ExtrudeGeometry(shapeOf(catOutline(0)), { depth: 0.04, bevelEnabled: false }).rotateX(Math.PI / 2).translate(0, 0.04, 0);
+const CAT_RIM = new THREE.ExtrudeGeometry(shapeOf(catOutline(0.3)), { depth: 0.44, bevelEnabled: false }).rotateX(Math.PI / 2);
+
+// 5. SF 스타십: 팔각형 브리지 데크 + 좌우 육각 윙 포드 + 후방 플라즈마 추진기 + 중앙 홀로그램 워프 링
+export function buildStarshipGround(g) {
+  const M = mats();
+  const tm = themeMats();
+  // 비직사각형 우주선 선체: 중앙 팔각 브리지 + 좌우 4개 육각 윙 포드
+  cyl(g, tm.hull, 11.2, 8.6, 0.52, 0, -0.52, 0, OCT, Math.PI / 8);
+  for (const [wx, wz] of [[-8.2, -4.8], [8.2, -4.8], [-8.2, 4.8], [8.2, 4.8]]) {
+    cyl(g, tm.hull, 4.9, 4.4, 0.48, wx, -0.5, wz, HEX);
+    cyl(g, tm.hullDeck, 4.6, 4.1, 0.04, wx, 0, wz, HEX);
+  }
+  cyl(g, tm.hullDeck, 10.7, 8.2, 0.03, 0, 0, 0, OCT, Math.PI / 8);
+  // 동·서 갱웨이: 팔각 선체의 평평한 옆면(x +-10.35) 밖에 있는 엘리베이터·출입 지점·라운지 벤치를 받친다
+  for (const sx of [-1, 1]) {
+    box(g, tm.hull, 3.04, 0.48, 5.2, sx * 10.92, -0.5, 0);
+    box(g, tm.hullDeck, 2.7, 0.04, 4.8, sx * 10.85, 0, 0);
+  }
+  for (const [k, r] of Object.entries(ROOMS)) {
+    if (k === 'lounge') continue;
+    const cz = r.side === 'top' ? -5 : 5;
+    box(g, M.rug[k], r.x1 - r.x0 - 1.6, 0.03, 4.4, (r.x0 + r.x1) / 2, 0.02, cz, false);
+  }
+  // 후방 플라즈마 추진기 노즐 3기 (북쪽 외벽 바깥으로 돌출)
+  for (const tx of [-5.5, 0, 5.5]) {
+    const nozzle = new THREE.Mesh(CYL, tm.hullTrim);
+    nozzle.scale.set(0.65, 0.9, 0.65);
+    nozzle.rotation.x = Math.PI / 2;
+    nozzle.position.set(tx, -0.1, -8.55);
+    const glow = new THREE.Mesh(CYL, tm.plasmaCyan);
+    glow.scale.set(0.48, 0.2, 0.48);
+    glow.rotation.x = Math.PI / 2;
+    glow.position.set(tx, -0.1, -9.0);
+    g.add(nozzle, glow);
+  }
+  // 에너지 실드 격벽 칸막이
+  for (const x of [-4, 4]) {
+    box(g, tm.hullTrim, 0.18, 1.25, 0.24, x, 0, -2.2);
+    box(g, tm.hullTrim, 0.18, 1.25, 0.24, x, 0, 2.2);
+    box(g, tm.forceField, 0.06, 1.05, 5.2, x, 0.05, -5, false);
+    box(g, tm.forceField, 0.06, 1.05, 5.2, x, 0.05, 5, false);
+  }
+  // 브리지 중앙 워프 코어 (x: 0, z: 0): 바닥 원판과 빛나는 고리는 밟고 지나가는 납작한 상감(윗면 0.08 이하),
+  // 서 있는 기둥은 corridor-center 충돌 상자(|z| <= 0.92) 안에만 둔다 -> 고리 보행 띠(|z| 1.4 +- 0.375)와 겹치지 않는다
+  cyl(g, tm.hull, 2.2, 2.2, 0.02, 0, 0.03, 0);
+  for (const [r, mat] of [[1.65, tm.plasmaCyan], [1.1, tm.plasmaViolet]]) {
+    const inlay = new THREE.Mesh(TORUS, mat);
+    inlay.scale.set(r, r, 0.3);
+    inlay.rotation.x = Math.PI / 2;
+    inlay.position.y = 0.06;
+    g.add(inlay);
+  }
+  cyl(g, tm.hullTrim, 0.85, 0.85, 0.3, 0, 0, 0, OCT);
+  cyl(g, tm.plasmaCyan, 0.26, 0.26, 2.1, 0, 0.3, 0);
+  for (const y of [0.85, 1.4, 1.95]) {
+    const band = new THREE.Mesh(TORUS, tm.plasmaViolet);
+    band.scale.set(0.46, 0.46, 0.9);
+    band.rotation.x = Math.PI / 2;
+    band.position.y = y;
+    g.add(band);
+  }
+  cyl(g, tm.hullTrim, 0.5, 0.5, 0.12, 0, 2.4, 0, OCT);
+  const core = new THREE.Mesh(ICOSA, tm.plasmaCyan);
+  core.scale.setScalar(0.3);
+  core.position.set(0, 2.72, 0);
+  g.add(core);
+  buildCorridorRails(g, 'starship', RAIL_STYLES.starship);
+  // 좌측 블라스트 에어락/터보리프트 포털
+  return buildElevatorDoors(g, tm.hullTrim, tm.plasmaCyan, layoutOf('starship').elevator.frameX, 0);
+}
+
+// 6. 퍼피 파크(dogs): 대형 뼈다귀 모양 잔디 공원 + 나무 피켓 펜스 + 중앙 강아지 발바닥 분수대·어질리티 후프
+export function buildDogsGround(g) {
+  const M = mats();
+  const tm = themeMats();
+  // 비직사각형 뼈다귀(Bone) 실루엣 잔디 파크: 중앙 잔디판 + 네 모서리 원형 마디 광장
+  // 가운데 잔디판은 북쪽 울타리(z -7.64)까지 덮도록 z +-7.8 로 넓힌다 -> 장·랙이 잔디 끝에 걸치지 않는다
+  box(g, tm.lawnDark, FLOOR_W - 2.4, 0.44, FLOOR_D - 0.4, 0, -0.44, 0);
+  box(g, tm.lawn, FLOOR_W - 2.6, 0.04, FLOOR_D - 0.6, 0, 0, 0, false);
+  for (const [bx, bz] of [[-10.2, -5.8], [10.2, -5.8], [-10.2, 5.8], [10.2, 5.8]]) {
+    cyl(g, tm.lawnDark, 3.6, 3.3, 0.44, bx, -0.44, bz);
+    cyl(g, tm.lawn, 3.45, 3.15, 0.04, bx, 0, bz);
+  }
+  // 서쪽 출입 잔디판: 뼈다귀 가운데 판(x -10.8) 밖으로 나간 엘리베이터 틀·문짝을 받친다
+  box(g, tm.lawnDark, 1.15, 0.44, 3.0, -11.075, -0.44, 0);
+  box(g, tm.lawn, 1.0, 0.035, 2.8, -11.1, 0, 0, false);
+  for (const [k, r] of Object.entries(ROOMS)) {
+    if (k === 'lounge') continue;
+    const cz = r.side === 'top' ? -5 : 5;
+    cyl(g, M.rug[k], 3.1, 2.3, 0.03, (r.x0 + r.x1) / 2, 0.02, cz);
+  }
+  // 나무 피켓 펜스 울타리
+  for (let x = -10.5; x <= 10.5; x += 1.5) {
+    box(g, tm.fenceWood, 0.16, 0.95, 0.08, x, 0, -7.64); // 장·랙 뒤로 지나간다
+  }
+  box(g, tm.fenceWood, 21.5, 0.1, 0.08, 0, 0.65, -7.64);
+  box(g, tm.fenceWood, 21.5, 0.1, 0.08, 0, 0.32, -7.64);
+  for (const x of [-4, 4]) {
+    // 방 사이 칸막이는 충돌 상자(div-*, |z| 2..8) 길이만큼 (|z| 2.0..7.6)
+    box(g, tm.fenceWood, 0.14, 0.72, 5.6, x, 0, -4.8);
+    box(g, tm.fenceWood, 0.14, 0.72, 5.6, x, 0, 4.8);
+  }
+  // 중앙 강아지 발바닥 분수대 + 어질리티 점프 링 (x: 0, z: 0)
+  // 돌 테두리와 잔디 원판은 밟고 지나가는 높이(윗면 0.048/0.052), 발바닥·후프만 가운데에 선다
+  cyl(g, tm.granite, 2.3, 2.1, 0.03, 0, 0.018, 0);
+  cyl(g, M.leaf, 2.0, 1.8, 0.02, 0, 0.032, 0);
+  cyl(g, tm.fenceWood, 0.68, 0.55, 0.14, 0, 0.05, 0.25);
+  for (const [px, pz] of [[-0.68, -0.35], [-0.24, -0.62], [0.24, -0.62], [0.68, -0.35]]) {
+    cyl(g, tm.fenceWood, 0.26, 0.26, 0.14, px, 0.05, pz);
+  }
+  const hoop = new THREE.Mesh(TORUS, tm.agilityYellow);
+  hoop.scale.setScalar(0.58);
+  hoop.position.set(0, 0.74, 0.25);
+  g.add(hoop);
+  buildCorridorRails(g, 'dogs', RAIL_STYLES.dogs);
+  pineTree(g, tm, -11.2, -6.2, 0.95);
+  pineTree(g, tm, 11.2, -6.2, 0.95);
+  return buildElevatorDoors(g, tm.fenceWood, tm.agilityBlue, layoutOf('dogs').elevator.frameX, 0);
+}
+
+// 7. 캣 타워 살롱(cats): 고양이 얼굴·귀 실루엣 벨벳 라운지 + 좌우 삼각 고양이 귀 썬룸 + 중앙 3단 캣타워
+export function buildCatsGround(g) {
+  const M = mats();
+  const tm = themeMats();
+  // 고양이 얼굴 모양 플로어: 둥근 볼 + 좌·우 북쪽 삼각 고양이 귀 썬룸 돌출부
+  const rim = new THREE.Mesh(CAT_RIM, tm.roseGold);
+  rim.receiveShadow = true;
+  const floor = new THREE.Mesh(CAT_FLOOR, tm.velvetCream);
+  floor.receiveShadow = true;
+  g.add(rim, floor);
+  // 귀 안쪽 분홍 마름모(바닥 위 0.009, 그림자 없음)
+  for (const sx of [-1, 1]) cyl(g, tm.plushPink, 2.6, 2.6, 0.004, sx * 7.8, 0.045, -6.3, DIAMOND4, sx * 0.12, false);
+  for (const [k, r] of Object.entries(ROOMS)) {
+    if (k === 'lounge') continue;
+    const cz = r.side === 'top' ? -5 : 5;
+    cyl(g, M.rug[k], 3.0, 2.2, 0.03, (r.x0 + r.x1) / 2, 0.03, cz, CYL32, 0, false);
+  }
+  // 로즈골드 아치 파티션: 충돌 상자(div-*) 길이만큼, 사이잘 기둥은 복도 난간과 만나는 곳(z +-2)
+  for (const x of [-4, 4]) {
+    cyl(g, tm.sisal, 0.16, 0.16, 1.35, x, 0, -2.0);
+    cyl(g, tm.sisal, 0.16, 0.16, 1.35, x, 0, 2.0);
+    box(g, tm.roseGold, 0.1, 0.85, 4.9, x, 0, -4.45);
+    box(g, tm.roseGold, 0.1, 0.85, 5.3, x, 0, 4.65);
+  }
+  buildCorridorRails(g, 'cats', RAIL_STYLES.cats);
+  // 중앙 3단 럭셔리 캣타워 & 황금 실타래 (x: 0, z: 0)
+  // 받침은 동서로 긴 납작한 타원(|z| <= 0.9), 기둥·방석은 corridor-center 상자 안 -> 고리 보행 띠와 겹치지 않는다
+  cyl(g, tm.roseGold, 2.3, 0.9, 0.06, 0, 0, 0, CYL48);
+  for (const [px, pz, h] of [[-0.9, -0.2, 0.9], [0.9, -0.2, 1.35], [0, 0.25, 1.8]]) {
+    cyl(g, tm.sisal, 0.16, 0.16, h, px, 0.06, pz);
+    cyl(g, tm.plushPink, 0.62, 0.62, 0.1, px, 0.06 + h, pz);
+  }
+  const yarn = new THREE.Mesh(ICOSA, tm.gold);
+  yarn.scale.setScalar(0.32);
+  yarn.position.set(0, 2.2, 0.25);
+  g.add(yarn);
+  return buildElevatorDoors(g, tm.roseGold, tm.plushPink, layoutOf('cats').elevator.frameX, 0);
+}

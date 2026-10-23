@@ -247,7 +247,7 @@ export class Agent {
     if (it.activity) this.activity = it.activity;
     this.refreshTag();
     const room = it.room;
-    if (!room || room === 'here' || (room === this.room && this.slot !== -1 && !(it.prefer >= 0 && it.prefer !== this.slot))) {
+    if (!room || room === 'here' || (it.kind !== 'leave' && room === this.room && this.slot !== -1 && !(it.prefer >= 0 && it.prefer !== this.slot))) {
       it.arrived = true;
       this.onArrive(it);
     } else if (it.kind === 'leave') this.walkTo('lounge', ELEVATOR.x, ELEVATOR.z, -Math.PI / 2);
@@ -319,6 +319,7 @@ export class Agent {
         this.bubble('info', it.text, 3);
         break;
       case 'leave':
+        this.floor.openElevator?.();
         this.office.removeAgent(this);
         return;
       default:
@@ -441,6 +442,8 @@ export class Agent {
     const hadManeuver = !!this.maneuver;
     const nav = stepAgentPath(this, dt, speed, activeThemeOf());
     if (nav.moving) {
+      const pos = this.group.position; // 퇴근 길에 엘리베이터 가까이 오면 문을 연다
+      if (this.current?.kind === 'leave' && Math.hypot(pos.x - ELEVATOR.x, pos.z - ELEVATOR.z) < 2.5) this.floor.openElevator?.();
       if (nav.soundTrigger && !this.makeSound(nav.soundTrigger)) this.refreshTag();
       else if (hadManeuver && !this.maneuver) this.refreshTag();
       if (nav.heading !== null) this.turnTo(nav.heading, dt);
