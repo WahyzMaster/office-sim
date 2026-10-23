@@ -8,8 +8,6 @@
 [![Node >=22](https://img.shields.io/badge/Node.js-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-10b981?style=flat-square)](#quick-start)
 [![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=flat-square)](LICENSE)
-[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub_Sponsors-ea4aaa?style=flat-square&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/WahyzMaster)
-[![Polar.sh](https://img.shields.io/badge/Sponsor-Polar.sh-0062ff?style=flat-square)](https://polar.sh/WahyzMaster)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-wahyzdad-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/wahyzdad)
 
 **English** | [한국어 문서 (Korean README)](README.ko.md) | [Live Interactive Demo](https://wahyzmaster.github.io/office-sim/?lang=en#demo) | [HD Demo Video (MP4)](docs/assets/demo-hero.mp4)
@@ -161,21 +159,13 @@ Once installed, invoke `/office`, `/office demo`, `/office auth`, `/office statu
 
 ## Support & Sponsorship
 
-If you find **Office Sim** useful or enjoyable in your daily AI coding workflow, you can support its continued development through any of the channels below:
+If you find **Office Sim** useful or enjoyable in your daily AI coding workflow, you can support its continued development via Buy Me a Coffee:
 
-<a href="https://github.com/sponsors/WahyzMaster" target="_blank" rel="noopener noreferrer">
-  <img src="https://img.shields.io/badge/GitHub_Sponsors-WahyzMaster-ea4aaa?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="GitHub Sponsors - WahyzMaster" />
-</a>
-<a href="https://polar.sh/WahyzMaster" target="_blank" rel="noopener noreferrer">
-  <img src="https://img.shields.io/badge/Polar.sh-WahyzMaster-0062ff?style=for-the-badge" alt="Polar.sh - WahyzMaster" />
-</a>
 <a href="https://www.buymeacoffee.com/wahyzdad" target="_blank" rel="noopener noreferrer">
   <img src="https://img.shields.io/badge/Buy_Me_a_Coffee-Support_wahyzdad-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee - wahyzdad" />
 </a>
 
-- **GitHub Sponsors** (zero platform fees, corporate GitHub billing): [https://github.com/sponsors/WahyzMaster](https://github.com/sponsors/WahyzMaster)
-- **Polar.sh** (VAT/tax invoices & team sponsor tiers): [https://polar.sh/WahyzMaster](https://polar.sh/WahyzMaster)
-- **Buy Me a Coffee** (quick one-time coffee): [https://www.buymeacoffee.com/wahyzdad](https://www.buymeacoffee.com/wahyzdad)
+- **Buy Me a Coffee**: [https://www.buymeacoffee.com/wahyzdad](https://www.buymeacoffee.com/wahyzdad)
 
 ## License
 
