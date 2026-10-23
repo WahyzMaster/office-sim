@@ -3,19 +3,19 @@
 <p><strong>Claude Code, OpenAI Codex, xAI Grok, Google Antigravity 세션을 실시간으로 시각화하는 무의존성 3D 멀티 에이전트 오피스</strong></p>
 
 [![CI](https://github.com/WahyzMaster/office-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/WahyzMaster/office-sim/actions/workflows/ci.yml)
-[![Live 3D Demo](https://img.shields.io/badge/Live_3D_Demo-GitHub_Pages-38bdf8?style=flat-square&logo=three.js&logoColor=white)](https://wahyzmaster.github.io/office-sim/#demo)
+[![Live 3D Demo](https://img.shields.io/badge/Live_3D_Demo-GitHub_Pages-38bdf8?style=flat-square&logo=three.js&logoColor=white)](https://wahyzmaster.github.io/office-sim/?lang=ko#demo)
 [![Node >=22](https://img.shields.io/badge/Node.js-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-10b981?style=flat-square)](#빠른-시작)
 [![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=flat-square)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-wahyzdad-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/wahyzdad)
 
-[English README](README.md) | **한국어** | [실시간 3D 웹 데모 열기](https://wahyzmaster.github.io/office-sim/#demo) | [고화질 데모 영상 (MP4)](docs/assets/demo-hero.mp4)
+[English README](README.md) | **한국어** | [실시간 3D 웹 데모 열기](https://wahyzmaster.github.io/office-sim/?lang=ko#demo) | [고화질 데모 영상 (MP4)](docs/assets/ko/demo-hero.mp4)
 
-<a href="https://wahyzmaster.github.io/office-sim/#demo">
-  <img src="docs/assets/demo-hero.gif" alt="Office Sim 3D 멀티 에이전트 시각화 데모" width="100%" />
+<a href="https://wahyzmaster.github.io/office-sim/?lang=ko#demo">
+  <img src="docs/assets/ko/demo-hero.gif" alt="Office Sim 3D 멀티 에이전트 시각화 데모" width="100%" />
 </a>
 
-*위 프리뷰를 클릭하면 설치 없이 브라우저에서 [실시간 인터랙티브 3D 데모](https://wahyzmaster.github.io/office-sim/#demo)를 바로 체험할 수 있으며, [720p H.264 데모 영상 (`docs/assets/demo-hero.mp4`)](docs/assets/demo-hero.mp4)도 직접 확인할 수 있습니다.*
+*위 프리뷰를 클릭하면 설치 없이 브라우저에서 [실시간 인터랙티브 3D 데모](https://wahyzmaster.github.io/office-sim/?lang=ko#demo)를 바로 체험할 수 있으며, [720p H.264 데모 영상 (`docs/assets/ko/demo-hero.mp4`)](docs/assets/ko/demo-hero.mp4)도 직접 확인할 수 있습니다.*
 
 </div>
 
@@ -38,19 +38,19 @@ npm start
 ```
 
 - **실시간 로컬 세션 감시**: 브라우저에서 `http://127.0.0.1:4317`을 열면 현재 실행 중인 로컬 에이전트 세션이 실시간으로 표시됩니다.
-- **무설치 데모 모드**: `http://127.0.0.1:4317/#demo` 또는 [GitHub Pages 라이브 데모](https://wahyzmaster.github.io/office-sim/#demo)를 열면 로컬 세션 없이도 네 종류 에이전트가 여러 층에서 협업하는 데모 시나리오를 체험할 수 있습니다.
+- **무설치 데모 모드**: `http://127.0.0.1:4317/?lang=ko#demo` 또는 [GitHub Pages 라이브 데모](https://wahyzmaster.github.io/office-sim/?lang=ko#demo)를 열면 로컬 세션 없이도 네 종류 에이전트가 여러 층에서 협업하는 데모 시나리오를 체험할 수 있습니다.
 
 ## 테마 및 화면 갤러리
 
 | 퍼피 파크 (`dogs`) | 캣 타워 살롱 (`cats`) |
 | :---: | :---: |
-| <img src="docs/assets/theme-dogs.png" alt="퍼피 파크 테마와 8종 3D 강아지 캐릭터" width="100%" /> | <img src="docs/assets/theme-cats.png" alt="캣 타워 살롱 테마와 6종 3D 고양이 캐릭터" width="100%" /> |
+| <img src="docs/assets/ko/theme-dogs.png" alt="퍼피 파크 테마와 8종 3D 강아지 캐릭터" width="100%" /> | <img src="docs/assets/ko/theme-cats.png" alt="캣 타워 살롱 테마와 6종 3D 고양이 캐릭터" width="100%" /> |
 | **뼈다귀 모양 잔디 마당, 발바닥 분수대, 어질리티 링과 8종 3D 강아지 품종** (골든·래브라도 리트리버, 진돗개 백구·흑구·네눈박이, 보더 콜리, 웰시 코기, 시바견) | **고양이 귀 썬룸, 3단 캣타워, 벨벳 라운지와 6종 3D 고양이 품종** (사바나·아세라, 벵갈, 브리티시·러시안 블루, 샤미즈, 랙돌, 스코티시 폴드) |
 | **조선 궁궐 (`palace` - 밤 조명 모드)** | **다층 프로젝트 오버뷰 (`starship` & `hanok`)** |
-| <img src="docs/assets/theme-palace-night.png" alt="조선 궁궐 테마 밤 조명 모드" width="100%" /> | <img src="docs/assets/theme-hanok-starship.png" alt="SF 스타십과 전통 한옥 다층 오버뷰" width="100%" /> |
+| <img src="docs/assets/ko/theme-palace-night.png" alt="조선 궁궐 테마 밤 조명 모드" width="100%" /> | <img src="docs/assets/ko/theme-hanok-starship.png" alt="SF 스타십과 전통 한옥 다층 오버뷰" width="100%" /> |
 | **장대석 흰 돌 기단, 경회루 연못 회랑과 은은한 청사초롱 야간 조명** (`밤` 조명 모드) | **프로젝트별 다층 구조** (2층 SF 스타십 팔각 선체·워프 코어 & 1층 전통 한옥 ㄱ·ㄷ자 마당) |
 | **AI 스튜디오 (`studio`)** | **19종 3D 캐릭터 도감 및 LLM별 맞춤 배정** |
-| <img src="docs/assets/theme-studio.png" alt="AI 스튜디오 테마와 실시간 말풍선" width="100%" /> | <img src="docs/assets/legend-catalog.png" alt="스크롤 가능한 19종 3D 캐릭터 범례와 에이전트 상세 창" width="100%" /> |
+| <img src="docs/assets/ko/theme-studio.png" alt="AI 스튜디오 테마와 실시간 말풍선" width="100%" /> | <img src="docs/assets/ko/legend-catalog.png" alt="스크롤 가능한 19종 3D 캐릭터 범례와 에이전트 상세 창" width="100%" /> |
 | **실시간 도구 말풍선, 3D 화이트보드 체크리스트, 리뷰·승인 인터콤 부스**가 갖춰진 모던 AI 스튜디오 | **전체 19종 3D 캐릭터·반려동물 모형과 6종 LLM별 배정 현황**을 스크롤하며 볼 수 있는 범례 패널 |
 
 ## 핵심 기능 및 7축 독립 커스터마이징

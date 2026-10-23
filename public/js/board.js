@@ -1,6 +1,7 @@
 // 회의실 화이트보드. 계획(할 일 목록)을 손글씨로 그린다.
 import * as THREE from 'three';
 import { glowing } from './scene.js';
+import { tr } from './rooms.js';
 
 const W = 1024;
 const H = 488;
@@ -61,9 +62,9 @@ export class Board {
     if (!this.items.length) {
       g.fillStyle = '#8f9aa5';
       g.font = pen(60);
-      g.fillText('아직 세운 계획이 없어요', 56, 130);
+      g.fillText(tr('아직 세운 계획이 없어요', 'No active plan yet'), 56, 130);
       g.font = pen(42);
-      g.fillText('계획을 세우면 여기에 적어 둘게요', 56, 196);
+      g.fillText(tr('계획을 세우면 여기에 적어 둘게요', 'Task checklists will appear here'), 56, 196);
       this.tex.needsUpdate = true;
       return;
     }
@@ -127,7 +128,7 @@ export class Board {
     if (this.items.length > max) {
       g.font = pen(40);
       g.fillStyle = INK.done;
-      g.fillText(`+ ${this.items.length - max}개 더`, 112, y - 6);
+      g.fillText(tr(`+ ${this.items.length - max}개 더`, `+ ${this.items.length - max} more`), 112, y - 6);
     }
     this.tex.needsUpdate = true;
   }

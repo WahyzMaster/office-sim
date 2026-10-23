@@ -4,7 +4,22 @@
 // - LiveSource: 로컬 서버의 GET /events (SSE) 와 POST /config. SSE 의 observe 메시지는 onObserve 로 넘긴다
 //   (기록 관찰 패널, observe-panel.js 가 POST /observe 를 보낸다).
 
+import { tr } from './rooms.js';
+
 const STATUS = ['pending', 'in_progress', 'completed'];
+const L = (ko, en) => ({ ko, en });
+const pick = (v) => (v && typeof v === 'object' && !Array.isArray(v) && 'ko' in v ? tr(v.ko, v.en) : v);
+function localizeEvent(ev) {
+  const out = { ...ev };
+  if (out.title) out.title = pick(out.title);
+  if (out.text) out.text = pick(out.text);
+  if (out.summary) out.summary = pick(out.summary);
+  if (out.question) out.question = pick(out.question);
+  if (out.error) out.error = pick(out.error);
+  if (Array.isArray(out.options)) out.options = out.options.map(pick);
+  if (Array.isArray(out.items)) out.items = out.items.map((it) => ({ ...it, content: pick(it.content) }));
+  return out;
+}
 
 // 에이전트마다 질문 도구와 서브에이전트를 띄우는 도구의 실제 이름. async: 띄우자마자 ok 로 끝난다(Grok, R28).
 const AGENT_TOOLS = {
@@ -42,80 +57,80 @@ function roomHint(agent, tool, summary) {
 
 const SCENARIOS = [
   {
-    sessionId: 'demo-auth', project: 'web-app', title: 'OAuth 세션 가드 점검', branch: 'fix/auth-guard', start: 0.4, gap: 9,
+    sessionId: 'demo-auth', project: 'web-app', title: L('OAuth 세션 가드 점검', 'Audit OAuth Session Guard'), branch: 'fix/auth-guard', start: 0.4, gap: 9,
     steps: [
-      ['think', '세션 가드부터 보자. 기존 토큰 검증 흐름을 먼저 읽어야겠다.', 2600],
-      ['plan', [['토큰 검증 흐름 파악', 1], ['가드 테스트 작성', 0], ['세션 가드 구현', 0], ['테스트 실행', 0]]],
+      ['think', L('세션 가드부터 보자. 기존 토큰 검증 흐름을 먼저 읽어야겠다.', 'Let us inspect the session guard and trace the existing token verification flow.'), 2600],
+      ['plan', [[L('토큰 검증 흐름 파악', 'Trace token verification flow'), 1], [L('가드 테스트 작성', 'Write session guard tests'), 0], [L('세션 가드 구현', 'Enforce session guard'), 0], [L('테스트 실행', 'Run test suite'), 0]]],
       ['tool', 'Grep', '"verifyToken" src/'],
       ['tool', 'Read', 'src/auth/verifyToken.ts'],
       ['tool', 'mcp__codegraph__codegraph_callers', 'authenticateSession'],
-      ['plan', [['토큰 검증 흐름 파악', 2], ['가드 테스트 작성', 1], ['세션 가드 구현', 0], ['테스트 실행', 0]]],
+      ['plan', [[L('토큰 검증 흐름 파악', 'Trace token verification flow'), 2], [L('가드 테스트 작성', 'Write session guard tests'), 1], [L('세션 가드 구현', 'Enforce session guard'), 0], [L('테스트 실행', 'Run test suite'), 0]]],
       ['tool', 'Write', 'test/auth/sessionGuard.test.ts'],
       ['tool', 'Edit', 'src/auth/sessionGuard.ts'],
       ['tool', 'Bash', 'npm test -- sessionGuard', { dur: 3.2, fail: 'Exit code 1 · expected 403, received 200' }],
       ['think', null, 1600],
-      ['think', '개발 모드 플래그에서 가드가 우회되고 있다. 환경 분기를 고치자.', 2400],
+      ['think', L('개발 모드 플래그에서 가드가 우회되고 있다. 환경 분기를 고치자.', 'The dev-mode flag is bypassing the guard. Let us fix the environment branch.'), 2400],
       ['tool', 'Edit', 'src/auth/sessionGuard.ts'],
       ['tool', 'Bash', 'npm test -- sessionGuard', { dur: 3 }],
-      ['plan', [['토큰 검증 흐름 파악', 2], ['가드 테스트 작성', 2], ['세션 가드 구현', 2], ['테스트 실행', 2]]],
-      ['ask', '테스트 통과. 바로 머지할까요, PR을 열까요?', ['PR 열기', '바로 머지'], 6],
+      ['plan', [[L('토큰 검증 흐름 파악', 'Trace token verification flow'), 2], [L('가드 테스트 작성', 'Write session guard tests'), 2], [L('세션 가드 구현', 'Enforce session guard'), 2], [L('테스트 실행', 'Run test suite'), 2]]],
+      ['ask', L('테스트 통과. 바로 머지할까요, PR을 열까요?', 'Tests pass. Open a PR or merge directly?'), [L('PR 열기', 'Open PR'), L('바로 머지', 'Merge now')], 6],
       ['tool', 'Bash', 'git commit -m "fix(auth): enforce session guard"'],
-      ['say', 'PR용 커밋을 만들었어요.'],
+      ['say', L('PR용 커밋을 만들었어요.', 'Created the commit for the PR.')],
       ['end'],
     ],
   },
   {
-    sessionId: 'grok-demo-rules', agent: 'grok', project: 'web-app', title: '권한 규칙 점검', branch: 'chore/access-rules',
+    sessionId: 'grok-demo-rules', agent: 'grok', project: 'web-app', title: L('권한 규칙 점검', 'Verify Access Control Rules'), branch: 'chore/access-rules',
     start: 2.4, gap: 12,
     steps: [
-      ['think', '보안 규칙 문서부터 최신 내용을 확인하자.', 2200],
-      ['plan', [['규칙 사용처 조사', 1], ['만료 검증 추가', 0], ['규칙 테스트', 0]]],
+      ['think', L('보안 규칙 문서부터 최신 내용을 확인하자.', 'Checking the latest security rules documentation first.'), 2200],
+      ['plan', [[L('규칙 사용처 조사', 'Audit rule call sites'), 1], [L('만료 검증 추가', 'Add token expiry check'), 0], [L('규칙 테스트', 'Run rule tests'), 0]]],
       ['tool', 'mcp__context7__get-library-docs', 'security rules'],
       ['tool', 'web_search', 'web_search'],
-      ['agent', 'explore', '권한 규칙 사용처 조사', [
+      ['agent', 'explore', L('권한 규칙 사용처 조사', 'Audit access rule usage'), [
         ['tool', 'list_dir', 'rules'],
         ['tool', 'grep', 'sessions · access.rules'],
         ['tool', 'read_file', 'access.rules'],
-        ['say', '사용처 4곳을 찾았어요.'],
+        ['say', L('사용처 4곳을 찾았어요.', 'Found 4 rule call sites.')],
       ]],
-      ['tool', 'web_fetch', 'docs.example.dev', { fail: '429 · 요청 한도 초과' }],
-      ['think', '요청 한도에 걸렸다. 문서 결과만으로 정리하자.', 1800],
-      ['plan', [['규칙 사용처 조사', 2], ['만료 검증 추가', 1], ['규칙 테스트', 0]]],
+      ['tool', 'web_fetch', 'docs.example.dev', { fail: L('429 · 요청 한도 초과', '429 · Rate limit exceeded') }],
+      ['think', L('요청 한도에 걸렸다. 문서 결과만으로 정리하자.', 'Hit rate limit. Proceeding with the cached docs.'), 1800],
+      ['plan', [[L('규칙 사용처 조사', 'Audit rule call sites'), 2], [L('만료 검증 추가', 'Add token expiry check'), 1], [L('규칙 테스트', 'Run rule tests'), 0]]],
       ['tool', 'read_file', 'access.rules'],
       ['tool', 'search_replace', 'access.rules'],
       // 승인 대기 둘: 테스트는 리뷰·승인 부스에서 허용을 받고 서버실로 돌아가 돌리고, 배포는 부스에서 거절된다.
       ['tool', 'run_terminal_command', 'npm test', { approval: 14, dur: 2.4 }],
-      ['plan', [['규칙 사용처 조사', 2], ['만료 검증 추가', 2], ['규칙 테스트', 2]]],
+      ['plan', [[L('규칙 사용처 조사', 'Audit rule call sites'), 2], [L('만료 검증 추가', 'Add token expiry check'), 2], [L('규칙 테스트', 'Run rule tests'), 2]]],
       ['tool', 'run_terminal_command', 'deploy', { approval: 16, deny: true }],
-      ['say', '규칙 세 곳에 만료 검증을 추가했어요. 배포는 승인받지 못했어요.'],
+      ['say', L('규칙 세 곳에 만료 검증을 추가했어요. 배포는 승인받지 못했어요.', 'Added expiry checks to 3 rules. Deployment was denied.')],
       ['end'],
     ],
   },
   {
-    sessionId: 'codex-demo-push', agent: 'codex', project: 'web-app', title: '웹훅 재시도 큐', branch: 'fix/webhook-retry',
+    sessionId: 'codex-demo-push', agent: 'codex', project: 'web-app', title: L('웹훅 재시도 큐', 'Webhook Retry Backoff Queue'), branch: 'fix/webhook-retry',
     start: 1.6, gap: 11,
     steps: [
-      ['think', '실패한 웹훅이 다시 나가지 않는다. 발송 큐부터 보자.', 2000],
-      ['plan', [['발송 큐 흐름 파악', 1], ['재시도 백오프 추가', 0], ['테스트 실행', 0]]],
+      ['think', L('실패한 웹훅이 다시 나가지 않는다. 발송 큐부터 보자.', 'Failed webhooks are not retrying. Inspecting the dispatch queue.'), 2000],
+      ['plan', [[L('발송 큐 흐름 파악', 'Inspect dispatch queue'), 1], [L('재시도 백오프 추가', 'Add exponential backoff'), 0], [L('테스트 실행', 'Run retry tests'), 0]]],
       ['tool', 'exec_command', 'rg'],
       ['tool', 'exec_command', 'sed'],
       ['tool', 'apply_patch', 'sendWebhook.ts (+1)'],
       ['tool', 'exec_command', 'npm test', { dur: 3, fail: 'Exit code 1' }],
-      ['think', '백오프 상한이 빠져 있다. 재시도 정책을 따로 두자.', 1600],
+      ['think', L('백오프 상한이 빠져 있다. 재시도 정책을 따로 두자.', 'Max backoff cap is missing. Extracting retryPolicy.ts.'), 1600],
       ['tool', 'apply_patch', 'retryPolicy.ts'],
       ['tool', 'exec_command', 'npm test', { dur: 2.8 }],
-      ['plan', [['발송 큐 흐름 파악', 2], ['재시도 백오프 추가', 2], ['테스트 실행', 2]]],
-      ['ask', '재시도 상한을 몇 번으로 둘까요?', ['5회', '3회'], 6],
+      ['plan', [[L('발송 큐 흐름 파악', 'Inspect dispatch queue'), 2], [L('재시도 백오프 추가', 'Add exponential backoff'), 2], [L('테스트 실행', 'Run retry tests'), 2]]],
+      ['ask', L('재시도 상한을 몇 번으로 둘까요?', 'What max retry cap should we set?'), [L('5회', '5 retries'), L('3회', '3 retries')], 6],
       ['tool', 'exec_command', 'git status'],
-      ['say', '재시도 백오프를 넣고 테스트를 통과시켰어요.'],
+      ['say', L('재시도 백오프를 넣고 테스트를 통과시켰어요.', 'Added exponential backoff and all tests pass.')],
       ['end'],
     ],
   },
   {
-    sessionId: 'antigravity-demo-scan', agent: 'antigravity', project: 'web-app', title: '온보딩 모달 UI 정리',
+    sessionId: 'antigravity-demo-scan', agent: 'antigravity', project: 'web-app', title: L('온보딩 모달 UI 정리', 'Polish Onboarding Modal UI'),
     branch: 'ui/onboarding-modal', start: 3.0, gap: 13,
     steps: [
-      ['think', '온보딩 화면의 단축키 안내부터 확인하자.', 2400],
+      ['think', L('온보딩 화면의 단축키 안내부터 확인하자.', 'Checking keyboard shortcut hints in the onboarding modal.'), 2400],
       ['tool', 'list_dir', 'onboarding'],
       ['tool', 'grep_search', 'ShortcutGuide · onboarding'],
       ['tool', 'read_file', 'OnboardingModal.tsx'],
@@ -126,41 +141,41 @@ const SCENARIOS = [
       ['tool', 'run_command', 'npm run lint', { dur: 2.2 }],
       ['tool', 'schedule', 'schedule', { dur: 4 }],
       ['tool', 'run_command', 'npm test', { dur: 3 }],
-      ['ask', '안내 문구를 두 줄로 줄일까요?', ['두 줄로', '그대로'], 6],
-      ['say', '단축키 안내 문구와 레이아웃을 정리했어요.'],
+      ['ask', L('안내 문구를 두 줄로 줄일까요?', 'Should we condense the hint copy to two lines?'), [L('두 줄로', 'Two lines'), L('그대로', 'Keep as-is')], 6],
+      ['say', L('단축키 안내 문구와 레이아웃을 정리했어요.', 'Polished the shortcut guide copy and modal layout.')],
       ['end'],
     ],
   },
   {
-    sessionId: 'demo-score', project: 'api-server', title: '검색 랭킹 리팩터링', branch: 'refactor/ranking', start: 1.2, gap: 10,
+    sessionId: 'demo-score', project: 'api-server', title: L('검색 랭킹 리팩터링', 'Refactor Search Ranking Score'), branch: 'refactor/ranking', start: 1.2, gap: 10,
     steps: [
-      ['plan', [['점수 계산 위치 찾기', 1], ['계산 로직 통합', 0], ['타입 검사와 테스트', 0]]],
-      ['agent', 'Explore', '점수 계산 사용처 조사', [
+      ['plan', [[L('점수 계산 위치 찾기', 'Locate score calculation sites'), 1], [L('계산 로직 통합', 'Unify scoring module'), 0], [L('타입 검사와 테스트', 'Typecheck and run tests'), 0]]],
+      ['agent', 'Explore', L('점수 계산 사용처 조사', 'Find calcScore call sites'), [
         ['tool', 'Glob', 'src/**/score*.ts'],
         ['tool', 'Grep', '"calcScore" src/'],
-        ['say', '계산하는 곳 3곳을 찾았어요.'],
+        ['say', L('계산하는 곳 3곳을 찾았어요.', 'Found 3 scoring locations.')],
       ]],
       ['tool', 'Read', 'src/search/score.ts'],
       ['tool', 'Read', 'src/search/rank.ts'],
-      ['think', '점수 계산이 세 군데에 중복돼 있다. 하나로 모으자.', 2200],
-      ['plan', [['점수 계산 위치 찾기', 2], ['계산 로직 통합', 1], ['타입 검사와 테스트', 0]]],
+      ['think', L('점수 계산이 세 군데에 중복돼 있다. 하나로 모으자.', 'Score logic is duplicated across three files. Consolidating into scoring.ts.'), 2200],
+      ['plan', [[L('점수 계산 위치 찾기', 'Locate score calculation sites'), 2], [L('계산 로직 통합', 'Unify scoring module'), 1], [L('타입 검사와 테스트', 'Typecheck and run tests'), 0]]],
       ['tool', 'Write', 'src/search/scoring.ts'],
       ['tool', 'Edit', 'src/search/score.ts'],
       ['tool', 'Edit', 'src/search/rank.ts'],
       ['tool', 'Bash', 'npm run typecheck', { dur: 2.6 }],
       ['tool', 'Bash', 'npm test', { dur: 3 }],
-      ['plan', [['점수 계산 위치 찾기', 2], ['계산 로직 통합', 2], ['타입 검사와 테스트', 2]]],
+      ['plan', [[L('점수 계산 위치 찾기', 'Locate score calculation sites'), 2], [L('계산 로직 통합', 'Unify scoring module'), 2], [L('타입 검사와 테스트', 'Typecheck and run tests'), 2]]],
       ['end'],
     ],
   },
   {
-    sessionId: 'demo-hero', project: 'docs-site', title: '문서 히어로 카피 수정', branch: 'copy/hero', start: 3.6, gap: 14,
+    sessionId: 'demo-hero', project: 'docs-site', title: L('문서 히어로 카피 수정', 'Update Docs Hero Copy'), branch: 'copy/hero', start: 3.6, gap: 14,
     steps: [
       ['tool', 'WebFetch', 'brand guide'],
       ['tool', 'Read', 'content/hero.md'],
       ['think', null, 1400],
       ['tool', 'Edit', 'content/hero.md'],
-      ['ask', '헤드라인 후보 두 개 중 어느 쪽으로 갈까요?', ['A: 더 빠르게', 'B: 더 가볍게'], 7],
+      ['ask', L('헤드라인 후보 두 개 중 어느 쪽으로 갈까요?', 'Which hero headline option do you prefer?'), [L('A: 더 빠르게', 'A: Faster setup'), L('B: 더 가볍게', 'B: Zero deps')], 7],
       ['tool', 'Edit', 'content/hero.md'],
       ['tool', 'Bash', 'git status'],
       ['end'],
@@ -225,7 +240,8 @@ export class MockSource {
         t += dur + 0.5;
       } else if (kind === 'ask') {
         const id = this.id();
-        const room = roomHint(agent, tools.ask, step[1]);
+        const qText = pick(step[1]);
+        const room = roomHint(agent, tools.ask, qText);
         out.push([t, { type: 'tool_start', sessionId: sid, toolUseId: id, tool: tools.ask, summary: step[1], question: step[1], options: step[2], ...(room ? { room } : {}) }]);
         t += step[3];
         out.push([t, { type: 'tool_end', sessionId: sid, toolUseId: id, ok: true }]);
@@ -237,8 +253,8 @@ export class MockSource {
         // Claude 는 서브에이전트가 끝날 때 Agent 가 끝나고, Grok 은 띄우자마자 끝난다(async). 요약은 서버처럼 종류.
         const id = this.id();
         const subId = `${sid}-sub-${id.slice(-4)}`;
-        const summary = agent === 'claude-code' ? `${step[1]} · ${step[2]}` : step[1];
-        const room = roomHint(agent, tools.spawn, summary);
+        const summary = agent === 'claude-code' ? L(`${step[1]} · ${pick(step[2])}`, `${step[1]} · ${step[2]?.en || pick(step[2])}`) : step[1];
+        const room = roomHint(agent, tools.spawn, pick(summary));
         out.push([t, { type: 'tool_start', sessionId: sid, toolUseId: id, tool: tools.spawn, summary, ...(room ? { room } : {}) }]);
         out.push([t + 0.4, { type: 'session', sessionId: subId, agent, project, title: step[2], agentType: step[1], isSubagent: true, parentSessionId: sid }]);
         const sub = this.compile(step[3], subId, project, t + 1.4, agent);
@@ -256,6 +272,15 @@ export class MockSource {
       }
     }
     return { events: out, end: t };
+  }
+
+  setLang() {
+    const ts = new Date().toISOString();
+    for (const s of this.scn) {
+      if (this.t >= s.start) {
+        this.emit({ ts, replay: true, type: 'session', sessionId: s.sessionId, agent: s.agent, project: s.project, title: pick(s.title), branch: s.branch });
+      }
+    }
   }
 
   // simDt: 재생 속도가 반영된 시간, realDt: 실제 시간. 버퍼는 tail 간격마다 한 번에 비운다(서버 폴링 흉내).
@@ -276,7 +301,7 @@ export class MockSource {
     const batch = this.buffer;
     this.buffer = [];
     const ts = new Date().toISOString();
-    for (const ev of batch) this.emit({ ts, ...ev });
+    for (const ev of batch) this.emit({ ts, ...localizeEvent(ev) });
     this.onBatch?.(batch.length);
   }
 }

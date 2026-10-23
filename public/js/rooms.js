@@ -121,6 +121,8 @@ export const activeCharThemeOf = () => activeCharTheme;
 export const setCharTheme = (k) => { activeCharTheme = charThemeOf(k); return activeCharTheme; };
 
 export const langOf = (l) => (l === 'en' ? 'en' : 'ko');
+export const activeLangOf = () => activeLang;
+export const tr = (ko, en, lang = activeLang) => (lang === 'en' ? en : ko);
 export const postureModeOf = (m) => (POSTURE_MODES.includes(m) ? m : DEFAULT_POSTURE_MODE);
 export const activePostureOf = () => activePostureMode;
 export const setPostureMode = (m) => { activePostureMode = postureModeOf(m); return activePostureMode; };

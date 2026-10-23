@@ -3,19 +3,19 @@
 <p><strong>Real-time 3D multi-agent office visualizer for Claude Code, OpenAI Codex, xAI Grok, and Google Antigravity</strong></p>
 
 [![CI](https://github.com/WahyzMaster/office-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/WahyzMaster/office-sim/actions/workflows/ci.yml)
-[![Live 3D Demo](https://img.shields.io/badge/Live_3D_Demo-GitHub_Pages-38bdf8?style=flat-square&logo=three.js&logoColor=white)](https://wahyzmaster.github.io/office-sim/#demo)
+[![Live 3D Demo](https://img.shields.io/badge/Live_3D_Demo-GitHub_Pages-38bdf8?style=flat-square&logo=three.js&logoColor=white)](https://wahyzmaster.github.io/office-sim/?lang=en#demo)
 [![Node >=22](https://img.shields.io/badge/Node.js-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-10b981?style=flat-square)](#quick-start)
 [![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=flat-square)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-wahyzdad-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/wahyzdad)
 
-**English** | [한국어 문서 (Korean README)](README.ko.md) | [Live Interactive Demo](https://wahyzmaster.github.io/office-sim/#demo) | [HD Demo Video (MP4)](docs/assets/demo-hero.mp4)
+**English** | [한국어 문서 (Korean README)](README.ko.md) | [Live Interactive Demo](https://wahyzmaster.github.io/office-sim/?lang=en#demo) | [HD Demo Video (MP4)](docs/assets/demo-hero.mp4)
 
-<a href="https://wahyzmaster.github.io/office-sim/#demo">
+<a href="https://wahyzmaster.github.io/office-sim/?lang=en#demo">
   <img src="docs/assets/demo-hero.gif" alt="Office Sim 3D Multi-Agent Visualizer Demo" width="100%" />
 </a>
 
-*Click the preview above to launch the [Live Interactive 3D Demo](https://wahyzmaster.github.io/office-sim/#demo) in your browser, or view the [720p H.264 Demo Video (`docs/assets/demo-hero.mp4`)](docs/assets/demo-hero.mp4).*
+*Click the preview above to launch the [Live Interactive 3D Demo](https://wahyzmaster.github.io/office-sim/?lang=en#demo) in your browser, or view the [720p H.264 Demo Video (`docs/assets/demo-hero.mp4`)](docs/assets/demo-hero.mp4).*
 
 </div>
 
@@ -38,7 +38,7 @@ npm start
 ```
 
 - **Live Local Sessions**: Open `http://127.0.0.1:4317` in your browser to watch your active local agent sessions.
-- **Self-Contained Demo Mode**: Open `http://127.0.0.1:4317/#demo` (or try the hosted [GitHub Pages Demo](https://wahyzmaster.github.io/office-sim/#demo)) to watch a multi-agent simulation across multiple floors with zero setup.
+- **Self-Contained Demo Mode**: Open `http://127.0.0.1:4317/?lang=en#demo` (or try the hosted [GitHub Pages Demo](https://wahyzmaster.github.io/office-sim/?lang=en#demo)) to watch a multi-agent simulation across multiple floors with zero setup.
 
 ## Visual Showcase
 

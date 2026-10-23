@@ -85,7 +85,8 @@ export class Hud {
     this.colorTheme = setColorTheme(p.colorTheme);
     this.llmFilter = setLlmFilter(p.llmFilter);
     this.soundOn = setSoundEnabled(p.soundOn !== false && this.voiceMode !== 'mute');
-    this.lang = langOf(p.lang ?? detectLang());
+    const urlLang = new URLSearchParams(globalThis.location?.search || '').get('lang');
+    this.lang = langOf(urlLang ?? p.lang ?? detectLang());
     this.controlPreset = controlPresetOf(p.controlPreset);
     this.pings = new Map();
     this.keys = new Set();
@@ -231,7 +232,7 @@ export class Hud {
     });
     el.resetCastBtn?.addEventListener('click', () => { this.llmCharMap = resetLlmCharMap(); prefs.llmCharMap = this.llmCharMap; refreshCast(); });
     el.soundBtn?.addEventListener('click', () => { this.soundOn = setSoundEnabled(!this.soundOn); syncSoundBtn(); prefs.soundOn = this.soundOn; save(); });
-    el.langBtn?.addEventListener('click', () => { applyThemeAndLang(this.roomTheme, this.lang === 'ko' ? 'en' : 'ko'); prefs.lang = this.lang; save(); });
+    el.langBtn?.addEventListener('click', () => { applyThemeAndLang(this.roomTheme, this.lang === 'ko' ? 'en' : 'ko'); getSource()?.setLang?.(this.lang); prefs.lang = this.lang; save(); });
     el.preset?.addEventListener('change', () => { applyPreset(el.preset.value); prefs.controlPreset = this.controlPreset; save(); });
 
     const narrow = window.matchMedia('(max-width: 720px)').matches;

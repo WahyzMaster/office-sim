@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Floor, FLOOR_GAP, EXPLODE_GAP } from './floor.js';
 import { Agent } from './agent.js';
-import { ROOMS, activeThemeOf, classify, toolLabel } from './rooms.js';
+import { ROOMS, activeThemeOf, classify, toolLabel, tr } from './rooms.js';
 import { separateAgents } from './placement.js';
 import { Inbox } from './office-inbox.js';
 import { floorDetail, labelRootIndex } from './detail.js';
@@ -80,12 +80,12 @@ export class Office {
     let kind = '';
     switch (ev.type) {
       case 'session':
-        line = a.isSub ? `${a.agentType} 투입 · ${a.name}` : `출근 · ${a.floor.label}`;
+        line = a.isSub ? `${a.agentType} ${tr('투입', 'spawned')} · ${a.name}` : `${tr('출근', 'Arrived')} · ${a.floor.label}`;
         kind = 'session';
         break;
       case 'prompt':
-        a.push({ kind: 'note', text: '새 요청 받음' });
-        line = `요청 · ${ev.text || ''}`;
+        a.push({ kind: 'note', text: tr('새 요청 받음', 'New request') });
+        line = `${tr('요청', 'Prompt')} · ${ev.text || ''}`;
         kind = 'prompt';
         break;
       case 'tool_start':
@@ -97,7 +97,7 @@ export class Office {
         forgetText(this.toolTexts, a.id, ev.toolUseId);
         if (!ev.ok && ev.errorKind !== 'abandoned') {
           const soft = ev.errorKind === 'denied' || ev.errorKind === 'interrupted';
-          line = `${{ denied: '거절', interrupted: '중단' }[ev.errorKind] || '실패'} · ${ev.error || ''}`;
+          line = `${{ denied: tr('거절', 'Denied'), interrupted: tr('중단', 'Interrupted') }[ev.errorKind] || tr('실패', 'Failed')} · ${ev.error || ''}`;
           kind = soft ? 'denied' : 'error';
         }
         break;
@@ -109,7 +109,7 @@ export class Office {
         break;
       case 'thinking':
         a.push({ kind: 'think', text: ev.text || null, ttl: clamp((ev.durationMs || 2000) / 1000, 1.8, 6) });
-        line = `생각 · ${ev.text || '요약 없음'}`;
+        line = `${tr('생각', 'Think')} · ${ev.text || tr('요약 없음', 'No summary')}`;
         kind = 'think';
         break;
       case 'say':
@@ -121,8 +121,8 @@ export class Office {
         kind = 'plan';
         break;
       case 'turn_end':
-        a.push({ kind: 'idle', room: 'lounge', activity: '대기 중' });
-        line = '턴 종료';
+        a.push({ kind: 'idle', room: 'lounge', activity: tr('대기 중', 'Idle') });
+        line = tr('턴 종료', 'Turn ended');
         kind = 'muted';
         break;
       case 'session_end':
@@ -130,21 +130,21 @@ export class Office {
         a.abandonPending();
         forgetTexts(this.toolTexts, a.id);
         a.leave();
-        line = a.isSub ? '보고 끝, 복귀' : '퇴근';
+        line = a.isSub ? tr('보고 끝, 복귀', 'Subagent done') : tr('퇴근', 'Left office');
         kind = 'muted';
         break;
       case 'system':
         if (ev.kind === 'api_error') {
-          a.push({ kind: 'error', text: ev.text || 'API 오류' });
-          line = `API 오류 · ${ev.text || ''}`;
+          a.push({ kind: 'error', text: ev.text || tr('API 오류', 'API error') });
+          line = `${tr('API 오류', 'API error')} · ${ev.text || ''}`;
           kind = 'error';
         } else if (ev.kind === 'compact') {
-          a.push({ kind: 'note', text: '기억 정리 중…' });
-          line = '컨텍스트 압축';
+          a.push({ kind: 'note', text: tr('기억 정리 중…', 'Compacting context…') });
+          line = tr('컨텍스트 압축', 'Context compacted');
           kind = 'muted';
         } else if (ev.kind === 'refusal') {
-          a.push({ kind: 'error', text: ev.text || '응답 거절됨', errorKind: 'denied' });
-          line = `응답 거절 · ${ev.text || ''}`;
+          a.push({ kind: 'error', text: ev.text || tr('응답 거절됨', 'Refused'), errorKind: 'denied' });
+          line = `${tr('응답 거절', 'Refused')} · ${ev.text || ''}`;
           kind = 'denied';
         }
         break;
@@ -255,14 +255,14 @@ export class Office {
     // awaitsApproval: 사람이 권한 창에 답할 때까지 기다린 호출 (재생 모드만 미리 안다, CONTRACT 7). 내 자리에서 기다린다.
     const approval = !!ev.awaitsApproval && room !== 'desk';
     if (room === 'desk' || approval) {
-      const question = approval ? `승인 대기 · ${`${label} ${summary}`.trim()}` : ev.question || ev.summary || '확인이 필요해요';
+      const question = approval ? `${tr('승인 대기', 'Awaiting approval')} · ${`${label} ${summary}`.trim()}` : ev.question || ev.summary || tr('확인이 필요해요', 'Input needed');
       const it = {
-        kind: 'ask', approval, room: 'desk', prefer: 0, question, options: approval ? ['허용', '거절'] : ev.options || [],
-        ids: [ev.toolUseId], open: 1, ts: ev.ts, activity: approval ? '승인 받으러 가는 중' : '질문하러 가는 중',
+        kind: 'ask', approval, room: 'desk', prefer: 0, question, options: approval ? [tr('허용', 'Allow'), tr('거절', 'Deny')] : ev.options || [],
+        ids: [ev.toolUseId], open: 1, ts: ev.ts, activity: approval ? tr('승인 받으러 가는 중', 'Heading for approval') : tr('질문하러 가는 중', 'Heading to ask'),
       };
       a.pending.set(ev.toolUseId, it);
       a.push(it);
-      return approval ? question : `질문 · ${question}`;
+      return approval ? question : `${tr('질문', 'Ask')} · ${question}`;
     }
     const it = { kind: 'tool', room, ids: [ev.toolUseId], open: 1, activity: `${label} ${summary}`.trim() };
     a.pending.set(ev.toolUseId, it);
@@ -277,11 +277,11 @@ export class Office {
     const board = a.floor.board;
     if (board.sameContent(a.id, items)) {
       board.set(a.id, a.name, items, a.ink);
-      a.bubble('info', `계획 ${done}/${items.length}`, 2);
+      a.bubble('info', `${tr('계획', 'Plan')} ${done}/${items.length}`, 2);
     } else {
-      a.push({ kind: 'plan', room: 'meeting', prefer: 0, items, activity: '화이트보드에 계획 쓰는 중' });
+      a.push({ kind: 'plan', room: 'meeting', prefer: 0, items, activity: tr('화이트보드에 계획 쓰는 중', 'Writing plan on board') });
     }
-    return `계획 ${done}/${items.length}`;
+    return `${tr('계획', 'Plan')} ${done}/${items.length}`;
   }
 
   writePlan(a, items) { a.floor.board.set(a.id, a.name, items, a.ink); }
@@ -364,9 +364,13 @@ export class Office {
     for (const f of this.floors) {
       if (themeChanged) f.rebuildTheme?.(theme);
       else f.refreshSigns?.();
+      f.board?.draw?.();
     }
-    if (themeChanged || postureChanged) {
-      for (const a of this.agents.values()) a.refreshTheme?.(this.theme);
+    for (const a of this.agents.values()) {
+      if (a.activity === '출근' || a.activity === 'Arrived') a.activity = tr('출근', 'Arrived');
+      else if (a.activity === '대기 중' || a.activity === 'Idle') a.activity = tr('대기 중', 'Idle');
+      if (themeChanged || postureChanged) a.refreshTheme?.(this.theme);
+      else a.refreshTag?.();
     }
   }
 

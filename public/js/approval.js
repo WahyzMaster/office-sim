@@ -1,5 +1,6 @@
 // 라이브 권한 대기(P5g, tool_wait)를 직원 할 일(intent)로 바꾸는 규칙. three.js 를 쓰지 않는 순수 함수라 node 에서 바로 돌려 볼 수 있다.
 // 질문 모양은 재생 모드 awaitsApproval(office.js toolStart)과 같고, live 와 돌아갈 방(resume)만 더 들고 있다.
+import { tr } from './rooms.js';
 
 // 라이브 질문을 닫는 이벤트는 새 요청과 턴 끝뿐이다. 권한 창이 열린 동안 오는 생각, 말, 형제 도구는 질문을 닫지 않는다.
 const LIVE_ASK_OVER = new Set(['prompt', 'turn_end']);
@@ -35,10 +36,10 @@ export function waitStart(a, ev, entry) {
   if (!orig || orig.kind === 'ask' || orig.open <= 0) return null;
   orig.open -= 1;
   const text = entry?.text ?? orig.label ?? orig.activity ?? '';
-  const question = `승인 대기 · ${text}`;
+  const question = `${tr('승인 대기', 'Awaiting approval')} · ${text}`;
   const ask = {
-    kind: 'ask', approval: true, room: 'desk', prefer: 0, question, options: ['허용', '거절'],
-    ids: [id], open: 1, ts: ev.ts, activity: '승인 받으러 가는 중',
+    kind: 'ask', approval: true, room: 'desk', prefer: 0, question, options: [tr('허용', 'Allow'), tr('거절', 'Deny')],
+    ids: [id], open: 1, ts: ev.ts, activity: tr('승인 받으러 가는 중', 'Heading for approval'),
     live: true, resume: { room: orig.room, text },
   };
   const q = orig.ids.length === 1 ? a.queue.indexOf(orig) : -1;
