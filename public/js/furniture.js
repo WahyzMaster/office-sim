@@ -14,7 +14,9 @@ const RESEARCH_PED = new THREE.CylinderGeometry(0.2, 0.3, 0.95, 12);
 const GLOBE_BALL = new THREE.IcosahedronGeometry(0.8, 2);
 const GLOBE_WIRE = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(0.84, 1));
 const MAST = new THREE.CylinderGeometry(0.04, 0.06, 1.8, 8);
-const DISH = new THREE.SphereGeometry(0.42, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2.6);
+// 접시 안테나: 구 껍질 조각을 -z 쪽에 두어(오목면이 +z) lookAt 한 방향으로 열리게 하고, 급전 막대는 z 축을 따른다
+const DISH = new THREE.SphereGeometry(0.42, 16, 8, 0, Math.PI * 2, 0, Math.PI / 3.2).rotateX(-Math.PI / 2);
+const FEED = new THREE.CylinderGeometry(0.012, 0.012, 0.56, 6).rotateX(Math.PI / 2);
 const MUG = new THREE.CylinderGeometry(0.07, 0.07, 0.16, 10);
 const BOOTH_PED = new THREE.CylinderGeometry(0.4, 0.48, 0.86, 16);
 const BOOTH_RING = new THREE.TorusGeometry(0.38, 0.026, 8, 24);
@@ -34,6 +36,7 @@ export function mats() {
     part: themed('--partition'),
     wood: themed('--wood'),
     metal: themed('--metal', { roughness: 0.45, metalness: 0.35 }),
+    metalDS: themed('--metal', { roughness: 0.45, metalness: 0.35, side: THREE.DoubleSide }), // 열린 껍질(접시)용 양면
     rack: themed('--rack', { roughness: 0.55 }),
     skin: themed('--skin'),
     user: themed('--user'),
@@ -127,7 +130,7 @@ export function buildArchive(g) {
   const rng = mulberry32(seedOf('archive'));
   const books = [];
   const palette = [0xc0533f, 0x3f6fb0, 0xd9a441, 0x4f8f5b, 0x8a5aa8, 0x2f8f8a, 0xd8d2c4];
-  for (const x of [-10.4, -8, -5.6]) {
+  for (const x of [-10.15, -8, -5.6]) { // 서쪽 서가는 북서 곡면 벽에서 비켜 둔다
     box(g, M.wood, 2.0, 2.1, 0.6, x, 0, -7.6);
     for (const y of [0.16, 0.66, 1.16, 1.62]) {
       let bx = x - 0.9;
@@ -200,14 +203,21 @@ export function buildResearch(g) {
     desk(g, -11.2, z, 0.8, 1.6);
     monitor(g, M.screens.web, -11.4, 0.79, z, E);
   }
+  // 위성 안테나: 접시 꼭짓점이 기둥 끝(mastTop)에 닿고 dir 방향으로 열린다. 급전 막대 끝에 깜빡이는 수신기.
   const mast = new THREE.Mesh(MAST, M.metal);
-  mast.position.set(-4.7, 0.9, 7.3);
-  const dish = new THREE.Mesh(DISH, M.metal);
-  dish.position.set(-4.7, 1.85, 7.3);
-  dish.rotation.set(-0.9, 0.6, 0);
-  const tip = box(g, M.lamp, 0.08, 0.08, 0.08, -4.7, 1.9, 7.3, false);
+  mast.position.set(-4.9, 0.9, 7.1);
+  const mastTop = new THREE.Vector3(-4.9, 1.8, 7.1);
+  const dir = new THREE.Vector3(0.75, 0.9, -0.75).normalize();
+  const dish = new THREE.Mesh(DISH, M.metalDS);
+  dish.position.copy(mastTop).addScaledVector(dir, 0.42);
+  dish.lookAt(dish.position.clone().add(dir));
+  const feed = new THREE.Mesh(FEED, M.metal);
+  feed.position.copy(mastTop).addScaledVector(dir, 0.33);
+  feed.lookAt(feed.position.clone().add(dir));
+  const tipAt = mastTop.clone().addScaledVector(dir, 0.6);
+  const tip = box(g, M.lamp, 0.08, 0.08, 0.08, tipAt.x, tipAt.y - 0.04, tipAt.z, false);
   tip.userData.blink = true;
-  g.add(mast, dish);
+  g.add(mast, dish, feed);
   return globe;
 }
 

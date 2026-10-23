@@ -32,8 +32,9 @@ function buildStudioGround(g) {
     cyl(g, M.slab, 1.5, 1.5, 0.5, sx * (FLOOR_W / 2 - 1.2), -0.5, sz * (FLOOR_D / 2 - 1.2));
   }
   for (const x of [-8, 8]) {
-    cyl(g, tm.studioOak, 2.6, 1.6, 0.45, x, -0.45, 7.6);
-    cyl(g, M.floor, 2.3, 1.35, 0.03, x, 0, 7.6);
+    // 발코니 포드 윗면은 슬래브(0)와 다른 높이에 둔다 -> 같은 높이면 경계에서 줄무늬가 깜빡인다
+    cyl(g, tm.studioOak, 2.6, 1.6, 0.45, x, -0.465, 7.6);
+    cyl(g, M.floor, 2.3, 1.35, 0.045, x, -0.015, 7.6);
   }
   box(g, M.floor, FLOOR_W - 0.4, 0.02, FLOOR_D - 0.4, 0, 0, 0, false);
   box(g, M.corridor, FLOOR_W - 0.4, 0.03, CORRIDOR * 2, 0, 0, 0, false);
@@ -42,9 +43,16 @@ function buildStudioGround(g) {
     const cz = r.side === 'top' ? -5 : 5;
     box(g, M.rug[k], r.x1 - r.x0 - 1.1, 0.03, 4.9, (r.x0 + r.x1) / 2, 0.01, cz, false);
   }
-  box(g, M.wall, FLOOR_W - 0.8, 2.7, 0.22, 0, 0, -FLOOR_D / 2 - 0.1);
-  for (let x = -11; x <= 11; x += 1.1) box(g, tm.studioOak, 0.12, 2.5, 0.12, x, 0.1, -FLOOR_D / 2 + 0.04);
-  box(g, M.wall, 0.22, 2.7, FLOOR_D - 0.8, -FLOOR_W / 2 - 0.1, 0, 0);
+  // 북·서 벽은 둥근 모서리(중심 (-10.8, -6.8), 슬래브 반지름 1.5) 앞에서 끝나고, 사이를 곡면 벽(현 4조각)으로 잇는다.
+  // 벽 끝은 모두 필렛 슬래브 위(반지름 1.466 < 내접 1.471)에 선다.
+  box(g, M.wall, 22.0, 2.7, 0.22, 0.2, 0, -8.1);
+  box(g, M.wall, 0.22, 2.7, 14.0, -12.1, 0, 0.2);
+  for (let i = 0; i < 4; i++) {
+    const phi = ((i + 0.5) * Math.PI) / 8;
+    const m = box(g, M.wall, 0.567, 2.7, 0.22, -10.8 - 1.275 * Math.sin(phi), 0, -6.8 - 1.275 * Math.cos(phi));
+    m.rotation.y = phi;
+  }
+  for (let x = -9.9; x <= 11.05; x += 1.1) box(g, tm.studioOak, 0.12, 2.5, 0.12, x, 0.02, -FLOOR_D / 2 + 0.04);
   buildStandardPartitions(g, tm.glassWall, tm.studioOak);
   return buildElevatorDoors(g, M.metal, M.dark, layoutOf('studio').elevator.frameX, 0);
 }

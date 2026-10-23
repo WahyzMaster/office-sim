@@ -8,7 +8,6 @@ export const KNOWN = {
   'hidden:starship': 20, // starship-03 엔진 코어 LED
   'hidden:dogs': 12, // dogs-02 줄무늬 6, dogs-03 울타리 기둥 6
   // 바닥 밖
-  'support:studio': 2, // studio-01 북·서 벽 끝이 둥근 모서리 밖
   'support:hanok': 1, // triage: hanok-11 북쪽 담이 기단 밖으로 0.12 (P2, Task 24)
   'support:starship': 4, // starship-m01 역장 끝 2, starship-10 받침 2 (Task 25)
   'support:dogs': 4, // dogs-03 장 2·랙 2 (Task 18)
@@ -27,7 +26,6 @@ export const KNOWN = {
   'routeClear:office': 1, // triage: 같은 데스크 다리
   'routeClear:hanok': 1, // hanok-13 담금질 물통
   // 같은 높이 다른 재질
-  'coplanar:studio': 6, // studio-06 발코니 포드 2개 x 슬래브 3겹
   'coplanar:palace': 1, // palace-02 연못 (Task 15)
   'coplanar:hanok': 1, // hanok-12 누각 기단
   // 다시 지을 때 새로 만드는 기하·재질
