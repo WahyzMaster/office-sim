@@ -19,17 +19,12 @@ export const KNOWN = {
   'coverage:dogs': 4, // dogs-06 칸막이 div 4 (Task 18)
   'coverage:cats': 4, // cats-03 칸막이 div 4 (Task 19)
   // 연구실 구체와 머리
-  'globe:studio': 1, // studio-04
-  'globe:office': 1, // office-02
-  'globe:palace': 1, // palace-04
-  'globe:hanok': 1, // hanok-m02
   'globe:starship': 1, // triage: unaudited
   'globe:dogs': 1, // triage: unaudited
   'globe:cats': 1, // triage: unaudited
   // 경로가 서 있는 물체에 0.24 보다 가까움
   'routeClear:studio': 1, // triage: 서버 데스크 남동 다리 0.237 (3 mm)
   'routeClear:office': 1, // triage: 같은 데스크 다리
-  'routeClear:palace': 1, // palace-04 혼천의 받침(1.1)이 충돌 상자(1.0)보다 큼
   'routeClear:hanok': 1, // hanok-13 담금질 물통
   // 같은 높이 다른 재질
   'coplanar:studio': 6, // studio-06 발코니 포드 2개 x 슬래브 3겹

@@ -152,6 +152,16 @@ export function layoutOf(theme) {
 
 const OBSTACLE_CACHE = new Map();
 
+// 연구실 구체 충돌 상자: 돌아가는 구체·고리(반지름 R, 높이 y)와 걷는 직원 머리(반지름 0.31, 높이 1.44) 사이가
+// R + 0.31 이상 떨어지도록 테마마다 잡는다 (test/fixtures/theme-checks.mjs 의 globe 검사).
+const RESEARCH_GLOBE = Object.freeze({
+  studio: { x0: -8.9, x1: -7.1, z0: 4.1, z1: 5.9 },
+  office: { x0: -8.9, x1: -7.1, z0: 4.1, z1: 5.9 },
+  palace: { x0: -9.05, x1: -6.95, z0: 3.95, z1: 6.05 },
+  hanok: { x0: -9.35, x1: -7.45, z0: 4.35, z1: 6.25 },
+  default: { x0: -8.5, x1: -7.5, z0: 4.5, z1: 5.5 },
+});
+
 // 방 벽체·칸막이·중정 구조물·책상·서버랙·글로브·소파의 2D AABB 충돌 박스 목록을 반환한다.
 export function obstaclesOf(theme = 'studio') {
   const key = THEME_LAYOUTS[theme] ? theme : 'studio';
@@ -189,9 +199,7 @@ export function obstaclesOf(theme = 'studio') {
     { x0: 4.6, x1: 11.4, z0: -7.8, z1: -6.28, tag: 'server-racks' },
     { x0: 7.25, x1: 8.75, z0: -4.23, z1: -3.57, tag: 'server-desk' },
     // research 가구 (중앙 구체 기단 + 서쪽 벽 연구 테이블)
-    key === 'hanok'
-      ? { x0: -8.9, x1: -7.9, z0: 4.8, z1: 5.8, tag: 'research-globe' }
-      : { x0: -8.5, x1: -7.5, z0: 4.5, z1: 5.5, tag: 'research-globe' },
+    { ...(RESEARCH_GLOBE[key] || RESEARCH_GLOBE.default), tag: 'research-globe' },
     key === 'hanok'
       ? { x0: -11.8, x1: -11.0, z0: 3.2, z1: 7.2, tag: 'research-desks' }
       : { x0: -11.6, x1: -10.65, z0: 2.7, z1: 7.3, tag: 'research-desks' },
