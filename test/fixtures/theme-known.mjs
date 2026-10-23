@@ -10,8 +10,8 @@ export const KNOWN = {
   // 바닥 밖
   'support:studio': 2, // studio-01 북·서 벽 끝이 둥근 모서리 밖
   'support:hanok': 1, // triage: hanok-11 북쪽 담이 기단 밖으로 0.12 (P2, Task 24)
-  'support:starship': 12, // starship-01 출입구·엘리베이터 틀·뒤판·문짝·벤치 다리 2, starship-m01 역장 끝 2, starship-10 받침 2
-  'support:dogs': 8, // dogs-01 엘리베이터 틀·뒤판·문짝, dogs-03 장 2·랙 2
+  'support:starship': 4, // starship-m01 역장 끝 2, starship-10 받침 2 (Task 25)
+  'support:dogs': 4, // dogs-03 장 2·랙 2 (Task 18)
   'support:cats': 12, // cats-01 연구실 자리 2·책상 다리 8·종, cats-02 랙 1
   // 자리 밑 바닥이 높음
   'floorTop:palace': 29, // palace-03

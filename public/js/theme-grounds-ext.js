@@ -24,6 +24,11 @@ export function buildStarshipGround(g) {
     cyl(g, tm.hullDeck, 4.6, 4.1, 0.04, wx, 0, wz, HEX);
   }
   cyl(g, tm.hullDeck, 10.7, 8.2, 0.03, 0, 0, 0, OCT, Math.PI / 8);
+  // 동·서 갱웨이: 팔각 선체의 평평한 옆면(x +-10.35) 밖에 있는 엘리베이터·출입 지점·라운지 벤치를 받친다
+  for (const sx of [-1, 1]) {
+    box(g, tm.hull, 3.04, 0.48, 5.2, sx * 10.92, -0.5, 0);
+    box(g, tm.hullDeck, 2.7, 0.04, 4.8, sx * 10.85, 0, 0);
+  }
   for (const [k, r] of Object.entries(ROOMS)) {
     if (k === 'lounge') continue;
     const cz = r.side === 'top' ? -5 : 5;
@@ -77,6 +82,9 @@ export function buildDogsGround(g) {
     cyl(g, tm.lawnDark, 3.6, 3.3, 0.44, bx, -0.44, bz);
     cyl(g, tm.lawn, 3.45, 3.15, 0.04, bx, 0, bz);
   }
+  // 서쪽 출입 잔디판: 뼈다귀 가운데 판(x -10.8) 밖으로 나간 엘리베이터 틀·문짝을 받친다
+  box(g, tm.lawnDark, 1.15, 0.44, 3.0, -11.075, -0.44, 0);
+  box(g, tm.lawn, 1.0, 0.035, 2.8, -11.1, 0, 0, false);
   for (const [k, r] of Object.entries(ROOMS)) {
     if (k === 'lounge') continue;
     const cz = r.side === 'top' ? -5 : 5;
