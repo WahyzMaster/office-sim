@@ -1,6 +1,7 @@
 // 직원 몸(three.js 메시), 테마별 의상(궁궐 관복·한옥 배자·스타십 우주복·스튜디오/오피스), 브랜드별 액세서리, 몸짓 애니메이션.
 import * as THREE from 'three';
 import { mats } from './furniture.js';
+import { animateBot, applyBotMesh } from './bot-mesh.js';
 import { animateTail, applyPetMesh, applyPostureRig } from './pet-mesh.js';
 import { computeManeuverPose } from './placement.js';
 import { activeCharThemeOf, effectivePosture, resolveAgentAppearance } from './rooms.js';
@@ -132,6 +133,7 @@ export function buildBrandFlair(agent, theme = activeCharThemeOf(), posture = un
   agent.baseRing = null;
   agent.tailPivot = null;
   agent.propeller = null;
+  agent.botOrbit = null;
 
   const resolved = resolveAgentAppearance(agent, { charTheme: theme, posture });
   const style = resolved.style;
@@ -154,6 +156,12 @@ export function buildBrandFlair(agent, theme = activeCharThemeOf(), posture = un
   if (resolved.family === 'dogs' || resolved.family === 'cats') {
     agent.flair = bg;
     applyPetMesh(agent, resolved.family, effPosture, resolved.breed);
+    applyPostureRig(agent, resolved.family, effPosture, mats().skin);
+    return;
+  }
+  if (resolved.family === 'bots') {
+    agent.flair = bg;
+    applyBotMesh(agent, resolved.family, effPosture, resolved.breed);
     applyPostureRig(agent, resolved.family, effPosture, mats().skin);
     return;
   }
@@ -359,6 +367,10 @@ export function buildAgentMesh(agent) {
 
 // 색이 바뀌면(부모가 바뀐 서브에이전트 등) 재질만 다시 칠한다.
 export function tintAgent(agent) {
+  agent.bodyMat.roughness = 0.55;
+  agent.bodyMat.metalness = 0.08;
+  agent.legsMat.roughness = 0.72;
+  agent.legsMat.metalness = 0;
   agent.bodyMat.color.setHSL(agent.hue / 360, 0.66, agent.light, THREE.SRGBColorSpace);
   agent.legsMat.color.setHSL(agent.hue / 360, 0.42, 0.26, THREE.SRGBColorSpace);
 }
@@ -471,6 +483,7 @@ export function animateAgentMesh(agent, reduced = false) {
     }
   }
   animateTail(agent, reduced);
+  animateBot(agent, reduced);
   if (!reduced && agent.propeller) {
     agent.propeller.rotation.y = t * (m?.kind === 'prop-fly' ? 52 : agent.path.length ? 18 : 7);
   }

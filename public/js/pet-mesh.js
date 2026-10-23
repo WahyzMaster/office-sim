@@ -64,6 +64,10 @@ export function applyPetMesh(agent, theme, posture = 'tetrapod', explicitBreed =
   const breedKey = explicitBreed || pickPetBreed(agent, theme);
   const spec = isDog ? (DOG_BREEDS[breedKey] || DOG_BREEDS.golden) : (CAT_BREEDS[breedKey] || CAT_BREEDS.savannah);
 
+  agent.bodyMat.roughness = 0.58;
+  agent.bodyMat.metalness = 0.05;
+  agent.legsMat.roughness = 0.68;
+  agent.legsMat.metalness = 0;
   agent.bodyMat.color.setHex(spec.body);
   agent.legsMat.color.setHex(spec.legs);
   if (!agent.petHeadMat) agent.petHeadMat = new THREE.MeshStandardMaterial({ roughness: 0.58 });
@@ -236,6 +240,7 @@ export function applyPetMesh(agent, theme, posture = 'tetrapod', explicitBreed =
 export function applyPostureRig(agent, theme, posture, skinMat) {
   const isTetra = posture === 'tetrapod';
   const isPet = theme === 'dogs' || theme === 'cats' || String(theme).startsWith('dog:') || String(theme).startsWith('cat:');
+  const isBot = theme === 'bots' || String(theme).startsWith('bot:');
   agent.posture = isTetra ? 'tetrapod' : 'bipod';
 
   if (agent.torsoMesh) {
@@ -244,7 +249,7 @@ export function applyPostureRig(agent, theme, posture, skinMat) {
     agent.torsoMesh.scale?.set(isTetra ? 0.88 : 1, isTetra ? 1.08 : 1, isTetra ? 0.84 : 1);
   }
   if (agent.collarMesh) {
-    agent.collarMesh.visible = !isPet && !isTetra;
+    agent.collarMesh.visible = !isPet && !isBot && !isTetra;
   }
   if (agent.packMesh) {
     agent.packMesh.position?.set(0, isTetra ? 0.84 : 0.78, isTetra ? -0.02 : -0.23);
@@ -263,7 +268,7 @@ export function applyPostureRig(agent, theme, posture, skinMat) {
     agent.arms[1].position?.set(isTetra ? 0.17 : 0.38, isTetra ? 0.42 : 1.02, isTetra ? 0.24 : 0);
     for (const arm of agent.arms) {
       if (arm.userData?.tip && skinMat) {
-        arm.userData.tip.material = (isPet || isTetra) ? agent.legsMat : skinMat;
+        arm.userData.tip.material = (isPet || isBot || isTetra) ? agent.legsMat : skinMat;
       }
     }
   }

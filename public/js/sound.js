@@ -4,11 +4,25 @@ import { activeCharThemeOf, activeVoiceModeOf, langOf, resolveAgentAppearance } 
 
 const DOG_ORDER = ['golden', 'labrador', 'jindo-white', 'jindo-black', 'jindo-bear', 'collie', 'corgi', 'shiba'];
 const CAT_ORDER = ['savannah', 'mainecoon', 'persian', 'bengal', 'british', 'siamese', 'ragdoll', 'fold'];
+const BOT_ORDER = ['claude-duet', 'claude-code', 'chatgpt-dot', 'codex-droid', 'grok-bot', 'agy-probe', 'agy-mech', 'mini-drone'];
 
 function hashId(s = '') {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return h;
+}
+
+export function pickBotModel(agent = {}, theme = activeCharThemeOf()) {
+  if (agent.botModel) return agent.botModel;
+  const resolved = resolveAgentAppearance(agent, { charTheme: theme });
+  if (resolved.family === 'bots' && resolved.breed) return resolved.breed;
+  const h = hashId(agent.id || '');
+  if (agent.isSub) return 'mini-drone';
+  if (agent.agent === 'claude-code') return agent.surface === 'app' ? 'claude-duet' : 'claude-code';
+  if (agent.agent === 'codex') return agent.surface === 'app' ? 'chatgpt-dot' : 'codex-droid';
+  if (agent.agent === 'grok') return 'grok-bot';
+  if (agent.agent === 'antigravity') return agent.surface === 'cli' ? 'agy-probe' : 'agy-mech';
+  return BOT_ORDER[h % BOT_ORDER.length];
 }
 
 export function pickPetBreed(agent = {}, theme = activeCharThemeOf()) {
@@ -216,6 +230,80 @@ export class CatVoice extends CharacterVoice {
   }
 }
 
+// 로봇 보이스 구현체: Claude Duet(듀엣 하모니 화음), ChatGPT Dot(구형 오브 펄스), Grok Bot(궤도 아르페지오), 드로이드 비프
+export class BotVoice extends CharacterVoice {
+  constructor(model = 'claude-code', isSub = false) {
+    super();
+    this.model = model;
+    this.small = isSub || model === 'mini-drone';
+  }
+
+  resolve(trigger) {
+    if (trigger === 'error') {
+      return { soundId: 'botError', ko: '삐비빅… 오류!', en: 'Bzzzt… Error!', duration: 0.75 };
+    }
+    if (trigger === 'hop' || trigger === 'roll') {
+      return {
+        soundId: 'servoHop',
+        ko: trigger === 'roll' ? '자이로 스핀! 삐빅!' : '부스터 점프! 삐빅!',
+        en: trigger === 'roll' ? 'Gyro roll! Bleep!' : 'Booster hop! Bleep!',
+        duration: 0.52,
+      };
+    }
+    if (this.model === 'claude-duet') {
+      return {
+        soundId: 'duet',
+        ko: trigger === 'pet' ? '띠링~ 듀엣 하모니! ♪' : '듀엣~ 띠링! ♪',
+        en: trigger === 'pet' ? 'Duet harmony! ♪' : 'Duet chime! ♪',
+        duration: 0.75,
+      };
+    }
+    if (this.model === 'chatgpt-dot') {
+      return {
+        soundId: 'dot',
+        ko: trigger === 'pet' ? '닷-펄스! 공명 완료 ●' : '닷-펄스! ●',
+        en: trigger === 'pet' ? 'Dot-pulse! Online ●' : 'Dot-pulse! ●',
+        duration: 0.68,
+      };
+    }
+    if (this.model === 'grok-bot') {
+      return {
+        soundId: 'grok',
+        ko: trigger === 'pet' ? '그록! 은하 궤도 동기화 ★' : '삐리릭! 그록 ★',
+        en: trigger === 'pet' ? 'Grok! Orbit synced ★' : 'Bleep! Grok ★',
+        duration: 0.72,
+      };
+    }
+    return {
+      soundId: 'bleep',
+      ko: trigger === 'pet' ? '삐리릭! 시스템 정상 ♪' : '삐빅! 삐리릭 ♪',
+      en: trigger === 'pet' ? 'Bleep-bloop! All green ♪' : 'Bleep! Bloop ♪',
+      duration: 0.65,
+    };
+  }
+
+  play(ctx, spec) {
+    const now = ctx.currentTime;
+    const base = this.small ? 680 : 520;
+    if (spec.soundId === 'botError') {
+      tone(ctx, 'sawtooth', 420, 140, now, 0.24, 0.09);
+      tone(ctx, 'square', 310, 110, now + 0.18, 0.26, 0.08);
+    } else if (spec.soundId === 'duet') {
+      tone(ctx, 'sine', base, base * 1.25, now, 0.24, 0.08);
+      tone(ctx, 'triangle', base * 1.5, base * 1.875, now + 0.06, 0.26, 0.07);
+    } else if (spec.soundId === 'dot') {
+      tone(ctx, 'sine', 440, 660, now, 0.16, 0.09);
+      tone(ctx, 'sine', 660, 528, now + 0.15, 0.20, 0.08);
+    } else if (spec.soundId === 'grok') {
+      tone(ctx, 'sawtooth', 360, 720, now, 0.11, 0.07);
+      tone(ctx, 'square', 540, 880, now + 0.10, 0.12, 0.06);
+    } else {
+      tone(ctx, 'square', base * 1.15, base * 1.7, now, 0.08, 0.065);
+      tone(ctx, 'triangle', base * 1.7, base * 1.35, now + 0.09, 0.10, 0.065);
+    }
+  }
+}
+
 // 인간형 테마 보이스 구현체: 궁궐·한옥(옥소리 차임), 스타십(R2 비프), 스튜디오·오피스(마림바 블립)
 export class SynthVoice extends CharacterVoice {
   constructor(theme = 'studio', isSub = false) {
@@ -261,6 +349,9 @@ export function voiceFor(agent, theme = activeCharThemeOf(), voiceMode = activeV
   }
   if (resolved.voiceKind === 'cats' || theme === 'cats') {
     return new CatVoice(resolved.breed || pickPetBreed(agent, 'cats'), !!agent?.isSub);
+  }
+  if (resolved.voiceKind === 'bots' || theme === 'bots' || String(theme).startsWith('bot:')) {
+    return new BotVoice(resolved.breed || pickBotModel(agent, 'bots'), !!agent?.isSub);
   }
   return new SynthVoice(resolved.voiceStyle || theme, !!agent?.isSub);
 }

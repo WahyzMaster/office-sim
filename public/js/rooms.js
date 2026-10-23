@@ -1,14 +1,14 @@
 // 방 배치, 자리(slot), 도구 -> 방 분류 규칙, 독립 선택 축(공간·캐릭터·LLM 매핑·보행·소리·조명).
 import { layoutOf } from './theme-layouts.js';
 import {
-  LEGEND_AGENTS, LEGEND_DOGS, LEGEND_CATS, LEGEND_HUMANS, LEGEND_CATALOG, LEGEND_SIGNALS,
+  LEGEND_AGENTS, LEGEND_DOGS, LEGEND_CATS, LEGEND_BOTS, LEGEND_HUMANS, LEGEND_CATALOG, LEGEND_SIGNALS,
   CHAR_THEMES, DEFAULT_CHAR_THEME, CHARACTER_CATALOG, LLM_SLOTS, DEFAULT_LLM_CHAR_MAP,
   VOICE_MODES, DEFAULT_VOICE_MODE, COLOR_THEMES, DEFAULT_COLOR_THEME, LLM_FILTERS, DEFAULT_LLM_FILTER,
   llmSlotOf, charSpecOf, defaultLlmCharMap, llmCharMapOf, legendCatalogFor, renderCatalogSection,
 } from './legend-data.js';
 
 export {
-  LEGEND_AGENTS, LEGEND_DOGS, LEGEND_CATS, LEGEND_HUMANS, LEGEND_CATALOG, LEGEND_SIGNALS,
+  LEGEND_AGENTS, LEGEND_DOGS, LEGEND_CATS, LEGEND_BOTS, LEGEND_HUMANS, LEGEND_CATALOG, LEGEND_SIGNALS,
   CHAR_THEMES, DEFAULT_CHAR_THEME, CHARACTER_CATALOG, LLM_SLOTS, DEFAULT_LLM_CHAR_MAP,
   VOICE_MODES, DEFAULT_VOICE_MODE, COLOR_THEMES, DEFAULT_COLOR_THEME, LLM_FILTERS, DEFAULT_LLM_FILTER,
   llmSlotOf, charSpecOf, defaultLlmCharMap, llmCharMapOf, legendCatalogFor,
@@ -191,7 +191,7 @@ export function resolveAgentAppearance(agent = {}, opts = {}) {
       ? `cat:${agent.petBreed}` : `dog:${agent.petBreed}`;
   } else if (map[slot] && map[slot] !== 'auto') {
     spec = map[slot];
-  } else if (cTheme.startsWith('dog:') || cTheme.startsWith('cat:')) {
+  } else if (cTheme.startsWith('dog:') || cTheme.startsWith('cat:') || cTheme.startsWith('bot:')) {
     spec = cTheme;
   } else {
     const pack = DEFAULT_LLM_CHAR_MAP[cTheme] || DEFAULT_LLM_CHAR_MAP.studio;
@@ -203,6 +203,7 @@ export function resolveAgentAppearance(agent = {}, opts = {}) {
   let breed = '';
   if (spec.startsWith('dog:')) { family = 'dogs'; style = 'dogs'; breed = spec.slice(4); }
   else if (spec.startsWith('cat:')) { family = 'cats'; style = 'cats'; breed = spec.slice(4); }
+  else if (spec.startsWith('bot:')) { family = 'bots'; style = 'bots'; breed = spec.slice(4); }
   else if (spec.startsWith('human:')) { family = 'human'; style = spec.slice(6) || 'studio'; }
 
   const pMode = agent.postureOverride && agent.postureOverride !== 'auto'
@@ -213,10 +214,11 @@ export function resolveAgentAppearance(agent = {}, opts = {}) {
     agent.voiceOverride && agent.voiceOverride !== 'auto'
       ? agent.voiceOverride : (opts.voiceMode ?? activeVoiceMode),
   );
-  let voiceKind = family === 'dogs' ? 'dogs' : family === 'cats' ? 'cats' : 'synth';
+  let voiceKind = family === 'dogs' ? 'dogs' : family === 'cats' ? 'cats' : family === 'bots' ? 'bots' : 'synth';
   let voiceStyle = style;
   if (vMode === 'dogs') voiceKind = 'dogs';
   else if (vMode === 'cats') voiceKind = 'cats';
+  else if (vMode === 'bots') voiceKind = 'bots';
   else if (vMode === 'chime') { voiceKind = 'synth'; voiceStyle = 'palace'; }
   else if (vMode === 'chirp') { voiceKind = 'synth'; voiceStyle = 'starship'; }
   else if (vMode === 'blip') { voiceKind = 'synth'; voiceStyle = 'studio'; }
@@ -265,12 +267,12 @@ export const UI_TEXT = Object.freeze({
     motionLabel: '모션',
     motions: Object.freeze({ auto: '자동 (캐릭터별)', jump: '점프 (폴짝)', roll: '구르기 (데구르르)', flip: '공중제비 (캣플립)', spin: '회전 (빙글)', 'prop-fly': '프로펠러 비행 (붕붕)', phase: '무중력 활공 (페이즈)' }),
     voiceLabel: '소리',
-    voices: Object.freeze({ auto: '자동 (캐릭터별)', dogs: '강아지 (멍멍)', cats: '고양이 (야옹)', chime: '국악 (옥소리)', chirp: '스타십 (비프)', blip: '스튜디오 (블립)', mute: '음소거' }),
+    voices: Object.freeze({ auto: '자동 (캐릭터별)', dogs: '강아지 (멍멍)', cats: '고양이 (야옹)', bots: '로봇 (삐리릭)', chime: '국악 (옥소리)', chirp: '스타십 (비프)', blip: '스튜디오 (블립)', mute: '음소거' }),
     colorLabel: Object.freeze({ system: '조명: 자동', light: '조명: 낮', dark: '조명: 밤' }),
     soundLabel: Object.freeze({ on: '소리 켜짐', off: '음소거' }),
     petBtn: '쓰다듬기 · 소리', controlLabel: '조작', legendBtn: '범례·배정', logBtn: '활동 기록',
     logTitle: '활동 기록', legendTitle: '범례 및 LLM 캐릭터 배정', resetCastBtn: '기본 배정 복원',
-    legendSections: Object.freeze({ rooms: '공간 · 방 안내', agents: 'LLM별 캐릭터 배정', catalog: '캐릭터 · 품종 도감 (21종)', signals: '상태 · 색깔 신호', controls: '카메라 · 단축키' }),
+    legendSections: Object.freeze({ rooms: '공간 · 방 안내', agents: 'LLM별 캐릭터 배정', catalog: '캐릭터 · 품종 도감 (29종)', signals: '상태 · 색깔 신호', controls: '카메라 · 단축키' }),
     allNo: '전체', allName: '모든 프로젝트 층 보기', globalFloor: '전역 · 미지정',
     globalTitle: '워크스페이스 경로가 지정되지 않은 전역 세션',
     askBadge: (approving, asking) => `${approving === asking ? '승인' : '질문'} ${asking}`,
@@ -302,12 +304,12 @@ export const UI_TEXT = Object.freeze({
     motionLabel: 'Motion',
     motions: Object.freeze({ auto: 'Auto (By Character)', jump: 'Jump (Vault)', roll: 'Roll (Dodge Roll)', flip: 'Flip (Somersault)', spin: 'Spin (360° Pirouette)', 'prop-fly': 'Propeller Fly (Hover)', phase: 'Zero-G Phase (Glide)' }),
     voiceLabel: 'Voice',
-    voices: Object.freeze({ auto: 'Auto (By Character)', dogs: 'Dog (Bark)', cats: 'Cat (Meow)', chime: 'Royal (Chime)', chirp: 'Starship (Chirp)', blip: 'Studio (Blip)', mute: 'Muted' }),
+    voices: Object.freeze({ auto: 'Auto (By Character)', dogs: 'Dog (Bark)', cats: 'Cat (Meow)', bots: 'Bot (Droid Bleep)', chime: 'Royal (Chime)', chirp: 'Starship (Chirp)', blip: 'Studio (Blip)', mute: 'Muted' }),
     colorLabel: Object.freeze({ system: 'Light: Auto', light: 'Light: Day', dark: 'Light: Night' }),
     soundLabel: Object.freeze({ on: 'Sound On', off: 'Muted' }),
     petBtn: 'Pet · Voice', controlLabel: 'Controls', legendBtn: 'Legend & Cast', logBtn: 'Activity Log',
     logTitle: 'Activity Log', legendTitle: 'Visual Legend & LLM Cast', resetCastBtn: 'Reset Cast',
-    legendSections: Object.freeze({ rooms: 'Rooms & Zones', agents: 'LLM Character Mapping', catalog: 'Character & Breed Catalog (21)', signals: 'Status & Color Signals', controls: 'Camera & Shortcuts' }),
+    legendSections: Object.freeze({ rooms: 'Rooms & Zones', agents: 'LLM Character Mapping', catalog: 'Character & Breed Catalog (29)', signals: 'Status & Color Signals', controls: 'Camera & Shortcuts' }),
     allNo: 'ALL', allName: 'All Project Floors', globalFloor: 'Global · Unassigned',
     globalTitle: 'Global sessions without a workspace path',
     askBadge: (approving, asking) => `${approving === asking ? 'Approve' : 'Ask'} ${asking}`,
@@ -332,6 +334,7 @@ export function legendAgentsFor(themeKey = activeCharTheme, lang = activeLang) {
   const l = langOf(lang);
   if (themeKey === 'dogs') return LEGEND_DOGS.map((d) => ({ id: d.id, spec: d.spec, swatch: d.swatch, label: d.label[l], desc: d.desc[l] }));
   if (themeKey === 'cats') return LEGEND_CATS.map((c) => ({ id: c.id, spec: c.spec, swatch: c.swatch, label: c.label[l], desc: c.desc[l] }));
+  if (themeKey === 'bots') return LEGEND_BOTS.map((b) => ({ id: b.id, spec: b.spec, swatch: b.swatch, label: b.label[l], desc: b.desc[l] }));
   const th = Object.hasOwn(ROOM_THEMES, themeKey) && themeKey !== 'dogs' && themeKey !== 'cats' ? themeKey : 'studio';
   return LEGEND_AGENTS.map((a) => ({ id: a.id, slot: a.slot, swatch: a.swatch, label: a.label[l], desc: (a.desc[th] || a.desc.studio)[l] }));
 }
