@@ -113,11 +113,12 @@ export function buildHanokProps(g, board) {
   box(g, M.dark, 0.75, 0.55, 0.42, 7.65, 0.03, -3.9); // 모루(Anvil)
   const barrel = new THREE.Mesh(CYL, tm.hanokDark);
   barrel.scale.set(0.32, 0.62, 0.32);
-  barrel.position.set(8.6, 0.34, -3.9);
+  barrel.position.set(8.38, 0.34, -3.9); // 담금질 물통은 server-desk 충돌 상자 안
   g.add(barrel);
 
   // 누각 (research): 정자 계자난간 + 천문 풍향구의(globe) + 서안
-  for (const [x, z, w, d] of [[-8.4, 8.2, 8.2, 0.12], [-12.5, 5.3, 0.12, 5.8]]) {
+  // 계자난간은 누각 마루 끝(남 z 7.85, 서 x -12.8) 위에 얹는다
+  for (const [x, z, w, d] of [[-8.5, 7.79, 8.6, 0.12], [-12.74, 5.1, 0.12, 5.5]]) {
     box(g, tm.hanokDark, w, 0.48, d, x, 0.03, z);
   }
   const ped = new THREE.Mesh(CYL, tm.hanokDark);

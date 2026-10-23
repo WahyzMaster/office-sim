@@ -24,7 +24,6 @@ export const KNOWN = {
   // 경로가 서 있는 물체에 0.24 보다 가까움
   'routeClear:studio': 1, // triage: 서버 데스크 남동 다리 0.237 (3 mm)
   'routeClear:office': 1, // triage: 같은 데스크 다리
-  'routeClear:hanok': 1, // hanok-13 담금질 물통
   // 같은 높이 다른 재질
   'coplanar:hanok': 1, // hanok-12 누각 기단
   // 다시 지을 때 새로 만드는 기하·재질

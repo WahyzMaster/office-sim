@@ -160,7 +160,8 @@ function buildHanokGround(g) {
   // 북쪽 기와 돌담과 서까래 처마 + 남서쪽 누각 정자 기둥·처마
   box(g, tm.courtyard, FLOOR_W, 2.2, 0.24, 0, 0, -FLOOR_D / 2 - 0.1);
   roofEave(g, tm.tile, tm.hanokDark, FLOOR_W + 0.8, 0.65, 1.5, 0, 2.15, -FLOOR_D / 2 - 0.1);
-  for (const [px, pz] of [[-12.6, 2.3], [-12.6, 8.3], [-4.4, 8.3]]) {
+  // 누각 기둥 4개는 처마(x -14.0..-10.8) 안 네 모서리에 선다 (예전 (-4.4, 8.3) 기둥은 처마 밖에 홀로 서 있었다)
+  for (const [px, pz] of [[-12.6, 2.3], [-11.05, 2.3], [-12.6, 8.3], [-11.05, 8.3]]) {
     cyl(g, tm.hanokDark, 0.18, 0.2, 2.35, px, 0, pz);
   }
   roofEave(g, tm.tile, tm.hanokDark, 3.2, 0.75, 6.6, -12.4, 2.3, 5.3);
