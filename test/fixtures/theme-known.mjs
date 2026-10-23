@@ -8,11 +8,9 @@ export const KNOWN = {
   // 바닥 밖
   'support:hanok': 1, // triage: hanok-11 북쪽 담이 기단 밖으로 0.12 (P2, Task 24)
   'support:starship': 4, // starship-m01 역장 끝 2, starship-10 받침 2 (Task 25)
-  'support:cats': 12, // cats-01 연구실 자리 2·책상 다리 8·종, cats-02 랙 1
   // 자리 밑 바닥이 높음
   // 고리 보행 띠
   // 보이지 않는 충돌 상자
-  'coverage:cats': 4, // cats-03 칸막이 div 4 (Task 19)
   // 연구실 구체와 머리
   'globe:starship': 1, // triage: unaudited
   'globe:dogs': 1, // triage: unaudited

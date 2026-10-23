@@ -3,15 +3,20 @@ import * as THREE from 'three';
 import { ROOMS, FLOOR_W, FLOOR_D } from './rooms.js';
 import { box } from './scene.js';
 import { mats } from './furniture.js';
-import { themeMats, cyl, pineTree, buildElevatorDoors, buildCorridorRails, RAIL_STYLES, CYL48 } from './theme-kit.js';
+import { themeMats, cyl, pineTree, buildElevatorDoors, buildCorridorRails, RAIL_STYLES, CYL48, CYL32, DIAMOND4 } from './theme-kit.js';
 import { layoutOf } from './theme-layouts.js';
+import { catOutline } from './theme-geometry.js';
 
 const CYL = new THREE.CylinderGeometry(1, 1, 1, 16);
 const HEX = new THREE.CylinderGeometry(1, 1, 1, 6);
 const OCT = new THREE.CylinderGeometry(1, 1, 1, 8);
-const CONE4 = new THREE.ConeGeometry(1, 1, 4);
 const TORUS = new THREE.TorusGeometry(1, 0.06, 8, 24);
 const ICOSA = new THREE.IcosahedronGeometry(1, 0);
+
+// 캣 살롱 바닥: catOutline 한 장을 밀어낸다(도형 y -> 월드 z, 깊이 -> 아래쪽). 바닥 윗면 0.04, 테두리 턱은 0.3 넓게 0..-0.44.
+const shapeOf = (pts) => new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, z)));
+const CAT_FLOOR = new THREE.ExtrudeGeometry(shapeOf(catOutline(0)), { depth: 0.04, bevelEnabled: false }).rotateX(Math.PI / 2).translate(0, 0.04, 0);
+const CAT_RIM = new THREE.ExtrudeGeometry(shapeOf(catOutline(0.3)), { depth: 0.44, bevelEnabled: false }).rotateX(Math.PI / 2);
 
 // 5. SF 스타십: 팔각형 브리지 데크 + 좌우 육각 윙 포드 + 후방 플라즈마 추진기 + 중앙 홀로그램 워프 링
 export function buildStarshipGround(g) {
@@ -136,24 +141,24 @@ export function buildCatsGround(g) {
   const M = mats();
   const tm = themeMats();
   // 고양이 얼굴 모양 플로어: 둥근 볼 + 좌·우 북쪽 삼각 고양이 귀 썬룸 돌출부
-  cyl(g, tm.roseGold, 12.2, 8.2, 0.44, 0, -0.44, 0.4);
-  cyl(g, tm.velvetCream, 11.9, 7.9, 0.04, 0, 0, 0.4);
-  for (const sx of [-1, 1]) {
-    cyl(g, tm.roseGold, 4.4, 4.4, 0.44, sx * 8.0, -0.44, -5.6, CONE4, sx * 0.12);
-    cyl(g, tm.velvetCream, 4.1, 4.1, 0.04, sx * 8.0, 0, -5.6, CONE4, sx * 0.12);
-    cyl(g, tm.plushPink, 2.5, 2.5, 0.03, sx * 8.0, 0.02, -5.9, CONE4, sx * 0.12);
-  }
+  const rim = new THREE.Mesh(CAT_RIM, tm.roseGold);
+  rim.receiveShadow = true;
+  const floor = new THREE.Mesh(CAT_FLOOR, tm.velvetCream);
+  floor.receiveShadow = true;
+  g.add(rim, floor);
+  // 귀 안쪽 분홍 마름모(바닥 위 0.009, 그림자 없음)
+  for (const sx of [-1, 1]) cyl(g, tm.plushPink, 2.6, 2.6, 0.004, sx * 7.8, 0.045, -6.3, DIAMOND4, sx * 0.12, false);
   for (const [k, r] of Object.entries(ROOMS)) {
     if (k === 'lounge') continue;
     const cz = r.side === 'top' ? -5 : 5;
-    cyl(g, M.rug[k], 3.0, 2.2, 0.03, (r.x0 + r.x1) / 2, 0.02, cz);
+    cyl(g, M.rug[k], 3.0, 2.2, 0.03, (r.x0 + r.x1) / 2, 0.03, cz, CYL32, 0, false);
   }
-  // 로즈골드 아치 파티션
+  // 로즈골드 아치 파티션: 충돌 상자(div-*) 길이만큼, 사이잘 기둥은 복도 난간과 만나는 곳(z +-2)
   for (const x of [-4, 4]) {
-    cyl(g, tm.sisal, 0.16, 0.16, 1.35, x, 0, -3.2);
-    cyl(g, tm.sisal, 0.16, 0.16, 1.35, x, 0, 3.2);
-    box(g, tm.roseGold, 0.1, 0.85, 4.2, x, 0, -5);
-    box(g, tm.roseGold, 0.1, 0.85, 4.2, x, 0, 5);
+    cyl(g, tm.sisal, 0.16, 0.16, 1.35, x, 0, -2.0);
+    cyl(g, tm.sisal, 0.16, 0.16, 1.35, x, 0, 2.0);
+    box(g, tm.roseGold, 0.1, 0.85, 4.9, x, 0, -4.45);
+    box(g, tm.roseGold, 0.1, 0.85, 5.3, x, 0, 4.65);
   }
   buildCorridorRails(g, 'cats', RAIL_STYLES.cats);
   // 중앙 3단 럭셔리 캣타워 & 황금 실타래 (x: 0, z: 0)

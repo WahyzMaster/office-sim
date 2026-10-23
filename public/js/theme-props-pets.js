@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { box } from './scene.js';
 import { mats } from './furniture.js';
-import { themeMats, lowTable, scrollScreen, boardFrame } from './theme-kit.js';
+import { themeMats, lowTable, scrollScreen, boardFrame, HALF_SPHERE } from './theme-kit.js';
 
 const E = Math.PI / 2;
 const CYL = new THREE.CylinderGeometry(1, 1, 1, 14);
@@ -123,10 +123,14 @@ export function buildCatsProps(g, board) {
   lowTable(g, tm.roseGold, tm.sisal, 9.5, 5, 1.0, 2.4, 0.62);
   scrollScreen(g, tm.roseGold, M.screens.code, 9.3, 0.66, 4.35, E, 0.84, 0.5);
   scrollScreen(g, tm.plushPink, M.screens.web, 9.3, 0.66, 5.65, E, 0.84, 0.5);
-  const bell = new THREE.Mesh(CYL, tm.gold);
-  bell.scale.set(0.48, 0.55, 0.48);
-  bell.position.set(10.7, 0.28, 5);
-  g.add(bell);
+  // 집사 호출 벨: 문답 다상 윗면(0.70) 위 황금 받침 + 반구 종
+  const bellBase = new THREE.Mesh(CYL, tm.gold);
+  bellBase.scale.set(0.2, 0.06, 0.2);
+  bellBase.position.set(9.5, 0.73, 5.0);
+  const bell = new THREE.Mesh(HALF_SPHERE, tm.gold);
+  bell.scale.setScalar(0.15);
+  bell.position.set(9.5, 0.76, 5.0);
+  g.add(bellBase, bell);
   // 햇살 해먹 라운지: 분홍 방석 침대 + 로즈골드 등받이 + 크림 쿠션 2개 (lounge-sofa 충돌 상자 안)
   box(g, tm.plushPink, 2.0, 0.3, 0.5, 10.1, 0, 1.55);
   box(g, tm.roseGold, 2.0, 0.55, 0.12, 10.1, 0, 1.8);

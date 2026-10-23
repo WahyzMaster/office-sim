@@ -15,6 +15,10 @@ const ROOF4 = new THREE.ConeGeometry(1, 1, 4).rotateY(Math.PI / 4);
 const ICOSA = new THREE.IcosahedronGeometry(1, 0);
 // 납작한 타원 받침(캣타워 등)용 48각 원기둥: 16각이면 넓은 타원의 모서리가 보인다
 export const CYL48 = new THREE.CylinderGeometry(1, 1, 1, 48);
+export const CYL32 = new THREE.CylinderGeometry(1, 1, 1, 32);
+// 꼭짓점이 축 위에 있는 납작한 마름모 판(rx == rz 로만 쓴다: 비균일 스케일 뒤 회전은 찌그러진다)
+export const DIAMOND4 = new THREE.CylinderGeometry(1, 1, 1, 4);
+export const HALF_SPHERE = new THREE.SphereGeometry(1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2);
 
 let TM = null;
 export function themeMats() {
@@ -55,12 +59,12 @@ export function themeMats() {
   return TM;
 }
 
-export function cyl(g, mat, rx, rz, h, x, y, z, geom = CYL, rotY = 0) {
+export function cyl(g, mat, rx, rz, h, x, y, z, geom = CYL, rotY = 0, shadow = true) {
   const m = new THREE.Mesh(geom, mat);
   m.scale.set(rx, h, rz);
   m.position.set(x, y + h / 2, z);
   m.rotation.y = rotY;
-  m.castShadow = true;
+  m.castShadow = shadow;
   m.receiveShadow = true;
   g.add(m);
   return m;
