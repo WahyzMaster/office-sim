@@ -4,6 +4,7 @@ import { Office } from './office.js';
 import { Hud } from './hud.js';
 import { MockSource, LiveSource } from './sources.js';
 import { scrollScreens } from './furniture.js';
+import { installShareControls } from './share.js';
 
 const cfg = { speed: 1, intervalMs: 250 };
 const stage = createStage(document.getElementById('stage'));
@@ -48,6 +49,7 @@ if (benchMode) {
   startDemo();
 }
 hud.bind(office, cfg, () => source);
+installShareControls({ stage, hud });
 
 let down = null;
 const canvas = stage.renderer.domElement;

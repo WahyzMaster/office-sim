@@ -2,11 +2,14 @@
 <h1>Office Sim (한국어 문서)</h1>
 <p><strong>Claude Code, OpenAI Codex, xAI Grok, Google Antigravity 세션을 실시간으로 시각화하는 무의존성 3D 멀티 에이전트 오피스</strong></p>
 
-[![CI](https://github.com/WahyzMaster/office-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/WahyzMaster/office-sim/actions/workflows/ci.yml)
+[![CI](https://github.com/WahyzMaster/office-sim/actions/workflows/test.yml/badge.svg)](https://github.com/WahyzMaster/office-sim/actions/workflows/test.yml)
+[![npm version](https://img.shields.io/npm/v/office-sim?style=flat-square&logo=npm&color=cb3837)](https://www.npmjs.com/package/office-sim)
 [![Live 3D Demo](https://img.shields.io/badge/Live_3D_Demo-GitHub_Pages-38bdf8?style=flat-square&logo=three.js&logoColor=white)](https://wahyzmaster.github.io/office-sim/?lang=ko#demo)
 [![Node >=22](https://img.shields.io/badge/Node.js-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-10b981?style=flat-square)](#빠른-시작)
 [![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=flat-square)](LICENSE)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub_Sponsors-ea4aaa?style=flat-square&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/WahyzMaster)
+[![Polar.sh](https://img.shields.io/badge/Sponsor-Polar.sh-0062ff?style=flat-square)](https://polar.sh/WahyzMaster)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-wahyzdad-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/wahyzdad)
 
 [English README](README.md) | **한국어** | [실시간 3D 웹 데모 열기](https://wahyzmaster.github.io/office-sim/?lang=ko#demo) | [고화질 데모 영상 (MP4)](docs/assets/ko/demo-hero.mp4)
@@ -65,6 +68,9 @@ npm start
 - **조명 (`낮` / `밤` / `자동`)**: 밝은 주간 조명, 아늑한 야간 무드 조명, 또는 현재 시각 연동 자동 모드를 지원합니다.
 - **3D 가구 충돌 회피 및 비겹침 좌석 배정**: 각 방의 책상·서버 랙·원탁·캣타워·연못마다 2D 충돌 박스가 등록되어 있어, 캐릭터가 이동할 때 가구와 겹치지 않고 자연스럽게 우회하며 빈 좌석에 나누어 앉습니다.
 - **스크롤 가능한 19종 3D 캐릭터 도감 범례**: 우측 하단 **범례 안내** 패널에서 회전하는 19종 전체 3D 모형과 현재 LLM별 캐릭터 배정 카드, 방·상태 색깔 신호를 스크롤하며 한눈에 확인할 수 있습니다.
+- **스트리머·OBS 투명 오버레이 모드 & 5초 클립 캡처**:
+  - `?overlay=1`(또는 `#overlay`, 단축키 `O`)로 열면 상·하단 UI 패널을 숨기고 3D 캔버스 배경을 투명하게(또는 `?chroma=green` / `?chroma=blue` 크로마키 배경으로) 전환해 OBS 브라우저 소스나 코딩 방송 오버레이로 바로 쓸 수 있습니다.
+  - 상단 바의 **5초 클립**(`#capture-clip`) 버튼을 누르면 5초 분량의 WebM 영상을 즉시 녹화·저장하며, `Shift+클릭`하면 고해상도 PNG 스크린샷을 저장합니다.
 
 ## 7가지 공간 테마와 방 구성
 
@@ -136,15 +142,23 @@ npm run skill:uninstall
 - 상세 계약과 어댑터 명세는 [`docs/CONTRACT.md`](docs/CONTRACT.md), [`docs/ADAPTERS.md`](docs/ADAPTERS.md), [`docs/HISTORY.md`](docs/HISTORY.md)를 참고하세요.
 - 어댑터 개발용 실시간 기록 관찰 패널은 `http://127.0.0.1:4317/?observe=1` (또는 `#observe`)로 열었을 때만 상단 바에 나타납니다.
 
-## 후원하기 (Support)
+## 후원하기 (Support & Sponsorship)
 
-**Office Sim**이 AI 코딩 작업에 즐거움이나 도움이 되었다면 커피 한 잔으로 개발을 응원해 주세요:
+**Office Sim**이 AI 코딩 작업에 즐거움이나 도움이 되었다면 아래 채널을 통해 개발을 후원하실 수 있습니다:
 
+<a href="https://github.com/sponsors/WahyzMaster" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/GitHub_Sponsors-WahyzMaster-ea4aaa?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="GitHub Sponsors - WahyzMaster" />
+</a>
+<a href="https://polar.sh/WahyzMaster" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/Polar.sh-WahyzMaster-0062ff?style=for-the-badge" alt="Polar.sh - WahyzMaster" />
+</a>
 <a href="https://www.buymeacoffee.com/wahyzdad" target="_blank" rel="noopener noreferrer">
   <img src="https://img.shields.io/badge/Buy_Me_a_Coffee-Support_wahyzdad-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee - wahyzdad" />
 </a>
 
-- 후원 링크: [https://www.buymeacoffee.com/wahyzdad](https://www.buymeacoffee.com/wahyzdad)
+- **GitHub Sponsors** (플랫폼 수수료 0%, 기업 GitHub 빌링 연동): [https://github.com/sponsors/WahyzMaster](https://github.com/sponsors/WahyzMaster)
+- **Polar.sh** (기업 세금계산서·인보이스 및 팀 스폰서 티어 지원): [https://polar.sh/WahyzMaster](https://polar.sh/WahyzMaster)
+- **Buy Me a Coffee** (간편 일회성 커피 후원): [https://www.buymeacoffee.com/wahyzdad](https://www.buymeacoffee.com/wahyzdad)
 
 ## 라이선스
 

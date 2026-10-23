@@ -2,11 +2,14 @@
 <h1>Office Sim</h1>
 <p><strong>Real-time 3D multi-agent office visualizer for Claude Code, OpenAI Codex, xAI Grok, and Google Antigravity</strong></p>
 
-[![CI](https://github.com/WahyzMaster/office-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/WahyzMaster/office-sim/actions/workflows/ci.yml)
+[![CI](https://github.com/WahyzMaster/office-sim/actions/workflows/test.yml/badge.svg)](https://github.com/WahyzMaster/office-sim/actions/workflows/test.yml)
+[![npm version](https://img.shields.io/npm/v/office-sim?style=flat-square&logo=npm&color=cb3837)](https://www.npmjs.com/package/office-sim)
 [![Live 3D Demo](https://img.shields.io/badge/Live_3D_Demo-GitHub_Pages-38bdf8?style=flat-square&logo=three.js&logoColor=white)](https://wahyzmaster.github.io/office-sim/?lang=en#demo)
 [![Node >=22](https://img.shields.io/badge/Node.js-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-10b981?style=flat-square)](#quick-start)
 [![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=flat-square)](LICENSE)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub_Sponsors-ea4aaa?style=flat-square&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/WahyzMaster)
+[![Polar.sh](https://img.shields.io/badge/Sponsor-Polar.sh-0062ff?style=flat-square)](https://polar.sh/WahyzMaster)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-wahyzdad-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/wahyzdad)
 
 **English** | [한국어 문서 (Korean README)](README.ko.md) | [Live Interactive Demo](https://wahyzmaster.github.io/office-sim/?lang=en#demo) | [HD Demo Video (MP4)](docs/assets/demo-hero.mp4)
@@ -73,6 +76,9 @@ npm start
   - Each repository/workspace gets its own floor (`1F`, `2F`, ...); git worktrees of the same repo share a floor, and workspace-less sessions gather on the `Global · Unassigned` (`전역 · 미지정`) floor.
   - The `desk` room features a **3D Review & Approval Intercom Booth** where agents walk to ask questions or await permission approval.
 - **Privacy by Default**: Loopback-only (`127.0.0.1`), strict `Host`/`Origin`/`Sec-Fetch-Site` guards, optional `--auth` cookie token, and strict scrubbing (only tool categories, file basenames, and URL hostnames are sent to the browser — never file contents, raw commands, or credentials).
+- **Streamer / OBS Overlay Mode & 1-Click 5s Clip Capture**:
+  - Open `?overlay=1` (or `#overlay`, or press `O`) to hide HUD panels and switch the 3D WebGL canvas to a transparent background (or chroma-key via `?chroma=green` / `?chroma=blue` / `?chroma=ff00ff`) for OBS Browser Sources and Picture-in-Picture streams.
+  - Click **5s Clip** (`#capture-clip`) in the top bar to record a 5-second WebM clip (`Shift+Click` for an instant PNG snapshot).
 
 ## Room Themes & Tool Mapping
 
@@ -153,15 +159,23 @@ Once installed, invoke `/office`, `/office demo`, `/office auth`, `/office statu
   - [`docs/HISTORY.md`](docs/HISTORY.md) — Implementation history and engineering notes.
   - [Contributing Guide](CONTRIBUTING.md) — How to run tests (`npm test`) and contribute adapters or themes.
 
-## Support
+## Support & Sponsorship
 
-If you find **Office Sim** useful or enjoyable in your daily AI coding workflow, consider supporting its continued development:
+If you find **Office Sim** useful or enjoyable in your daily AI coding workflow, you can support its continued development through any of the channels below:
 
+<a href="https://github.com/sponsors/WahyzMaster" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/GitHub_Sponsors-WahyzMaster-ea4aaa?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="GitHub Sponsors - WahyzMaster" />
+</a>
+<a href="https://polar.sh/WahyzMaster" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/Polar.sh-WahyzMaster-0062ff?style=for-the-badge" alt="Polar.sh - WahyzMaster" />
+</a>
 <a href="https://www.buymeacoffee.com/wahyzdad" target="_blank" rel="noopener noreferrer">
   <img src="https://img.shields.io/badge/Buy_Me_a_Coffee-Support_wahyzdad-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee - wahyzdad" />
 </a>
 
-- Direct link: [https://www.buymeacoffee.com/wahyzdad](https://www.buymeacoffee.com/wahyzdad)
+- **GitHub Sponsors** (zero platform fees, corporate GitHub billing): [https://github.com/sponsors/WahyzMaster](https://github.com/sponsors/WahyzMaster)
+- **Polar.sh** (VAT/tax invoices & team sponsor tiers): [https://polar.sh/WahyzMaster](https://polar.sh/WahyzMaster)
+- **Buy Me a Coffee** (quick one-time coffee): [https://www.buymeacoffee.com/wahyzdad](https://www.buymeacoffee.com/wahyzdad)
 
 ## License
 

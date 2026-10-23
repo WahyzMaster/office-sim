@@ -43,7 +43,7 @@ export function box(parent, m, w, h, d, x, y, z, shadow = true) {
 }
 
 export function createStage(host) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -101,6 +101,7 @@ export function createStage(host) {
   let onUserPan = null;
   let preset = 'map';
   let spaceDown = false;
+  let overlayBg = null;
   let lastTarget = new THREE.Vector3();
   let viewFn = (aspect) => Math.max(9.8, 14.5 / aspect);
 
@@ -172,7 +173,16 @@ export function createStage(host) {
       const v = css(token);
       if (v) m.color.set(v);
     }
-    scene.background = new THREE.Color(css('--scene-bg') || '#dde4ea');
+    if (overlayBg === 'transparent') {
+      scene.background = null;
+      renderer.setClearColor?.(0x000000, 0);
+    } else if (overlayBg) {
+      scene.background = new THREE.Color(overlayBg);
+      renderer.setClearColor?.(scene.background, 1);
+    } else {
+      scene.background = new THREE.Color(css('--scene-bg') || '#dde4ea');
+      renderer.setClearColor?.(scene.background, 1);
+    }
     hemi.color.set(css('--sky') || '#ffffff');
     hemi.groundColor.set(css('--ground') || '#888888');
     hemi.intensity = cssNum('--hemi', 1.2);
@@ -279,6 +289,7 @@ export function createStage(host) {
     setOverview(ov) { controls.screenSpacePanning = !!ov; },
     setOnUserPan(fn) { onUserPan = fn; },
     setLampY(y) { lampGoal = y; },
+    setOverlayBg(bg) { overlayBg = bg || null; applyTheme(); },
     setViewFn(fn) { viewFn = fn; resize(); },
     // labelRoot: CSS 라벨을 계산할 묶음 (기본은 장면 전체). 숨은 층의 라벨까지 매 프레임 돌지 않게 한다.
     render(labelRoot = scene) {
