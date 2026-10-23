@@ -62,6 +62,9 @@ export function buildDogsProps(g, board) {
   jar.scale.set(0.45, 1.1, 0.45);
   jar.position.set(10.7, 0.55, 5);
   g.add(jar);
+  // 잔디 마당 라운지: 나무 데크 벤치 + 파란 방석 (lounge-sofa 충돌 상자 안)
+  lowTable(g, tm.fenceWood, tm.hanokDark, 9.9, 1.58, 1.6, 0.55, 0.42);
+  box(g, tm.agilityBlue, 1.4, 0.08, 0.45, 9.9, 0.5, 1.58);
   return { leds, globe };
 }
 
@@ -123,5 +126,14 @@ export function buildCatsProps(g, board) {
   bell.scale.set(0.48, 0.55, 0.48);
   bell.position.set(10.7, 0.28, 5);
   g.add(bell);
+  // 햇살 해먹 라운지: 분홍 방석 침대 + 로즈골드 등받이 + 크림 쿠션 2개 (lounge-sofa 충돌 상자 안)
+  box(g, tm.plushPink, 2.0, 0.3, 0.5, 10.1, 0, 1.55);
+  box(g, tm.roseGold, 2.0, 0.55, 0.12, 10.1, 0, 1.8);
+  for (const x of [9.55, 10.65]) {
+    const pillow = new THREE.Mesh(CYL, tm.velvetCream);
+    pillow.scale.set(0.32, 0.08, 0.2);
+    pillow.position.set(x, 0.34, 1.55);
+    g.add(pillow);
+  }
   return { leds, globe };
 }

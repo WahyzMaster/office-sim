@@ -21,10 +21,8 @@ export const KNOWN = {
   'ringClear:dogs': 2, // dogs-05
   'ringClear:cats': 4, // cats-06
   // 보이지 않는 충돌 상자
-  'coverage:hanok': 8, // hanok-04
-  'coverage:starship': 8, // starship-05
-  'coverage:dogs': 13, // dogs-06 part 8 + div 4 + lounge-sofa
-  'coverage:cats': 13, // cats-03 part 8 + div 4, cats-04 lounge-sofa
+  'coverage:dogs': 4, // dogs-06 칸막이 div 4 (Task 18)
+  'coverage:cats': 4, // cats-03 칸막이 div 4 (Task 19)
   // 연구실 구체와 머리
   'globe:studio': 1, // studio-04
   'globe:office': 1, // office-02

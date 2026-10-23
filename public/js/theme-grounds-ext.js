@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ROOMS, FLOOR_W, FLOOR_D } from './rooms.js';
 import { box } from './scene.js';
 import { mats } from './furniture.js';
-import { themeMats, cyl, pineTree, buildElevatorDoors } from './theme-kit.js';
+import { themeMats, cyl, pineTree, buildElevatorDoors, buildCorridorRails, RAIL_STYLES } from './theme-kit.js';
 import { layoutOf } from './theme-layouts.js';
 
 const CYL = new THREE.CylinderGeometry(1, 1, 1, 16);
@@ -67,6 +67,7 @@ export function buildStarshipGround(g) {
   core.scale.setScalar(0.38);
   core.position.set(0, 0.65, 0);
   g.add(ring1, ring2, core);
+  buildCorridorRails(g, 'starship', RAIL_STYLES.starship);
   // 좌측 블라스트 에어락/터보리프트 포털
   return buildElevatorDoors(g, tm.hullTrim, tm.plasmaCyan, layoutOf('starship').elevator.frameX, 0);
 }
@@ -111,6 +112,7 @@ export function buildDogsGround(g) {
   hoop.scale.setScalar(0.58);
   hoop.position.set(0, 0.85, 0.25);
   g.add(hoop);
+  buildCorridorRails(g, 'dogs', RAIL_STYLES.dogs);
   pineTree(g, tm, -11.2, -6.2, 0.95);
   pineTree(g, tm, 11.2, -6.2, 0.95);
   return buildElevatorDoors(g, tm.fenceWood, tm.agilityBlue, layoutOf('dogs').elevator.frameX, 0);
@@ -140,6 +142,7 @@ export function buildCatsGround(g) {
     box(g, tm.roseGold, 0.1, 0.85, 4.2, x, 0, -5);
     box(g, tm.roseGold, 0.1, 0.85, 4.2, x, 0, 5);
   }
+  buildCorridorRails(g, 'cats', RAIL_STYLES.cats);
   // 중앙 3단 럭셔리 캣타워 & 황금 실타래 (x: 0, z: 0)
   cyl(g, tm.roseGold, 2.1, 2.1, 0.12, 0, 0, 0);
   for (const [px, pz, h] of [[-0.85, -0.45, 0.9], [0.85, -0.45, 1.35], [0, 0.55, 1.8]]) {

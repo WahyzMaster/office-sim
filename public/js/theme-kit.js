@@ -5,6 +5,7 @@ import { FLOOR_W, CORRIDOR } from './rooms.js';
 import { box, BOX } from './scene.js';
 import { mats } from './furniture.js';
 import { mulberry32, seedOf } from './rng.js';
+import { obstaclesOf } from './theme-layouts.js';
 
 const E = Math.PI / 2;
 const PLANE = new THREE.PlaneGeometry(1, 1);
@@ -171,3 +172,55 @@ export function populateShelves(g, shelfMat, palette, xs, { z = -7.4, y0 = 0.08,
   inst.receiveShadow = true;
   g.add(inst);
 }
+
+// 복도 칸막이 충돌 상자(obstaclesOf 의 part-*)를 그대로 따라 난간을 그린다. 문틈은 충돌 상자가 이미 비워 둔다.
+// style.clip(z) 밖(바닥 가장자리)은 자르고 0.3 보다 짧은 토막은 건너뛴다. 모든 조각은 상자(x0..x1, z +-0.12) 안에 둔다.
+export function buildCorridorRails(g, theme, style) {
+  for (const o of obstaclesOf(theme)) {
+    if (!/^part-/.test(o.tag)) continue;
+    const z = (o.z0 + o.z1) / 2;
+    const lim = style.clip(z);
+    const x0 = Math.max(o.x0, -lim);
+    const x1 = Math.min(o.x1, lim);
+    if (x1 - x0 < 0.3) continue;
+    style.span(g, x0, x1, z, { doorW: o.x0 > -11.9, doorE: o.x1 < 11.9 });
+  }
+}
+
+const span = (x0, x1) => ({ L: x1 - x0, cx: (x0 + x1) / 2 });
+export const RAIL_STYLES = Object.freeze({
+  // 한옥: 툇마루 난간(아래 띠 + 0.5 간격 살 + 위 띠, 높이 0.48)
+  hanok: { clip: () => 12.0, span(g, x0, x1, z) {
+    const tm = themeMats();
+    const { L, cx } = span(x0, x1);
+    box(g, tm.hanokDark, L, 0.05, 0.08, cx, 0.02, z);
+    for (let x = x0 + 0.03; x <= x1 - 0.03 + 1e-9; x += 0.5) box(g, tm.hanokDark, 0.06, 0.4, 0.06, x, 0.02, z);
+    box(g, tm.hanokDark, L, 0.06, 0.1, cx, 0.42, z);
+  } },
+  // 스타십: 턱 + 반투명 역장 띠 + 양끝 기둥
+  starship: { clip: () => 11.2, span(g, x0, x1, z) {
+    const tm = themeMats();
+    const { L, cx } = span(x0, x1);
+    box(g, tm.hullTrim, L, 0.14, 0.18, cx, 0, z);
+    box(g, tm.forceField, L, 0.8, 0.05, cx, 0.14, z, false);
+    for (const x of [x0 + 0.08, x1 - 0.08]) box(g, tm.hullTrim, 0.16, 1.1, 0.24, x, 0, z);
+  } },
+  // 퍼피 파크: 피켓 울타리(기둥 1.0 이하 간격 + 가로대 2줄, 높이 0.62)
+  dogs: { clip: () => 10.7, span(g, x0, x1, z) {
+    const tm = themeMats();
+    const { L, cx } = span(x0, x1);
+    const a = x0 + 0.05, b = x1 - 0.05;
+    const n = Math.max(1, Math.ceil((b - a) / 1.0));
+    for (let i = 0; i <= n; i++) box(g, tm.fenceWood, 0.1, 0.62, 0.1, a + ((b - a) * i) / n, 0, z);
+    for (const y of [0.22, 0.46]) box(g, tm.fenceWood, L, 0.07, 0.06, cx, y, z);
+  } },
+  // 캣 살롱: 로즈골드 낮은 벽 + 분홍 쿠션 갓 + 문틈 쪽 사이잘 기둥
+  cats: { clip: (z) => (z < 0 ? 11.15 : 11.45), span(g, x0, x1, z, { doorW, doorE }) {
+    const tm = themeMats();
+    const { L, cx } = span(x0, x1);
+    box(g, tm.roseGold, L, 0.5, 0.1, cx, 0, z);
+    box(g, tm.plushPink, L, 0.08, 0.16, cx, 0.5, z);
+    if (doorW) cyl(g, tm.sisal, 0.09, 0.09, 0.75, x0 + 0.09, 0, z);
+    if (doorE) cyl(g, tm.sisal, 0.09, 0.09, 0.75, x1 - 0.09, 0, z);
+  } },
+});

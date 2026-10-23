@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { ROOMS, FLOOR_W, FLOOR_D, CORRIDOR } from './rooms.js';
 import { box } from './scene.js';
 import { mats } from './furniture.js';
-import { themeMats, cyl, roofEave, pineTree, buildStandardPartitions, buildElevatorDoors } from './theme-kit.js';
+import { themeMats, cyl, roofEave, pineTree, buildStandardPartitions, buildElevatorDoors, buildCorridorRails, RAIL_STYLES } from './theme-kit.js';
 import { buildStarshipGround, buildDogsGround, buildCatsGround } from './theme-grounds-ext.js';
 import { layoutOf } from './theme-layouts.js';
 
@@ -168,6 +168,8 @@ function buildHanokGround(g) {
   for (const [jx, jz, jr] of [[11.9, -0.6, 0.24], [12.4, 0, 0.28], [11.9, 0.6, 0.22]]) {
     cyl(g, tm.onggi, jr, jr * 0.75, 0.46, jx, 0.02, jz);
   }
+  // 안마당 둘레 툇마루 난간: 직원이 이미 멈춰 서는 복도 칸막이 충돌 상자를 눈에 보이게
+  buildCorridorRails(g, 'hanok', RAIL_STYLES.hanok);
   // 서쪽 솟을대문
   for (const z of [-1.2, 1.2]) cyl(g, tm.hanokDark, 0.18, 0.2, 2.4, -11.7, 0, z);
   roofEave(g, tm.tile, tm.hanokDark, 1.5, 0.7, 3.2, -11.7, 2.35, 0);
