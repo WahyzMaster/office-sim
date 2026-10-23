@@ -8,6 +8,7 @@
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { Line0Cache, LINE0_MAX_BYTES } from './line0.mjs';
+import { scanCodexDesktopCloud } from './desktop-cloud.mjs';
 
 export const CODEX_AGENT = 'codex';
 export const charIdOf = (uuid) => `${CODEX_AGENT}-${uuid}`;
@@ -328,7 +329,7 @@ export function createCodexScanner({ limits = SCAN_LIMITS, fullWalkMs = FULL_WAL
     return [...entries, ...cold.values()];
   }
 
-  return async function scan(root, { activeMs, nowMs } = {}) {
+  return async function scan(root, { activeMs, nowMs, logsRoot, classicRoot } = {}) {
     const now = Number.isFinite(nowMs) ? nowMs : Date.now();
     const windowed = Number.isFinite(activeMs);
     if (root !== rootSeen || (lastFull !== null && now < lastFull)) {
@@ -348,11 +349,14 @@ export function createCodexScanner({ limits = SCAN_LIMITS, fullWalkMs = FULL_WAL
       res = await classify(await walk(root, now, activeMs, true), opts);
     }
     if (full) missingSeen = new Set(res.missing);
-    return res.refs;
+    const cloudRefs = await scanCodexDesktopCloud(root, {
+      activeMs: windowed ? activeMs : Infinity, nowMs: now, localRefs: res.refs, logsRoot, classicRoot,
+    });
+    return cloudRefs.length ? [...res.refs, ...cloudRefs] : res.refs;
   };
 }
 
 /** One stateless scan (a full walk): FileRef[] for tests and one-off use. */
-export async function scanCodex(root, { activeMs, nowMs, limits = SCAN_LIMITS } = {}) {
-  return createCodexScanner({ limits })(root, { activeMs, nowMs });
+export async function scanCodex(root, { activeMs, nowMs, limits = SCAN_LIMITS, logsRoot, classicRoot } = {}) {
+  return createCodexScanner({ limits })(root, { activeMs, nowMs, logsRoot, classicRoot });
 }

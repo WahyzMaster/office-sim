@@ -40,7 +40,7 @@ export function refIdentity(ref) {
   }
   const p = ref.path;
   const kind = ref.kind ?? kindFromPath(p);
-  const base = path.basename(p, '.jsonl');
+  const base = p.endsWith('.jsonl') ? path.basename(p, '.jsonl') : (ref.stem || ref.sessionId || path.basename(p, '.jsonl'));
   if (kind === 'main') {
     const sid = base || ref.stem || ref.sessionId;
     return { kind, sid, charId: sid, runId: null, runDir: null };
