@@ -65,8 +65,8 @@ test('finding 4: branch, worktree, agentType and parentSessionId are scrubbed, c
   assert.equal(ev.branch, '(email)'); // emails never, not even the domain (section 5)
   assert.ok(Array.from(ev.worktree).length <= 60, ev.worktree);
   // ordinary values pass through unchanged; HEAD is still 'detached'
-  const plain = run([b.humanPrompt({ text: 'go', gitBranch: 'codex/ksm-qa-issues' }), b.assistantText({ msgId: 'm2', text: 'ok', gitBranch: 'codex/ksm-qa-issues' })]).st.sessionEvent();
-  assert.equal(plain.branch, 'codex/ksm-qa-issues');
+  const plain = run([b.humanPrompt({ text: 'go', gitBranch: 'codex/qa-issues' }), b.assistantText({ msgId: 'm2', text: 'ok', gitBranch: 'codex/qa-issues' })]).st.sessionEvent();
+  assert.equal(plain.branch, 'codex/qa-issues');
   const head = run([b.humanPrompt({ text: 'go', gitBranch: 'HEAD' })]).st.sessionEvent();
   assert.equal(head.branch, 'detached');
 
