@@ -76,6 +76,7 @@ export class Tailer {
   #noFollow;
   #files = new Map(); // path -> { offset, ino, parts, partLen, skipping, skipped }
   #busy = new Map(); // path -> Promise of the running read
+  #custom = new Map(); // path -> custom tailer hooks on ref.facts
 
   /** Total lines skipped for exceeding maxLineBytes, across all files. */
   skippedLines = 0;
@@ -98,6 +99,10 @@ export class Tailer {
    */
   async readAll(ref, onLine, { end = Infinity } = {}) {
     const p = pathOf(ref);
+    if (typeof ref?.facts?.readAll === 'function') {
+      this.#custom.set(p, ref.facts);
+      return ref.facts.readAll(ref, onLine, { end });
+    }
     while (this.#busy.has(p)) await this.#busy.get(p).catch(() => {});
     return this.#exclusive(p, async () => {
       this.#files.delete(p);
@@ -134,6 +139,9 @@ export class Tailer {
    */
   async poll(ref, onLine) {
     const p = pathOf(ref);
+    if (typeof ref?.facts?.poll === 'function') {
+      return ref.facts.poll(ref, onLine);
+    }
     if (this.#busy.has(p)) return { bytes: 0, busy: true };
     const state = this.#files.get(p);
     if (!state) return { reset: true };
@@ -180,6 +188,7 @@ export class Tailer {
    * already attached, when the inode differs, or when the new file is shorter than the committed offset.
    */
   rename(from, to, { ino, size } = {}) {
+    if (this.#custom.has(from)) return false;
     const state = this.#files.get(from);
     if (!state || from === to || this.#files.has(to) || this.#busy.has(from) || this.#busy.has(to)) return false;
     if (state.ino !== ino || !(Number.isFinite(size) && size >= state.offset)) return false;
@@ -195,6 +204,11 @@ export class Tailer {
 
   /** Drop all state for a path (a running read stops at its next chunk boundary). */
   forget(path) {
+    const c = this.#custom.get(path);
+    if (c) {
+      this.#custom.delete(path);
+      c.forget?.(path);
+    }
     this.#files.delete(path);
   }
 

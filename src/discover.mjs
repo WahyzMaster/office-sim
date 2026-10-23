@@ -15,6 +15,7 @@
 import { constants as FS } from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { scanClaudeDesktopCloud } from './desktop-claude.mjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAIN_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
@@ -186,14 +187,15 @@ function pickSubs(subs, mainDirBySid) {
  * @returns {Promise<Array<object>>} FileRef[] ordered main, sub, wf, then by path. A main file outside the window is
  *   still returned while a sub/wf file of the same session is inside it (mtimeMs stays the real file mtime).
  */
-export async function scan(root, { activeMs = Infinity, nowMs = Date.now(), fs: fsApi = fsp, limits = SCAN_LIMITS } = {}) {
+export async function scan(root, {
+  activeMs = Infinity, nowMs = Date.now(), fs: fsApi = fsp, limits = SCAN_LIMITS, appSupportDir, logsDir,
+} = {}) {
   const absRoot = path.resolve(root);
-  let projects;
+  let projects = [];
   try {
     projects = await fsApi.readdir(absRoot, { withFileTypes: true });
   } catch (err) {
-    if (err && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) return [];
-    throw err;
+    if (!(err && (err.code === 'ENOENT' || err.code === 'ENOTDIR'))) throw err;
   }
   const maxProjects = limits?.projects ?? SCAN_LIMITS.projects;
   const maxFiles = limits?.files ?? SCAN_LIMITS.files;
@@ -219,7 +221,8 @@ export async function scan(root, { activeMs = Infinity, nowMs = Date.now(), fs: 
   // A main stays inside the window while any sub/wf file of its session is: it is the parent of live children
   // (4.4 floor inheritance, 4.5 parentSessionId), even when it writes nothing while it waits for them.
   const liveSids = new Set(agents.filter((r) => r.mtimeMs >= minMtime).map((r) => r.sessionId.toLowerCase()));
-  return [...mains, ...agents]
+  const cloudRefs = await scanClaudeDesktopCloud(absRoot, { activeMs, nowMs, fs: fsApi, appSupportDir, logsDir });
+  return [...mains, ...cloudRefs, ...agents]
     .filter((r) => r.mtimeMs >= minMtime || (r.kind === 'main' && liveSids.has(r.stem.toLowerCase())))
     .sort((a, b) => (KIND_ORDER[a.kind] - KIND_ORDER[b.kind]) || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
