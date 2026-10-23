@@ -5,7 +5,7 @@ import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { activeThemeOf, ELEVATOR, isLlmVisible, resolveAgentAppearance, tr } from './rooms.js';
 import { buildAgentMesh, buildBrandFlair, tintAgent, animateAgentMesh } from './agent-mesh.js';
 import { compactQueue, collapse, QUEUE_CAP, softKind } from './agent-queue.js';
-import { hueOf, brandHue, familyHue, familyLight, laneOffset, route, wrapAngle, safeSpawnPos, resolveObstacleCollision } from './placement.js';
+import { hueOf, brandHue, familyHue, familyLight, laneOffset, route, wrapAngle, safeSpawnPos, stepAgentPath } from './placement.js';
 import { agentBadge } from './hud.js';
 import { makeSound } from './sound.js';
 
@@ -46,7 +46,8 @@ export class Agent {
     this.history = [];
     this.mode = 'idle';
     this.activity = tr('출근', 'Arrived');
-    this.idleT = this.bubbleT = this.panicT = this.soundT = 0;
+    this.idleT = this.bubbleT = this.panicT = this.soundT = this.maneuverCd = this.maneuverSeq = this.stallT = 0;
+    this.maneuver = null;
     this.vocalText = '';
     this.t = Math.random() * 10;
     // lane 은 층마다 비어 있는 번호를 받아 같은 부모를 둔 형제끼리도 다른 길로 걷는다.
@@ -158,7 +159,8 @@ export class Agent {
       ab.textContent = badge;
       ab.hidden = !badge;
     }
-    const act = this.soundT > 0 && this.vocalText ? `${this.vocalText} · ${this.activity}` : this.activity;
+    const cue = this.maneuver ? tr(this.maneuver.ko, this.maneuver.en) : (this.soundT > 0 ? this.vocalText : '');
+    const act = cue ? `${cue} · ${this.activity}` : this.activity;
     this.tagEl.dataset.agent = this.agent || '';
     this.tagEl.querySelector('b').textContent = this.name;
     this.tagEl.querySelector('span').textContent = act;
@@ -435,28 +437,19 @@ export class Agent {
   // ---- 매 프레임 ----
   update(dt) {
     this.t += dt;
-    const pos = this.group.position;
-    if (this.path.length) {
-      const target = this.path[0];
-      const dx = target.x - pos.x;
-      const dz = target.z - pos.z;
-      const dist = Math.hypot(dx, dz);
-      // 밀린 일이 많을수록 빨리 걷는다(상한 QUEUE_CAP 까지). 그래야 화면이 실시간을 따라잡는다.
-      const speed = WALK * (1 + Math.min(this.queue.length, QUEUE_CAP) * 0.35) * (REDUCED ? 3 : 1);
-      const step = speed * dt;
-      if (dist <= step) {
-        pos.x = target.x;
-        pos.z = target.z;
-        this.path.shift();
-      } else {
-        pos.x += (dx / dist) * step;
-        pos.z += (dz / dist) * step;
-      }
-      resolveObstacleCollision(pos, 0.2, activeThemeOf());
+    // 밀린 일이 많을수록 빨리 걷는다(상한 QUEUE_CAP 까지). 그래야 화면이 실시간을 따라잡는다.
+    const speed = WALK * (1 + Math.min(this.queue.length, QUEUE_CAP) * 0.35) * (REDUCED ? 3 : 1);
+    const hadManeuver = !!this.maneuver;
+    const nav = stepAgentPath(this, dt, speed, activeThemeOf());
+    if (nav.moving) {
+      const pos = this.group.position; // 퇴근 길에 엘리베이터 가까이 오면 문을 연다
       if (this.current?.kind === 'leave' && Math.hypot(pos.x - ELEVATOR.x, pos.z - ELEVATOR.z) < 2.5) this.floor.openElevator?.();
-      if (dist > 0.01) this.turnTo(Math.atan2(dx, dz), dt);
-      if (!this.path.length) this.arrived();
+      if (nav.soundTrigger && !this.makeSound(nav.soundTrigger)) this.refreshTag();
+      else if (hadManeuver && !this.maneuver) this.refreshTag();
+      if (nav.heading !== null) this.turnTo(nav.heading, dt);
+      if (nav.arrived) this.arrived();
     } else {
+      if (hadManeuver) this.refreshTag();
       this.turnTo(this.face, dt);
     }
 
