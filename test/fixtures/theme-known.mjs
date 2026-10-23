@@ -14,8 +14,6 @@ export const KNOWN = {
   'support:dogs': 4, // dogs-03 장 2·랙 2 (Task 18)
   'support:cats': 12, // cats-01 연구실 자리 2·책상 다리 8·종, cats-02 랙 1
   // 자리 밑 바닥이 높음
-  'floorTop:palace': 29, // palace-03
-  'floorTop:hanok': 29, // hanok-03
   // 고리 보행 띠
   'ringClear:starship': 3, // starship-04
   'ringClear:dogs': 2, // dogs-05
@@ -44,7 +42,7 @@ export const KNOWN = {
   'screenBack:cats': 9,
   // 같은 높이 다른 재질
   'coplanar:studio': 6, // studio-06 발코니 포드 2개 x 슬래브 3겹
-  'coplanar:palace': 3, // palace-02 연못, triage: 청사초롱 기둥 윗면 = 초롱 윗면(2)
+  'coplanar:palace': 1, // palace-02 연못 (Task 15)
   'coplanar:hanok': 1, // hanok-12 누각 기단
   // 다시 지을 때 새로 만드는 기하·재질
   'alloc:studio': 12, // xcut-11

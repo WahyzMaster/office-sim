@@ -77,7 +77,7 @@ function buildPalaceGround(g) {
   box(g, tm.graniteDark, FLOOR_W + 1.4, 0.32, FLOOR_D + 0.8, 0, -0.58, 0);
   box(g, tm.granite, FLOOR_W + 0.4, 0.28, FLOOR_D - 0.2, 0, -0.26, 0);
   box(g, tm.graniteDark, 9.6, 0.32, 2.2, 0, -0.58, -8.8);
-  box(g, tm.granite, 8.8, 0.32, 1.8, 0, -0.26, -8.6);
+  box(g, tm.granite, 8.8, 0.28, 1.8, 0, -0.26, -8.6);
   box(g, tm.granite, 8.8, 0.26, 1.5, 0, -0.26, 8.5);
   // 월대 둘레 돌난간 동자주
   for (const x of [-11.8, -8, -4.2, 4.2, 8, 11.8]) {
@@ -88,8 +88,9 @@ function buildPalaceGround(g) {
   for (const [k, r] of Object.entries(ROOMS)) {
     if (k === 'lounge') continue;
     const cz = r.side === 'top' ? -5.1 : 5.1;
-    box(g, tm.hanokWood, r.x1 - r.x0 - 0.6, 0.08, 5.4, (r.x0 + r.x1) / 2, 0, cz, false);
-    box(g, M.rug[k], r.x1 - r.x0 - 1.6, 0.02, 4.2, (r.x0 + r.x1) / 2, 0.09, cz, false);
+    // 마루는 얇게(윗면 0.03): 직원 발은 y = 0 이라 두꺼우면 발목까지 묻힌다
+    box(g, tm.hanokWood, r.x1 - r.x0 - 0.6, 0.03, 5.4, (r.x0 + r.x1) / 2, 0, cz, false);
+    box(g, M.rug[k], r.x1 - r.x0 - 1.6, 0.01, 4.2, (r.x0 + r.x1) / 2, 0.03, cz, false);
   }
   // 북쪽 전각 회랑 주칠 배흘림기둥 + 단청 창방 + 기와 처마(컷어웨이)
   for (const x of [-11.6, -8, -4.2, -1.8, 1.8, 4.2, 8, 11.6]) {
@@ -139,8 +140,9 @@ function buildHanokGround(g) {
     if (k === 'lounge') continue;
     const cz = r.side === 'top' ? -5.1 : 5.1;
     const extraW = k === 'research' ? 1.0 : 0;
-    box(g, tm.hanokWood, r.x1 - r.x0 - 0.4 + extraW, 0.14, 5.5, (r.x0 + r.x1) / 2 - extraW / 2, 0, cz, false);
-    box(g, M.rug[k], r.x1 - r.x0 - 1.6, 0.02, 4.1, (r.x0 + r.x1) / 2, 0.15, cz, false);
+    // 마루 윗면 0.03(안마당 0.02 바로 위): 직원 발이 묻히지 않는다
+    box(g, tm.hanokWood, r.x1 - r.x0 - 0.4 + extraW, 0.14, 5.5, (r.x0 + r.x1) / 2 - extraW / 2, -0.11, cz, false);
+    box(g, M.rug[k], r.x1 - r.x0 - 1.6, 0.02, 4.1, (r.x0 + r.x1) / 2, 0.03, cz, false);
   }
   // 북쪽 기와 돌담과 서까래 처마 + 남서쪽 누각 정자 기둥·처마
   box(g, tm.courtyard, FLOOR_W, 2.2, 0.24, 0, 0, -FLOOR_D / 2 - 0.1);
@@ -151,10 +153,10 @@ function buildHanokGround(g) {
   roofEave(g, tm.tile, tm.hanokDark, 3.2, 0.75, 6.6, -12.4, 2.3, 5.3);
   // 방 사이 한지 창호 격자 칸막이
   for (const x of [-4, 4]) {
-    box(g, tm.hanji, 0.1, 1.1, 5.4, x, 0.14, -5);
-    box(g, tm.hanokDark, 0.14, 0.08, 5.5, x, 1.22, -5);
-    box(g, tm.hanji, 0.1, 1.1, 5.4, x, 0.14, 5);
-    box(g, tm.hanokDark, 0.14, 0.08, 5.5, x, 1.22, 5);
+    for (const s of [-1, 1]) {
+      box(g, tm.hanji, 0.1, 1.22, 5.7, x, 0.02, s * 4.925);
+      box(g, tm.hanokDark, 0.14, 0.08, 5.85, x, 1.22, s * 4.925);
+    }
   }
   // 안마당 중앙 화단(소나무·매화·석등)과 디딤돌 + 동쪽 장독대 항아리
   box(g, tm.graniteDark, 4.8, 0.16, 1.7, 0, 0, 0);
