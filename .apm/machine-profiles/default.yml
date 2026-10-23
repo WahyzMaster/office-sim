@@ -1,0 +1,16 @@
+---
+profile_version: 1
+name: office-sim-local-machine
+description: >
+  Project machine-profile pointer for office-sim.
+  User-scope (INV) baseline is WahyzDAD/wahyz_agent_profile#v1.3.0
+  installed via `apm install --global`.
+
+apm:
+  minimum_version: 0.33.0
+  global:
+    enabled: true
+    managed_by: wahyz_agent_profile via apm install --global
+    profile_repository: https://github.com/WahyzDAD/wahyz_agent_profile.git
+    profile_package: wahyzdad/wahyz_agent_profile
+    profile_ref: v1.3.0
