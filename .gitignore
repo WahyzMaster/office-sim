@@ -1,10 +1,66 @@
+# Dependencies & npm packaging
 node_modules/
-.DS_Store
-*.log
+*.tgz
+.npm/
+.npmrc
 
-# 로컬 도구 상태
+# Environment variables, secrets & keys
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*credentials*.json
+*service-account*.json
+secrets.*
+
+# Git worktrees (isolated agent/feature workspaces)
+.worktrees/
+worktrees/
+
+# AI agent & MCP local state (keep shared .claude/launch.json tracked)
+.claude/*
+!.claude/launch.json
+.codex/
+.gemini/
+.grok/
+.agents/
 .serena/
 .playwright-mcp/
+.mcp.json
 
-# 기록 관찰 결과 (로컬 전용)
+# Local observation dumps, raw transcripts & scratch data
 .observe/
+*.jsonl
+!test/fixtures/**/*.jsonl
+*.pb
+!test/fixtures/**/*.pb
+*.sqlite
+*.sqlite-*
+*.db
+tmp/
+.tmp/
+temp/
+scratch/
+
+# Test coverage & build outputs
+coverage/
+.nyc_output/
+dist/
+build/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+*~
+
