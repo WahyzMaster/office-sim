@@ -1,12 +1,31 @@
-# Office Sim (한국어 문서)
+<div align="center">
+<h1>Office Sim (한국어 문서)</h1>
+<p><strong>Claude Code, OpenAI Codex, xAI Grok, Google Antigravity 세션을 실시간으로 시각화하는 무의존성 3D 멀티 에이전트 오피스</strong></p>
 
-[English README](README.md) | **한국어**
+[![CI](https://github.com/WahyzMaster/office-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/WahyzMaster/office-sim/actions/workflows/ci.yml)
+[![Live 3D Demo](https://img.shields.io/badge/Live_3D_Demo-GitHub_Pages-38bdf8?style=flat-square&logo=three.js&logoColor=white)](https://wahyzmaster.github.io/office-sim/#demo)
+[![Node >=22](https://img.shields.io/badge/Node.js-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-10b981?style=flat-square)](#빠른-시작)
+[![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=flat-square)](LICENSE)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-wahyzdad-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/wahyzdad)
 
-AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 에이전트 캐릭터들이 3D 공간을 오가며 일하는 모습으로 보여 주는 로컬 서버입니다. **Claude Code**(`~/.claude/projects/**/*.jsonl`), **Grok (xAI Grok Build)**(`~/.grok/sessions/<작업 폴더>/<세션>/updates.jsonl`), **OpenAI Codex**(`~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl`), **Google Antigravity**(`~/.gemini/{antigravity,antigravity-cli,antigravity-ide}/brain/<대화>/.system_generated/logs/transcript_full.jsonl`) 세션을 외부 의존성 없이 로컬에서 실시간 시각화합니다.
+[English README](README.md) | **한국어** | [실시간 3D 웹 데모 열기](https://wahyzmaster.github.io/office-sim/#demo) | [고화질 데모 영상 (MP4)](docs/assets/demo-hero.mp4)
+
+<a href="https://wahyzmaster.github.io/office-sim/#demo">
+  <img src="docs/assets/demo-hero.gif" alt="Office Sim 3D 멀티 에이전트 시각화 데모" width="100%" />
+</a>
+
+*위 프리뷰를 클릭하면 설치 없이 브라우저에서 [실시간 인터랙티브 3D 데모](https://wahyzmaster.github.io/office-sim/#demo)를 바로 체험할 수 있으며, [720p H.264 데모 영상 (`docs/assets/demo-hero.mp4`)](docs/assets/demo-hero.mp4)도 직접 확인할 수 있습니다.*
+
+</div>
+
+---
+
+**Office Sim**은 AI 코딩 에이전트의 세션 기록을 0.25초마다 따라 읽어서, 에이전트 캐릭터들이 3D 공간을 오가며 협업하는 모습을 실시간으로 보여 주는 로컬 서버입니다. **Claude Code**(`~/.claude/projects/**/*.jsonl`), **Grok (xAI Grok Build)**(`~/.grok/sessions/<작업 폴더>/<세션>/updates.jsonl`), **OpenAI Codex**(`~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl`), **Google Antigravity**(`~/.gemini/{antigravity,antigravity-cli,antigravity-ide}/brain/<대화>/.system_generated/logs/transcript_full.jsonl`) 세션을 외부 패키지 의존성 없이 로컬에서 즉시 시각화합니다.
 
 ## 빠른 시작
 
-Node.js 22 이상이 필요하며, 설치할 외부 패키지가 없습니다(Zero dependencies).
+**Node.js 22 이상**이 필요하며, 설치할 외부 런타임 패키지가 전혀 없습니다(Zero dependencies).
 
 ```bash
 # 바로 실행 (기본 포트 4317)
@@ -18,11 +37,36 @@ cd office-sim
 npm start
 ```
 
-브라우저에서 `http://127.0.0.1:4317`을 열면 로컬 에이전트 세션이 실시간으로 표시되며, `http://127.0.0.1:4317/#demo`를 열면 서버 없이도 네 종류 에이전트가 협업하는 데모 시나리오를 체험할 수 있습니다.
+- **실시간 로컬 세션 감시**: 브라우저에서 `http://127.0.0.1:4317`을 열면 현재 실행 중인 로컬 에이전트 세션이 실시간으로 표시됩니다.
+- **무설치 데모 모드**: `http://127.0.0.1:4317/#demo` 또는 [GitHub Pages 라이브 데모](https://wahyzmaster.github.io/office-sim/#demo)를 열면 로컬 세션 없이도 네 종류 에이전트가 여러 층에서 협업하는 데모 시나리오를 체험할 수 있습니다.
 
-## 7가지 공간·캐릭터 테마 프리셋과 방 구성
+## 테마 및 화면 갤러리
 
-상단 바의 **공간(Theme)** 선택기에서 7가지 테마 프리셋을 즉시 전환할 수 있으며, **KO / EN** 버튼으로 한국어·영어 UI를 바로 바꿀 수 있습니다. 테마를 바꾸면 직사각형을 벗어난 **비정형 3D 건물 구조**(조선 궁궐 장대석 기단·경회루 연못 회랑, 전통 한옥 ㄱ·ㄷ자 마당·돌출 누각, SF 스타십 팔각 선체·워프 코어, **퍼피 파크 뼈다귀 모양 잔디 마당·발바닥 분수대**, **캣 타워 살롱 고양이 귀 썬룸·3단 캣타워**), **테마별 3D 가구**, **캐릭터 외형**(관복·정자관·흑립 갓 / 한옥 배자·유건·삿갓 / 스타십 우주복 / **8종 3D 강아지: 골든·래브라도 리트리버, 진돗개 백구·흑구·네눈박이 반달곰, 보더 콜리, 웰시 코기, 시바견** / **6종 3D 고양이: 최고가 사바나·아세라, 벵갈, 브리티시·러시안 블루, 샤미즈, 랙돌·페르시안, 스코티시 폴드**)이 함께 리모델링됩니다. 또한 각 층마다 사람이 복제되어 앉아 있던 기존 `내 자리` 대신 **3D 리뷰·승인 인터콤 부스**가 놓이며, **범례 안내** 패널에서 회전하는 3D 캐릭터·반려동물 품종 모형(호버 툴팁 포함)과 상태·색깔 신호 범례를 한눈에 볼 수 있습니다.
+| 퍼피 파크 (`dogs`) | 캣 타워 살롱 (`cats`) |
+| :---: | :---: |
+| <img src="docs/assets/theme-dogs.png" alt="퍼피 파크 테마와 8종 3D 강아지 캐릭터" width="100%" /> | <img src="docs/assets/theme-cats.png" alt="캣 타워 살롱 테마와 6종 3D 고양이 캐릭터" width="100%" /> |
+| **뼈다귀 모양 잔디 마당, 발바닥 분수대, 어질리티 링과 8종 3D 강아지 품종** (골든·래브라도 리트리버, 진돗개 백구·흑구·네눈박이, 보더 콜리, 웰시 코기, 시바견) | **고양이 귀 썬룸, 3단 캣타워, 벨벳 라운지와 6종 3D 고양이 품종** (사바나·아세라, 벵갈, 브리티시·러시안 블루, 샤미즈, 랙돌, 스코티시 폴드) |
+| **조선 궁궐 (`palace` - 밤 조명 모드)** | **다층 프로젝트 오버뷰 (`starship` & `hanok`)** |
+| <img src="docs/assets/theme-palace-night.png" alt="조선 궁궐 테마 밤 조명 모드" width="100%" /> | <img src="docs/assets/theme-hanok-starship.png" alt="SF 스타십과 전통 한옥 다층 오버뷰" width="100%" /> |
+| **장대석 흰 돌 기단, 경회루 연못 회랑과 은은한 청사초롱 야간 조명** (`밤` 조명 모드) | **프로젝트별 다층 구조** (2층 SF 스타십 팔각 선체·워프 코어 & 1층 전통 한옥 ㄱ·ㄷ자 마당) |
+| **AI 스튜디오 (`studio`)** | **19종 3D 캐릭터 도감 및 LLM별 맞춤 배정** |
+| <img src="docs/assets/theme-studio.png" alt="AI 스튜디오 테마와 실시간 말풍선" width="100%" /> | <img src="docs/assets/legend-catalog.png" alt="스크롤 가능한 19종 3D 캐릭터 범례와 에이전트 상세 창" width="100%" /> |
+| **실시간 도구 말풍선, 3D 화이트보드 체크리스트, 리뷰·승인 인터콤 부스**가 갖춰진 모던 AI 스튜디오 | **전체 19종 3D 캐릭터·반려동물 모형과 6종 LLM별 배정 현황**을 스크롤하며 볼 수 있는 범례 패널 |
+
+## 핵심 기능 및 7축 독립 커스터마이징
+
+상단 컨트롤 바에서 **공간·캐릭터·LLM별 캐릭터 배정·자세·음성·조명·카메라 조작**을 서로 독립적으로 조합할 수 있으며, 모든 설정은 브라우저(`localStorage`)에 자동 저장됩니다.
+
+- **공간 (`7`가지 3D 건축 테마)**: `AI 스튜디오`, `테크 오피스`, `조선 궁궐`, `전통 한옥`, `SF 스타십`, `퍼피 파크`, `캣 타워 살롱` 중 원하는 3D 건물 구조와 방 가구를 즉시 전환합니다.
+- **캐릭터 (`8`가지 프리셋 + `개별 설정`)**: 건물 공간과 캐릭터 외형을 분리하여, 예컨대 조선 궁궐이나 SF 스타십 안에서 강아지·고양이·한옥 선비 캐릭터가 일하도록 자유롭게 조합할 수 있습니다.
+- **LLM별 캐릭터 개별 매핑 (`19`종 3D 모형)**: 캐릭터 선택기 옆의 설정(기어) 버튼을 눌러 **Claude Code**, **OpenAI Codex**, **Grok**, **Antigravity (CLI)**, **Antigravity (App)**, **서브에이전트** 각각에 19종(인간 의상 5종 + 강아지 8종 + 고양이 6종) 중 원하는 캐릭터를 개별 배정할 수 있습니다.
+- **자세 (`자동` / `앉기` / `서기`)**: 책상 앞에서 자동으로 착석하거나 항상 서 있기·앉아 있기를 선택할 수 있습니다.
+- **음성 (`끄기` / `자동` / `동물` / `사람`)**: Web Audio 합성 사운드로 사람 음성 차임벨, 강아지 짖는 소리, 고양이 울음소리를 재생합니다.
+- **조명 (`낮` / `밤` / `자동`)**: 밝은 주간 조명, 아늑한 야간 무드 조명, 또는 현재 시각 연동 자동 모드를 지원합니다.
+- **3D 가구 충돌 회피 및 비겹침 좌석 배정**: 각 방의 책상·서버 랙·원탁·캣타워·연못마다 2D 충돌 박스가 등록되어 있어, 캐릭터가 이동할 때 가구와 겹치지 않고 자연스럽게 우회하며 빈 좌석에 나누어 앉습니다.
+- **스크롤 가능한 19종 3D 캐릭터 도감 범례**: 우측 하단 **범례 안내** 패널에서 회전하는 19종 전체 3D 모형과 현재 LLM별 캐릭터 배정 카드, 방·상태 색깔 신호를 스크롤하며 한눈에 확인할 수 있습니다.
+
+## 7가지 공간 테마와 방 구성
 
 | 역할 (`key`) | AI 스튜디오 (`studio`, 기본) | 테크 오피스 (`office`) | 조선 궁궐 (`palace`) | 전통 한옥 (`hanok`) | SF 스타십 (`starship`) | 퍼피 파크 (`dogs`) | 캣 타워 살롱 (`cats`) | 주요 도구·역할 |
 |---|---|---|---|---|---|---|---|---|
@@ -54,7 +98,7 @@ npm start
 | 프리셋 | 좌클릭 드래그 | 우클릭 / 보조 드래그 | 휠 / 트랙패드 스크롤 |
 |---|---|---|---|
 | **구글 맵** (기본) | 바닥 수평 이동 (패닝) | 우클릭 또는 `Ctrl`+좌클릭: 시점 회전·기울기 | 줌 인 / 줌 아웃 (`Shift`+방향키: 회전·기울기) |
-| **피그마** | 시점 회전 | `Space`+드래그 또는 휠클릭: 이동 | 상하좌우 패닝 (`Ctrl`/`⌘`+휠: 줌, `Shift+0/1/2`: 시점·포커스) |
+| **피그마** | 시점 회전 | `Space`+드래그 또는 휠클릭: 이동 | 상하좌우 패닝 (`Ctrl`/`Cmd`+휠: 줌, `Shift+0/1/2`: 시점·포커스) |
 | **3D 오빗** | 시점 회전 (오빗) | 우클릭 또는 `Shift`/`Space`+드래그: 이동 | 줌 인 / 줌 아웃 |
 | **블렌더** | 바닥 수평 이동 | 휠클릭 또는 `Alt`+드래그: 회전 | 줌 인 / 줌 아웃 (`.`/`F`: 선택 포커스, `Home`/`R`: 초기화) |
 
@@ -91,3 +135,17 @@ npm run skill:uninstall
 - 서버는 루프백(`127.0.0.1`)에만 열리며, 파일 내용·명령 원문·전체 경로·전체 URL·이메일·인증 파일은 절대 읽거나 브라우저로 보내지 않습니다.
 - 상세 계약과 어댑터 명세는 [`docs/CONTRACT.md`](docs/CONTRACT.md), [`docs/ADAPTERS.md`](docs/ADAPTERS.md), [`docs/HISTORY.md`](docs/HISTORY.md)를 참고하세요.
 - 어댑터 개발용 실시간 기록 관찰 패널은 `http://127.0.0.1:4317/?observe=1` (또는 `#observe`)로 열었을 때만 상단 바에 나타납니다.
+
+## 후원하기 (Support)
+
+**Office Sim**이 AI 코딩 작업에 즐거움이나 도움이 되었다면 커피 한 잔으로 개발을 응원해 주세요:
+
+<a href="https://www.buymeacoffee.com/wahyzdad" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/Buy_Me_a_Coffee-Support_wahyzdad-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee - wahyzdad" />
+</a>
+
+- 후원 링크: [https://www.buymeacoffee.com/wahyzdad](https://www.buymeacoffee.com/wahyzdad)
+
+## 라이선스
+
+[MIT](LICENSE)
