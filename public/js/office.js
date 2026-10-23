@@ -221,6 +221,7 @@ export class Office {
       surface: info.surface || old.surface || '',
       charOverride: old.charOverride || 'auto',
       postureOverride: old.postureOverride || 'auto',
+      motionOverride: old.motionOverride || 'auto',
     };
     const carry = old.current && old.current.kind !== 'leave' ? [old.current] : [];
     for (const it of carry) {
@@ -237,7 +238,7 @@ export class Office {
     a.childSeq = old.childSeq; // 이미 있는 형제와 색이 겹치지 않게 순번을 이어 간다
     this.agents.set(a.id, a);
     this.dress(a);
-    if (this.selected === old) this.select(a);
+    if (this.selected === old) this.select(a, { silent: true });
     if (floor !== from) {
       for (const kid of [...this.agents.values()]) if (kid.parentId === a.id && kid.floor === from) this.rehome(kid, {}, floor);
       this.pruneEmptyFloors();
@@ -440,11 +441,10 @@ export class Office {
     return base + (Math.max(1, this.floors.length) - 1) * EXPLODE_GAP * 0.42;
   }
 
-  select(a, { focusPan = false } = {}) {
-    const prev = this.selected;
+  select(a, { focusPan = false, silent = false } = {}) {
     this.selected = a;
     this.follow = !!a && (this.follow || focusPan);
-    if (a && a !== prev) a.makeSound?.('click', { force: true });
+    if (a && !silent) a.pet?.();
     if (focusPan && a) {
       a.group.getWorldPosition(this.tmp);
       this.tmp.y += 0.6;

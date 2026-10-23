@@ -1,5 +1,5 @@
 // 직원 색, 걷는 길(lane), 자리가 없을 때 기다리는 곳, 이동 경로·충돌 회피. three.js 없이 쓰는 순수 함수.
-import { ROOMS, activeThemeOf, doorOf, resolveAgentAppearance, zoneAt } from './rooms.js';
+import { ROOMS, activeMotionOf, activeThemeOf, doorOf, resolveAgentAppearance, zoneAt } from './rooms.js';
 import { corridorWaypoints, layoutOf, obstaclesOf } from './theme-layouts.js';
 
 export const GOLDEN_ANGLE = 137.508;
@@ -12,17 +12,9 @@ export const AGENT_RADIUS = 0.24;
 
 // 에이전트 브랜드별 대표 색상(Hue): Claude(테라코타/코랄), Codex(에메랄드/민트), Grok(코스믹 바이올렛), Antigravity(딥마인드 코발트/CLI 시안)
 export const BRAND_HUES = Object.freeze({
-  'claude-code': 18,
-  'claude-code:cli': 16,
-  'claude-code:app': 28,
-  codex: 162,
-  'codex:cli': 156,
-  'codex:app': 174,
-  grok: 268,
-  antigravity: 222,
-  'antigravity:cli': 195,
-  'antigravity:ide': 208,
-  'antigravity:app': 224,
+  'claude-code': 18, 'claude-code:cli': 16, 'claude-code:app': 28,
+  codex: 162, 'codex:cli': 156, 'codex:app': 174, grok: 268,
+  antigravity: 222, 'antigravity:cli': 195, 'antigravity:ide': 208, 'antigravity:app': 224,
 });
 
 export function hueOf(id) {
@@ -307,7 +299,10 @@ export const MANEUVER_SPECS = Object.freeze({
 });
 
 // 캐릭터 정체성(서브에이전트·Antigravity·고양이·강아지·인간형)과 정체 인원수에 맞춰 곡예 모션을 고른다.
-export function pickManeuverKind(agent = {}, blockerCount = 1, seq = 0) {
+export function pickManeuverKind(agent = {}, blockerCount = 1, seq = 0, explicitKind = '') {
+  if (explicitKind && MANEUVER_SPECS[explicitKind]) return explicitKind;
+  const ov = agent.motionOverride && agent.motionOverride !== 'auto' ? agent.motionOverride : activeMotionOf();
+  if (ov && MANEUVER_SPECS[ov]) return ov;
   const family = agent.charFamily || resolveAgentAppearance(agent).family;
   if (agent.isSub) return blockerCount >= 2 && seq % 2 === 1 ? 'roll' : 'prop-fly';
   if (agent.agent === 'antigravity' && family === 'human') return seq % 3 === 2 ? 'roll' : (seq % 3 === 1 ? 'spin' : 'phase');
@@ -386,11 +381,11 @@ export function computeManeuverPose(m, t = 0, isTetra = false, reduced = false) 
 }
 
 // 에이전트에게 곡예 돌파 모션(maneuver)을 시작시키고 사운드 트리거 종류를 반환한다.
-export function startAgentManeuver(agent, blockerCount = 1) {
+export function startAgentManeuver(agent, blockerCount = 1, explicitKind = '', manual = false) {
   const seq = agent.maneuverSeq || 0;
   agent.maneuverSeq = seq + 1;
-  const kind = pickManeuverKind(agent, blockerCount, seq);
-  agent.maneuver = { ...(MANEUVER_SPECS[kind] || MANEUVER_SPECS.jump), t: 0, blockerCount };
+  const kind = pickManeuverKind(agent, blockerCount, seq, explicitKind);
+  agent.maneuver = { ...(MANEUVER_SPECS[kind] || MANEUVER_SPECS.jump), t: 0, blockerCount, manual };
   agent.stallT = 0;
   return kind === 'roll' ? 'roll' : 'hop';
 }
@@ -399,12 +394,11 @@ export function startAgentManeuver(agent, blockerCount = 1) {
 export function stepAgentPath(agent, dt, baseSpeed, theme = activeThemeOf()) {
   const pos = posOf(agent);
   agent.maneuverCd = Math.max(0, (agent.maneuverCd || 0) - dt);
-  if (agent.maneuver && ((agent.maneuver.t += dt) >= agent.maneuver.dur || !agent.path?.length)) {
+  if (agent.maneuver && (agent.maneuver.t += dt) >= agent.maneuver.dur) {
     agent.maneuver = null;
     agent.maneuverCd = 1.2;
   }
   if (!pos || !agent.path?.length) {
-    agent.maneuver = null;
     agent.stallT = agent.prevStep = 0;
     return { moving: false, heading: null, arrived: false, soundTrigger: null };
   }
@@ -437,7 +431,7 @@ export function stepAgentPath(agent, dt, baseSpeed, theme = activeThemeOf()) {
   }
   resolveObstacleCollision(pos, 0.2, theme);
   const arrived = agent.path.length === 0;
-  if (arrived) { agent.maneuver = null; agent.stallT = agent.prevStep = 0; }
+  if (arrived) { if (!agent.maneuver?.manual) agent.maneuver = null; agent.stallT = agent.prevStep = 0; }
   return { moving: true, heading: dist > 0.01 ? Math.atan2(dx, dz) : null, arrived, soundTrigger };
 }
 

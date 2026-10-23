@@ -374,11 +374,15 @@ test('buildBrandFlair and Office.refreshLabels: remodels character costumes, pet
   assert.ok(model.tailPivot);
   animateAgentMesh(model, false);
 
-  const { a } = setup('pet-1');
-  const petRes = a.pet();
+  const { office: petOffice, a } = setup('pet-1');
+  const petRes = a.pet('flip');
   assert.ok(petRes?.soundId);
   assert.ok(a.soundT > 0);
+  assert.equal(a.maneuver?.kind, 'flip');
   assert.deepEqual(lastBubble(a), ['say', petRes.text]);
+  a.maneuver = null;
+  petOffice.select(a);
+  assert.ok(a.maneuver, 'clicking/selecting a character triggers its acrobatic motion in addition to pet voice');
 });
 
 // 라운지 자리에 앉아 있던 직원이 퇴근할 때: 그 자리에서 사라지지 말고 엘리베이터까지 걸어간다.

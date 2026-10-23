@@ -37,6 +37,8 @@ export const DEFAULT_ROOM_THEME = 'studio';
 export const DEFAULT_LANG = 'ko';
 export const POSTURE_MODES = Object.freeze(['auto', 'tetrapod', 'bipod']);
 export const DEFAULT_POSTURE_MODE = 'auto';
+export const MOTION_MODES = Object.freeze(['auto', 'jump', 'roll', 'flip', 'spin', 'prop-fly', 'phase']);
+export const DEFAULT_MOTION_MODE = 'auto';
 
 export const ROOM_THEMES = Object.freeze({
   dogs: Object.freeze({ name: Object.freeze({ ko: '퍼피 파크', en: 'Puppy Park' }), rooms: Object.freeze({
@@ -108,6 +110,7 @@ let activeTheme = DEFAULT_ROOM_THEME;
 let activeCharTheme = DEFAULT_CHAR_THEME;
 let activeLang = DEFAULT_LANG;
 let activePostureMode = DEFAULT_POSTURE_MODE;
+let activeMotionMode = DEFAULT_MOTION_MODE;
 let activeVoiceMode = DEFAULT_VOICE_MODE;
 let activeColorTheme = DEFAULT_COLOR_THEME;
 let activeLlmFilter = DEFAULT_LLM_FILTER;
@@ -126,6 +129,9 @@ export const tr = (ko, en, lang = activeLang) => (lang === 'en' ? en : ko);
 export const postureModeOf = (m) => (POSTURE_MODES.includes(m) ? m : DEFAULT_POSTURE_MODE);
 export const activePostureOf = () => activePostureMode;
 export const setPostureMode = (m) => { activePostureMode = postureModeOf(m); return activePostureMode; };
+export const motionModeOf = (m) => (MOTION_MODES.includes(m) ? m : DEFAULT_MOTION_MODE);
+export const activeMotionOf = () => activeMotionMode;
+export const setMotionMode = (m) => { activeMotionMode = motionModeOf(m); return activeMotionMode; };
 
 export const voiceModeOf = (v) => (VOICE_MODES.includes(v) ? v : DEFAULT_VOICE_MODE);
 export const activeVoiceModeOf = () => activeVoiceMode;
@@ -256,25 +262,21 @@ export const UI_TEXT = Object.freeze({
     themeLabel: '공간', charLabel: '캐릭터', llmLabel: 'LLM', llmAll: '전체',
     postureLabel: '보행',
     postures: Object.freeze({ auto: '자동 (캐릭터별)', tetrapod: '4족 보행 (네발)', bipod: '2족 보행 (두발)' }),
+    motionLabel: '모션',
+    motions: Object.freeze({ auto: '자동 (캐릭터별)', jump: '점프 (폴짝)', roll: '구르기 (데구르르)', flip: '공중제비 (캣플립)', spin: '회전 (빙글)', 'prop-fly': '프로펠러 비행 (붕붕)', phase: '무중력 활공 (페이즈)' }),
     voiceLabel: '소리',
-    voices: Object.freeze({
-      auto: '자동 (캐릭터별)', dogs: '강아지 (멍멍)', cats: '고양이 (야옹)',
-      chime: '국악 (옥소리)', chirp: '스타십 (비프)', blip: '스튜디오 (블립)', mute: '음소거',
-    }),
+    voices: Object.freeze({ auto: '자동 (캐릭터별)', dogs: '강아지 (멍멍)', cats: '고양이 (야옹)', chime: '국악 (옥소리)', chirp: '스타십 (비프)', blip: '스튜디오 (블립)', mute: '음소거' }),
     colorLabel: Object.freeze({ system: '조명: 자동', light: '조명: 낮', dark: '조명: 밤' }),
     soundLabel: Object.freeze({ on: '소리 켜짐', off: '음소거' }),
     petBtn: '쓰다듬기 · 소리', controlLabel: '조작', legendBtn: '범례·배정', logBtn: '활동 기록',
     logTitle: '활동 기록', legendTitle: '범례 및 LLM 캐릭터 배정', resetCastBtn: '기본 배정 복원',
-    legendSections: Object.freeze({
-      rooms: '공간 · 방 안내', agents: 'LLM별 캐릭터 배정', catalog: '캐릭터 · 품종 도감 (21종)',
-      signals: '상태 · 색깔 신호', controls: '카메라 · 단축키',
-    }),
+    legendSections: Object.freeze({ rooms: '공간 · 방 안내', agents: 'LLM별 캐릭터 배정', catalog: '캐릭터 · 품종 도감 (21종)', signals: '상태 · 색깔 신호', controls: '카메라 · 단축키' }),
     allNo: '전체', allName: '모든 프로젝트 층 보기', globalFloor: '전역 · 미지정',
     globalTitle: '워크스페이스 경로가 지정되지 않은 전역 세션',
     askBadge: (approving, asking) => `${approving === asking ? '승인' : '질문'} ${asking}`,
     follow: '따라가기', close: '닫기',
     mode: Object.freeze({ idle: '대기', work: '작업 중', think: '생각 중', write: '계획 작성', ask: '질문 중', panic: '식은땀', moving: '이동 중', approval: '승인 대기' }),
-    rows: Object.freeze({ project: '프로젝트', agent: '에이전트', branch: '브랜치', status: '상태', activity: '하는 일', queue: '남은 일', charOverride: '개별 캐릭터', postureOverride: '개별 보행' }),
+    rows: Object.freeze({ project: '프로젝트', agent: '에이전트', branch: '브랜치', status: '상태', activity: '하는 일', queue: '남은 일', charOverride: '개별 캐릭터', postureOverride: '개별 보행', motionOverride: '개별 모션' }),
     subBadge: (type) => `서브 (${type || '보조'})`,
     worktreeBadge: (wt) => `워크트리 ${wt}`,
     queueCount: (n) => `${n}건`,
@@ -297,25 +299,21 @@ export const UI_TEXT = Object.freeze({
     themeLabel: 'Place', charLabel: 'Character', llmLabel: 'LLM', llmAll: 'All',
     postureLabel: 'Posture',
     postures: Object.freeze({ auto: 'Auto (By Character)', tetrapod: 'Tetrapod (4-Leg)', bipod: 'Bipod (2-Leg)' }),
+    motionLabel: 'Motion',
+    motions: Object.freeze({ auto: 'Auto (By Character)', jump: 'Jump (Vault)', roll: 'Roll (Dodge Roll)', flip: 'Flip (Somersault)', spin: 'Spin (360° Pirouette)', 'prop-fly': 'Propeller Fly (Hover)', phase: 'Zero-G Phase (Glide)' }),
     voiceLabel: 'Voice',
-    voices: Object.freeze({
-      auto: 'Auto (By Character)', dogs: 'Dog (Bark)', cats: 'Cat (Meow)',
-      chime: 'Royal (Chime)', chirp: 'Starship (Chirp)', blip: 'Studio (Blip)', mute: 'Muted',
-    }),
+    voices: Object.freeze({ auto: 'Auto (By Character)', dogs: 'Dog (Bark)', cats: 'Cat (Meow)', chime: 'Royal (Chime)', chirp: 'Starship (Chirp)', blip: 'Studio (Blip)', mute: 'Muted' }),
     colorLabel: Object.freeze({ system: 'Light: Auto', light: 'Light: Day', dark: 'Light: Night' }),
     soundLabel: Object.freeze({ on: 'Sound On', off: 'Muted' }),
     petBtn: 'Pet · Voice', controlLabel: 'Controls', legendBtn: 'Legend & Cast', logBtn: 'Activity Log',
     logTitle: 'Activity Log', legendTitle: 'Visual Legend & LLM Cast', resetCastBtn: 'Reset Cast',
-    legendSections: Object.freeze({
-      rooms: 'Rooms & Zones', agents: 'LLM Character Mapping', catalog: 'Character & Breed Catalog (21)',
-      signals: 'Status & Color Signals', controls: 'Camera & Shortcuts',
-    }),
+    legendSections: Object.freeze({ rooms: 'Rooms & Zones', agents: 'LLM Character Mapping', catalog: 'Character & Breed Catalog (21)', signals: 'Status & Color Signals', controls: 'Camera & Shortcuts' }),
     allNo: 'ALL', allName: 'All Project Floors', globalFloor: 'Global · Unassigned',
     globalTitle: 'Global sessions without a workspace path',
     askBadge: (approving, asking) => `${approving === asking ? 'Approve' : 'Ask'} ${asking}`,
     follow: 'Follow', close: 'Close',
     mode: Object.freeze({ idle: 'Idle', work: 'Working', think: 'Thinking', write: 'Planning', ask: 'Asking', panic: 'Error', moving: 'Moving', approval: 'Awaiting Approval' }),
-    rows: Object.freeze({ project: 'Project', agent: 'Agent', branch: 'Branch', status: 'Status', activity: 'Activity', queue: 'Queued', charOverride: 'Character', postureOverride: 'Posture' }),
+    rows: Object.freeze({ project: 'Project', agent: 'Agent', branch: 'Branch', status: 'Status', activity: 'Activity', queue: 'Queued', charOverride: 'Character', postureOverride: 'Posture', motionOverride: 'Motion' }),
     subBadge: (type) => `Sub (${type || 'helper'})`,
     worktreeBadge: (wt) => `worktree ${wt}`,
     queueCount: (n) => `${n}`,
