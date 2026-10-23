@@ -17,12 +17,14 @@ const AGENT_LABEL = { 'claude-code': 'Claude Code', codex: 'Codex', grok: 'Grok'
 const AGENT_BADGE = { 'claude-code': 'Claude', codex: 'Codex', grok: 'Grok', antigravity: 'AGY' };
 const SURFACE_LABEL = {
   'claude-code:app': 'Claude/Claude Code·App', 'claude-code:cli': 'Claude Code·CLI', 'claude-code:ide': 'Claude Code·IDE',
-  'codex:app': 'ChatGPT/Codex·App', 'codex:cli': 'Codex·CLI', 'codex:ide': 'Codex·IDE', 'grok:cli': 'Grok Build·CLI',
+  'codex:app': 'ChatGPT/Codex·App', 'codex:cli': 'Codex·CLI', 'codex:ide': 'Codex·IDE',
+  'grok:app': 'Grok Bot·App', 'grok:cli': 'Grok Build·CLI',
   'antigravity:cli': 'Antigravity·CLI', 'antigravity:app': 'Antigravity·App', 'antigravity:ide': 'Antigravity·IDE',
 };
 const SURFACE_BADGE = {
   'claude-code:app': 'Claude·App', 'claude-code:cli': 'Claude·CLI', 'claude-code:ide': 'Claude·IDE',
-  'codex:app': 'ChatGPT·App', 'codex:cli': 'Codex·CLI', 'codex:ide': 'Codex·IDE', 'grok:cli': 'Grok·CLI',
+  'codex:app': 'ChatGPT·App', 'codex:cli': 'Codex·CLI', 'codex:ide': 'Codex·IDE',
+  'grok:app': 'Grok·App', 'grok:cli': 'Grok·CLI',
   'antigravity:cli': 'AGY·CLI', 'antigravity:app': 'AGY·App', 'antigravity:ide': 'AGY·IDE',
 };
 export const agentLabel = (id, surface = '') => (

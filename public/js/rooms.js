@@ -175,6 +175,11 @@ export const effectivePosture = (themeOrSpec = activeCharTheme, mode = activePos
   return (s === 'dogs' || s === 'cats' || s.startsWith('dog:') || s.startsWith('cat:')) ? 'tetrapod' : 'bipod';
 };
 
+export const DESKTOP_BOT_SPEC_BY_PROJECT = Object.freeze({
+  '/ChatGPT Dot': 'bot:chatgpt-dot', '/ChatGPT Desktop': 'bot:chatgpt-dot', '/ChatGPT Classic': 'bot:chatgpt-dot',
+  '/Grok Bot': 'bot:grok-bot', '/Grok CLI': 'bot:grok-bot', '/Claude Desktop': 'bot:claude-duet',
+});
+
 // 에이전트 외형·품종·보행·보이스 3단계 해석기:
 // 1순위: 에이전트 개별 오버라이드(agent.charOverride / agent.petBreed)
 // 2순위: 사용자 지정 LLM별 캐릭터 배정(llmCharMap[slot])
@@ -193,6 +198,8 @@ export function resolveAgentAppearance(agent = {}, opts = {}) {
     spec = map[slot];
   } else if (cTheme.startsWith('dog:') || cTheme.startsWith('cat:') || cTheme.startsWith('bot:')) {
     spec = cTheme;
+  } else if (cTheme !== 'dogs' && cTheme !== 'cats' && agent.project && Object.hasOwn(DESKTOP_BOT_SPEC_BY_PROJECT, agent.project)) {
+    spec = DESKTOP_BOT_SPEC_BY_PROJECT[agent.project];
   } else {
     const pack = DEFAULT_LLM_CHAR_MAP[cTheme] || DEFAULT_LLM_CHAR_MAP.studio;
     spec = pack[slot] || 'human:studio';

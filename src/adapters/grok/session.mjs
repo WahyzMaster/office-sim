@@ -37,9 +37,13 @@ export class GrokSession {
    *   not that uuid are skipped (R10 analog). The Runner's Claude-only options (file, stem, subMeta, journalLabel) are
    *   accepted and ignored.
    */
-  constructor({ id, agent = GROK_AGENT, kind = 'main', parentId = null, agentType = null, now = Date.now } = {}) {
+  constructor({ id, agent = GROK_AGENT, kind = 'main', parentId = null, agentType = null, facts = null, now = Date.now } = {}) {
     this.agent = typeof agent === 'string' && agent !== '' ? agent : GROK_AGENT;
     this.core = new SessionCore({ id, agent: this.agent, kind, parentId, agentType, now });
+    this.surface = isObj(facts) && typeof facts.surface === 'string' ? facts.surface : null;
+    if (isObj(facts) && (facts.cwd || facts.title || facts.branch)) {
+      this.core.setInfo({ cwd: facts.cwd, title: facts.title, branch: facts.branch });
+    }
     const prefix = `${this.agent}-`;
     this._sessionUuid = typeof id === 'string' && id.startsWith(prefix) && id.length > prefix.length ? id.slice(prefix.length) : null;
     this._skipped = 0; // 읽을 수 없는 기록 (Grok 기록이 아니거나 모양이 틀림)

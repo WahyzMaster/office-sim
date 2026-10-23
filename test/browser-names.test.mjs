@@ -320,13 +320,12 @@ test('Independent selections and custom LLM-to-character mapping (llmCharMap + p
   setLlmFilter('all');
   assert.equal(llmFilterOf('invalid'), 'all');
 
-  // Reset restores defaults
-  resetLlmCharMap();
-  setCharTheme('studio');
-  setPostureMode('auto');
-  setVoiceMode('auto');
-  setColorTheme('system');
+  // Reset restores defaults and studio/desktop-bot default appearance resolves ChatGPT Dot, Grok Bot, Claude Duet
+  resetLlmCharMap(); setCharTheme('studio'); setPostureMode('auto'); setVoiceMode('auto'); setColorTheme('system');
   applyRoomTheme('studio', 'ko');
+  assert.equal(resolveAgentAppearance({ agent: 'codex', surface: 'app', project: '/ChatGPT Dot' }).charSpec, 'bot:chatgpt-dot');
+  assert.equal(resolveAgentAppearance({ agent: 'grok', surface: 'app', project: '/Grok Bot' }).charSpec, 'bot:grok-bot');
+  assert.equal(resolveAgentAppearance({ agent: 'claude-code', surface: 'app', project: '/Claude Desktop' }).charSpec, 'bot:claude-duet');
 });
 
 test('Materialized non-overlapping obstacles, safe pathfinding and dynamic agent separation', () => {

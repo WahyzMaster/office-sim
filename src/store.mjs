@@ -246,7 +246,7 @@ export class Store {
   // 층 상속, agentType 도. agent 는 이벤트에 없을 때 entry 의 agent.
   patch(ev, e) {
     if (!ev || ev.type !== 'session' || !e) return ev;
-    const surface = e.state?.surface ?? AGY_SURFACE[e.ref?.facts?.base] ?? null;
+    const surface = e.state?.surface ?? e.ref?.facts?.surface ?? AGY_SURFACE[e.ref?.facts?.base] ?? null;
     if (e.kind === 'main') {
       const floor = this.floorOf(e, ev.project);
       if (!floor && !surface) return ev;

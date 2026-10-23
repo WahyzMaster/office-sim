@@ -26,6 +26,7 @@ export class GrokMeta extends SidecarWatcher {
    * caught-up read of its tail; null when none of these.
    */
   async check(ref) {
+    if (ref?.facts?.desktopKind) return null;
     // 꼬리는 먼저 (동기로) 잡는다: 이 check 가 도는 사이에 forget 되면 그 결과는 버린다
     const file = eventsPathOf(ref?.path);
     let tail = null;
