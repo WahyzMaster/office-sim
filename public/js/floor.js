@@ -9,6 +9,7 @@ import {
 } from './furniture.js';
 import { buildThemeGround } from './theme-grounds.js';
 import { buildPalaceProps, buildHanokProps, buildStarshipProps, buildDogsProps, buildCatsProps } from './theme-props.js';
+import { doorLeafPose } from './theme-geometry.js';
 
 export const FLOOR_GAP = 5.4;
 export const EXPLODE_GAP = 9.5;
@@ -194,9 +195,12 @@ export class Floor {
     this.globe.rotation.y += dt * (this.busy.research ? 1.8 : 0.3);
     this.elevT = Math.max(0, this.elevT - dt);
     this.doorOpen += ((this.elevT > 0 ? 1 : 0) - this.doorOpen) * Math.min(1, dt * 6);
-    const o = 0.46 + this.doorOpen * 0.78;
-    this.doors[0].position.z = -o;
-    this.doors[1].position.z = o;
+    // 문짝은 바깥 모서리를 고정한 채 길이를 줄여 연다 -> 틀·대문 기둥 밖으로 나가지 않는다
+    const p = doorLeafPose(this.doorOpen);
+    for (const [i, s] of [[0, -1], [1, 1]]) {
+      this.doors[i].scale.z = p.len;
+      this.doors[i].position.z = s * p.centre;
+    }
   }
 
   dispose(stage) {

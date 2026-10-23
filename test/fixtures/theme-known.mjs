@@ -10,8 +10,8 @@ export const KNOWN = {
   // 바닥 밖
   'support:studio': 2, // studio-01 북·서 벽 끝이 둥근 모서리 밖
   'support:hanok': 1, // triage: hanok-11 북쪽 담이 기단 밖으로 0.12 (P2, Task 24)
-  'support:starship': 11, // starship-01 출입구·엘리베이터·문짝·벤치 다리, starship-m01 역장 끝 2, starship-10 받침 2
-  'support:dogs': 9, // dogs-01 출입구·문짝, dogs-03 장 2·랙 2
+  'support:starship': 12, // starship-01 출입구·엘리베이터 틀·뒤판·문짝·벤치 다리 2, starship-m01 역장 끝 2, starship-10 받침 2
+  'support:dogs': 8, // dogs-01 엘리베이터 틀·뒤판·문짝, dogs-03 장 2·랙 2
   'support:cats': 12, // cats-01 연구실 자리 2·책상 다리 8·종, cats-02 랙 1
   // 자리 밑 바닥이 높음
   'floorTop:palace': 29, // palace-03
@@ -53,6 +53,4 @@ export const KNOWN = {
   'alloc:office': 12,
   'alloc:dogs': 1, // triage: theme-props 의 M.white 가 mats() 에 없어 Mesh 기본 재질을 매번 만든다
   // theme-layouts 순수 검사
-  'bounds:palace': 2, // xcut-m01 라운지 문·엘리베이터 x -11.8
-  'bounds:starship': 2,
 };

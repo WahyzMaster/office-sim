@@ -25,6 +25,17 @@ const PURE = {
   },
 };
 
+// 출입 지점(직원이 나타나고 사라지는 곳)이 엘리베이터 틀·대문 문짝과 겹치지 않는지.
+// 포털: 틀 반폭 0.175 + 문짝 앞면 0.045 + 직원 반지름 0.24 + 여유 0.16 = 0.62, 대문: 문짝 반폭 0.05 + 반지름 0.24 = 0.29
+test('theme layout: every elevator spawn stands clear of its frame or gate leaves', () => {
+  for (const t of THEMES) {
+    const e = THEME_LAYOUTS[t].elevator;
+    assert.ok(['portal', 'gate'].includes(e.kind), `${t} kind`);
+    assert.ok(e.x >= -11.6, `${t} spawn inside the building`);
+    assert.ok(e.x >= e.frameX + (e.kind === 'portal' ? 0.62 : 0.29) - 1e-9, `${t} spawn ${e.x} vs frame ${e.frameX}`);
+  }
+});
+
 for (const [name, check] of Object.entries(PURE)) {
   test(`theme layout invariant ${name}: failures match the known list for every theme`, () => {
     const msgs = [];

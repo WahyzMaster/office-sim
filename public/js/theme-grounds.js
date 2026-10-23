@@ -6,6 +6,7 @@ import { box } from './scene.js';
 import { mats } from './furniture.js';
 import { themeMats, cyl, roofEave, pineTree, buildStandardPartitions, buildElevatorDoors } from './theme-kit.js';
 import { buildStarshipGround, buildDogsGround, buildCatsGround } from './theme-grounds-ext.js';
+import { layoutOf } from './theme-layouts.js';
 
 export { themeMats } from './theme-kit.js';
 
@@ -45,7 +46,7 @@ function buildStudioGround(g) {
   for (let x = -11; x <= 11; x += 1.1) box(g, tm.studioOak, 0.12, 2.5, 0.12, x, 0.1, -FLOOR_D / 2 + 0.04);
   box(g, M.wall, 0.22, 2.7, FLOOR_D - 0.8, -FLOOR_W / 2 - 0.1, 0, 0);
   buildStandardPartitions(g, tm.glassWall, tm.studioOak);
-  return buildElevatorDoors(g, M.metal, M.dark, -11.82, 0);
+  return buildElevatorDoors(g, M.metal, M.dark, layoutOf('studio').elevator.frameX, 0);
 }
 
 // 2. 테크 오피스: 캔틸레버 스텝 데크 + 좌측 루프탑 가든 테라스 + 우측 하단 유리 부스 돌출
@@ -65,7 +66,7 @@ function buildOfficeGround(g) {
   box(g, M.wall, FLOOR_W + 0.3, 2.8, 0.25, 0, 0, -FLOOR_D / 2 - 0.12);
   box(g, M.wall, 0.25, 2.8, FLOOR_D + 0.3, -FLOOR_W / 2 - 0.12, 0, 0);
   buildStandardPartitions(g, M.part, M.metal);
-  return buildElevatorDoors(g, M.wall, M.metal, -11.82, 0);
+  return buildElevatorDoors(g, M.wall, M.metal, layoutOf('office').elevator.frameX, 0);
 }
 
 // 3. 조선 궁궐: 2단 화강암 월대(T자 돌출형) + 주칠 기둥 열주 + 단청 처마 + 중앙 방지원도 연못 + 일주문
@@ -118,8 +119,9 @@ function buildPalaceGround(g) {
   // 서쪽 일주문/홍살문 출입구
   for (const z of [-1.25, 1.25]) cyl(g, tm.vermilion, 0.2, 0.22, 2.6, -11.85, 0, z);
   roofEave(g, tm.tile, tm.dancheong, 1.6, 0.75, 3.4, -11.85, 2.5, 0);
-  const dL = box(g, tm.vermilion, 0.1, 1.9, 0.85, -11.85, 0.08, -0.46);
-  const dR = box(g, tm.vermilion, 0.1, 1.9, 0.85, -11.85, 0.08, 0.46);
+  const gx = layoutOf('palace').elevator.frameX;
+  const dL = box(g, tm.vermilion, 0.1, 1.9, 0.85, gx, 0.08, -0.46);
+  const dR = box(g, tm.vermilion, 0.1, 1.9, 0.85, gx, 0.08, 0.46);
   return [dL, dR];
 }
 
@@ -169,7 +171,9 @@ function buildHanokGround(g) {
   // 서쪽 솟을대문
   for (const z of [-1.2, 1.2]) cyl(g, tm.hanokDark, 0.18, 0.2, 2.4, -11.7, 0, z);
   roofEave(g, tm.tile, tm.hanokDark, 1.5, 0.7, 3.2, -11.7, 2.35, 0);
-  const dL = box(g, tm.hanokWood, 0.1, 1.85, 0.84, -11.7, 0.06, -0.46);
-  const dR = box(g, tm.hanokWood, 0.1, 1.85, 0.84, -11.7, 0.06, 0.46);
+  // 문짝은 기둥 서쪽(x -11.95)에 달아 직원이 나타나는 자리(-11.6)와 겹치지 않는다
+  const gx = layoutOf('hanok').elevator.frameX;
+  const dL = box(g, tm.hanokWood, 0.1, 1.85, 0.84, gx, 0.06, -0.46);
+  const dR = box(g, tm.hanokWood, 0.1, 1.85, 0.84, gx, 0.06, 0.46);
   return [dL, dR];
 }

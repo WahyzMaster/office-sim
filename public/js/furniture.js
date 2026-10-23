@@ -257,14 +257,3 @@ export function buildLoungeProps(g) {
   plant(g, -10.4, 1.55, 0.9);
   plant(g, 11.55, 1.55, 0.85);
 }
-
-export function buildLounge(g) {
-  buildLoungeProps(g);
-  box(g, M.dark, 0.14, 2.5, 2.5, -11.95, 0, 0);
-  const doors = [
-    box(g, M.metal, 0.06, 2.2, 0.92, -11.85, 0.02, -0.46, false),
-    box(g, M.metal, 0.06, 2.2, 0.92, -11.85, 0.02, 0.46, false),
-  ];
-  box(g, M.lamp, 0.06, 0.12, 0.5, -11.85, 2.32, 0, false);
-  return doors;
-}

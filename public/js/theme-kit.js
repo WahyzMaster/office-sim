@@ -104,6 +104,8 @@ export function buildStandardPartitions(g, wallMat, capMat) {
 
 export function buildElevatorDoors(g, frameMat, doorMat, x, z) {
   box(g, frameMat, 0.35, 2.5, 2.2, x, 0, z);
+  // 문짝 뒤 어두운 칸: 닫히면 가운데 틈으로만 보이고, 열리면 엘리베이터 안쪽으로 보인다
+  box(g, mats().dark, 0.02, 2.06, 1.76, x + 0.19, 0, z, false);
   const dL = box(g, doorMat, 0.08, 2.1, 0.85, x + 0.18, 0, z - 0.46);
   const dR = box(g, doorMat, 0.08, 2.1, 0.85, x + 0.18, 0, z + 0.46);
   return [dL, dR];

@@ -4,6 +4,7 @@ import { ROOMS, FLOOR_W, FLOOR_D } from './rooms.js';
 import { box } from './scene.js';
 import { mats } from './furniture.js';
 import { themeMats, cyl, pineTree, buildElevatorDoors } from './theme-kit.js';
+import { layoutOf } from './theme-layouts.js';
 
 const CYL = new THREE.CylinderGeometry(1, 1, 1, 16);
 const HEX = new THREE.CylinderGeometry(1, 1, 1, 6);
@@ -62,7 +63,7 @@ export function buildStarshipGround(g) {
   core.position.set(0, 0.65, 0);
   g.add(ring1, ring2, core);
   // 좌측 블라스트 에어락/터보리프트 포털
-  return buildElevatorDoors(g, tm.hullTrim, tm.plasmaCyan, -11.82, 0);
+  return buildElevatorDoors(g, tm.hullTrim, tm.plasmaCyan, layoutOf('starship').elevator.frameX, 0);
 }
 
 // 6. 퍼피 파크(dogs): 대형 뼈다귀 모양 잔디 공원 + 나무 피켓 펜스 + 중앙 강아지 발바닥 분수대·어질리티 후프
@@ -104,7 +105,7 @@ export function buildDogsGround(g) {
   g.add(hoop);
   pineTree(g, tm, -11.2, -6.2, 0.95);
   pineTree(g, tm, 11.2, -6.2, 0.95);
-  return buildElevatorDoors(g, tm.fenceWood, tm.agilityBlue, -11.42, 0);
+  return buildElevatorDoors(g, tm.fenceWood, tm.agilityBlue, layoutOf('dogs').elevator.frameX, 0);
 }
 
 // 7. 캣 타워 살롱(cats): 고양이 얼굴·귀 실루엣 벨벳 라운지 + 좌우 삼각 고양이 귀 썬룸 + 중앙 3단 캣타워
@@ -141,5 +142,5 @@ export function buildCatsGround(g) {
   yarn.scale.setScalar(0.32);
   yarn.position.set(0, 2.28, 0.55);
   g.add(yarn);
-  return buildElevatorDoors(g, tm.roseGold, tm.plushPink, -11.42, 0);
+  return buildElevatorDoors(g, tm.roseGold, tm.plushPink, layoutOf('cats').elevator.frameX, 0);
 }

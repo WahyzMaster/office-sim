@@ -317,6 +317,7 @@ export class Agent {
         this.bubble('info', it.text, 3);
         break;
       case 'leave':
+        this.floor.openElevator?.();
         this.office.removeAgent(this);
         return;
       default:
@@ -452,6 +453,7 @@ export class Agent {
         pos.z += (dz / dist) * step;
       }
       resolveObstacleCollision(pos, 0.2, activeThemeOf());
+      if (this.current?.kind === 'leave' && Math.hypot(pos.x - ELEVATOR.x, pos.z - ELEVATOR.z) < 2.5) this.floor.openElevator?.();
       if (dist > 0.01) this.turnTo(Math.atan2(dx, dz), dt);
       if (!this.path.length) this.arrived();
     } else {
