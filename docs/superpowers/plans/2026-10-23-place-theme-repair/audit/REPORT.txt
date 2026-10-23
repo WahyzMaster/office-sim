@@ -1,0 +1,245 @@
+
+######## THEME studio  (meshes=273)  counts={'noSupport': 0, 'floating': 0, 'floatingGlow': 1, 'overhang': 0, 'hidden': 0, 'intersect': 26, 'slotBlocked': 0, 'invisibleObstacle': 3, 'walkThrough': 5, 'raisedFloor': 0, 'ringClearance': 0, 'outside': 0}
+[floatingGlow] Icosahedron #9fd4ff @buildDesk furniture.js:241:5 <Floor.rebuildTheme floor.js:84:7> min=[10.54, 1.02, 4.74] max=[11.06, 1.54, 5.26] gap=0.16
+[walkThrough] Box #8794a1 @buildElevatorDoors theme-grounds.js:399:3 <buildStudioGround theme-grounds.js:118:10> min=[-11.995, 0, -1.1] max=[-11.645, 2.5, 1.1]
+[walkThrough] Box #20262e @buildElevatorDoors theme-grounds.js:400:14 <buildStudioGround theme-grounds.js:118:10> min=[-11.68, 0, -0.885] max=[-11.6, 2.1, -0.035]
+[walkThrough] Box #20262e @buildElevatorDoors theme-grounds.js:401:14 <buildStudioGround theme-grounds.js:118:10> min=[-11.68, 0, 0.035] max=[-11.6, 2.1, 0.885]
+[walkThrough] Box #20262e @buildDev furniture.js:148:3 <Floor.rebuildTheme floor.js:80:7> min=[-3.6, 0, -2.975] max=[-3.1, 0.95, -2.525]
+[walkThrough] Cylinder #b8875a @plant furniture.js:109:57 <buildDesk furniture.js:242:3> min=[4.728, -0.0, 7.114] max=[5.272, 0.52, 7.686]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-11.06, 0.1, -8.02] max=[-10.94, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-9.96, 0.1, -8.02] max=[-9.84, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-8.86, 0.1, -8.02] max=[-8.74, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-7.76, 0.1, -8.02] max=[-7.64, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-6.66, 0.1, -8.02] max=[-6.54, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-5.56, 0.1, -8.02] max=[-5.44, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-4.46, 0.1, -8.02] max=[-4.34, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-3.36, 0.1, -8.02] max=[-3.24, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-2.26, 0.1, -8.02] max=[-2.14, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-1.16, 0.1, -8.02] max=[-1.04, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[-0.06, 0.1, -8.02] max=[0.06, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[1.04, 0.1, -8.02] max=[1.16, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[2.14, 0.1, -8.02] max=[2.26, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[3.24, 0.1, -8.02] max=[3.36, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[4.34, 0.1, -8.02] max=[4.46, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[5.44, 0.1, -8.02] max=[5.56, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[6.54, 0.1, -8.02] max=[6.66, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[7.64, 0.1, -8.02] max=[7.76, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[8.74, 0.1, -8.02] max=[8.86, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[9.84, 0.1, -8.02] max=[9.96, 2.6, -7.9]
+[intersect vol=0.009 ratio=0.25] A: Box #f6f3ee @buildStudioGround theme-grounds.js:114:3 <buildThemeGround theme-grounds.js:91:10> min=[-11.6, 0, -8.21] max=[11.6, 2.7, -7.99]  |  B: Box #c89d6c @buildStudioGround theme-grounds.js:115:40 <buildThemeGround theme-grounds.js:91:10> min=[10.94, 0.1, -8.02] max=[11.06, 2.6, -7.9]
+[intersect vol=0.062 ratio=0.438] A: Box #8794a1 @buildElevatorDoors theme-grounds.js:399:3 <buildStudioGround theme-grounds.js:118:10> min=[-11.995, 0, -1.1] max=[-11.645, 2.5, 1.1]  |  B: Box #20262e @buildElevatorDoors theme-grounds.js:400:14 <buildStudioGround theme-grounds.js:118:10> min=[-11.68, 0, -0.885] max=[-11.6, 2.1, -0.035]
+[intersect vol=0.062 ratio=0.438] A: Box #8794a1 @buildElevatorDoors theme-grounds.js:399:3 <buildStudioGround theme-grounds.js:118:10> min=[-11.995, 0, -1.1] max=[-11.645, 2.5, 1.1]  |  B: Box #20262e @buildElevatorDoors theme-grounds.js:401:14 <buildStudioGround theme-grounds.js:118:10> min=[-11.68, 0, 0.035] max=[-11.6, 2.1, 0.885]
+[intersect vol=0.063 ratio=0.184] A: Cylinder #8794a1 @buildResearch furniture.js:172:5 <Floor.rebuildTheme floor.js:82:20> min=[-8.3, 0, 4.7] max=[-7.7, 0.95, 5.3]  |  B: Icosahedron #3e7fc2 @buildResearch furniture.js:181:9 <Floor.rebuildTheme floor.js:82:20> min=[-9.005, 0.775, 4.216] max=[-6.995, 2.785, 5.784]
+[intersect vol=0.018 ratio=0.339] A: Box #4f7f8c @buildLoungeProps furniture.js:246:3 <Floor.rebuildTheme floor.js:85:7> min=[9.1, 0, 1.305] max=[11.1, 0.42, 1.855]  |  B: Box #4f7f8c @buildLoungeProps furniture.js:248:3 <Floor.rebuildTheme floor.js:85:7> min=[9.02, 0, 1.305] max=[9.18, 0.62, 1.855]
+[intersect vol=0.018 ratio=0.339] A: Box #4f7f8c @buildLoungeProps furniture.js:246:3 <Floor.rebuildTheme floor.js:85:7> min=[9.1, 0, 1.305] max=[11.1, 0.42, 1.855]  |  B: Box #4f7f8c @buildLoungeProps furniture.js:249:3 <Floor.rebuildTheme floor.js:85:7> min=[11.02, 0, 1.305] max=[11.18, 0.62, 1.855]
+[invisibleObstacle] wall-south box(x0,z0,x1,z1)=[-12.3, 7.85, 12.3, 8.3] visibleCoverage=0.005
+[invisibleObstacle] wall-east box(x0,z0,x1,z1)=[11.88, -8.3, 12.3, 8.3] visibleCoverage=0.005
+[invisibleObstacle] meeting-board box(x0,z0,x1,z1)=[-3.7, 2.8, -3.35, 7.2] visibleCoverage=0.242
+
+######## THEME office  (meshes=245)  counts={'noSupport': 0, 'floating': 0, 'floatingGlow': 1, 'overhang': 0, 'hidden': 0, 'intersect': 5, 'slotBlocked': 0, 'invisibleObstacle': 3, 'walkThrough': 5, 'raisedFloor': 0, 'ringClearance': 0, 'outside': 2}
+[floatingGlow] Icosahedron #9fd4ff @buildDesk furniture.js:241:5 <Floor.rebuildTheme floor.js:84:7> min=[10.54, 1.02, 4.74] max=[11.06, 1.54, 5.26] gap=0.16
+[walkThrough] Box #f6f3ee @buildElevatorDoors theme-grounds.js:399:3 <buildOfficeGround theme-grounds.js:138:10> min=[-11.995, 0, -1.1] max=[-11.645, 2.5, 1.1]
+[walkThrough] Box #8794a1 @buildElevatorDoors theme-grounds.js:400:14 <buildOfficeGround theme-grounds.js:138:10> min=[-11.68, 0, -0.885] max=[-11.6, 2.1, -0.035]
+[walkThrough] Box #8794a1 @buildElevatorDoors theme-grounds.js:401:14 <buildOfficeGround theme-grounds.js:138:10> min=[-11.68, 0, 0.035] max=[-11.6, 2.1, 0.885]
+[walkThrough] Box #20262e @buildDev furniture.js:148:3 <Floor.rebuildTheme floor.js:80:7> min=[-3.6, 0, -2.975] max=[-3.1, 0.95, -2.525]
+[walkThrough] Cylinder #b8875a @plant furniture.js:109:57 <buildDesk furniture.js:242:3> min=[4.728, -0.0, 7.114] max=[5.272, 0.52, 7.686]
+[outside] Box #c89d6c @buildOfficeGround theme-grounds.js:126:3 <buildThemeGround theme-grounds.js:90:34> min=[-13.9, -0.42, -3.2] max=[-11.7, -0.02, 3.2]
+[outside] Box #a9a296 @buildOfficeGround theme-grounds.js:127:3 <buildThemeGround theme-grounds.js:90:34> min=[4.4, -0.45, 7.8] max=[11.6, 0, 9.2]
+[intersect vol=0.062 ratio=0.438] A: Box #f6f3ee @buildElevatorDoors theme-grounds.js:399:3 <buildOfficeGround theme-grounds.js:138:10> min=[-11.995, 0, -1.1] max=[-11.645, 2.5, 1.1]  |  B: Box #8794a1 @buildElevatorDoors theme-grounds.js:400:14 <buildOfficeGround theme-grounds.js:138:10> min=[-11.68, 0, -0.885] max=[-11.6, 2.1, -0.035]
+[intersect vol=0.062 ratio=0.438] A: Box #f6f3ee @buildElevatorDoors theme-grounds.js:399:3 <buildOfficeGround theme-grounds.js:138:10> min=[-11.995, 0, -1.1] max=[-11.645, 2.5, 1.1]  |  B: Box #8794a1 @buildElevatorDoors theme-grounds.js:401:14 <buildOfficeGround theme-grounds.js:138:10> min=[-11.68, 0, 0.035] max=[-11.6, 2.1, 0.885]
+[intersect vol=0.063 ratio=0.184] A: Cylinder #8794a1 @buildResearch furniture.js:172:5 <Floor.rebuildTheme floor.js:82:20> min=[-8.3, 0, 4.7] max=[-7.7, 0.95, 5.3]  |  B: Icosahedron #3e7fc2 @buildResearch furniture.js:181:9 <Floor.rebuildTheme floor.js:82:20> min=[-9.005, 0.775, 4.216] max=[-6.995, 2.785, 5.784]
+[intersect vol=0.018 ratio=0.339] A: Box #4f7f8c @buildLoungeProps furniture.js:246:3 <Floor.rebuildTheme floor.js:85:7> min=[9.1, 0, 1.305] max=[11.1, 0.42, 1.855]  |  B: Box #4f7f8c @buildLoungeProps furniture.js:248:3 <Floor.rebuildTheme floor.js:85:7> min=[9.02, 0, 1.305] max=[9.18, 0.62, 1.855]
+[intersect vol=0.018 ratio=0.339] A: Box #4f7f8c @buildLoungeProps furniture.js:246:3 <Floor.rebuildTheme floor.js:85:7> min=[9.1, 0, 1.305] max=[11.1, 0.42, 1.855]  |  B: Box #4f7f8c @buildLoungeProps furniture.js:249:3 <Floor.rebuildTheme floor.js:85:7> min=[11.02, 0, 1.305] max=[11.18, 0.62, 1.855]
+[invisibleObstacle] wall-south box(x0,z0,x1,z1)=[-12.3, 7.85, 12.3, 8.3] visibleCoverage=0.011
+[invisibleObstacle] wall-east box(x0,z0,x1,z1)=[11.88, -8.3, 12.3, 8.3] visibleCoverage=0.016
+[invisibleObstacle] meeting-board box(x0,z0,x1,z1)=[-3.7, 2.8, -3.35, 7.2] visibleCoverage=0.242
+
+######## THEME palace  (meshes=190)  counts={'noSupport': 0, 'floating': 0, 'floatingGlow': 0, 'overhang': 0, 'hidden': 0, 'intersect': 8, 'slotBlocked': 0, 'invisibleObstacle': 6, 'walkThrough': 2, 'raisedFloor': 29, 'ringClearance': 0, 'outside': 3}
+[walkThrough] Box #b82924 @buildPalaceGround theme-grounds.js:210:14 <buildThemeGround theme-grounds.js:85:34> min=[-11.9, 0.08, -0.885] max=[-11.8, 1.98, -0.035]
+[walkThrough] Box #b82924 @buildPalaceGround theme-grounds.js:211:14 <buildThemeGround theme-grounds.js:85:34> min=[-11.9, 0.08, 0.035] max=[-11.8, 1.98, 0.885]
+[outside] Box #bcb6a8 @buildPalaceGround theme-grounds.js:168:3 <buildThemeGround theme-grounds.js:85:34> min=[-4.8, -0.58, -9.9] max=[4.8, -0.26, -7.7]
+[outside] Box #e6e2d8 @buildPalaceGround theme-grounds.js:169:3 <buildThemeGround theme-grounds.js:85:34> min=[-4.4, -0.26, -9.5] max=[4.4, 0.06, -7.7]
+[outside] Box #e6e2d8 @buildPalaceGround theme-grounds.js:170:3 <buildThemeGround theme-grounds.js:85:34> min=[-4.4, -0.26, 7.75] max=[4.4, 0, 9.25]
+[intersect vol=0.103 ratio=0.224] A: Cylinder #b82924 @cyl theme-grounds.js:59:5 <buildPalaceGround theme-grounds.js:185:5> min=[-8.2, 0, -8.03] max=[-7.8, 2.5, -7.57]  |  B: Box #b82924 @populateShelves theme-props.js:52:5 <buildPalaceProps theme-props.js:80:3> min=[-9, 0.08, -7.69] max=[-7, 2.23, -7.11]
+[intersect vol=0.615 ratio=0.184] A: Box #246b5b @roofEave theme-grounds.js:64:3 <buildPalaceGround theme-grounds.js:188:3> min=[-4.55, 2.45, -9.25] max=[4.55, 2.61, -6.95]  |  B: Cone #272d34 @roofEave theme-grounds.js:70:5 <buildPalaceGround theme-grounds.js:189:3> min=[-13.233, 2.46, -13.033] max=[-2.767, 3.18, -2.567]
+[intersect vol=0.615 ratio=0.184] A: Box #246b5b @roofEave theme-grounds.js:64:3 <buildPalaceGround theme-grounds.js:188:3> min=[-4.55, 2.45, -9.25] max=[4.55, 2.61, -6.95]  |  B: Cone #272d34 @roofEave theme-grounds.js:70:5 <buildPalaceGround theme-grounds.js:190:3> min=[2.767, 2.46, -13.033] max=[13.233, 3.18, -2.567]
+[intersect vol=0.012 ratio=0.285] A: Cylinder #54361d @cyl theme-grounds.js:59:5 <pineTree theme-grounds.js:74:3> min=[-0.102, 0, -0.136] max=[0.102, 0.765, 0.136]  |  B: Icosahedron #2d5a3c @pineTree theme-grounds.js:80:7 <buildPalaceGround theme-grounds.js:206:3> min=[-0.451, 0.547, -0.416] max=[0.451, 1.068, 0.416]
+[intersect vol=0.032 ratio=0.182] A: Torus #d9a441 @buildPalaceProps theme-props.js:115:11 <Floor.rebuildTheme floor.js:69:49> min=[-8.901, 0.749, 4.949] max=[-7.099, 2.551, 5.051]  |  B: Icosahedron #246b5b @buildPalaceProps theme-props.js:119:9 <Floor.rebuildTheme floor.js:69:49> min=[-8.28, 1.37, 4.72] max=[-7.72, 1.93, 5.28]
+[intersect vol=0.176 ratio=1] A: Torus #d9a441 @buildPalaceProps theme-props.js:115:11 <Floor.rebuildTheme floor.js:69:49> min=[-8.72, 1.003, 4.167] max=[-7.28, 2.297, 5.833]  |  B: Icosahedron #246b5b @buildPalaceProps theme-props.js:119:9 <Floor.rebuildTheme floor.js:69:49> min=[-8.28, 1.37, 4.72] max=[-7.72, 1.93, 5.28]
+[intersect vol=0.16 ratio=0.911] A: Torus #d9a441 @buildPalaceProps theme-props.js:115:11 <Floor.rebuildTheme floor.js:69:49> min=[-8.255, 0.83, 4.191] max=[-7.745, 2.47, 5.809]  |  B: Icosahedron #246b5b @buildPalaceProps theme-props.js:119:9 <Floor.rebuildTheme floor.js:69:49> min=[-8.28, 1.37, 4.72] max=[-7.72, 1.93, 5.28]
+[intersect vol=0.023 ratio=0.19] A: Box #b82924 @boardFrame theme-props.js:39:3 <buildPalaceProps theme-props.js:127:3> min=[-3.66, 0.5, 2.75] max=[-3.56, 2.8, 7.25]  |  B: Box #d9a441 @boardFrame theme-props.js:40:3 <buildPalaceProps theme-props.js:127:3> min=[-3.7, 2.75, 2.65] max=[-3.52, 2.89, 7.35]
+[invisibleObstacle] wall-north box(x0,z0,x1,z1)=[-12.3, -8.3, 12.3, -7.85] visibleCoverage=0.043
+[invisibleObstacle] wall-south box(x0,z0,x1,z1)=[-12.3, 7.85, 12.3, 8.3] visibleCoverage=0.016
+[invisibleObstacle] wall-west-n box(x0,z0,x1,z1)=[-12.3, -8.3, -11.88, -1.1] visibleCoverage=0.053
+[invisibleObstacle] wall-west-s box(x0,z0,x1,z1)=[-12.3, 1.1, -11.88, 8.3] visibleCoverage=0.058
+[invisibleObstacle] wall-east box(x0,z0,x1,z1)=[11.88, -8.3, 12.3, 8.3] visibleCoverage=0
+[invisibleObstacle] corridor-center box(x0,z0,x1,z1)=[-3.05, -0.92, 3.05, 0.92] visibleCoverage=0.07
+[raisedFloor] 29 slots stand on floor tops above y=0 (agent feet at y=0 sink): tops=[0.11]
+
+######## THEME hanok  (meshes=157)  counts={'noSupport': 0, 'floating': 0, 'floatingGlow': 0, 'overhang': 1, 'hidden': 0, 'intersect': 8, 'slotBlocked': 0, 'invisibleObstacle': 13, 'walkThrough': 4, 'raisedFloor': 29, 'ringClearance': 0, 'outside': 6}
+[overhang] Box #dccfba @buildHanokGround theme-grounds.js:233:3 <buildThemeGround theme-grounds.js:86:33> min=[-12, 0, -8.22] max=[12, 2.2, -7.98] corners=[None, None, 0, 0]
+[walkThrough] Cylinder #54361d @cyl theme-grounds.js:59:5 <buildHanokGround theme-grounds.js:259:32> min=[-11.88, 0, -1.4] max=[-11.52, 2.4, -1]
+[walkThrough] Cylinder #54361d @cyl theme-grounds.js:59:5 <buildHanokGround theme-grounds.js:259:32> min=[-11.88, 0, 1] max=[-11.52, 2.4, 1.4]
+[walkThrough] Box #8c5a32 @buildHanokGround theme-grounds.js:261:14 <buildThemeGround theme-grounds.js:86:33> min=[-11.75, 0.06, -0.88] max=[-11.65, 1.91, -0.04]
+[walkThrough] Box #8c5a32 @buildHanokGround theme-grounds.js:262:14 <buildThemeGround theme-grounds.js:86:33> min=[-11.75, 0.06, 0.04] max=[-11.65, 1.91, 0.88]
+[outside] Cylinder #54361d @cyl theme-grounds.js:59:5 <buildHanokGround theme-grounds.js:236:5> min=[-12.78, 0, 2.1] max=[-12.42, 2.35, 2.5]
+[outside] Cylinder #54361d @cyl theme-grounds.js:59:5 <buildHanokGround theme-grounds.js:236:5> min=[-12.78, 0, 8.1] max=[-12.42, 2.35, 8.5]
+[outside] Box #54361d @roofEave theme-grounds.js:64:3 <buildHanokGround theme-grounds.js:238:3> min=[-13.95, 2.3, 2.05] max=[-10.85, 2.46, 8.55]
+[outside] Cone #272d34 @roofEave theme-grounds.js:70:5 <buildHanokGround theme-grounds.js:238:3> min=[-17.528, 2.46, 0.172] max=[-7.272, 3.21, 10.428]
+[outside] Cylinder #4a2c18 @cyl theme-grounds.js:59:5 <buildHanokGround theme-grounds.js:256:5> min=[12.12, 0.02, -0.21] max=[12.68, 0.48, 0.21]
+[outside] Box #54361d @buildHanokProps theme-props.js:180:5 <Floor.rebuildTheme floor.js:71:49> min=[-12.56, 0.14, 2.4] max=[-12.44, 0.62, 8.2]
+[intersect vol=1.577 ratio=0.489] A: Cone #272d34 @roofEave theme-grounds.js:70:5 <buildHanokGround theme-grounds.js:234:3> min=[-13.762, 2.31, -21.862] max=[13.762, 2.96, 5.662]  |  B: Box #54361d @roofEave theme-grounds.js:64:3 <buildHanokGround theme-grounds.js:238:3> min=[-13.95, 2.3, 2.05] max=[-10.85, 2.46, 8.55]
+[intersect vol=0.694 ratio=1] A: Cone #272d34 @roofEave theme-grounds.js:70:5 <buildHanokGround theme-grounds.js:234:3> min=[-13.762, 2.31, -21.862] max=[13.762, 2.96, 5.662]  |  B: Box #54361d @roofEave theme-grounds.js:64:3 <buildHanokGround theme-grounds.js:260:3> min=[-12.4, 2.35, -1.55] max=[-11, 2.51, 1.55]
+[intersect vol=0.143 ratio=0.138] A: Cone #272d34 @roofEave theme-grounds.js:70:5 <buildHanokGround theme-grounds.js:234:3> min=[-13.762, 2.31, -21.862] max=[13.762, 2.96, 5.662]  |  B: Box #54361d @boardFrame theme-props.js:39:3 <buildHanokProps theme-props.js:200:3> min=[-3.66, 0.5, 2.75] max=[-3.56, 2.8, 7.25]
+[intersect vol=0.076 ratio=0.641] A: Cone #272d34 @roofEave theme-grounds.js:70:5 <buildHanokGround theme-grounds.js:234:3> min=[-13.762, 2.31, -21.862] max=[13.762, 2.96, 5.662]  |  B: Box #8c5a32 @boardFrame theme-props.js:40:3 <buildHanokProps theme-props.js:200:3> min=[-3.7, 2.75, 2.65] max=[-3.52, 2.89, 7.35]
+[intersect vol=0.096 ratio=0.139] A: Cone #272d34 @roofEave theme-grounds.js:70:5 <buildHanokGround theme-grounds.js:238:3> min=[-17.528, 2.46, 0.172] max=[-7.272, 3.21, 10.428]  |  B: Box #54361d @roofEave theme-grounds.js:64:3 <buildHanokGround theme-grounds.js:260:3> min=[-12.4, 2.35, -1.55] max=[-11, 2.51, 1.55]
+[intersect vol=0.017 ratio=0.285] A: Cylinder #54361d @cyl theme-grounds.js:59:5 <pineTree theme-grounds.js:74:3> min=[-1.014, 0, -0.152] max=[-0.786, 0.855, 0.152]  |  B: Icosahedron #2d5a3c @pineTree theme-grounds.js:80:7 <buildHanokGround theme-grounds.js:248:3> min=[-1.404, 0.612, -0.465] max=[-0.396, 1.193, 0.465]
+[intersect vol=0.009 ratio=0.333] A: Icosahedron #f4afb8 @buildHanokGround theme-grounds.js:252:5 <buildThemeGround theme-grounds.js:86:33> min=[0.632, 0.467, -0.368] max=[1.568, 1.233, 0.568]  |  B: Cylinder #54361d @cyl theme-grounds.js:59:5 <buildHanokGround theme-grounds.js:253:3> min=[1.02, 0, -0.02] max=[1.18, 0.7, 0.22]
+[intersect vol=0.023 ratio=0.19] A: Box #54361d @boardFrame theme-props.js:39:3 <buildHanokProps theme-props.js:200:3> min=[-3.66, 0.5, 2.75] max=[-3.56, 2.8, 7.25]  |  B: Box #8c5a32 @boardFrame theme-props.js:40:3 <buildHanokProps theme-props.js:200:3> min=[-3.7, 2.75, 2.65] max=[-3.52, 2.89, 7.35]
+[invisibleObstacle] wall-south box(x0,z0,x1,z1)=[-12.3, 7.85, 12.3, 8.3] visibleCoverage=0.06
+[invisibleObstacle] wall-west-n box(x0,z0,x1,z1)=[-12.3, -8.3, -11.88, -1.1] visibleCoverage=0.008
+[invisibleObstacle] wall-west-s box(x0,z0,x1,z1)=[-12.3, 1.1, -11.88, 8.3] visibleCoverage=0.022
+[invisibleObstacle] wall-east box(x0,z0,x1,z1)=[11.88, -8.3, 12.3, 8.3] visibleCoverage=0.048
+[invisibleObstacle] part-n-1 box(x0,z0,x1,z1)=[-12, -2.12, -8.95, -1.88] visibleCoverage=0
+[invisibleObstacle] part-n-2 box(x0,z0,x1,z1)=[-7.05, -2.12, -0.95, -1.88] visibleCoverage=0
+[invisibleObstacle] part-n-3 box(x0,z0,x1,z1)=[0.95, -2.12, 7.05, -1.88] visibleCoverage=0
+[invisibleObstacle] part-n-4 box(x0,z0,x1,z1)=[8.95, -2.12, 12, -1.88] visibleCoverage=0
+[invisibleObstacle] part-s-1 box(x0,z0,x1,z1)=[-12, 1.88, -9.35, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-2 box(x0,z0,x1,z1)=[-7.45, 1.88, -0.95, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-3 box(x0,z0,x1,z1)=[0.95, 1.88, 7.05, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-4 box(x0,z0,x1,z1)=[8.95, 1.88, 12, 2.12] visibleCoverage=0
+[invisibleObstacle] corridor-center box(x0,z0,x1,z1)=[-2.85, -0.92, 2.85, 0.92] visibleCoverage=0.183
+[raisedFloor] 29 slots stand on floor tops above y=0 (agent feet at y=0 sink): tops=[0.14, 0.17]
+
+######## THEME starship  (meshes=152)  counts={'noSupport': 3, 'floating': 0, 'floatingGlow': 2, 'overhang': 3, 'hidden': 20, 'intersect': 0, 'slotBlocked': 0, 'invisibleObstacle': 13, 'walkThrough': 1, 'raisedFloor': 0, 'ringClearance': 3, 'outside': 6}
+[noSupport] Box #3b4d6b @buildElevatorDoors theme-grounds.js:399:3 <buildStarshipGround theme-grounds.js:316:10> min=[-11.995, 0, -1.1] max=[-11.645, 2.5, 1.1]
+[noSupport] Box #1e2636 @lowTable theme-props.js:17:5 <buildStarshipProps theme-props.js:290:3> min=[10.96, 0, 1.365] max=[11.04, 0.42, 1.445]
+[noSupport] Box #1e2636 @lowTable theme-props.js:17:5 <buildStarshipProps theme-props.js:290:3> min=[10.96, 0, 1.715] max=[11.04, 0.42, 1.795]
+[floatingGlow] Torus #e9d5ff @buildStarshipProps theme-props.js:264:9 <Floor.rebuildTheme floor.js:73:49> min=[-9.007, 1.008, 4.238] max=[-6.993, 2.492, 5.762] gap=0.163
+[floatingGlow] Icosahedron #e9d5ff @buildStarshipProps theme-props.js:289:5 <Floor.rebuildTheme floor.js:73:49> min=[10.48, 0.93, 4.68] max=[11.12, 1.57, 5.32] gap=0.43
+[overhang] Box #a5f3fc @buildElevatorDoors theme-grounds.js:400:14 <buildStarshipGround theme-grounds.js:316:10> min=[-11.68, 0, -0.885] max=[-11.6, 2.1, -0.035] corners=[0, None, 0, None]
+[overhang] Box #a5f3fc @buildElevatorDoors theme-grounds.js:401:14 <buildStarshipGround theme-grounds.js:316:10> min=[-11.68, 0, 0.035] max=[-11.6, 2.1, 0.885] corners=[0, None, 0, None]
+[overhang] Cylinder #3b4d6b @buildStarshipProps theme-props.js:228:7 <Floor.rebuildTheme floor.js:73:49> min=[-6.629, 0, -8.05] max=[-4.971, 0.3, -6.35] corners=[-0.0, None, -0.02, -0.02]
+[walkThrough] Box #3b4d6b @buildElevatorDoors theme-grounds.js:399:3 <buildStarshipGround theme-grounds.js:316:10> min=[-11.995, 0, -1.1] max=[-11.645, 2.5, 1.1]
+[outside] Cylinder #3b4d6b @buildStarshipGround theme-grounds.js:292:7 <buildThemeGround theme-grounds.js:87:36> min=[-6.15, -0.75, -9] max=[-4.85, 0.55, -8.1]
+[outside] Cylinder #a5f3fc @buildStarshipGround theme-grounds.js:292:7 <buildThemeGround theme-grounds.js:87:36> min=[-5.98, -0.58, -9.1] max=[-5.02, 0.38, -8.9]
+[outside] Cylinder #3b4d6b @buildStarshipGround theme-grounds.js:292:7 <buildThemeGround theme-grounds.js:87:36> min=[-0.65, -0.75, -9] max=[0.65, 0.55, -8.1]
+[outside] Cylinder #a5f3fc @buildStarshipGround theme-grounds.js:292:7 <buildThemeGround theme-grounds.js:87:36> min=[-0.48, -0.58, -9.1] max=[0.48, 0.38, -8.9]
+[outside] Cylinder #3b4d6b @buildStarshipGround theme-grounds.js:292:7 <buildThemeGround theme-grounds.js:87:36> min=[4.85, -0.75, -9] max=[6.15, 0.55, -8.1]
+[outside] Cylinder #a5f3fc @buildStarshipGround theme-grounds.js:292:7 <buildThemeGround theme-grounds.js:87:36> min=[5.02, -0.58, -9.1] max=[5.98, 0.38, -8.9]
+[hidden x20] Box #0b2614 @buildStarshipProps theme-props.js:246:17 <Floor.rebuildTheme floor.js:73:49> min=[5.21, 0.42, -7.39] max=[5.79, 0.5, -6.81]  INSIDE  Cylinder #3b4d6b @buildStarshipProps theme-props.js:244:7 <Floor.rebuildTheme floor.js:73:49> min=[4.993, 0.005, -7.62] max=[6.007, 2.355, -6.58]
+[invisibleObstacle] wall-north box(x0,z0,x1,z1)=[-12.3, -8.3, 12.3, -7.85] visibleCoverage=0.079
+[invisibleObstacle] wall-south box(x0,z0,x1,z1)=[-12.3, 7.85, 12.3, 8.3] visibleCoverage=0
+[invisibleObstacle] wall-west-n box(x0,z0,x1,z1)=[-12.3, -8.3, -11.88, -1.1] visibleCoverage=0
+[invisibleObstacle] wall-west-s box(x0,z0,x1,z1)=[-12.3, 1.1, -11.88, 8.3] visibleCoverage=0
+[invisibleObstacle] wall-east box(x0,z0,x1,z1)=[11.88, -8.3, 12.3, 8.3] visibleCoverage=0
+[invisibleObstacle] part-n-1 box(x0,z0,x1,z1)=[-12, -2.12, -8.95, -1.88] visibleCoverage=0
+[invisibleObstacle] part-n-2 box(x0,z0,x1,z1)=[-7.05, -2.12, -0.95, -1.88] visibleCoverage=0.005
+[invisibleObstacle] part-n-3 box(x0,z0,x1,z1)=[0.95, -2.12, 7.05, -1.88] visibleCoverage=0.005
+[invisibleObstacle] part-n-4 box(x0,z0,x1,z1)=[8.95, -2.12, 12, -1.88] visibleCoverage=0
+[invisibleObstacle] part-s-1 box(x0,z0,x1,z1)=[-12, 1.88, -8.95, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-2 box(x0,z0,x1,z1)=[-7.05, 1.88, -0.95, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-3 box(x0,z0,x1,z1)=[0.95, 1.88, 7.05, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-4 box(x0,z0,x1,z1)=[8.95, 1.88, 12, 2.12] visibleCoverage=0
+[ringClearance] Cylinder #1e2636 @cyl theme-grounds.js:59:5 <buildStarshipGround theme-grounds.js:302:3> min=[-2.2, 0, -2.2] max=[2.2, 0.14, 2.2] walk ring z=[-1.4, 1.4]
+[ringClearance] Torus #a5f3fc @buildStarshipGround theme-grounds.js:314:5 <buildThemeGround theme-grounds.js:87:36> min=[-1.749, 0.081, -1.749] max=[1.749, 0.279, 1.749] walk ring z=[-1.4, 1.4]
+[ringClearance] Torus #e9d5ff @buildStarshipGround theme-grounds.js:314:5 <buildThemeGround theme-grounds.js:87:36> min=[-1.166, 0.254, -1.166] max=[1.166, 0.386, 1.166] walk ring z=[-1.4, 1.4]
+
+######## THEME dogs  (meshes=170)  counts={'noSupport': 1, 'floating': 1, 'floatingGlow': 0, 'overhang': 11, 'hidden': 12, 'intersect': 18, 'slotBlocked': 0, 'invisibleObstacle': 16, 'walkThrough': 4, 'raisedFloor': 0, 'ringClearance': 2, 'outside': 0}
+[noSupport] Box #d4a373 @buildElevatorDoors theme-grounds.js:399:3 <buildDogsGround theme-grounds.js:358:10> min=[-11.595, 0, -1.1] max=[-11.245, 2.5, 1.1]
+[floating] Icosahedron #facc15 @buildDogsProps theme-props.js:332:9 <Floor.rebuildTheme floor.js:75:49> min=[-8.56, 0.99, 4.44] max=[-7.44, 2.11, 5.56] gap=0.145
+[overhang] Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[-4.58, 0, -7.44] max=[-4.42, 0.95, -7.36] corners=[None, None, 0, 0]
+[overhang] Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[-3.08, 0, -7.44] max=[-2.92, 0.95, -7.36] corners=[None, None, 0, 0]
+[overhang] Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[-1.58, 0, -7.44] max=[-1.42, 0.95, -7.36] corners=[None, None, 0, 0]
+[overhang] Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[-0.08, 0, -7.44] max=[0.08, 0.95, -7.36] corners=[None, None, 0, 0]
+[overhang] Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[1.42, 0, -7.44] max=[1.58, 0.95, -7.36] corners=[None, None, 0, 0]
+[overhang] Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[2.92, 0, -7.44] max=[3.08, 0.95, -7.36] corners=[None, None, 0, 0]
+[overhang] Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[4.42, 0, -7.44] max=[4.58, 0.95, -7.36] corners=[None, None, 0, 0]
+[overhang] Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[5.92, 0, -7.44] max=[6.08, 0.95, -7.36] corners=[0, None, 0, 0]
+[overhang] Box #3b82f6 @buildElevatorDoors theme-grounds.js:400:14 <buildDogsGround theme-grounds.js:358:10> min=[-11.28, 0, -0.885] max=[-11.2, 2.1, -0.035] corners=[0, None, 0, None]
+[overhang] Box #3b82f6 @buildElevatorDoors theme-grounds.js:401:14 <buildDogsGround theme-grounds.js:358:10> min=[-11.28, 0, 0.035] max=[-11.2, 2.1, 0.885] corners=[0, None, 0, None]
+[overhang] Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-6.5, 0, -7.525] max=[-4.7, 1.4, -6.875] corners=[None, None, 0, 0]
+[walkThrough] Cylinder #54361d @cyl theme-grounds.js:59:5 <pineTree theme-grounds.js:74:3> min=[-11.314, 0, -6.352] max=[-11.086, 0.855, -6.048]
+[walkThrough] Box #d4a373 @buildElevatorDoors theme-grounds.js:399:3 <buildDogsGround theme-grounds.js:358:10> min=[-11.595, 0, -1.1] max=[-11.245, 2.5, 1.1]
+[walkThrough] Box #3b82f6 @buildElevatorDoors theme-grounds.js:400:14 <buildDogsGround theme-grounds.js:358:10> min=[-11.28, 0, -0.885] max=[-11.2, 2.1, -0.035]
+[walkThrough] Box #3b82f6 @buildElevatorDoors theme-grounds.js:401:14 <buildDogsGround theme-grounds.js:358:10> min=[-11.28, 0, 0.035] max=[-11.2, 2.1, 0.885]
+[hidden x3] Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[-10.58, 0, -7.44] max=[-10.42, 0.95, -7.36]  INSIDE  Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-11.3, 0, -7.525] max=[-9.5, 1.4, -6.875]
+[hidden x3] Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[7.42, 0, -7.44] max=[7.58, 0.95, -7.36]  INSIDE  Box #3b82f6 @buildDogsProps theme-props.js:316:5 <Floor.rebuildTheme floor.js:75:49> min=[6.65, 0, -7.475] max=[7.75, 1.6, -6.725]
+[hidden x3] Box #facc15 @buildDogsProps theme-props.js:301:5 <Floor.rebuildTheme floor.js:75:49> min=[-11.15, 0.55, -7.425] max=[-9.65, 0.69, -6.875]  INSIDE  Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-11.3, 0, -7.525] max=[-9.5, 1.4, -6.875]
+[hidden x3] Box #3b82f6 @buildDogsProps theme-props.js:302:5 <Floor.rebuildTheme floor.js:75:49> min=[-11.15, 1.05, -7.425] max=[-9.65, 1.19, -6.875]  INSIDE  Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-11.3, 0, -7.525] max=[-9.5, 1.4, -6.875]
+[intersect vol=0.012 ratio=1] A: Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[-10.58, 0, -7.44] max=[-10.42, 0.95, -7.36]  |  B: Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-11.3, 0, -7.525] max=[-9.5, 1.4, -6.875]
+[intersect vol=0.012 ratio=1] A: Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[-7.58, 0, -7.44] max=[-7.42, 0.95, -7.36]  |  B: Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-8.9, 0, -7.525] max=[-7.1, 1.4, -6.875]
+[intersect vol=0.012 ratio=1] A: Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[-6.08, 0, -7.44] max=[-5.92, 0.95, -7.36]  |  B: Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-6.5, 0, -7.525] max=[-4.7, 1.4, -6.875]
+[intersect vol=0.01 ratio=0.812] A: Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[5.92, 0, -7.44] max=[6.08, 0.95, -7.36]  |  B: Box #3b82f6 @buildDogsProps theme-props.js:316:5 <Floor.rebuildTheme floor.js:75:49> min=[4.95, 0, -7.475] max=[6.05, 1.6, -6.725]
+[intersect vol=0.012 ratio=1] A: Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[7.42, 0, -7.44] max=[7.58, 0.95, -7.36]  |  B: Box #3b82f6 @buildDogsProps theme-props.js:316:5 <Floor.rebuildTheme floor.js:75:49> min=[6.65, 0, -7.475] max=[7.75, 1.6, -6.725]
+[intersect vol=0.012 ratio=1] A: Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[8.92, 0, -7.44] max=[9.08, 0.95, -7.36]  |  B: Box #3b82f6 @buildDogsProps theme-props.js:316:5 <Floor.rebuildTheme floor.js:75:49> min=[8.25, 0, -7.475] max=[9.35, 1.6, -6.725]
+[intersect vol=0.012 ratio=1] A: Box #d4a373 @buildDogsGround theme-grounds.js:337:5 <buildThemeGround theme-grounds.js:88:32> min=[10.42, 0, -7.44] max=[10.58, 0.95, -7.36]  |  B: Box #3b82f6 @buildDogsProps theme-props.js:316:5 <Floor.rebuildTheme floor.js:75:49> min=[9.85, 0, -7.475] max=[10.95, 1.6, -6.725]
+[intersect vol=0.017 ratio=0.285] A: Cylinder #54361d @cyl theme-grounds.js:59:5 <pineTree theme-grounds.js:74:3> min=[-11.314, 0, -6.352] max=[-11.086, 0.855, -6.048]  |  B: Icosahedron #2d5a3c @pineTree theme-grounds.js:80:7 <buildDogsGround theme-grounds.js:356:3> min=[-11.704, 0.612, -6.665] max=[-10.696, 1.193, -5.735]
+[intersect vol=0.017 ratio=0.285] A: Cylinder #54361d @cyl theme-grounds.js:59:5 <pineTree theme-grounds.js:74:3> min=[11.086, 0, -6.352] max=[11.314, 0.855, -6.048]  |  B: Icosahedron #2d5a3c @pineTree theme-grounds.js:80:7 <buildDogsGround theme-grounds.js:357:3> min=[10.696, 0.612, -6.665] max=[11.704, 1.193, -5.735]
+[intersect vol=0.062 ratio=0.438] A: Box #d4a373 @buildElevatorDoors theme-grounds.js:399:3 <buildDogsGround theme-grounds.js:358:10> min=[-11.595, 0, -1.1] max=[-11.245, 2.5, 1.1]  |  B: Box #3b82f6 @buildElevatorDoors theme-grounds.js:400:14 <buildDogsGround theme-grounds.js:358:10> min=[-11.28, 0, -0.885] max=[-11.2, 2.1, -0.035]
+[intersect vol=0.062 ratio=0.438] A: Box #d4a373 @buildElevatorDoors theme-grounds.js:399:3 <buildDogsGround theme-grounds.js:358:10> min=[-11.595, 0, -1.1] max=[-11.245, 2.5, 1.1]  |  B: Box #3b82f6 @buildElevatorDoors theme-grounds.js:401:14 <buildDogsGround theme-grounds.js:358:10> min=[-11.28, 0, 0.035] max=[-11.2, 2.1, 0.885]
+[intersect vol=0.116 ratio=1] A: Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-11.3, 0, -7.525] max=[-9.5, 1.4, -6.875]  |  B: Box #facc15 @buildDogsProps theme-props.js:301:5 <Floor.rebuildTheme floor.js:75:49> min=[-11.15, 0.55, -7.425] max=[-9.65, 0.69, -6.875]
+[intersect vol=0.116 ratio=1] A: Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-11.3, 0, -7.525] max=[-9.5, 1.4, -6.875]  |  B: Box #3b82f6 @buildDogsProps theme-props.js:302:5 <Floor.rebuildTheme floor.js:75:49> min=[-11.15, 1.05, -7.425] max=[-9.65, 1.19, -6.875]
+[intersect vol=0.116 ratio=1] A: Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-8.9, 0, -7.525] max=[-7.1, 1.4, -6.875]  |  B: Box #facc15 @buildDogsProps theme-props.js:301:5 <Floor.rebuildTheme floor.js:75:49> min=[-8.75, 0.55, -7.425] max=[-7.25, 0.69, -6.875]
+[intersect vol=0.116 ratio=1] A: Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-8.9, 0, -7.525] max=[-7.1, 1.4, -6.875]  |  B: Box #3b82f6 @buildDogsProps theme-props.js:302:5 <Floor.rebuildTheme floor.js:75:49> min=[-8.75, 1.05, -7.425] max=[-7.25, 1.19, -6.875]
+[intersect vol=0.116 ratio=1] A: Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-6.5, 0, -7.525] max=[-4.7, 1.4, -6.875]  |  B: Box #facc15 @buildDogsProps theme-props.js:301:5 <Floor.rebuildTheme floor.js:75:49> min=[-6.35, 0.55, -7.425] max=[-4.85, 0.69, -6.875]
+[intersect vol=0.116 ratio=1] A: Box #d4a373 @buildDogsProps theme-props.js:300:5 <Floor.rebuildTheme floor.js:75:49> min=[-6.5, 0, -7.525] max=[-4.7, 1.4, -6.875]  |  B: Box #3b82f6 @buildDogsProps theme-props.js:302:5 <Floor.rebuildTheme floor.js:75:49> min=[-6.35, 1.05, -7.425] max=[-4.85, 1.19, -6.875]
+[intersect vol=0.023 ratio=0.19] A: Box #d4a373 @boardFrame theme-props.js:39:3 <buildDogsProps theme-props.js:338:3> min=[-3.66, 0.5, 2.75] max=[-3.56, 2.8, 7.25]  |  B: Box #facc15 @boardFrame theme-props.js:40:3 <buildDogsProps theme-props.js:338:3> min=[-3.7, 2.75, 2.65] max=[-3.52, 2.89, 7.35]
+[invisibleObstacle] wall-north box(x0,z0,x1,z1)=[-12.3, -8.3, 12.3, -7.85] visibleCoverage=0
+[invisibleObstacle] wall-south box(x0,z0,x1,z1)=[-12.3, 7.85, 12.3, 8.3] visibleCoverage=0
+[invisibleObstacle] wall-west-n box(x0,z0,x1,z1)=[-12.3, -8.3, -11.88, -1.1] visibleCoverage=0
+[invisibleObstacle] wall-west-s box(x0,z0,x1,z1)=[-12.3, 1.1, -11.88, 8.3] visibleCoverage=0
+[invisibleObstacle] wall-east box(x0,z0,x1,z1)=[11.88, -8.3, 12.3, 8.3] visibleCoverage=0
+[invisibleObstacle] part-n-1 box(x0,z0,x1,z1)=[-12, -2.12, -8.95, -1.88] visibleCoverage=0
+[invisibleObstacle] part-n-2 box(x0,z0,x1,z1)=[-7.05, -2.12, -0.95, -1.88] visibleCoverage=0
+[invisibleObstacle] part-n-3 box(x0,z0,x1,z1)=[0.95, -2.12, 7.05, -1.88] visibleCoverage=0
+[invisibleObstacle] part-n-4 box(x0,z0,x1,z1)=[8.95, -2.12, 12, -1.88] visibleCoverage=0
+[invisibleObstacle] part-s-1 box(x0,z0,x1,z1)=[-12, 1.88, -8.95, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-2 box(x0,z0,x1,z1)=[-7.05, 1.88, -0.95, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-3 box(x0,z0,x1,z1)=[0.95, 1.88, 7.05, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-4 box(x0,z0,x1,z1)=[8.95, 1.88, 12, 2.12] visibleCoverage=0
+[invisibleObstacle] dev-desks box(x0,z0,x1,z1)=[-3.6, -7.2, 3.6, -6.08] visibleCoverage=0.095
+[invisibleObstacle] lounge-sofa box(x0,z0,x1,z1)=[9.1, 1.3, 11.1, 1.86] visibleCoverage=0
+[invisibleObstacle] corridor-center box(x0,z0,x1,z1)=[-2.45, -0.92, 2.45, 0.92] visibleCoverage=0.012
+[ringClearance] Cylinder #e6e2d8 @cyl theme-grounds.js:59:5 <buildDogsGround theme-grounds.js:346:3> min=[-2.3, 0, -2.1] max=[2.3, 0.18, 2.1] walk ring z=[-1.4, 1.4]
+[ringClearance] Cylinder #5c9a58 @cyl theme-grounds.js:59:5 <buildDogsGround theme-grounds.js:347:3> min=[-2, 0.15, -1.8] max=[2, 0.2, 1.8] walk ring z=[-1.4, 1.4]
+
+######## THEME cats  (meshes=144)  counts={'noSupport': 5, 'floating': 0, 'floatingGlow': 0, 'overhang': 3, 'hidden': 0, 'intersect': 7, 'slotBlocked': 0, 'invisibleObstacle': 16, 'walkThrough': 3, 'raisedFloor': 0, 'ringClearance': 4, 'outside': 0}
+[noSupport] Box #cba376 @lowTable theme-props.js:17:5 <buildCatsProps theme-props.js:396:5> min=[-11.34, 0, 4.16] max=[-11.26, 0.58, 4.24]
+[noSupport] Box #d69f7e @lowTable theme-props.js:15:3 <buildCatsProps theme-props.js:396:5> min=[-11.4, 0.58, 5.7] max=[-10.6, 0.66, 7.1]
+[noSupport] Box #cba376 @lowTable theme-props.js:17:5 <buildCatsProps theme-props.js:396:5> min=[-11.34, 0, 5.76] max=[-11.26, 0.58, 5.84]
+[noSupport] Box #cba376 @lowTable theme-props.js:17:5 <buildCatsProps theme-props.js:396:5> min=[-11.34, 0, 6.96] max=[-11.26, 0.58, 7.04]
+[noSupport] Box #cba376 @lowTable theme-props.js:17:5 <buildCatsProps theme-props.js:396:5> min=[-10.74, 0, 6.96] max=[-10.66, 0.58, 7.04]
+[overhang] Cylinder #d69f7e @buildCatsProps theme-props.js:377:7 <Floor.rebuildTheme floor.js:77:49> min=[5.191, -0.005, -7.52] max=[6.009, 1.645, -6.68] corners=[None, -0.007, -0.006, -0.012]
+[overhang] Cylinder #d69f7e @buildCatsProps theme-props.js:377:7 <Floor.rebuildTheme floor.js:77:49> min=[9.791, -0.005, -7.52] max=[10.609, 1.645, -6.68] corners=[-0.009, 0.412, -0.016, -0.011]
+[overhang] Cylinder #d9a441 @buildCatsProps theme-props.js:407:5 <Floor.rebuildTheme floor.js:77:49> min=[10.232, 0.005, 4.52] max=[11.168, 0.555, 5.48] corners=[-0.015, None, -0.015, None]
+[walkThrough] Box #d69f7e @buildElevatorDoors theme-grounds.js:399:3 <buildCatsGround theme-grounds.js:395:10> min=[-11.595, 0, -1.1] max=[-11.245, 2.5, 1.1]
+[walkThrough] Box #f4acb7 @buildElevatorDoors theme-grounds.js:400:14 <buildCatsGround theme-grounds.js:395:10> min=[-11.28, 0, -0.885] max=[-11.2, 2.1, -0.035]
+[walkThrough] Box #f4acb7 @buildElevatorDoors theme-grounds.js:401:14 <buildCatsGround theme-grounds.js:395:10> min=[-11.28, 0, 0.035] max=[-11.2, 2.1, 0.885]
+[intersect vol=0.027 ratio=0.197] A: Cylinder #cba376 @cyl theme-grounds.js:59:5 <buildCatsGround theme-grounds.js:380:5> min=[-4.16, 0, -3.36] max=[-3.84, 1.35, -3.04]  |  B: Box #d69f7e @buildCatsGround theme-grounds.js:382:5 <buildThemeGround theme-grounds.js:89:32> min=[-4.05, 0, -7.1] max=[-3.95, 0.85, -2.9]
+[intersect vol=0.027 ratio=0.197] A: Cylinder #cba376 @cyl theme-grounds.js:59:5 <buildCatsGround theme-grounds.js:381:5> min=[-4.16, 0, 3.04] max=[-3.84, 1.35, 3.36]  |  B: Box #d69f7e @buildCatsGround theme-grounds.js:383:5 <buildThemeGround theme-grounds.js:89:32> min=[-4.05, 0, 2.9] max=[-3.95, 0.85, 7.1]
+[intersect vol=0.027 ratio=0.197] A: Cylinder #cba376 @cyl theme-grounds.js:59:5 <buildCatsGround theme-grounds.js:380:5> min=[3.84, 0, -3.36] max=[4.16, 1.35, -3.04]  |  B: Box #d69f7e @buildCatsGround theme-grounds.js:382:5 <buildThemeGround theme-grounds.js:89:32> min=[3.95, 0, -7.1] max=[4.05, 0.85, -2.9]
+[intersect vol=0.027 ratio=0.197] A: Cylinder #cba376 @cyl theme-grounds.js:59:5 <buildCatsGround theme-grounds.js:381:5> min=[3.84, 0, 3.04] max=[4.16, 1.35, 3.36]  |  B: Box #d69f7e @buildCatsGround theme-grounds.js:383:5 <buildThemeGround theme-grounds.js:89:32> min=[3.95, 0, 2.9] max=[4.05, 0.85, 7.1]
+[intersect vol=0.062 ratio=0.438] A: Box #d69f7e @buildElevatorDoors theme-grounds.js:399:3 <buildCatsGround theme-grounds.js:395:10> min=[-11.595, 0, -1.1] max=[-11.245, 2.5, 1.1]  |  B: Box #f4acb7 @buildElevatorDoors theme-grounds.js:400:14 <buildCatsGround theme-grounds.js:395:10> min=[-11.28, 0, -0.885] max=[-11.2, 2.1, -0.035]
+[intersect vol=0.062 ratio=0.438] A: Box #d69f7e @buildElevatorDoors theme-grounds.js:399:3 <buildCatsGround theme-grounds.js:395:10> min=[-11.595, 0, -1.1] max=[-11.245, 2.5, 1.1]  |  B: Box #f4acb7 @buildElevatorDoors theme-grounds.js:401:14 <buildCatsGround theme-grounds.js:395:10> min=[-11.28, 0, 0.035] max=[-11.2, 2.1, 0.885]
+[intersect vol=0.023 ratio=0.19] A: Box #d69f7e @boardFrame theme-props.js:39:3 <buildCatsProps theme-props.js:399:3> min=[-3.66, 0.5, 2.75] max=[-3.56, 2.8, 7.25]  |  B: Box #f4acb7 @boardFrame theme-props.js:40:3 <buildCatsProps theme-props.js:399:3> min=[-3.7, 2.75, 2.65] max=[-3.52, 2.89, 7.35]
+[invisibleObstacle] wall-north box(x0,z0,x1,z1)=[-12.3, -8.3, 12.3, -7.85] visibleCoverage=0
+[invisibleObstacle] wall-south box(x0,z0,x1,z1)=[-12.3, 7.85, 12.3, 8.3] visibleCoverage=0
+[invisibleObstacle] wall-west-n box(x0,z0,x1,z1)=[-12.3, -8.3, -11.88, -1.1] visibleCoverage=0
+[invisibleObstacle] wall-west-s box(x0,z0,x1,z1)=[-12.3, 1.1, -11.88, 8.3] visibleCoverage=0
+[invisibleObstacle] wall-east box(x0,z0,x1,z1)=[11.88, -8.3, 12.3, 8.3] visibleCoverage=0
+[invisibleObstacle] part-n-1 box(x0,z0,x1,z1)=[-12, -2.12, -8.95, -1.88] visibleCoverage=0
+[invisibleObstacle] part-n-2 box(x0,z0,x1,z1)=[-7.05, -2.12, -0.95, -1.88] visibleCoverage=0
+[invisibleObstacle] part-n-3 box(x0,z0,x1,z1)=[0.95, -2.12, 7.05, -1.88] visibleCoverage=0
+[invisibleObstacle] part-n-4 box(x0,z0,x1,z1)=[8.95, -2.12, 12, -1.88] visibleCoverage=0
+[invisibleObstacle] part-s-1 box(x0,z0,x1,z1)=[-12, 1.88, -8.95, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-2 box(x0,z0,x1,z1)=[-7.05, 1.88, -0.95, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-3 box(x0,z0,x1,z1)=[0.95, 1.88, 7.05, 2.12] visibleCoverage=0
+[invisibleObstacle] part-s-4 box(x0,z0,x1,z1)=[8.95, 1.88, 12, 2.12] visibleCoverage=0
+[invisibleObstacle] server-racks box(x0,z0,x1,z1)=[4.6, -7.8, 11.4, -6.28] visibleCoverage=0.285
+[invisibleObstacle] lounge-sofa box(x0,z0,x1,z1)=[9.1, 1.3, 11.1, 1.86] visibleCoverage=0
+[invisibleObstacle] corridor-center box(x0,z0,x1,z1)=[-2.35, -0.92, 2.35, 0.92] visibleCoverage=0.263
+[ringClearance] Cylinder #d69f7e @cyl theme-grounds.js:59:5 <buildCatsGround theme-grounds.js:386:3> min=[-2.1, 0, -2.1] max=[2.1, 0.12, 2.1] walk ring z=[-1.4, 1.4]
+[ringClearance] Cylinder #f4acb7 @cyl theme-grounds.js:59:5 <buildCatsGround theme-grounds.js:389:5> min=[-1.63, 1.02, -1.23] max=[-0.07, 1.12, 0.33] walk ring z=[-1.4, 1.4]
+[ringClearance] Cylinder #f4acb7 @cyl theme-grounds.js:59:5 <buildCatsGround theme-grounds.js:389:5> min=[0.07, 1.47, -1.23] max=[1.63, 1.57, 0.33] walk ring z=[-1.4, 1.4]
+[ringClearance] Cylinder #f4acb7 @cyl theme-grounds.js:59:5 <buildCatsGround theme-grounds.js:389:5> min=[-0.78, 1.92, -0.23] max=[0.78, 2.02, 1.33] walk ring z=[-1.4, 1.4]

@@ -1,0 +1,10582 @@
+{
+ "theme": "office",
+ "meshes": [
+  {
+   "i": 0,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#a9a296",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0,
+    -0.25,
+    0
+   ],
+   "scale": [
+    24.6,
+    0.5,
+    16.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -12.3,
+    -0.5,
+    -8.3
+   ],
+   "max": [
+    12.3,
+    0,
+    8.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 1,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#c89d6c",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -12.8,
+    -0.22,
+    0
+   ],
+   "scale": [
+    2.2,
+    0.4,
+    6.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -13.9,
+    -0.42,
+    -3.2
+   ],
+   "max": [
+    -11.7,
+    -0.02,
+    3.2
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 2,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#a9a296",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8,
+    -0.225,
+    8.5
+   ],
+   "scale": [
+    7.2,
+    0.45,
+    1.4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.4,
+    -0.45,
+    7.8
+   ],
+   "max": [
+    11.6,
+    0,
+    9.2
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 3,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#ece6dc",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0,
+    0.01,
+    0
+   ],
+   "scale": [
+    24,
+    0.02,
+    16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -12,
+    0,
+    -8
+   ],
+   "max": [
+    12,
+    0.02,
+    8
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 4,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#dad3c7",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0,
+    0.015,
+    0
+   ],
+   "scale": [
+    24,
+    0.03,
+    4
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -12,
+    0,
+    -2
+   ],
+   "max": [
+    12,
+    0.03,
+    2
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 5,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#7d9cc0",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -8,
+    0.025,
+    -5
+   ],
+   "scale": [
+    7,
+    0.03,
+    5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.5,
+    0.01,
+    -7.5
+   ],
+   "max": [
+    -4.5,
+    0.04,
+    -2.5
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 6,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#6fae7e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0,
+    0.025,
+    -5
+   ],
+   "scale": [
+    7,
+    0.03,
+    5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.5,
+    0.01,
+    -7.5
+   ],
+   "max": [
+    3.5,
+    0.04,
+    -2.5
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 7,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8a7dcc",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8,
+    0.025,
+    -5
+   ],
+   "scale": [
+    7,
+    0.03,
+    5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.5,
+    0.01,
+    -7.5
+   ],
+   "max": [
+    11.5,
+    0.04,
+    -2.5
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 8,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#dba54a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -8,
+    0.025,
+    5
+   ],
+   "scale": [
+    7,
+    0.03,
+    5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.5,
+    0.01,
+    2.5
+   ],
+   "max": [
+    -4.5,
+    0.04,
+    7.5
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 9,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#d57f8e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0,
+    0.025,
+    5
+   ],
+   "scale": [
+    7,
+    0.03,
+    5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.5,
+    0.01,
+    2.5
+   ],
+   "max": [
+    3.5,
+    0.04,
+    7.5
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 10,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#d9bb4a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8,
+    0.025,
+    5
+   ],
+   "scale": [
+    7,
+    0.03,
+    5
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.5,
+    0.01,
+    2.5
+   ],
+   "max": [
+    11.5,
+    0.04,
+    7.5
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 11,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#f6f3ee",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0,
+    1.4,
+    -8.12
+   ],
+   "scale": [
+    24.3,
+    2.8,
+    0.25
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -12.15,
+    0,
+    -8.245
+   ],
+   "max": [
+    12.15,
+    2.8,
+    -7.995
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 12,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#f6f3ee",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -12.12,
+    1.4,
+    0
+   ],
+   "scale": [
+    0.25,
+    2.8,
+    16.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -12.245,
+    0,
+    -8.15
+   ],
+   "max": [
+    -11.995,
+    2.8,
+    8.15
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 13,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.5,
+    0.45,
+    -2
+   ],
+   "scale": [
+    3,
+    0.9,
+    0.12
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -12,
+    0,
+    -2.06
+   ],
+   "max": [
+    -9,
+    0.9,
+    -1.94
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 14,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.5,
+    0.93,
+    -2
+   ],
+   "scale": [
+    3,
+    0.06,
+    0.16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -12,
+    0.9,
+    -2.08
+   ],
+   "max": [
+    -9,
+    0.96,
+    -1.92
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 15,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -4,
+    0.45,
+    -2
+   ],
+   "scale": [
+    6,
+    0.9,
+    0.12
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -7,
+    0,
+    -2.06
+   ],
+   "max": [
+    -1,
+    0.9,
+    -1.94
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 16,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -4,
+    0.93,
+    -2
+   ],
+   "scale": [
+    6,
+    0.06,
+    0.16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -7,
+    0.9,
+    -2.08
+   ],
+   "max": [
+    -1,
+    0.96,
+    -1.92
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 17,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    4,
+    0.45,
+    -2
+   ],
+   "scale": [
+    6,
+    0.9,
+    0.12
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    1,
+    0,
+    -2.06
+   ],
+   "max": [
+    7,
+    0.9,
+    -1.94
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 18,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    4,
+    0.93,
+    -2
+   ],
+   "scale": [
+    6,
+    0.06,
+    0.16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    1,
+    0.9,
+    -2.08
+   ],
+   "max": [
+    7,
+    0.96,
+    -1.92
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 19,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.5,
+    0.45,
+    -2
+   ],
+   "scale": [
+    3,
+    0.9,
+    0.12
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9,
+    0,
+    -2.06
+   ],
+   "max": [
+    12,
+    0.9,
+    -1.94
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 20,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.5,
+    0.93,
+    -2
+   ],
+   "scale": [
+    3,
+    0.06,
+    0.16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9,
+    0.9,
+    -2.08
+   ],
+   "max": [
+    12,
+    0.96,
+    -1.92
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 21,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.5,
+    0.45,
+    2
+   ],
+   "scale": [
+    3,
+    0.9,
+    0.12
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -12,
+    0,
+    1.94
+   ],
+   "max": [
+    -9,
+    0.9,
+    2.06
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 22,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.5,
+    0.93,
+    2
+   ],
+   "scale": [
+    3,
+    0.06,
+    0.16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -12,
+    0.9,
+    1.92
+   ],
+   "max": [
+    -9,
+    0.96,
+    2.08
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 23,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -4,
+    0.45,
+    2
+   ],
+   "scale": [
+    6,
+    0.9,
+    0.12
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -7,
+    0,
+    1.94
+   ],
+   "max": [
+    -1,
+    0.9,
+    2.06
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 24,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -4,
+    0.93,
+    2
+   ],
+   "scale": [
+    6,
+    0.06,
+    0.16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -7,
+    0.9,
+    1.92
+   ],
+   "max": [
+    -1,
+    0.96,
+    2.08
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 25,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    4,
+    0.45,
+    2
+   ],
+   "scale": [
+    6,
+    0.9,
+    0.12
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    1,
+    0,
+    1.94
+   ],
+   "max": [
+    7,
+    0.9,
+    2.06
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 26,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    4,
+    0.93,
+    2
+   ],
+   "scale": [
+    6,
+    0.06,
+    0.16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    1,
+    0.9,
+    1.92
+   ],
+   "max": [
+    7,
+    0.96,
+    2.08
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 27,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.5,
+    0.45,
+    2
+   ],
+   "scale": [
+    3,
+    0.9,
+    0.12
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9,
+    0,
+    1.94
+   ],
+   "max": [
+    12,
+    0.9,
+    2.06
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 28,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.5,
+    0.93,
+    2
+   ],
+   "scale": [
+    3,
+    0.06,
+    0.16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9,
+    0.9,
+    1.92
+   ],
+   "max": [
+    12,
+    0.96,
+    2.08
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 29,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -4,
+    0.45,
+    -5
+   ],
+   "scale": [
+    0.12,
+    0.9,
+    6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -4.06,
+    0,
+    -8
+   ],
+   "max": [
+    -3.94,
+    0.9,
+    -2
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 30,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -4,
+    0.45,
+    5
+   ],
+   "scale": [
+    0.12,
+    0.9,
+    6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -4.06,
+    0,
+    2
+   ],
+   "max": [
+    -3.94,
+    0.9,
+    8
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 31,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    4,
+    0.45,
+    -5
+   ],
+   "scale": [
+    0.12,
+    0.9,
+    6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    3.94,
+    0,
+    -8
+   ],
+   "max": [
+    4.06,
+    0.9,
+    -2
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 32,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    4,
+    0.45,
+    5
+   ],
+   "scale": [
+    0.12,
+    0.9,
+    6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    3.94,
+    0,
+    2
+   ],
+   "max": [
+    4.06,
+    0.9,
+    8
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 33,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#f6f3ee",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.82,
+    1.25,
+    0
+   ],
+   "scale": [
+    0.35,
+    2.5,
+    2.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.995,
+    0,
+    -1.1
+   ],
+   "max": [
+    -11.645,
+    2.5,
+    1.1
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 34,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.64,
+    1.05,
+    -1.24
+   ],
+   "scale": [
+    0.08,
+    2.1,
+    0.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.68,
+    0,
+    -1.665
+   ],
+   "max": [
+    -11.6,
+    2.1,
+    -0.815
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 35,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.64,
+    1.05,
+    1.24
+   ],
+   "scale": [
+    0.08,
+    2.1,
+    0.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.68,
+    0,
+    0.815
+   ],
+   "max": [
+    -11.6,
+    2.1,
+    1.665
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 36,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.4,
+    1.05,
+    -7.6
+   ],
+   "scale": [
+    2,
+    2.1,
+    0.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.4,
+    0,
+    -7.9
+   ],
+   "max": [
+    -9.4,
+    2.1,
+    -7.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 37,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -8,
+    1.05,
+    -7.6
+   ],
+   "scale": [
+    2,
+    2.1,
+    0.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -9,
+    0,
+    -7.9
+   ],
+   "max": [
+    -7,
+    2.1,
+    -7.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 38,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -5.6,
+    1.05,
+    -7.6
+   ],
+   "scale": [
+    2,
+    2.1,
+    0.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -6.6,
+    0,
+    -7.9
+   ],
+   "max": [
+    -4.6,
+    2.1,
+    -7.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 39,
+   "kind": "instanced",
+   "count": 133
+  },
+  {
+   "i": 40,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -8,
+    0.735,
+    -4.35
+   ],
+   "scale": [
+    2.4,
+    0.07,
+    0.75
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -9.2,
+    0.7,
+    -4.725
+   ],
+   "max": [
+    -6.8,
+    0.77,
+    -3.975
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 41,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -9.12,
+    0.35,
+    -4.645
+   ],
+   "scale": [
+    0.06,
+    0.7,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -9.15,
+    0,
+    -4.675
+   ],
+   "max": [
+    -9.09,
+    0.7,
+    -4.615
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 42,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -6.88,
+    0.35,
+    -4.645
+   ],
+   "scale": [
+    0.06,
+    0.7,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -6.91,
+    0,
+    -4.675
+   ],
+   "max": [
+    -6.85,
+    0.7,
+    -4.615
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 43,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -9.12,
+    0.35,
+    -4.055
+   ],
+   "scale": [
+    0.06,
+    0.7,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -9.15,
+    0,
+    -4.085
+   ],
+   "max": [
+    -9.09,
+    0.7,
+    -4.025
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 44,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -6.88,
+    0.35,
+    -4.055
+   ],
+   "scale": [
+    0.06,
+    0.7,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -6.91,
+    0,
+    -4.085
+   ],
+   "max": [
+    -6.85,
+    0.7,
+    -4.025
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 45,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.3,
+    0.6,
+    -3.1
+   ],
+   "scale": [
+    0.8,
+    1.2,
+    0.7
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.7,
+    0,
+    -3.45
+   ],
+   "max": [
+    -10.9,
+    1.2,
+    -2.75
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 46,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#f6f3ee",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -8.5,
+    0.79,
+    -4.35
+   ],
+   "scale": [
+    0.5,
+    0.04,
+    0.36
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -8.75,
+    0.77,
+    -4.53
+   ],
+   "max": [
+    -8.25,
+    0.81,
+    -4.17
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 47,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -2.6,
+    0.755,
+    -6.75
+   ],
+   "scale": [
+    2,
+    0.07,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.6,
+    0.72,
+    -7.2
+   ],
+   "max": [
+    -1.6,
+    0.79,
+    -6.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 48,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -3.52,
+    0.36,
+    -7.12
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.55,
+    0,
+    -7.15
+   ],
+   "max": [
+    -3.49,
+    0.72,
+    -7.09
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 49,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -1.68,
+    0.36,
+    -7.12
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -1.71,
+    0,
+    -7.15
+   ],
+   "max": [
+    -1.65,
+    0.72,
+    -7.09
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 50,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -3.52,
+    0.36,
+    -6.38
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.55,
+    0,
+    -6.41
+   ],
+   "max": [
+    -3.49,
+    0.72,
+    -6.35
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 51,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -1.68,
+    0.36,
+    -6.38
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -1.71,
+    0,
+    -6.41
+   ],
+   "max": [
+    -1.65,
+    0.72,
+    -6.35
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 52,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -2.6,
+    0.86,
+    -7
+   ],
+   "scale": [
+    0.08,
+    0.14,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -2.64,
+    0.79,
+    -7.04
+   ],
+   "max": [
+    -2.56,
+    0.93,
+    -6.96
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 53,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -2.6,
+    1.26,
+    -6.98
+   ],
+   "scale": [
+    1.08,
+    0.7,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.14,
+    0.91,
+    -7.005
+   ],
+   "max": [
+    -2.06,
+    1.61,
+    -6.955
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 54,
+   "geom": "PlaneGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "widthSegments": 1,
+    "heightSegments": 1
+   },
+   "color": "#050709",
+   "emissive": "#ffffff",
+   "opacity": 1,
+   "pos": [
+    -2.6,
+    1.26,
+    -6.95
+   ],
+   "scale": [
+    1,
+    0.62,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.1,
+    0.95,
+    -6.95
+   ],
+   "max": [
+    -2.1,
+    1.57,
+    -6.95
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 55,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -2.6,
+    0.805,
+    -6.45
+   ],
+   "scale": [
+    0.7,
+    0.03,
+    0.22
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -2.95,
+    0.79,
+    -6.56
+   ],
+   "max": [
+    -2.25,
+    0.82,
+    -6.34
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 56,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0,
+    0.755,
+    -6.75
+   ],
+   "scale": [
+    2,
+    0.07,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -1,
+    0.72,
+    -7.2
+   ],
+   "max": [
+    1,
+    0.79,
+    -6.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 57,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -0.92,
+    0.36,
+    -7.12
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -0.95,
+    0,
+    -7.15
+   ],
+   "max": [
+    -0.89,
+    0.72,
+    -7.09
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 58,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0.92,
+    0.36,
+    -7.12
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    0.89,
+    0,
+    -7.15
+   ],
+   "max": [
+    0.95,
+    0.72,
+    -7.09
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 59,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -0.92,
+    0.36,
+    -6.38
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -0.95,
+    0,
+    -6.41
+   ],
+   "max": [
+    -0.89,
+    0.72,
+    -6.35
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 60,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0.92,
+    0.36,
+    -6.38
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    0.89,
+    0,
+    -6.41
+   ],
+   "max": [
+    0.95,
+    0.72,
+    -6.35
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 61,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0,
+    0.86,
+    -7
+   ],
+   "scale": [
+    0.08,
+    0.14,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -0.04,
+    0.79,
+    -7.04
+   ],
+   "max": [
+    0.04,
+    0.93,
+    -6.96
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 62,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0,
+    1.26,
+    -6.98
+   ],
+   "scale": [
+    1.08,
+    0.7,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -0.54,
+    0.91,
+    -7.005
+   ],
+   "max": [
+    0.54,
+    1.61,
+    -6.955
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 63,
+   "geom": "PlaneGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "widthSegments": 1,
+    "heightSegments": 1
+   },
+   "color": "#050709",
+   "emissive": "#ffffff",
+   "opacity": 1,
+   "pos": [
+    0,
+    1.26,
+    -6.95
+   ],
+   "scale": [
+    1,
+    0.62,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -0.5,
+    0.95,
+    -6.95
+   ],
+   "max": [
+    0.5,
+    1.57,
+    -6.95
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 64,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0,
+    0.805,
+    -6.45
+   ],
+   "scale": [
+    0.7,
+    0.03,
+    0.22
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -0.35,
+    0.79,
+    -6.56
+   ],
+   "max": [
+    0.35,
+    0.82,
+    -6.34
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 65,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    2.6,
+    0.755,
+    -6.75
+   ],
+   "scale": [
+    2,
+    0.07,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    1.6,
+    0.72,
+    -7.2
+   ],
+   "max": [
+    3.6,
+    0.79,
+    -6.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 66,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    1.68,
+    0.36,
+    -7.12
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    1.65,
+    0,
+    -7.15
+   ],
+   "max": [
+    1.71,
+    0.72,
+    -7.09
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 67,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    3.52,
+    0.36,
+    -7.12
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    3.49,
+    0,
+    -7.15
+   ],
+   "max": [
+    3.55,
+    0.72,
+    -7.09
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 68,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    1.68,
+    0.36,
+    -6.38
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    1.65,
+    0,
+    -6.41
+   ],
+   "max": [
+    1.71,
+    0.72,
+    -6.35
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 69,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    3.52,
+    0.36,
+    -6.38
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    3.49,
+    0,
+    -6.41
+   ],
+   "max": [
+    3.55,
+    0.72,
+    -6.35
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 70,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    2.6,
+    0.86,
+    -7
+   ],
+   "scale": [
+    0.08,
+    0.14,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    2.56,
+    0.79,
+    -7.04
+   ],
+   "max": [
+    2.64,
+    0.93,
+    -6.96
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 71,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    2.6,
+    1.26,
+    -6.98
+   ],
+   "scale": [
+    1.08,
+    0.7,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    2.06,
+    0.91,
+    -7.005
+   ],
+   "max": [
+    3.14,
+    1.61,
+    -6.955
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 72,
+   "geom": "PlaneGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "widthSegments": 1,
+    "heightSegments": 1
+   },
+   "color": "#050709",
+   "emissive": "#ffffff",
+   "opacity": 1,
+   "pos": [
+    2.6,
+    1.26,
+    -6.95
+   ],
+   "scale": [
+    1,
+    0.62,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    2.1,
+    0.95,
+    -6.95
+   ],
+   "max": [
+    3.1,
+    1.57,
+    -6.95
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 73,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    2.6,
+    0.805,
+    -6.45
+   ],
+   "scale": [
+    0.7,
+    0.03,
+    0.22
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    2.25,
+    0.79,
+    -6.56
+   ],
+   "max": [
+    2.95,
+    0.82,
+    -6.34
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 74,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -3.35,
+    0.475,
+    -2.75
+   ],
+   "scale": [
+    0.5,
+    0.95,
+    0.45
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.6,
+    0,
+    -2.975
+   ],
+   "max": [
+    -3.1,
+    0.95,
+    -2.525
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 75,
+   "geom": "CylinderGeometry",
+   "gparams": {
+    "radiusTop": 0.22,
+    "radiusBottom": 0.17,
+    "height": 0.4,
+    "radialSegments": 10,
+    "heightSegments": 1,
+    "thetaStart": 0,
+    "thetaLength": 6.283185307179586
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    3.35,
+    0.18,
+    -2.75
+   ],
+   "scale": [
+    0.9,
+    0.9,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    3.162,
+    -0.0,
+    -2.948
+   ],
+   "max": [
+    3.538,
+    0.36,
+    -2.552
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 76,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.42,
+    "detail": 0
+   },
+   "color": "#5c9a58",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    3.35,
+    0.675,
+    -2.75
+   ],
+   "scale": [
+    0.9,
+    0.9,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    3.028,
+    0.353,
+    -3.072
+   ],
+   "max": [
+    3.672,
+    0.997,
+    -2.428
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 77,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.3,
+    "detail": 0
+   },
+   "color": "#5c9a58",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    3.476,
+    0.972,
+    -2.795
+   ],
+   "scale": [
+    0.9,
+    0.9,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    3.246,
+    0.742,
+    -3.025
+   ],
+   "max": [
+    3.706,
+    1.202,
+    -2.565
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 78,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#36404c",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5.3,
+    1.2,
+    -7.3
+   ],
+   "scale": [
+    1.4,
+    2.4,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.6,
+    0,
+    -7.8
+   ],
+   "max": [
+    6,
+    2.4,
+    -6.8
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 79,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#161b21",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    4.9,
+    0.405,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.83,
+    0.38,
+    -6.8
+   ],
+   "max": [
+    4.97,
+    0.43,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 80,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    5.68,
+    0.405,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.61,
+    0.38,
+    -6.8
+   ],
+   "max": [
+    5.75,
+    0.43,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 81,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5.3,
+    0.366,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.05,
+    0.36,
+    -6.8
+   ],
+   "max": [
+    5.55,
+    0.372,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 82,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    4.9,
+    0.675,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.83,
+    0.65,
+    -6.8
+   ],
+   "max": [
+    4.97,
+    0.7,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 83,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    5.68,
+    0.675,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.61,
+    0.65,
+    -6.8
+   ],
+   "max": [
+    5.75,
+    0.7,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 84,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5.3,
+    0.636,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.05,
+    0.63,
+    -6.8
+   ],
+   "max": [
+    5.55,
+    0.642,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 85,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    4.9,
+    0.945,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.83,
+    0.92,
+    -6.8
+   ],
+   "max": [
+    4.97,
+    0.97,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 86,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    5.68,
+    0.945,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.61,
+    0.92,
+    -6.8
+   ],
+   "max": [
+    5.75,
+    0.97,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 87,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5.3,
+    0.906,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.05,
+    0.9,
+    -6.8
+   ],
+   "max": [
+    5.55,
+    0.912,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 88,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#161b21",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    4.9,
+    1.215,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.83,
+    1.19,
+    -6.8
+   ],
+   "max": [
+    4.97,
+    1.24,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 89,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    5.68,
+    1.215,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.61,
+    1.19,
+    -6.8
+   ],
+   "max": [
+    5.75,
+    1.24,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 90,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5.3,
+    1.176,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.05,
+    1.17,
+    -6.8
+   ],
+   "max": [
+    5.55,
+    1.182,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 91,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    4.9,
+    1.485,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.83,
+    1.46,
+    -6.8
+   ],
+   "max": [
+    4.97,
+    1.51,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 92,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    5.68,
+    1.485,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.61,
+    1.46,
+    -6.8
+   ],
+   "max": [
+    5.75,
+    1.51,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 93,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5.3,
+    1.446,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.05,
+    1.44,
+    -6.8
+   ],
+   "max": [
+    5.55,
+    1.452,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 94,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    4.9,
+    1.755,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.83,
+    1.73,
+    -6.8
+   ],
+   "max": [
+    4.97,
+    1.78,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 95,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    5.68,
+    1.755,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.61,
+    1.73,
+    -6.8
+   ],
+   "max": [
+    5.75,
+    1.78,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 96,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5.3,
+    1.716,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.05,
+    1.71,
+    -6.8
+   ],
+   "max": [
+    5.55,
+    1.722,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 97,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    4.9,
+    2.025,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.83,
+    2,
+    -6.8
+   ],
+   "max": [
+    4.97,
+    2.05,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 98,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#161b21",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5.68,
+    2.025,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.61,
+    2,
+    -6.8
+   ],
+   "max": [
+    5.75,
+    2.05,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 99,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5.3,
+    1.986,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    5.05,
+    1.98,
+    -6.8
+   ],
+   "max": [
+    5.55,
+    1.992,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 100,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#36404c",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.1,
+    1.2,
+    -7.3
+   ],
+   "scale": [
+    1.4,
+    2.4,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.4,
+    0,
+    -7.8
+   ],
+   "max": [
+    7.8,
+    2.4,
+    -6.8
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 101,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    6.7,
+    0.405,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.63,
+    0.38,
+    -6.8
+   ],
+   "max": [
+    6.77,
+    0.43,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 102,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    7.48,
+    0.405,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.41,
+    0.38,
+    -6.8
+   ],
+   "max": [
+    7.55,
+    0.43,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 103,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.1,
+    0.366,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.85,
+    0.36,
+    -6.8
+   ],
+   "max": [
+    7.35,
+    0.372,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 104,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    6.7,
+    0.675,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.63,
+    0.65,
+    -6.8
+   ],
+   "max": [
+    6.77,
+    0.7,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 105,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    7.48,
+    0.675,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.41,
+    0.65,
+    -6.8
+   ],
+   "max": [
+    7.55,
+    0.7,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 106,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.1,
+    0.636,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.85,
+    0.63,
+    -6.8
+   ],
+   "max": [
+    7.35,
+    0.642,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 107,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    6.7,
+    0.945,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.63,
+    0.92,
+    -6.8
+   ],
+   "max": [
+    6.77,
+    0.97,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 108,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    7.48,
+    0.945,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.41,
+    0.92,
+    -6.8
+   ],
+   "max": [
+    7.55,
+    0.97,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 109,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.1,
+    0.906,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.85,
+    0.9,
+    -6.8
+   ],
+   "max": [
+    7.35,
+    0.912,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 110,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    6.7,
+    1.215,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.63,
+    1.19,
+    -6.8
+   ],
+   "max": [
+    6.77,
+    1.24,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 111,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    7.48,
+    1.215,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.41,
+    1.19,
+    -6.8
+   ],
+   "max": [
+    7.55,
+    1.24,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 112,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.1,
+    1.176,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.85,
+    1.17,
+    -6.8
+   ],
+   "max": [
+    7.35,
+    1.182,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 113,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    6.7,
+    1.485,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.63,
+    1.46,
+    -6.8
+   ],
+   "max": [
+    6.77,
+    1.51,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 114,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#161b21",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.48,
+    1.485,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.41,
+    1.46,
+    -6.8
+   ],
+   "max": [
+    7.55,
+    1.51,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 115,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.1,
+    1.446,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.85,
+    1.44,
+    -6.8
+   ],
+   "max": [
+    7.35,
+    1.452,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 116,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    6.7,
+    1.755,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.63,
+    1.73,
+    -6.8
+   ],
+   "max": [
+    6.77,
+    1.78,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 117,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    7.48,
+    1.755,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.41,
+    1.73,
+    -6.8
+   ],
+   "max": [
+    7.55,
+    1.78,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 118,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.1,
+    1.716,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.85,
+    1.71,
+    -6.8
+   ],
+   "max": [
+    7.35,
+    1.722,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 119,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    6.7,
+    2.025,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.63,
+    2,
+    -6.8
+   ],
+   "max": [
+    6.77,
+    2.05,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 120,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#161b21",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.48,
+    2.025,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.41,
+    2,
+    -6.8
+   ],
+   "max": [
+    7.55,
+    2.05,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 121,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.1,
+    1.986,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    6.85,
+    1.98,
+    -6.8
+   ],
+   "max": [
+    7.35,
+    1.992,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 122,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#36404c",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.9,
+    1.2,
+    -7.3
+   ],
+   "scale": [
+    1.4,
+    2.4,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.2,
+    0,
+    -7.8
+   ],
+   "max": [
+    9.6,
+    2.4,
+    -6.8
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 123,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    8.5,
+    0.405,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.43,
+    0.38,
+    -6.8
+   ],
+   "max": [
+    8.57,
+    0.43,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 124,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    9.28,
+    0.405,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.21,
+    0.38,
+    -6.8
+   ],
+   "max": [
+    9.35,
+    0.43,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 125,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.9,
+    0.366,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.65,
+    0.36,
+    -6.8
+   ],
+   "max": [
+    9.15,
+    0.372,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 126,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    8.5,
+    0.675,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.43,
+    0.65,
+    -6.8
+   ],
+   "max": [
+    8.57,
+    0.7,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 127,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    9.28,
+    0.675,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.21,
+    0.65,
+    -6.8
+   ],
+   "max": [
+    9.35,
+    0.7,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 128,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.9,
+    0.636,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.65,
+    0.63,
+    -6.8
+   ],
+   "max": [
+    9.15,
+    0.642,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 129,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    8.5,
+    0.945,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.43,
+    0.92,
+    -6.8
+   ],
+   "max": [
+    8.57,
+    0.97,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 130,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#161b21",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.28,
+    0.945,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.21,
+    0.92,
+    -6.8
+   ],
+   "max": [
+    9.35,
+    0.97,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 131,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.9,
+    0.906,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.65,
+    0.9,
+    -6.8
+   ],
+   "max": [
+    9.15,
+    0.912,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 132,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    8.5,
+    1.215,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.43,
+    1.19,
+    -6.8
+   ],
+   "max": [
+    8.57,
+    1.24,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 133,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    9.28,
+    1.215,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.21,
+    1.19,
+    -6.8
+   ],
+   "max": [
+    9.35,
+    1.24,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 134,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.9,
+    1.176,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.65,
+    1.17,
+    -6.8
+   ],
+   "max": [
+    9.15,
+    1.182,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 135,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    8.5,
+    1.485,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.43,
+    1.46,
+    -6.8
+   ],
+   "max": [
+    8.57,
+    1.51,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 136,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#161b21",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.28,
+    1.485,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.21,
+    1.46,
+    -6.8
+   ],
+   "max": [
+    9.35,
+    1.51,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 137,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.9,
+    1.446,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.65,
+    1.44,
+    -6.8
+   ],
+   "max": [
+    9.15,
+    1.452,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 138,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#161b21",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.5,
+    1.755,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.43,
+    1.73,
+    -6.8
+   ],
+   "max": [
+    8.57,
+    1.78,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 139,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    9.28,
+    1.755,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.21,
+    1.73,
+    -6.8
+   ],
+   "max": [
+    9.35,
+    1.78,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 140,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.9,
+    1.716,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.65,
+    1.71,
+    -6.8
+   ],
+   "max": [
+    9.15,
+    1.722,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 141,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    8.5,
+    2.025,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.43,
+    2,
+    -6.8
+   ],
+   "max": [
+    8.57,
+    2.05,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 142,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    9.28,
+    2.025,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.21,
+    2,
+    -6.8
+   ],
+   "max": [
+    9.35,
+    2.05,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 143,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.9,
+    1.986,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.65,
+    1.98,
+    -6.8
+   ],
+   "max": [
+    9.15,
+    1.992,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 144,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#36404c",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.7,
+    1.2,
+    -7.3
+   ],
+   "scale": [
+    1.4,
+    2.4,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10,
+    0,
+    -7.8
+   ],
+   "max": [
+    11.4,
+    2.4,
+    -6.8
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 145,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    10.3,
+    0.405,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.23,
+    0.38,
+    -6.8
+   ],
+   "max": [
+    10.37,
+    0.43,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 146,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    11.08,
+    0.405,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.01,
+    0.38,
+    -6.8
+   ],
+   "max": [
+    11.15,
+    0.43,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 147,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.7,
+    0.366,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.45,
+    0.36,
+    -6.8
+   ],
+   "max": [
+    10.95,
+    0.372,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 148,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    10.3,
+    0.675,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.23,
+    0.65,
+    -6.8
+   ],
+   "max": [
+    10.37,
+    0.7,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 149,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    11.08,
+    0.675,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.01,
+    0.65,
+    -6.8
+   ],
+   "max": [
+    11.15,
+    0.7,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 150,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.7,
+    0.636,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.45,
+    0.63,
+    -6.8
+   ],
+   "max": [
+    10.95,
+    0.642,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 151,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    10.3,
+    0.945,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.23,
+    0.92,
+    -6.8
+   ],
+   "max": [
+    10.37,
+    0.97,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 152,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    11.08,
+    0.945,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.01,
+    0.92,
+    -6.8
+   ],
+   "max": [
+    11.15,
+    0.97,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 153,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.7,
+    0.906,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.45,
+    0.9,
+    -6.8
+   ],
+   "max": [
+    10.95,
+    0.912,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 154,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    10.3,
+    1.215,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.23,
+    1.19,
+    -6.8
+   ],
+   "max": [
+    10.37,
+    1.24,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 155,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    11.08,
+    1.215,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.01,
+    1.19,
+    -6.8
+   ],
+   "max": [
+    11.15,
+    1.24,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 156,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.7,
+    1.176,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.45,
+    1.17,
+    -6.8
+   ],
+   "max": [
+    10.95,
+    1.182,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 157,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    10.3,
+    1.485,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.23,
+    1.46,
+    -6.8
+   ],
+   "max": [
+    10.37,
+    1.51,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 158,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#161b21",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    11.08,
+    1.485,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.01,
+    1.46,
+    -6.8
+   ],
+   "max": [
+    11.15,
+    1.51,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 159,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.7,
+    1.446,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.45,
+    1.44,
+    -6.8
+   ],
+   "max": [
+    10.95,
+    1.452,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 160,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    10.3,
+    1.755,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.23,
+    1.73,
+    -6.8
+   ],
+   "max": [
+    10.37,
+    1.78,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 161,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    11.08,
+    1.755,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.01,
+    1.73,
+    -6.8
+   ],
+   "max": [
+    11.15,
+    1.78,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 162,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.7,
+    1.716,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.45,
+    1.71,
+    -6.8
+   ],
+   "max": [
+    10.95,
+    1.722,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 163,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    10.3,
+    2.025,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.23,
+    2,
+    -6.8
+   ],
+   "max": [
+    10.37,
+    2.05,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 164,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    11.08,
+    2.025,
+    -6.785
+   ],
+   "scale": [
+    0.14,
+    0.05,
+    0.03
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.01,
+    2,
+    -6.8
+   ],
+   "max": [
+    11.15,
+    2.05,
+    -6.77
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 165,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.7,
+    1.986,
+    -6.79
+   ],
+   "scale": [
+    0.5,
+    0.012,
+    0.02
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.45,
+    1.98,
+    -6.8
+   ],
+   "max": [
+    10.95,
+    1.992,
+    -6.78
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 166,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8,
+    0.755,
+    -3.9
+   ],
+   "scale": [
+    1.5,
+    0.07,
+    0.65
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.25,
+    0.72,
+    -4.225
+   ],
+   "max": [
+    8.75,
+    0.79,
+    -3.575
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 167,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.33,
+    0.36,
+    -4.145
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.3,
+    0,
+    -4.175
+   ],
+   "max": [
+    7.36,
+    0.72,
+    -4.115
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 168,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.67,
+    0.36,
+    -4.145
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.64,
+    0,
+    -4.175
+   ],
+   "max": [
+    8.7,
+    0.72,
+    -4.115
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 169,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    7.33,
+    0.36,
+    -3.655
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.3,
+    0,
+    -3.685
+   ],
+   "max": [
+    7.36,
+    0.72,
+    -3.625
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 170,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8.67,
+    0.36,
+    -3.655
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    8.64,
+    0,
+    -3.685
+   ],
+   "max": [
+    8.7,
+    0.72,
+    -3.625
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 171,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8,
+    0.86,
+    -4.1
+   ],
+   "scale": [
+    0.08,
+    0.14,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.96,
+    0.79,
+    -4.14
+   ],
+   "max": [
+    8.04,
+    0.93,
+    -4.06
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 172,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    8,
+    1.26,
+    -4.08
+   ],
+   "scale": [
+    1.08,
+    0.7,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.46,
+    0.91,
+    -4.105
+   ],
+   "max": [
+    8.54,
+    1.61,
+    -4.055
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 173,
+   "geom": "PlaneGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "widthSegments": 1,
+    "heightSegments": 1
+   },
+   "color": "#050709",
+   "emissive": "#ffffff",
+   "opacity": 1,
+   "pos": [
+    8,
+    1.26,
+    -4.05
+   ],
+   "scale": [
+    1,
+    0.62,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    7.5,
+    0.95,
+    -4.05
+   ],
+   "max": [
+    8.5,
+    1.57,
+    -4.05
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 174,
+   "geom": "CylinderGeometry",
+   "gparams": {
+    "radiusTop": 0.2,
+    "radiusBottom": 0.3,
+    "height": 0.95,
+    "radialSegments": 12,
+    "heightSegments": 1,
+    "thetaStart": 0,
+    "thetaLength": 6.283185307179586
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -8,
+    0.475,
+    5
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -8.3,
+    0,
+    4.7
+   ],
+   "max": [
+    -7.7,
+    0.95,
+    5.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 175,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.8,
+    "detail": 2
+   },
+   "color": "#3e7fc2",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -8,
+    1.78,
+    5
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -9.27,
+    0.775,
+    3.743
+   ],
+   "max": [
+    -6.73,
+    2.785,
+    6.257
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 176,
+   "geom": "WireframeGeometry",
+   "gparams": {},
+   "color": "#dff1ff",
+   "emissive": null,
+   "opacity": 0.55,
+   "pos": [
+    -8,
+    1.78,
+    5
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -9.361,
+    0.703,
+    3.652
+   ],
+   "max": [
+    -6.639,
+    2.857,
+    6.348
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 177,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.2,
+    0.755,
+    3.5
+   ],
+   "scale": [
+    0.8,
+    0.07,
+    1.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.6,
+    0.72,
+    2.7
+   ],
+   "max": [
+    -10.8,
+    0.79,
+    4.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 178,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.52,
+    0.36,
+    2.78
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.55,
+    0,
+    2.75
+   ],
+   "max": [
+    -11.49,
+    0.72,
+    2.81
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 179,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.88,
+    0.36,
+    2.78
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -10.91,
+    0,
+    2.75
+   ],
+   "max": [
+    -10.85,
+    0.72,
+    2.81
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 180,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.52,
+    0.36,
+    4.22
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.55,
+    0,
+    4.19
+   ],
+   "max": [
+    -11.49,
+    0.72,
+    4.25
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 181,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.88,
+    0.36,
+    4.22
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -10.91,
+    0,
+    4.19
+   ],
+   "max": [
+    -10.85,
+    0.72,
+    4.25
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 182,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.45,
+    0.86,
+    3.5
+   ],
+   "scale": [
+    0.08,
+    0.14,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.49,
+    0.79,
+    3.46
+   ],
+   "max": [
+    -11.41,
+    0.93,
+    3.54
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 183,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.43,
+    1.26,
+    3.5
+   ],
+   "scale": [
+    1.08,
+    0.7,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.455,
+    0.91,
+    2.96
+   ],
+   "max": [
+    -11.405,
+    1.61,
+    4.04
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 184,
+   "geom": "PlaneGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "widthSegments": 1,
+    "heightSegments": 1
+   },
+   "color": "#050709",
+   "emissive": "#ffffff",
+   "opacity": 1,
+   "pos": [
+    -11.4,
+    1.26,
+    3.5
+   ],
+   "scale": [
+    1,
+    0.62,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.4,
+    0.95,
+    3
+   ],
+   "max": [
+    -11.4,
+    1.57,
+    4
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 185,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.2,
+    0.755,
+    6.5
+   ],
+   "scale": [
+    0.8,
+    0.07,
+    1.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.6,
+    0.72,
+    5.7
+   ],
+   "max": [
+    -10.8,
+    0.79,
+    7.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 186,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.52,
+    0.36,
+    5.78
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.55,
+    0,
+    5.75
+   ],
+   "max": [
+    -11.49,
+    0.72,
+    5.81
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 187,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.88,
+    0.36,
+    5.78
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -10.91,
+    0,
+    5.75
+   ],
+   "max": [
+    -10.85,
+    0.72,
+    5.81
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 188,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.52,
+    0.36,
+    7.22
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.55,
+    0,
+    7.19
+   ],
+   "max": [
+    -11.49,
+    0.72,
+    7.25
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 189,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.88,
+    0.36,
+    7.22
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -10.91,
+    0,
+    7.19
+   ],
+   "max": [
+    -10.85,
+    0.72,
+    7.25
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 190,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.45,
+    0.86,
+    6.5
+   ],
+   "scale": [
+    0.08,
+    0.14,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.49,
+    0.79,
+    6.46
+   ],
+   "max": [
+    -11.41,
+    0.93,
+    6.54
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 191,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -11.43,
+    1.26,
+    6.5
+   ],
+   "scale": [
+    1.08,
+    0.7,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.455,
+    0.91,
+    5.96
+   ],
+   "max": [
+    -11.405,
+    1.61,
+    7.04
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 192,
+   "geom": "PlaneGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "widthSegments": 1,
+    "heightSegments": 1
+   },
+   "color": "#050709",
+   "emissive": "#ffffff",
+   "opacity": 1,
+   "pos": [
+    -11.4,
+    1.26,
+    6.5
+   ],
+   "scale": [
+    1,
+    0.62,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -11.4,
+    0.95,
+    6
+   ],
+   "max": [
+    -11.4,
+    1.57,
+    7
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 193,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#332200",
+   "emissive": "#ffb43c",
+   "opacity": 1,
+   "pos": [
+    -4.7,
+    1.94,
+    7.3
+   ],
+   "scale": [
+    0.08,
+    0.08,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -4.74,
+    1.9,
+    7.26
+   ],
+   "max": [
+    -4.66,
+    1.98,
+    7.34
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 194,
+   "geom": "CylinderGeometry",
+   "gparams": {
+    "radiusTop": 0.04,
+    "radiusBottom": 0.06,
+    "height": 1.8,
+    "radialSegments": 8,
+    "heightSegments": 1,
+    "thetaStart": 0,
+    "thetaLength": 6.283185307179586
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -4.7,
+    0.9,
+    7.3
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -4.76,
+    0,
+    7.24
+   ],
+   "max": [
+    -4.64,
+    1.8,
+    7.36
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 195,
+   "geom": "SphereGeometry",
+   "gparams": {
+    "radius": 0.42,
+    "widthSegments": 16,
+    "heightSegments": 8,
+    "phiStart": 0,
+    "phiLength": 6.283185307179586,
+    "thetaStart": 0,
+    "thetaLength": 1.208304866765305
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -4.7,
+    1.85,
+    7.3
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "rot": [
+    -0.9,
+    0.6,
+    0
+   ],
+   "min": [
+    -5.246,
+    1.515,
+    6.632
+   ],
+   "max": [
+    -4.154,
+    2.539,
+    7.523
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 196,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -3.61,
+    1.65,
+    5
+   ],
+   "scale": [
+    4.4,
+    2.2,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.65,
+    0.55,
+    2.8
+   ],
+   "max": [
+    -3.57,
+    2.75,
+    7.2
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 197,
+   "geom": "PlaneGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "widthSegments": 1,
+    "heightSegments": 1
+   },
+   "color": "#ffffff",
+   "emissive": "#ffffff",
+   "opacity": 1,
+   "pos": [
+    -3.56,
+    1.65,
+    5
+   ],
+   "scale": [
+    4.2,
+    2,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.56,
+    0.65,
+    2.9
+   ],
+   "max": [
+    -3.56,
+    2.65,
+    7.1
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 198,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -3.61,
+    0.3,
+    6.9
+   ],
+   "scale": [
+    0.08,
+    0.6,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.65,
+    0,
+    6.86
+   ],
+   "max": [
+    -3.57,
+    0.6,
+    6.94
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 199,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -3.61,
+    0.3,
+    3.1
+   ],
+   "scale": [
+    0.08,
+    0.6,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.65,
+    0,
+    3.06
+   ],
+   "max": [
+    -3.57,
+    0.6,
+    3.14
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 200,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -3.5,
+    0.575,
+    5
+   ],
+   "scale": [
+    1.6,
+    0.05,
+    0.16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -3.58,
+    0.55,
+    4.2
+   ],
+   "max": [
+    -3.42,
+    0.6,
+    5.8
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 201,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0.8,
+    0.755,
+    5
+   ],
+   "scale": [
+    1.4,
+    0.07,
+    3.2
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    0.1,
+    0.72,
+    3.4
+   ],
+   "max": [
+    1.5,
+    0.79,
+    6.6
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 202,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0.18,
+    0.36,
+    3.48
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    0.15,
+    0,
+    3.45
+   ],
+   "max": [
+    0.21,
+    0.72,
+    3.51
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 203,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    1.42,
+    0.36,
+    3.48
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    1.39,
+    0,
+    3.45
+   ],
+   "max": [
+    1.45,
+    0.72,
+    3.51
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 204,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    0.18,
+    0.36,
+    6.52
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    0.15,
+    0,
+    6.49
+   ],
+   "max": [
+    0.21,
+    0.72,
+    6.55
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 205,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    1.42,
+    0.36,
+    6.52
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    1.39,
+    0,
+    6.49
+   ],
+   "max": [
+    1.45,
+    0.72,
+    6.55
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 206,
+   "geom": "CylinderGeometry",
+   "gparams": {
+    "radiusTop": 0.22,
+    "radiusBottom": 0.17,
+    "height": 0.4,
+    "radialSegments": 10,
+    "heightSegments": 1,
+    "thetaStart": 0,
+    "thetaLength": 6.283185307179586
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    3.4,
+    0.22,
+    7.4
+   ],
+   "scale": [
+    1.1,
+    1.1,
+    1.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    3.17,
+    -0.0,
+    7.158
+   ],
+   "max": [
+    3.63,
+    0.44,
+    7.642
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 207,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.42,
+    "detail": 0
+   },
+   "color": "#5c9a58",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    3.4,
+    0.825,
+    7.4
+   ],
+   "scale": [
+    1.1,
+    1.1,
+    1.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    3.007,
+    0.432,
+    7.007
+   ],
+   "max": [
+    3.793,
+    1.218,
+    7.793
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 208,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.3,
+    "detail": 0
+   },
+   "color": "#5c9a58",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    3.554,
+    1.188,
+    7.345
+   ],
+   "scale": [
+    1.1,
+    1.1,
+    1.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    3.273,
+    0.907,
+    7.064
+   ],
+   "max": [
+    3.835,
+    1.469,
+    7.626
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 209,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.6,
+    0.755,
+    5
+   ],
+   "scale": [
+    1,
+    0.07,
+    2.6
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.1,
+    0.72,
+    3.7
+   ],
+   "max": [
+    10.1,
+    0.79,
+    6.3
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 210,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.18,
+    0.36,
+    3.78
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.15,
+    0,
+    3.75
+   ],
+   "max": [
+    9.21,
+    0.72,
+    3.81
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 211,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.02,
+    0.36,
+    3.78
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.99,
+    0,
+    3.75
+   ],
+   "max": [
+    10.05,
+    0.72,
+    3.81
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 212,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.18,
+    0.36,
+    6.22
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.15,
+    0,
+    6.19
+   ],
+   "max": [
+    9.21,
+    0.72,
+    6.25
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 213,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.02,
+    0.36,
+    6.22
+   ],
+   "scale": [
+    0.06,
+    0.72,
+    0.06
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.99,
+    0,
+    6.19
+   ],
+   "max": [
+    10.05,
+    0.72,
+    6.25
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 214,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.3,
+    0.86,
+    4.35
+   ],
+   "scale": [
+    0.08,
+    0.14,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.26,
+    0.79,
+    4.31
+   ],
+   "max": [
+    9.34,
+    0.93,
+    4.39
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 215,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.32,
+    1.23,
+    4.35
+   ],
+   "scale": [
+    0.98,
+    0.64,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.295,
+    0.91,
+    3.86
+   ],
+   "max": [
+    9.345,
+    1.55,
+    4.84
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 216,
+   "geom": "PlaneGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "widthSegments": 1,
+    "heightSegments": 1
+   },
+   "color": "#050709",
+   "emissive": "#ffffff",
+   "opacity": 1,
+   "pos": [
+    9.35,
+    1.23,
+    4.35
+   ],
+   "scale": [
+    0.9,
+    0.56,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.35,
+    0.95,
+    3.9
+   ],
+   "max": [
+    9.35,
+    1.51,
+    4.8
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 217,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.3,
+    0.86,
+    5.65
+   ],
+   "scale": [
+    0.08,
+    0.14,
+    0.08
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.26,
+    0.79,
+    5.61
+   ],
+   "max": [
+    9.34,
+    0.93,
+    5.69
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 218,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.32,
+    1.23,
+    5.65
+   ],
+   "scale": [
+    0.98,
+    0.64,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.295,
+    0.91,
+    5.16
+   ],
+   "max": [
+    9.345,
+    1.55,
+    6.14
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 219,
+   "geom": "PlaneGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "widthSegments": 1,
+    "heightSegments": 1
+   },
+   "color": "#050709",
+   "emissive": "#ffffff",
+   "opacity": 1,
+   "pos": [
+    9.35,
+    1.23,
+    5.65
+   ],
+   "scale": [
+    0.9,
+    0.56,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.35,
+    0.95,
+    5.2
+   ],
+   "max": [
+    9.35,
+    1.51,
+    6.1
+   ],
+   "parentIsGroup": true
+  },
+  {
+   "i": 220,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.68,
+    0.815,
+    5
+   ],
+   "scale": [
+    0.36,
+    0.05,
+    0.48
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.5,
+    0.79,
+    4.76
+   ],
+   "max": [
+    9.86,
+    0.84,
+    5.24
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 221,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    9.68,
+    0.845,
+    4.88
+   ],
+   "scale": [
+    0.12,
+    0.03,
+    0.14
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.62,
+    0.83,
+    4.81
+   ],
+   "max": [
+    9.74,
+    0.86,
+    4.95
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 222,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#2a1a05",
+   "emissive": "#ffae2b",
+   "opacity": 1,
+   "pos": [
+    9.68,
+    0.845,
+    5.12
+   ],
+   "scale": [
+    0.12,
+    0.03,
+    0.14
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.62,
+    0.83,
+    5.05
+   ],
+   "max": [
+    9.74,
+    0.86,
+    5.19
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 223,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.52,
+    0.91,
+    5
+   ],
+   "scale": [
+    0.04,
+    0.24,
+    0.04
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.5,
+    0.79,
+    4.98
+   ],
+   "max": [
+    9.54,
+    1.03,
+    5.02
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 224,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#20262e",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.48,
+    1.065,
+    5
+   ],
+   "scale": [
+    0.1,
+    0.07,
+    0.07
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.43,
+    1.03,
+    4.965
+   ],
+   "max": [
+    9.53,
+    1.1,
+    5.035
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 225,
+   "geom": "CylinderGeometry",
+   "gparams": {
+    "radiusTop": 0.07,
+    "radiusBottom": 0.07,
+    "height": 0.16,
+    "radialSegments": 10,
+    "heightSegments": 1,
+    "thetaStart": 0,
+    "thetaLength": 6.283185307179586
+   },
+   "color": "#d9bb4a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.9,
+    0.87,
+    6.1
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.833,
+    0.79,
+    6.03
+   ],
+   "max": [
+    9.967,
+    0.95,
+    6.17
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 226,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.45,
+    0.775,
+    3.45
+   ],
+   "scale": [
+    1.5,
+    1.55,
+    0.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.7,
+    0,
+    3.4
+   ],
+   "max": [
+    11.2,
+    1.55,
+    3.5
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 227,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#e3ddd3",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.45,
+    0.775,
+    6.55
+   ],
+   "scale": [
+    1.5,
+    1.55,
+    0.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.7,
+    0,
+    6.5
+   ],
+   "max": [
+    11.2,
+    1.55,
+    6.6
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 228,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#332200",
+   "emissive": "#ffb43c",
+   "opacity": 1,
+   "pos": [
+    10.8,
+    1.67,
+    5
+   ],
+   "scale": [
+    0.1,
+    0.1,
+    0.1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.75,
+    1.62,
+    4.95
+   ],
+   "max": [
+    10.85,
+    1.72,
+    5.05
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 229,
+   "geom": "CylinderGeometry",
+   "gparams": {
+    "radiusTop": 0.4,
+    "radiusBottom": 0.48,
+    "height": 0.86,
+    "radialSegments": 16,
+    "heightSegments": 1,
+    "thetaStart": 0,
+    "thetaLength": 6.283185307179586
+   },
+   "color": "#8794a1",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.8,
+    0.43,
+    5
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.32,
+    -0.0,
+    4.52
+   ],
+   "max": [
+    11.28,
+    0.86,
+    5.48
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 230,
+   "geom": "TorusGeometry",
+   "gparams": {
+    "radius": 0.38,
+    "tube": 0.026,
+    "radialSegments": 8,
+    "tubularSegments": 24,
+    "arc": 6.283185307179586
+   },
+   "color": "#0b2614",
+   "emissive": "#3cf07e",
+   "opacity": 1,
+   "pos": [
+    10.8,
+    1.28,
+    5
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "rot": [
+    1.571,
+    0,
+    0
+   ],
+   "min": [
+    10.394,
+    1.254,
+    4.594
+   ],
+   "max": [
+    11.206,
+    1.306,
+    5.406
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 231,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.26,
+    "detail": 1
+   },
+   "color": "#9fd4ff",
+   "emissive": "#000000",
+   "opacity": 0.75,
+   "pos": [
+    10.8,
+    1.28,
+    5
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    10.54,
+    1.02,
+    4.74
+   ],
+   "max": [
+    11.06,
+    1.54,
+    5.26
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 232,
+   "geom": "CylinderGeometry",
+   "gparams": {
+    "radiusTop": 0.22,
+    "radiusBottom": 0.17,
+    "height": 0.4,
+    "radialSegments": 10,
+    "heightSegments": 1,
+    "thetaStart": 0,
+    "thetaLength": 6.283185307179586
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5,
+    0.26,
+    7.4
+   ],
+   "scale": [
+    1.3,
+    1.3,
+    1.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.728,
+    -0.0,
+    7.114
+   ],
+   "max": [
+    5.272,
+    0.52,
+    7.686
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 233,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.42,
+    "detail": 0
+   },
+   "color": "#5c9a58",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5,
+    0.975,
+    7.4
+   ],
+   "scale": [
+    1.3,
+    1.3,
+    1.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.536,
+    0.511,
+    6.936
+   ],
+   "max": [
+    5.464,
+    1.439,
+    7.864
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 234,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.3,
+    "detail": 0
+   },
+   "color": "#5c9a58",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    5.182,
+    1.404,
+    7.335
+   ],
+   "scale": [
+    1.3,
+    1.3,
+    1.3
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    4.85,
+    1.072,
+    7.003
+   ],
+   "max": [
+    5.514,
+    1.736,
+    7.667
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 235,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#4f7f8c",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.1,
+    0.21,
+    1.58
+   ],
+   "scale": [
+    2,
+    0.42,
+    0.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.1,
+    0,
+    1.305
+   ],
+   "max": [
+    11.1,
+    0.42,
+    1.855
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 236,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#4f7f8c",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    10.1,
+    0.695,
+    1.8
+   ],
+   "scale": [
+    2,
+    0.55,
+    0.16
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.1,
+    0.42,
+    1.72
+   ],
+   "max": [
+    11.1,
+    0.97,
+    1.88
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 237,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#4f7f8c",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    9.1,
+    0.31,
+    1.58
+   ],
+   "scale": [
+    0.16,
+    0.62,
+    0.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    9.02,
+    0,
+    1.305
+   ],
+   "max": [
+    9.18,
+    0.62,
+    1.855
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 238,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#4f7f8c",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    11.1,
+    0.31,
+    1.58
+   ],
+   "scale": [
+    0.16,
+    0.62,
+    0.55
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.02,
+    0,
+    1.305
+   ],
+   "max": [
+    11.18,
+    0.62,
+    1.855
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 239,
+   "geom": "BoxGeometry",
+   "gparams": {
+    "width": 1,
+    "height": 1,
+    "depth": 1,
+    "widthSegments": 1,
+    "heightSegments": 1,
+    "depthSegments": 1
+   },
+   "color": "#f6f3ee",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    11.4,
+    0.5,
+    -1.55
+   ],
+   "scale": [
+    0.45,
+    1,
+    0.45
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.175,
+    0,
+    -1.775
+   ],
+   "max": [
+    11.625,
+    1,
+    -1.325
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 240,
+   "geom": "CylinderGeometry",
+   "gparams": {
+    "radiusTop": 0.17,
+    "radiusBottom": 0.17,
+    "height": 0.5,
+    "radialSegments": 12,
+    "heightSegments": 1,
+    "thetaStart": 0,
+    "thetaLength": 6.283185307179586
+   },
+   "color": "#9fd4ff",
+   "emissive": "#000000",
+   "opacity": 0.75,
+   "pos": [
+    11.4,
+    1.25,
+    -1.55
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.23,
+    1,
+    -1.72
+   ],
+   "max": [
+    11.57,
+    1.5,
+    -1.38
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 241,
+   "geom": "CylinderGeometry",
+   "gparams": {
+    "radiusTop": 0.22,
+    "radiusBottom": 0.17,
+    "height": 0.4,
+    "radialSegments": 10,
+    "heightSegments": 1,
+    "thetaStart": 0,
+    "thetaLength": 6.283185307179586
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.4,
+    0.18,
+    1.55
+   ],
+   "scale": [
+    0.9,
+    0.9,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -10.588,
+    -0.0,
+    1.352
+   ],
+   "max": [
+    -10.212,
+    0.36,
+    1.748
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 242,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.42,
+    "detail": 0
+   },
+   "color": "#5c9a58",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.4,
+    0.675,
+    1.55
+   ],
+   "scale": [
+    0.9,
+    0.9,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -10.722,
+    0.353,
+    1.228
+   ],
+   "max": [
+    -10.078,
+    0.997,
+    1.872
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 243,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.3,
+    "detail": 0
+   },
+   "color": "#5c9a58",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    -10.274,
+    0.972,
+    1.505
+   ],
+   "scale": [
+    0.9,
+    0.9,
+    0.9
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    -10.504,
+    0.742,
+    1.275
+   ],
+   "max": [
+    -10.044,
+    1.202,
+    1.735
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 244,
+   "geom": "CylinderGeometry",
+   "gparams": {
+    "radiusTop": 0.22,
+    "radiusBottom": 0.17,
+    "height": 0.4,
+    "radialSegments": 10,
+    "heightSegments": 1,
+    "thetaStart": 0,
+    "thetaLength": 6.283185307179586
+   },
+   "color": "#b8875a",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    11.55,
+    0.17,
+    1.55
+   ],
+   "scale": [
+    0.85,
+    0.85,
+    0.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.372,
+    -0.0,
+    1.363
+   ],
+   "max": [
+    11.728,
+    0.34,
+    1.737
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 245,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.42,
+    "detail": 0
+   },
+   "color": "#5c9a58",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    11.55,
+    0.637,
+    1.55
+   ],
+   "scale": [
+    0.85,
+    0.85,
+    0.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.246,
+    0.334,
+    1.246
+   ],
+   "max": [
+    11.854,
+    0.941,
+    1.854
+   ],
+   "parentIsGroup": false
+  },
+  {
+   "i": 246,
+   "geom": "IcosahedronGeometry",
+   "gparams": {
+    "radius": 0.3,
+    "detail": 0
+   },
+   "color": "#5c9a58",
+   "emissive": "#000000",
+   "opacity": 1,
+   "pos": [
+    11.669,
+    0.918,
+    1.508
+   ],
+   "scale": [
+    0.85,
+    0.85,
+    0.85
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "min": [
+    11.452,
+    0.701,
+    1.291
+   ],
+   "max": [
+    11.886,
+    1.135,
+    1.724
+   ],
+   "parentIsGroup": false
+  }
+ ],
+ "slots": {
+  "archive": [
+   [
+    -10.4,
+    -6.3,
+    3.141592653589793
+   ],
+   [
+    -8,
+    -6.3,
+    3.141592653589793
+   ],
+   [
+    -5.6,
+    -6.3,
+    3.141592653589793
+   ],
+   [
+    -8.8,
+    -3.2,
+    3.141592653589793
+   ],
+   [
+    -7.2,
+    -3.2,
+    3.141592653589793
+   ]
+  ],
+  "dev": [
+   [
+    -2.6,
+    -5.5,
+    3.141592653589793
+   ],
+   [
+    0,
+    -5.5,
+    3.141592653589793
+   ],
+   [
+    2.6,
+    -5.5,
+    3.141592653589793
+   ],
+   [
+    -1.3,
+    -3.1,
+    3.141592653589793
+   ],
+   [
+    1.3,
+    -3.1,
+    3.141592653589793
+   ]
+  ],
+  "server": [
+   [
+    5.3,
+    -5.8,
+    3.141592653589793
+   ],
+   [
+    7.1,
+    -5.8,
+    3.141592653589793
+   ],
+   [
+    8.9,
+    -5.8,
+    3.141592653589793
+   ],
+   [
+    10.7,
+    -5.8,
+    3.141592653589793
+   ],
+   [
+    8,
+    -2.9,
+    3.141592653589793
+   ]
+  ],
+  "research": [
+   [
+    -10.1,
+    3.5,
+    -1.5707963267948966
+   ],
+   [
+    -10.1,
+    6.5,
+    -1.5707963267948966
+   ],
+   [
+    -6.6,
+    5,
+    -1.5707963267948966
+   ],
+   [
+    -8,
+    6.6,
+    3.141592653589793
+   ]
+  ],
+  "meeting": [
+   [
+    -2.5,
+    5,
+    -1.5707963267948966
+   ],
+   [
+    -0.5,
+    3.7,
+    1.5707963267948966
+   ],
+   [
+    -0.5,
+    6.3,
+    1.5707963267948966
+   ],
+   [
+    2.1,
+    3.7,
+    -1.5707963267948966
+   ],
+   [
+    2.1,
+    6.3,
+    -1.5707963267948966
+   ],
+   [
+    0.8,
+    7.3,
+    3.141592653589793
+   ]
+  ],
+  "desk": [
+   [
+    8.3,
+    5,
+    1.5707963267948966
+   ],
+   [
+    7,
+    3.8,
+    1.5707963267948966
+   ],
+   [
+    7,
+    6.2,
+    1.5707963267948966
+   ],
+   [
+    5.8,
+    5,
+    1.5707963267948966
+   ]
+  ],
+  "lounge": [
+   [
+    5,
+    -1.3,
+    0
+   ],
+   [
+    6.4,
+    -1.3,
+    0
+   ],
+   [
+    7.8,
+    -1.3,
+    0
+   ],
+   [
+    9.2,
+    -1.3,
+    0
+   ],
+   [
+    10.4,
+    -1.3,
+    0
+   ],
+   [
+    3.6,
+    -1.3,
+    0
+   ],
+   [
+    2.2,
+    -1.3,
+    0
+   ],
+   [
+    0.8,
+    -1.3,
+    0
+   ]
+  ]
+ },
+ "doors": {
+  "archive": {
+   "x": -8,
+   "z": -2,
+   "inner": -2.9,
+   "sign": [
+    -8,
+    1.55,
+    -2
+   ]
+  },
+  "dev": {
+   "x": 0,
+   "z": -2,
+   "inner": -2.9,
+   "sign": [
+    0,
+    1.55,
+    -2
+   ]
+  },
+  "server": {
+   "x": 8,
+   "z": -2,
+   "inner": -2.9,
+   "sign": [
+    8,
+    1.55,
+    -2
+   ]
+  },
+  "research": {
+   "x": -8,
+   "z": 2,
+   "inner": 2.9,
+   "sign": [
+    -8,
+    1.55,
+    2
+   ]
+  },
+  "meeting": {
+   "x": 0,
+   "z": 2,
+   "inner": 2.9,
+   "sign": [
+    0,
+    1.55,
+    2
+   ]
+  },
+  "desk": {
+   "x": 8,
+   "z": 2,
+   "inner": 2.9,
+   "sign": [
+    8,
+    1.55,
+    2
+   ]
+  },
+  "lounge": {
+   "x": -11.2,
+   "z": 0,
+   "inner": 0,
+   "sign": [
+    -11.7,
+    3,
+    0
+   ]
+  }
+ },
+ "elevator": {
+  "x": -11.2,
+  "z": 0
+ },
+ "walkway": "spine",
+ "obstacle": null,
+ "obstacles": [
+  {
+   "x0": -12.3,
+   "x1": 12.3,
+   "z0": -8.3,
+   "z1": -7.85,
+   "tag": "wall-north"
+  },
+  {
+   "x0": -12.3,
+   "x1": 12.3,
+   "z0": 7.85,
+   "z1": 8.3,
+   "tag": "wall-south"
+  },
+  {
+   "x0": -12.3,
+   "x1": -11.88,
+   "z0": -8.3,
+   "z1": -1.1,
+   "tag": "wall-west-n"
+  },
+  {
+   "x0": -12.3,
+   "x1": -11.88,
+   "z0": 1.1,
+   "z1": 8.3,
+   "tag": "wall-west-s"
+  },
+  {
+   "x0": 11.88,
+   "x1": 12.3,
+   "z0": -8.3,
+   "z1": 8.3,
+   "tag": "wall-east"
+  },
+  {
+   "x0": -4.12,
+   "x1": -3.88,
+   "z0": -8,
+   "z1": -2,
+   "tag": "div-top-w"
+  },
+  {
+   "x0": 3.88,
+   "x1": 4.12,
+   "z0": -8,
+   "z1": -2,
+   "tag": "div-top-e"
+  },
+  {
+   "x0": -4.12,
+   "x1": -3.88,
+   "z0": 2,
+   "z1": 8,
+   "tag": "div-bot-w"
+  },
+  {
+   "x0": 3.88,
+   "x1": 4.12,
+   "z0": 2,
+   "z1": 8,
+   "tag": "div-bot-e"
+  },
+  {
+   "x0": -12,
+   "x1": -8.95,
+   "z0": -2.12,
+   "z1": -1.88,
+   "tag": "part-n-1"
+  },
+  {
+   "x0": -7.05,
+   "x1": -0.95,
+   "z0": -2.12,
+   "z1": -1.88,
+   "tag": "part-n-2"
+  },
+  {
+   "x0": 0.95,
+   "x1": 7.05,
+   "z0": -2.12,
+   "z1": -1.88,
+   "tag": "part-n-3"
+  },
+  {
+   "x0": 8.95,
+   "x1": 12,
+   "z0": -2.12,
+   "z1": -1.88,
+   "tag": "part-n-4"
+  },
+  {
+   "x0": -12,
+   "x1": -8.95,
+   "z0": 1.88,
+   "z1": 2.12,
+   "tag": "part-s-1"
+  },
+  {
+   "x0": -7.05,
+   "x1": -0.95,
+   "z0": 1.88,
+   "z1": 2.12,
+   "tag": "part-s-2"
+  },
+  {
+   "x0": 0.95,
+   "x1": 7.05,
+   "z0": 1.88,
+   "z1": 2.12,
+   "tag": "part-s-3"
+  },
+  {
+   "x0": 8.95,
+   "x1": 12,
+   "z0": 1.88,
+   "z1": 2.12,
+   "tag": "part-s-4"
+  },
+  {
+   "x0": -11.4,
+   "x1": -4.6,
+   "z0": -7.9,
+   "z1": -6.75,
+   "tag": "archive-shelves"
+  },
+  {
+   "x0": -9.2,
+   "x1": -6.8,
+   "z0": -4.73,
+   "z1": -3.97,
+   "tag": "archive-desk"
+  },
+  {
+   "x0": -3.6,
+   "x1": 3.6,
+   "z0": -7.2,
+   "z1": -6.08,
+   "tag": "dev-desks"
+  },
+  {
+   "x0": 4.6,
+   "x1": 11.4,
+   "z0": -7.8,
+   "z1": -6.28,
+   "tag": "server-racks"
+  },
+  {
+   "x0": 7.25,
+   "x1": 8.75,
+   "z0": -4.23,
+   "z1": -3.57,
+   "tag": "server-desk"
+  },
+  {
+   "x0": -8.5,
+   "x1": -7.5,
+   "z0": 4.5,
+   "z1": 5.5,
+   "tag": "research-globe"
+  },
+  {
+   "x0": -11.6,
+   "x1": -10.65,
+   "z0": 2.7,
+   "z1": 7.3,
+   "tag": "research-desks"
+  },
+  {
+   "x0": 0.1,
+   "x1": 1.5,
+   "z0": 3.4,
+   "z1": 6.6,
+   "tag": "meeting-table"
+  },
+  {
+   "x0": -3.7,
+   "x1": -3.35,
+   "z0": 2.8,
+   "z1": 7.2,
+   "tag": "meeting-board"
+  },
+  {
+   "x0": 9,
+   "x1": 11.4,
+   "z0": 3.4,
+   "z1": 6.6,
+   "tag": "desk-main"
+  },
+  {
+   "x0": 9.1,
+   "x1": 11.1,
+   "z0": 1.3,
+   "z1": 1.86,
+   "tag": "lounge-sofa"
+  },
+  {
+   "x0": -11.7,
+   "x1": -10.9,
+   "z0": -3.45,
+   "z1": -2.75,
+   "tag": "archive-cabinet"
+  },
+  {
+   "x0": 11.15,
+   "x1": 11.65,
+   "z0": -1.8,
+   "z1": -1.3,
+   "tag": "lounge-water"
+  }
+ ],
+ "rooms": {
+  "archive": {
+   "label": "Library",
+   "x0": -12,
+   "x1": -4,
+   "side": "top",
+   "token": "--r-archive",
+   "hint": "Read · Grep · Glob · codegraph"
+  },
+  "dev": {
+   "label": "Dev Zone",
+   "x0": -4,
+   "x1": 4,
+   "side": "top",
+   "token": "--r-dev",
+   "hint": "Edit · Write · NotebookEdit"
+  },
+  "server": {
+   "label": "Server Room",
+   "x0": 4,
+   "x1": 12,
+   "side": "top",
+   "token": "--r-server",
+   "hint": "Bash · git · gh · terminal"
+  },
+  "research": {
+   "label": "Research Lab",
+   "x0": -12,
+   "x1": -4,
+   "side": "bottom",
+   "token": "--r-research",
+   "hint": "WebSearch · WebFetch · MCP"
+  },
+  "meeting": {
+   "label": "Boardroom",
+   "x0": -4,
+   "x1": 4,
+   "side": "bottom",
+   "token": "--r-meeting",
+   "hint": "Plan · tasks -> whiteboard"
+  },
+  "desk": {
+   "label": "Hotline Booth",
+   "x0": 4,
+   "x1": 12,
+   "side": "bottom",
+   "token": "--r-desk",
+   "hint": "AskUserQuestion · approvals"
+  },
+  "lounge": {
+   "label": "Lounge",
+   "x0": -12,
+   "x1": 12,
+   "side": "mid",
+   "token": "--r-lounge",
+   "hint": "Idle · elevator"
+  }
+ }
+}
