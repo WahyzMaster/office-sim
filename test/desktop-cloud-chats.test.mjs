@@ -331,3 +331,64 @@ test('ChatGPT Dot companion window (avatarOverlay) and Grok Bot desktop + unifie
     assert.equal(cliSession.project, '/Grok Bot');
   });
 });
+
+test('desktop watchers reject symlinked log/blob/data files and cap Claude openTools map', async () => {
+  await withTmpDir(async (tmp) => {
+    const baitPath = path.join(tmp, 'secret-bait.log');
+    const nowIso = new Date().toISOString();
+    const cloudUuid = '69e32c0f-c8bc-83aa-ad47-accc6bcde906';
+    const grokUuid = '01a15e48-cd59-7322-b1c5-ef969cd799ff';
+    await fsp.writeFile(
+      baitPath,
+      [
+        `${nowIso} [info] [Filesystem] Message from client: {"method":"tools/call","params":{"name":"read_file","arguments":{}},"jsonrpc":"2.0","id":1}`,
+        `${nowIso} INFO [1] [IAB] chatgpt_conversation_refetch_started conversationId=${cloudUuid}`,
+        JSON.stringify({ ts: nowIso, src: 'shell', sid: grokUuid, msg: 'shell.turn.inference_start' }),
+      ].join('\n') + '\n',
+    );
+
+    // 1. Symlinked Claude Desktop files are ignored
+    const projectsRoot = path.join(tmp, 'projects');
+    const appSupportDir = path.join(tmp, 'ClaudeSupport');
+    const logsDir = path.join(tmp, 'ClaudeLogs');
+    await fsp.mkdir(projectsRoot, { recursive: true });
+    await fsp.mkdir(logsDir, { recursive: true });
+    await fsp.symlink(baitPath, path.join(logsDir, 'mcp.log'));
+    await fsp.symlink(baitPath, path.join(logsDir, 'main.log'));
+    const claudeRefs = await scan(projectsRoot, { activeMs: Infinity, appSupportDir, logsDir });
+    assert.equal(claudeRefs.length, 0, 'symlinked Claude Desktop logs must not produce a FileRef');
+
+    // 2. Symlinked Codex Desktop log & Classic .data files are ignored
+    const codexRoot = path.join(tmp, 'codex');
+    const logsRoot = path.join(tmp, 'CodexLogs');
+    const classicRoot = path.join(tmp, 'ChatGPTClassic');
+    const dayRel = nowIso.slice(0, 10).replace(/-/g, path.sep);
+    const logDayDir = path.join(logsRoot, dayRel);
+    const classicConvDir = path.join(classicRoot, 'conversations-v3-user');
+    await fsp.mkdir(path.join(codexRoot, 'sessions'), { recursive: true });
+    await fsp.mkdir(logDayDir, { recursive: true });
+    await fsp.mkdir(classicConvDir, { recursive: true });
+    await fsp.symlink(baitPath, path.join(logDayDir, 'codex-desktop-1-t0-symlink.log'));
+    await fsp.symlink(baitPath, path.join(classicConvDir, `${cloudUuid}.data`));
+    const codexRefs = await scanCodex(codexRoot, { activeMs: Infinity, logsRoot, classicRoot });
+    assert.equal(codexRefs.length, 0, 'symlinked Codex Desktop logs and Classic .data must not produce a FileRef');
+
+    // 3. Symlinked Grok Bot & unified.jsonl files are ignored
+    const grokRoot = path.join(tmp, 'grok');
+    const grokBotRoot = path.join(tmp, 'grokbot');
+    const grokSupport = path.join(tmp, 'GrokBotSupport');
+    const unifiedSym = path.join(tmp, 'unified-symlink.jsonl');
+    await fsp.mkdir(path.join(grokRoot, 'sessions'), { recursive: true });
+    await fsp.mkdir(grokBotRoot, { recursive: true });
+    await fsp.mkdir(grokSupport, { recursive: true });
+    await fsp.symlink(baitPath, path.join(grokBotRoot, 'local-exec-daemon.log'));
+    await fsp.symlink(baitPath, unifiedSym);
+    const grokRefs = await scanGrok(grokRoot, {
+      activeMs: Infinity,
+      grokBotRoot,
+      appSupportRoot: grokSupport,
+      unifiedLogPath: unifiedSym,
+    });
+    assert.equal(grokRefs.length, 0, 'symlinked Grok Bot and unified.jsonl files must not produce a FileRef');
+  });
+});

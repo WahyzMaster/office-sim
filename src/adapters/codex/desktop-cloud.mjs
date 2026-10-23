@@ -5,7 +5,6 @@ import { constants as FS } from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { Tailer } from '../../tailer.mjs';
 
 export const CODEX_AGENT = 'codex';
 export const CHATGPT_DESKTOP_CWD = '/ChatGPT Desktop';
@@ -39,6 +38,7 @@ const DEAD_CONV_RE = new RegExp(
 );
 
 const SKIP_CODES = new Set(['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM', 'ELOOP', 'ENAMETOOLONG']);
+const OPEN_FLAGS = FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) | (FS.O_NONBLOCK ?? 0);
 const MAX_LOG_TAIL_BYTES = 512 * 1024;
 const DAY_MS = 86_400_000;
 
@@ -122,7 +122,9 @@ async function readTailText(filePath, size, maxBytes = MAX_LOG_TAIL_BYTES) {
   if (len <= 0) return '';
   let fh;
   try {
-    fh = await fsp.open(filePath, FS.O_RDONLY | (FS.O_NONBLOCK ?? 0));
+    fh = await fsp.open(filePath, OPEN_FLAGS);
+    const fst = await fh.stat();
+    if (!fst.isFile()) return '';
     const buf = Buffer.allocUnsafe(len);
     const { bytesRead } = await fh.read(buf, 0, len, start);
     return buf.subarray(0, bytesRead).toString('utf8');
@@ -318,21 +320,7 @@ export async function scanCodexDesktopCloud(root, {
 }
 
 export class CodexDesktopTailer {
-  #inner;
   #cloud = new Map(); // ref.path -> { kind, threadId, filePath, offset, carry, mtimeMs, size, ord, turnSeq }
-
-  constructor(opts = {}) {
-    this.#inner = new Tailer(opts);
-  }
-
-  get skippedLines() {
-    return this.#inner.skippedLines;
-  }
-
-  #isCloud(ref) {
-    const k = ref?.facts?.desktopKind;
-    return k === 'codex-cloud-log' || k === 'chatgpt-classic-data';
-  }
 
   async #emitMeta(state, ts, cwd, onLine) {
     const rec = {
@@ -386,8 +374,7 @@ export class CodexDesktopTailer {
     }
   }
 
-  async readAll(ref, onLine, opts) {
-    if (!this.#isCloud(ref)) return this.#inner.readAll(ref, onLine, opts);
+  async readAll(ref, onLine) {
     const kind = ref.facts.desktopKind;
     const filePath = kind === 'codex-cloud-log' ? ref.facts.logPath : ref.facts.dataPath;
     const st = await lstatOrNull(filePath);
@@ -407,7 +394,6 @@ export class CodexDesktopTailer {
   }
 
   async poll(ref, onLine) {
-    if (!this.#isCloud(ref)) return this.#inner.poll(ref, onLine);
     const state = this.#cloud.get(ref.path);
     if (!state) return { reset: true };
     const st = await lstatOrNull(state.filePath);
@@ -432,7 +418,9 @@ export class CodexDesktopTailer {
     const len = st.size - start;
     let fh;
     try {
-      fh = await fsp.open(state.filePath, FS.O_RDONLY | (FS.O_NONBLOCK ?? 0));
+      fh = await fsp.open(state.filePath, OPEN_FLAGS);
+      const fst = await fh.stat();
+      if (!fst.isFile() || fst.ino !== st.ino) return { bytes: 0, skipped: 0 };
       const buf = Buffer.allocUnsafe(len);
       const { bytesRead } = await fh.read(buf, 0, len, start);
       state.offset = start + bytesRead;
@@ -462,30 +450,8 @@ export class CodexDesktopTailer {
     }
   }
 
-  rename(from, to, meta) {
-    if (this.#cloud.has(from)) return false;
-    return this.#inner.rename(from, to, meta);
-  }
-
-  isBusy(p) {
-    return this.#inner.isBusy(p);
-  }
-
   forget(p) {
     this.#cloud.delete(p);
-    this.#inner.forget(p);
-  }
-
-  offsetOf(p) {
-    return this.#inner.offsetOf(p);
-  }
-
-  pendingBytes(p) {
-    return this.#inner.pendingBytes(p);
-  }
-
-  skippedOf(p) {
-    return this.#inner.skippedOf(p);
   }
 }
 
