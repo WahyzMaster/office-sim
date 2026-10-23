@@ -13,6 +13,8 @@ const CYL = new THREE.CylinderGeometry(1, 1, 1, 16);
 // 네모뿔 지붕: 회전을 기하에 구워 둔다. 메시에서 비균일 스케일 뒤에 돌리면(T*R*S) 지붕이 마름모 칼날로 찌그러진다.
 const ROOF4 = new THREE.ConeGeometry(1, 1, 4).rotateY(Math.PI / 4);
 const ICOSA = new THREE.IcosahedronGeometry(1, 0);
+// 납작한 타원 받침(캣타워 등)용 48각 원기둥: 16각이면 넓은 타원의 모서리가 보인다
+export const CYL48 = new THREE.CylinderGeometry(1, 1, 1, 48);
 
 let TM = null;
 export function themeMats() {

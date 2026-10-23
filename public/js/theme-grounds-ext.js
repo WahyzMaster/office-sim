@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ROOMS, FLOOR_W, FLOOR_D } from './rooms.js';
 import { box } from './scene.js';
 import { mats } from './furniture.js';
-import { themeMats, cyl, pineTree, buildElevatorDoors, buildCorridorRails, RAIL_STYLES } from './theme-kit.js';
+import { themeMats, cyl, pineTree, buildElevatorDoors, buildCorridorRails, RAIL_STYLES, CYL48 } from './theme-kit.js';
 import { layoutOf } from './theme-layouts.js';
 
 const CYL = new THREE.CylinderGeometry(1, 1, 1, 16);
@@ -53,20 +53,30 @@ export function buildStarshipGround(g) {
     box(g, tm.forceField, 0.06, 1.05, 5.2, x, 0.05, -5, false);
     box(g, tm.forceField, 0.06, 1.05, 5.2, x, 0.05, 5, false);
   }
-  // 브리지 중앙 홀로그램 워프 코어 링 (x: 0, z: 0)
-  cyl(g, tm.hull, 2.2, 2.2, 0.14, 0, 0, 0);
-  const ring1 = new THREE.Mesh(TORUS, tm.plasmaCyan);
-  ring1.scale.setScalar(1.65);
-  ring1.rotation.x = Math.PI / 2;
-  ring1.position.set(0, 0.18, 0);
-  const ring2 = new THREE.Mesh(TORUS, tm.plasmaViolet);
-  ring2.scale.setScalar(1.1);
-  ring2.rotation.x = Math.PI / 2;
-  ring2.position.set(0, 0.32, 0);
+  // 브리지 중앙 워프 코어 (x: 0, z: 0): 바닥 원판과 빛나는 고리는 밟고 지나가는 납작한 상감(윗면 0.08 이하),
+  // 서 있는 기둥은 corridor-center 충돌 상자(|z| <= 0.92) 안에만 둔다 -> 고리 보행 띠(|z| 1.4 +- 0.375)와 겹치지 않는다
+  cyl(g, tm.hull, 2.2, 2.2, 0.02, 0, 0.03, 0);
+  for (const [r, mat] of [[1.65, tm.plasmaCyan], [1.1, tm.plasmaViolet]]) {
+    const inlay = new THREE.Mesh(TORUS, mat);
+    inlay.scale.set(r, r, 0.3);
+    inlay.rotation.x = Math.PI / 2;
+    inlay.position.y = 0.06;
+    g.add(inlay);
+  }
+  cyl(g, tm.hullTrim, 0.85, 0.85, 0.3, 0, 0, 0, OCT);
+  cyl(g, tm.plasmaCyan, 0.26, 0.26, 2.1, 0, 0.3, 0);
+  for (const y of [0.85, 1.4, 1.95]) {
+    const band = new THREE.Mesh(TORUS, tm.plasmaViolet);
+    band.scale.set(0.46, 0.46, 0.9);
+    band.rotation.x = Math.PI / 2;
+    band.position.y = y;
+    g.add(band);
+  }
+  cyl(g, tm.hullTrim, 0.5, 0.5, 0.12, 0, 2.4, 0, OCT);
   const core = new THREE.Mesh(ICOSA, tm.plasmaCyan);
-  core.scale.setScalar(0.38);
-  core.position.set(0, 0.65, 0);
-  g.add(ring1, ring2, core);
+  core.scale.setScalar(0.3);
+  core.position.set(0, 2.72, 0);
+  g.add(core);
   buildCorridorRails(g, 'starship', RAIL_STYLES.starship);
   // 좌측 블라스트 에어락/터보리프트 포털
   return buildElevatorDoors(g, tm.hullTrim, tm.plasmaCyan, layoutOf('starship').elevator.frameX, 0);
@@ -102,15 +112,16 @@ export function buildDogsGround(g) {
     box(g, tm.fenceWood, 0.14, 0.72, 4.4, x, 0, 5);
   }
   // 중앙 강아지 발바닥 분수대 + 어질리티 점프 링 (x: 0, z: 0)
-  cyl(g, tm.granite, 2.3, 2.1, 0.18, 0, 0, 0);
-  cyl(g, M.leaf, 2.0, 1.8, 0.05, 0, 0.15, 0);
-  cyl(g, tm.fenceWood, 0.68, 0.55, 0.14, 0, 0.16, 0.25);
+  // 돌 테두리와 잔디 원판은 밟고 지나가는 높이(윗면 0.048/0.052), 발바닥·후프만 가운데에 선다
+  cyl(g, tm.granite, 2.3, 2.1, 0.03, 0, 0.018, 0);
+  cyl(g, M.leaf, 2.0, 1.8, 0.02, 0, 0.032, 0);
+  cyl(g, tm.fenceWood, 0.68, 0.55, 0.14, 0, 0.05, 0.25);
   for (const [px, pz] of [[-0.68, -0.35], [-0.24, -0.62], [0.24, -0.62], [0.68, -0.35]]) {
-    cyl(g, tm.fenceWood, 0.26, 0.26, 0.14, px, 0.16, pz);
+    cyl(g, tm.fenceWood, 0.26, 0.26, 0.14, px, 0.05, pz);
   }
   const hoop = new THREE.Mesh(TORUS, tm.agilityYellow);
   hoop.scale.setScalar(0.58);
-  hoop.position.set(0, 0.85, 0.25);
+  hoop.position.set(0, 0.74, 0.25);
   g.add(hoop);
   buildCorridorRails(g, 'dogs', RAIL_STYLES.dogs);
   pineTree(g, tm, -11.2, -6.2, 0.95);
@@ -144,14 +155,15 @@ export function buildCatsGround(g) {
   }
   buildCorridorRails(g, 'cats', RAIL_STYLES.cats);
   // 중앙 3단 럭셔리 캣타워 & 황금 실타래 (x: 0, z: 0)
-  cyl(g, tm.roseGold, 2.1, 2.1, 0.12, 0, 0, 0);
-  for (const [px, pz, h] of [[-0.85, -0.45, 0.9], [0.85, -0.45, 1.35], [0, 0.55, 1.8]]) {
-    cyl(g, tm.sisal, 0.16, 0.16, h, px, 0.12, pz);
-    cyl(g, tm.plushPink, 0.78, 0.78, 0.1, px, 0.12 + h, pz);
+  // 받침은 동서로 긴 납작한 타원(|z| <= 0.9), 기둥·방석은 corridor-center 상자 안 -> 고리 보행 띠와 겹치지 않는다
+  cyl(g, tm.roseGold, 2.3, 0.9, 0.06, 0, 0, 0, CYL48);
+  for (const [px, pz, h] of [[-0.9, -0.2, 0.9], [0.9, -0.2, 1.35], [0, 0.25, 1.8]]) {
+    cyl(g, tm.sisal, 0.16, 0.16, h, px, 0.06, pz);
+    cyl(g, tm.plushPink, 0.62, 0.62, 0.1, px, 0.06 + h, pz);
   }
   const yarn = new THREE.Mesh(ICOSA, tm.gold);
   yarn.scale.setScalar(0.32);
-  yarn.position.set(0, 2.28, 0.55);
+  yarn.position.set(0, 2.2, 0.25);
   g.add(yarn);
   return buildElevatorDoors(g, tm.roseGold, tm.plushPink, layoutOf('cats').elevator.frameX, 0);
 }

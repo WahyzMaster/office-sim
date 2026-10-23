@@ -15,9 +15,6 @@ export const KNOWN = {
   'support:cats': 12, // cats-01 연구실 자리 2·책상 다리 8·종, cats-02 랙 1
   // 자리 밑 바닥이 높음
   // 고리 보행 띠
-  'ringClear:starship': 3, // starship-04
-  'ringClear:dogs': 2, // dogs-05
-  'ringClear:cats': 4, // cats-06
   // 보이지 않는 충돌 상자
   'coverage:dogs': 4, // dogs-06 칸막이 div 4 (Task 18)
   'coverage:cats': 4, // cats-03 칸막이 div 4 (Task 19)
