@@ -159,7 +159,8 @@ export class Agent {
       ab.textContent = badge;
       ab.hidden = !badge;
     }
-    const act = this.soundT > 0 && this.vocalText ? `${this.vocalText} · ${this.activity}` : this.activity;
+    const cue = this.maneuver ? tr(this.maneuver.ko, this.maneuver.en) : (this.soundT > 0 ? this.vocalText : '');
+    const act = cue ? `${cue} · ${this.activity}` : this.activity;
     this.tagEl.dataset.agent = this.agent || '';
     this.tagEl.querySelector('b').textContent = this.name;
     this.tagEl.querySelector('span').textContent = act;
@@ -437,12 +438,15 @@ export class Agent {
     this.t += dt;
     // 밀린 일이 많을수록 빨리 걷는다(상한 QUEUE_CAP 까지). 그래야 화면이 실시간을 따라잡는다.
     const speed = WALK * (1 + Math.min(this.queue.length, QUEUE_CAP) * 0.35) * (REDUCED ? 3 : 1);
+    const hadManeuver = !!this.maneuver;
     const nav = stepAgentPath(this, dt, speed, activeThemeOf());
     if (nav.moving) {
-      if (nav.soundTrigger) this.makeSound(nav.soundTrigger);
+      if (nav.soundTrigger && !this.makeSound(nav.soundTrigger)) this.refreshTag();
+      else if (hadManeuver && !this.maneuver) this.refreshTag();
       if (nav.heading !== null) this.turnTo(nav.heading, dt);
       if (nav.arrived) this.arrived();
     } else {
+      if (hadManeuver) this.refreshTag();
       this.turnTo(this.face, dt);
     }
 
