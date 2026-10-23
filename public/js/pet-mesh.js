@@ -296,6 +296,12 @@ export function animateTail(agent, reduced = false) {
   const panic = agent.panicT > 0;
   const walking = agent.path?.length > 0;
 
+  if (agent.maneuver) {
+    tp.scale.setScalar(1);
+    tp.rotation.set(0.52, t * 28, Math.cos(t * 28) * 0.68);
+    return;
+  }
+
   if (isDog) {
     tp.scale.setScalar(1);
     if (panic) {

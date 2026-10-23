@@ -5,7 +5,7 @@ import { STORE, LEGACY_STORE, migratePrefs, loadPrefs, agentLabel, agentBadge, C
 import {
   BRAND_HUES, brandHue, hueGap, route,
   hitObstacle, segmentHitsObstacle, resolveObstacleCollision, safeSpawnPos, findSafePath, separateAgents,
-  MANEUVER_SPECS, pickManeuverKind, shouldSkipWaypoint, detectBlockage, startAgentManeuver, stepAgentPath,
+  MANEUVER_SPECS, pickManeuverKind, shouldSkipWaypoint, detectBlockage, computeManeuverPose, startAgentManeuver, stepAgentPath,
 } from '../public/js/placement.js';
 import {
   ROOMS, SLOTS, ELEVATOR, ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf, detectLang, roomLabel, applyRoomTheme, uiText,
@@ -446,38 +446,37 @@ test('Backend surface detection: Claude entrypoint and Codex originator map to a
   assert.equal(patchedCodex.surface, 'app');
 });
 
-test('Acrobatic pass-through maneuvers (jump, roll, flip, prop-fly, phase) resolve blocked doorways and multi-agent jams', () => {
-  assert.ok(MANEUVER_SPECS.jump && MANEUVER_SPECS.roll && MANEUVER_SPECS.flip && MANEUVER_SPECS['prop-fly'] && MANEUVER_SPECS.phase);
+test('Acrobatic pass-through maneuvers (jump, roll, flip, spin, prop-fly, phase) resolve blocked doorways and multi-agent jams', () => {
+  for (const k of ['jump', 'roll', 'flip', 'spin', 'prop-fly', 'phase']) {
+    assert.ok(MANEUVER_SPECS[k], k);
+    const p = computeManeuverPose({ ...MANEUVER_SPECS[k], t: MANEUVER_SPECS[k].dur * 0.5 }, 1.0, false, false);
+    assert.ok(p && p.bob > 0.2, `${k} lifts character off ground`);
+  }
+  assert.ok(computeManeuverPose({ ...MANEUVER_SPECS.roll, t: 0.22 }).rigPitch > 2.5, 'roll pitches forward 360');
+  assert.ok(computeManeuverPose({ ...MANEUVER_SPECS.flip, t: 0.24 }).rigPitch < -2.5 && computeManeuverPose({ ...MANEUVER_SPECS.flip, t: 0.24 }).rigRoll > 0.3, 'flip backflips with twist');
+  assert.ok(computeManeuverPose({ ...MANEUVER_SPECS.spin, t: 0.22 }).rigYaw > 2.5, 'spin pirouettes 360');
+  assert.equal(computeManeuverPose({ ...MANEUVER_SPECS.roll, t: 0.22 }, 1.0, false, true), null, 'reduced motion skips 3D somersaults');
+
   assert.equal(pickManeuverKind({ isSub: true }, 1, 0), 'prop-fly');
   assert.equal(pickManeuverKind({ isSub: true }, 2, 1), 'roll');
-  assert.equal(pickManeuverKind({ agent: 'antigravity', charFamily: 'human' }, 1, 0), 'phase');
-  assert.equal(pickManeuverKind({ charFamily: 'cats' }, 1, 0), 'flip');
-  assert.equal(pickManeuverKind({ charFamily: 'dogs' }, 1, 0), 'jump');
-  assert.equal(pickManeuverKind({ charFamily: 'dogs' }, 2, 0), 'roll');
-  assert.equal(pickManeuverKind({ charFamily: 'human' }, 1, 0), 'jump');
-  assert.equal(pickManeuverKind({ charFamily: 'human' }, 1, 1), 'roll');
+  assert.deepEqual([0, 1, 2].map((s) => pickManeuverKind({ agent: 'antigravity', charFamily: 'human' }, 1, s)), ['phase', 'spin', 'roll']);
+  assert.deepEqual([0, 2].map((s) => pickManeuverKind({ charFamily: 'cats' }, 1, s)), ['flip', 'spin']);
+  assert.deepEqual([0, 1, 2].map((s) => pickManeuverKind({ charFamily: 'dogs' }, 1, s)), ['jump', 'roll', 'spin']);
+  assert.deepEqual([0, 1, 2].map((s) => pickManeuverKind({ charFamily: 'human' }, 1, s)), ['jump', 'roll', 'spin']);
 
   // Blocked intermediate waypoint is skipped when the next waypoint has clear line-of-sight
   const blockerAtWp = { group: { visible: true, position: { x: 0, z: 0 } } };
-  const pathWithIntermediate = [{ x: 0, z: 0 }, { x: 2, z: 0 }];
-  assert.equal(shouldSkipWaypoint({ x: -0.5, z: 0 }, pathWithIntermediate, [blockerAtWp], 'studio'), true);
+  assert.equal(shouldSkipWaypoint({ x: -0.5, z: 0 }, [{ x: 0, z: 0 }, { x: 2, z: 0 }], [blockerAtWp], 'studio'), true);
 
   // Simulation: moving agent blocked in dev room doorway (x=0, z=-2) by 2 stationary agents triggers maneuver and reaches slot
   const floor = { agents: new Set() };
-  const mover = {
-    floor, agent: 'claude-code', charFamily: 'dogs', mode: 'work',
-    path: [{ x: 0, z: -2.0 }, { x: 0, z: -5.5 }],
-    group: { visible: true, position: { x: 0, z: -1.1 } },
-  };
+  const mover = { floor, agent: 'claude-code', charFamily: 'dogs', mode: 'work', path: [{ x: 0, z: -2.0 }, { x: 0, z: -5.5 }], group: { visible: true, position: { x: 0, z: -1.1 } } };
   const b1 = { floor, mode: 'idle', path: [], group: { visible: true, position: { x: 0, z: -1.75 } } };
   const b2 = { floor, mode: 'idle', path: [], group: { visible: true, position: { x: 0.12, z: -2.15 } } };
-  floor.agents.add(mover);
-  floor.agents.add(b1);
-  floor.agents.add(b2);
+  for (const a of [mover, b1, b2]) floor.agents.add(a);
 
   const blk = detectBlockage(mover, [...floor.agents], 'studio');
-  assert.equal(blk.blocked, true);
-  assert.ok(blk.count >= 1);
+  assert.ok(blk.blocked && blk.count >= 1);
 
   let sawManeuver = null;
   let sawTrigger = null;
