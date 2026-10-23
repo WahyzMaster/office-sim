@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { ROOMS } from './rooms.js';
 import { themed, glowing, box, BOX } from './scene.js';
+import { mulberry32, seedOf } from './rng.js';
 
 const E = Math.PI / 2;
 const PLANE = new THREE.PlaneGeometry(1, 1);
@@ -51,15 +52,16 @@ function screenMat(kind) {
     web: ['#dfe8f2', '#7aa7e0', '#b9c6d4', '#f2b45a'],
     term: ['#5cf08a', '#3fbf6a', '#a9f5c2'],
   }[kind];
+  const rng = mulberry32(seedOf(`screen:${kind}`));
   g.fillStyle = kind === 'web' ? '#1b2a3c' : '#0d141b';
   g.fillRect(0, 0, 256, 256);
   const step = kind === 'web' ? 18 : 12;
   for (let y = 10; y < 256; y += step) {
-    let x = kind === 'code' ? 10 + ((Math.random() * 4) | 0) * 12 : 10;
-    const n = 1 + ((Math.random() * 3) | 0);
+    let x = kind === 'code' ? 10 + ((rng() * 4) | 0) * 12 : 10;
+    const n = 1 + ((rng() * 3) | 0);
     for (let i = 0; i < n && x < 236; i++) {
-      const w = 14 + Math.random() * 70;
-      g.fillStyle = pal[(Math.random() * pal.length) | 0];
+      const w = 14 + rng() * 70;
+      g.fillStyle = pal[(rng() * pal.length) | 0];
       g.fillRect(x, y, Math.min(w, 246 - x), kind === 'web' ? 9 : 5);
       x += w + 8;
     }
@@ -110,6 +112,7 @@ function plant(g, x, z, s = 1) {
 }
 
 export function buildArchive(g) {
+  const rng = mulberry32(seedOf('archive'));
   const books = [];
   const palette = [0xc0533f, 0x3f6fb0, 0xd9a441, 0x4f8f5b, 0x8a5aa8, 0x2f8f8a, 0xd8d2c4];
   for (const x of [-10.4, -8, -5.6]) {
@@ -117,9 +120,9 @@ export function buildArchive(g) {
     for (const y of [0.16, 0.66, 1.16, 1.62]) {
       let bx = x - 0.9;
       while (bx < x + 0.78) {
-        const w = 0.1 + Math.random() * 0.12;
-        const h = 0.3 + Math.random() * 0.12;
-        books.push({ x: bx + w / 2, y: y + h / 2, z: -7.26, w: w - 0.015, h, c: palette[(Math.random() * palette.length) | 0] });
+        const w = 0.1 + rng() * 0.12;
+        const h = 0.3 + rng() * 0.12;
+        books.push({ x: bx + w / 2, y: y + h / 2, z: -7.26, w: w - 0.015, h, c: palette[(rng() * palette.length) | 0] });
         bx += w;
       }
     }

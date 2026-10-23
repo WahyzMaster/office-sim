@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { box, BOX } from './scene.js';
 import { mats } from './furniture.js';
 import { themeMats } from './theme-grounds.js';
+import { mulberry32, seedOf } from './rng.js';
 
 const E = Math.PI / 2;
 const PLANE = new THREE.PlaneGeometry(1, 1);
@@ -46,16 +47,16 @@ function boardFrame(g, frameMat, trimMat, board, x = -3.55, z = 5) {
   box(grp, frameMat, 0.12, 0.55, 0.12, 1.9, 0, -0.06);
 }
 
-function populateShelves(g, shelfMat, palette, xs, z = -7.4) {
+function populateShelves(g, shelfMat, palette, xs, { z = -7.4, y0 = 0.08, rng = mulberry32(seedOf(`shelves:${xs.join()}:${z}`)) } = {}) {
   const items = [];
   for (const x of xs) {
-    box(g, shelfMat, 2.0, 2.15, 0.58, x, 0.08, z);
-    for (const y of [0.24, 0.72, 1.2, 1.68]) {
+    box(g, shelfMat, 2.0, 2.15, 0.58, x, y0, z);
+    for (const y of [0.24, 0.72, 1.2, 1.68].map((v) => v + y0 - 0.08)) {
       let bx = x - 0.88;
       while (bx < x + 0.76) {
-        const w = 0.11 + Math.random() * 0.12;
-        const h = 0.28 + Math.random() * 0.12;
-        items.push({ x: bx + w / 2, y: y + h / 2, z: z + 0.28, w: w - 0.015, h, c: palette[(Math.random() * palette.length) | 0] });
+        const w = 0.11 + rng() * 0.12;
+        const h = 0.28 + rng() * 0.12;
+        items.push({ x: bx + w / 2, y: y + h / 2, z: z + 0.28, w: w - 0.015, h, c: palette[(rng() * palette.length) | 0] });
         bx += w;
       }
     }

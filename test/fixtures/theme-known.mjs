@@ -54,11 +54,6 @@ export const KNOWN = {
   'alloc:studio': 12, // xcut-11
   'alloc:office': 12,
   'alloc:dogs': 1, // triage: theme-props 의 M.white 가 mats() 에 없어 Mesh 기본 재질을 매번 만든다
-  // Math.random 으로 짓는 서가·화면
-  'random:studio': 1, // xcut-12
-  'random:office': 1,
-  'random:palace': 1,
-  'random:hanok': 1,
   // theme-layouts 순수 검사
   'bounds:palace': 2, // xcut-m01 라운지 문·엘리베이터 x -11.8
   'bounds:starship': 2,
