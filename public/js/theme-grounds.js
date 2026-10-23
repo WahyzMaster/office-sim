@@ -121,8 +121,13 @@ function buildPalaceGround(g) {
     }
   }
   // 중앙 후원 방지원도(네모난 연못 + 둥근 섬 + 소나무)
-  box(g, tm.graniteDark, 5.6, 0.18, 2.1, 0, 0, 0);
-  box(g, M.water, 5.1, 0.14, 1.65, 0, 0.04, 0, false);
+  // 연못: 얇은 바닥 + 둘레 갓돌(윗면 0.22), 물은 갓돌보다 0.08 낮게(윗면 0.14) -> 물과 돌이 같은 높이에서 깜빡이지 않는다
+  box(g, tm.graniteDark, 5.6, 0.04, 2.1, 0, 0, 0);
+  for (const s of [-1, 1]) {
+    box(g, tm.graniteDark, 5.6, 0.22, 0.225, 0, 0, s * 0.9375);
+    box(g, tm.graniteDark, 0.25, 0.22, 1.65, s * 2.675, 0, 0);
+  }
+  box(g, M.water, 5.1, 0.1, 1.65, 0, 0.04, 0, false);
   cyl(g, tm.granite, 0.65, 0.75, 0.24, 0, 0.02, 0);
   pineTree(g, tm, 0, 0, 0.85);
   // 서쪽 일주문/홍살문 출입구

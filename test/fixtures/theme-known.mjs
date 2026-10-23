@@ -26,7 +26,6 @@ export const KNOWN = {
   'routeClear:office': 1, // triage: 같은 데스크 다리
   'routeClear:hanok': 1, // hanok-13 담금질 물통
   // 같은 높이 다른 재질
-  'coplanar:palace': 1, // palace-02 연못 (Task 15)
   'coplanar:hanok': 1, // hanok-12 누각 기단
   // 다시 지을 때 새로 만드는 기하·재질
   'alloc:dogs': 1, // triage: theme-props 의 M.white 가 mats() 에 없어 Mesh 기본 재질을 매번 만든다
