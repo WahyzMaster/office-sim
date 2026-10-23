@@ -245,7 +245,7 @@ export class Agent {
     if (it.activity) this.activity = it.activity;
     this.refreshTag();
     const room = it.room;
-    if (!room || room === 'here' || (room === this.room && this.slot !== -1 && !(it.prefer >= 0 && it.prefer !== this.slot))) {
+    if (!room || room === 'here' || (it.kind !== 'leave' && room === this.room && this.slot !== -1 && !(it.prefer >= 0 && it.prefer !== this.slot))) {
       it.arrived = true;
       this.onArrive(it);
     } else if (it.kind === 'leave') this.walkTo('lounge', ELEVATOR.x, ELEVATOR.z, -Math.PI / 2);
