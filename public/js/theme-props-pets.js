@@ -16,8 +16,9 @@ export function buildDogsProps(g, board) {
   const leds = [];
   for (const x of [-10.4, -8, -5.6]) {
     box(g, tm.fenceWood, 1.8, 1.4, 0.65, x, 0, -7.2);
-    box(g, tm.agilityYellow, 1.5, 0.14, 0.55, x, 0.55, -7.15, false);
-    box(g, tm.agilityBlue, 1.5, 0.14, 0.55, x, 1.05, -7.15, false);
+    // 줄무늬 판은 장 앞면(z -6.875)보다 0.05 앞에 붙인다 -> 앞면과 같은 면에서 깜빡이지 않는다
+    box(g, tm.agilityYellow, 1.5, 0.14, 0.05, x, 0.55, -6.85, false);
+    box(g, tm.agilityBlue, 1.5, 0.14, 0.05, x, 1.05, -6.85, false);
   }
   lowTable(g, tm.fenceWood, tm.hanokDark, -8, -4.35, 2.4, 0.75, 0.55);
   for (const x of [-8.6, -7.4]) scrollScreen(g, tm.fenceWood, M.screens.doc, x, 0.6, -4.5, 0, 0.78, 0.46);
@@ -41,10 +42,10 @@ export function buildDogsProps(g, board) {
   hyd.scale.set(0.32, 0.85, 0.32);
   hyd.position.set(-8, 0.42, 5);
   const globe = new THREE.Group();
-  globe.position.set(-8, 1.55, 5);
+  globe.position.set(-8, 1.4, 5); // 공 밑면(0.84)이 소화전 윗면(0.845)에 닿는다
   const ball = new THREE.Mesh(ICOSA, tm.agilityYellow);
   ball.scale.setScalar(0.56);
-  const seam = new THREE.Mesh(TORUS, M.white);
+  const seam = new THREE.Mesh(TORUS, M.white); // mats().white: 없으면 three 가 빌드마다 기본 재질을 새로 만든다
   seam.scale.setScalar(0.58);
   seam.rotation.x = 0.7;
   globe.add(ball, seam);

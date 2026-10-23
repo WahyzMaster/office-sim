@@ -5,16 +5,13 @@ export const KNOWN = {
   // 비균일 스케일 뒤 회전: roofEave(궁궐 4, 한옥 3), 스타십 팔각 선체·갑판
   'shear:starship': 2, // starship-08
   // 다른 메시 속에 묻힘
-  'hidden:dogs': 12, // dogs-02 줄무늬 6, dogs-03 울타리 기둥 6
   // 바닥 밖
   'support:hanok': 1, // triage: hanok-11 북쪽 담이 기단 밖으로 0.12 (P2, Task 24)
   'support:starship': 4, // starship-m01 역장 끝 2, starship-10 받침 2 (Task 25)
-  'support:dogs': 4, // dogs-03 장 2·랙 2 (Task 18)
   'support:cats': 12, // cats-01 연구실 자리 2·책상 다리 8·종, cats-02 랙 1
   // 자리 밑 바닥이 높음
   // 고리 보행 띠
   // 보이지 않는 충돌 상자
-  'coverage:dogs': 4, // dogs-06 칸막이 div 4 (Task 18)
   'coverage:cats': 4, // cats-03 칸막이 div 4 (Task 19)
   // 연구실 구체와 머리
   'globe:starship': 1, // triage: unaudited
@@ -26,6 +23,5 @@ export const KNOWN = {
   // 같은 높이 다른 재질
   'coplanar:hanok': 1, // hanok-12 누각 기단
   // 다시 지을 때 새로 만드는 기하·재질
-  'alloc:dogs': 1, // triage: theme-props 의 M.white 가 mats() 에 없어 Mesh 기본 재질을 매번 만든다
   // theme-layouts 순수 검사
 };

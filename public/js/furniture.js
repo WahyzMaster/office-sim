@@ -51,6 +51,7 @@ export function mats() {
     globe: new THREE.MeshStandardMaterial({ color: 0x3e7fc2, roughness: 0.55, flatShading: true }),
     water: new THREE.MeshStandardMaterial({ color: 0x9fd4ff, roughness: 0.1, transparent: true, opacity: 0.75 }),
     books: new THREE.MeshStandardMaterial({ roughness: 0.8 }),
+    white: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 }),
     wire: new THREE.LineBasicMaterial({ color: 0xdff1ff, transparent: true, opacity: 0.55 }),
   };
   M.screens = { code: screenMat('code'), web: screenMat('web'), term: screenMat('term'), doc: screenMat('web') };

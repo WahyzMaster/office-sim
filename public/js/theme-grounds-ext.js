@@ -87,8 +87,9 @@ export function buildDogsGround(g) {
   const M = mats();
   const tm = themeMats();
   // 비직사각형 뼈다귀(Bone) 실루엣 잔디 파크: 중앙 잔디판 + 네 모서리 원형 마디 광장
-  box(g, tm.lawnDark, FLOOR_W - 2.4, 0.44, FLOOR_D - 1.2, 0, -0.44, 0);
-  box(g, tm.lawn, FLOOR_W - 2.6, 0.04, FLOOR_D - 1.4, 0, 0, 0, false);
+  // 가운데 잔디판은 북쪽 울타리(z -7.64)까지 덮도록 z +-7.8 로 넓힌다 -> 장·랙이 잔디 끝에 걸치지 않는다
+  box(g, tm.lawnDark, FLOOR_W - 2.4, 0.44, FLOOR_D - 0.4, 0, -0.44, 0);
+  box(g, tm.lawn, FLOOR_W - 2.6, 0.04, FLOOR_D - 0.6, 0, 0, 0, false);
   for (const [bx, bz] of [[-10.2, -5.8], [10.2, -5.8], [-10.2, 5.8], [10.2, 5.8]]) {
     cyl(g, tm.lawnDark, 3.6, 3.3, 0.44, bx, -0.44, bz);
     cyl(g, tm.lawn, 3.45, 3.15, 0.04, bx, 0, bz);
@@ -103,13 +104,14 @@ export function buildDogsGround(g) {
   }
   // 나무 피켓 펜스 울타리
   for (let x = -10.5; x <= 10.5; x += 1.5) {
-    box(g, tm.fenceWood, 0.16, 0.95, 0.08, x, 0, -7.4);
+    box(g, tm.fenceWood, 0.16, 0.95, 0.08, x, 0, -7.64); // 장·랙 뒤로 지나간다
   }
-  box(g, tm.fenceWood, 21.5, 0.1, 0.08, 0, 0.65, -7.4);
-  box(g, tm.fenceWood, 21.5, 0.1, 0.08, 0, 0.32, -7.4);
+  box(g, tm.fenceWood, 21.5, 0.1, 0.08, 0, 0.65, -7.64);
+  box(g, tm.fenceWood, 21.5, 0.1, 0.08, 0, 0.32, -7.64);
   for (const x of [-4, 4]) {
-    box(g, tm.fenceWood, 0.14, 0.72, 4.4, x, 0, -5);
-    box(g, tm.fenceWood, 0.14, 0.72, 4.4, x, 0, 5);
+    // 방 사이 칸막이는 충돌 상자(div-*, |z| 2..8) 길이만큼 (|z| 2.0..7.6)
+    box(g, tm.fenceWood, 0.14, 0.72, 5.6, x, 0, -4.8);
+    box(g, tm.fenceWood, 0.14, 0.72, 5.6, x, 0, 4.8);
   }
   // 중앙 강아지 발바닥 분수대 + 어질리티 점프 링 (x: 0, z: 0)
   // 돌 테두리와 잔디 원판은 밟고 지나가는 높이(윗면 0.048/0.052), 발바닥·후프만 가운데에 선다
