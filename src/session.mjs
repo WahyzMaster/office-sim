@@ -22,6 +22,11 @@ const NO_RESPONSE = 'No response requested.';
 // R29: only these stop reasons mark a final text; a mid-message text line has stop_reason null or tool_use.
 const FINAL_STOPS = new Set(['end_turn', 'stop_sequence', 'refusal']);
 
+const CLAUDE_SURFACE = Object.freeze({
+  'claude-desktop': 'app', cli: 'cli', 'sdk-cli': 'cli', 'claude-vscode': 'ide', vscode: 'ide',
+});
+export const claudeSurfaceOf = (ep) => (typeof ep === 'string' && Object.hasOwn(CLAUDE_SURFACE, ep) ? CLAUDE_SURFACE[ep] : null);
+
 export class SessionState {
   constructor({
     id, file = null, kind = 'main', stem = null, parentId = null, agentType = null, now = Date.now,
@@ -63,6 +68,7 @@ export class SessionState {
     this._branch = null;
     this._lastTs = null;
     this._lastGrowthMs = 0;
+    this._surface = null;
     this._sessionKey = null;
     this._out = null;
   }
@@ -136,6 +142,7 @@ export class SessionState {
   get firstCwd() { return this._firstCwd; }
   get lastActivityMs() { return this._lastGrowthMs; }
   get ended() { return this._ended; }
+  get surface() { return this._surface; }
 
   /** Sub/wf: drain successful TaskCreate/TaskUpdate deltas (collected in replay and live) for the main file. */
   takeTaskDeltas() {
@@ -183,6 +190,8 @@ export class SessionState {
   }
 
   _apply(rec, replay) {
+    const surf = claudeSurfaceOf(rec?.entrypoint);
+    if (surf && !this._surface) this._surface = surf;
     const c = classifyRecord(rec);
     if (c.kind === 'ignore' && !c.uuid) return; // queue-operation, mode, pr-link ...
     if (c.kind === 'meta') {

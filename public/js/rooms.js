@@ -148,7 +148,10 @@ export const isLlmVisible = (agent, filter = activeLlmFilter) => {
 export const activeLlmCharMapOf = () => ({ ...activeLlmCharMap });
 export function setLlmCharMap(slotOrMap, spec) {
   if (typeof slotOrMap === 'string') {
-    if (LLM_SLOTS.includes(slotOrMap)) activeLlmCharMap[slotOrMap] = charSpecOf(spec);
+    const val = charSpecOf(spec);
+    if (slotOrMap === 'claude-code' || slotOrMap === 'codex') {
+      activeLlmCharMap[slotOrMap] = activeLlmCharMap[`${slotOrMap}:app`] = activeLlmCharMap[`${slotOrMap}:cli`] = val;
+    } else if (LLM_SLOTS.includes(slotOrMap)) activeLlmCharMap[slotOrMap] = val;
   } else if (slotOrMap && typeof slotOrMap === 'object') {
     activeLlmCharMap = llmCharMapOf(slotOrMap);
   }
@@ -178,7 +181,7 @@ export function resolveAgentAppearance(agent = {}, opts = {}) {
   if (agent.charOverride && agent.charOverride !== 'auto' && Object.hasOwn(CHARACTER_CATALOG, agent.charOverride)) {
     spec = agent.charOverride;
   } else if (agent.petBreed) {
-    spec = (cTheme === 'cats' || String(agent.petBreed) in { savannah: 1, bengal: 1, british: 1, siamese: 1, ragdoll: 1, fold: 1 })
+    spec = (cTheme === 'cats' || String(agent.petBreed) in { savannah: 1, mainecoon: 1, persian: 1, bengal: 1, british: 1, siamese: 1, ragdoll: 1, fold: 1 })
       ? `cat:${agent.petBreed}` : `dog:${agent.petBreed}`;
   } else if (map[slot] && map[slot] !== 'auto') {
     spec = map[slot];
@@ -192,18 +195,9 @@ export function resolveAgentAppearance(agent = {}, opts = {}) {
   let family = 'human';
   let style = 'studio';
   let breed = '';
-  if (spec.startsWith('dog:')) {
-    family = 'dogs';
-    style = 'dogs';
-    breed = spec.slice(4);
-  } else if (spec.startsWith('cat:')) {
-    family = 'cats';
-    style = 'cats';
-    breed = spec.slice(4);
-  } else if (spec.startsWith('human:')) {
-    family = 'human';
-    style = spec.slice(6) || 'studio';
-  }
+  if (spec.startsWith('dog:')) { family = 'dogs'; style = 'dogs'; breed = spec.slice(4); }
+  else if (spec.startsWith('cat:')) { family = 'cats'; style = 'cats'; breed = spec.slice(4); }
+  else if (spec.startsWith('human:')) { family = 'human'; style = spec.slice(6) || 'studio'; }
 
   const pMode = agent.postureOverride && agent.postureOverride !== 'auto'
     ? agent.postureOverride : (opts.posture ?? opts.postureMode ?? activePostureMode);
@@ -272,7 +266,7 @@ export const UI_TEXT = Object.freeze({
     petBtn: '쓰다듬기 · 소리', controlLabel: '조작', legendBtn: '범례·배정', logBtn: '활동 기록',
     logTitle: '활동 기록', legendTitle: '범례 및 LLM 캐릭터 배정', resetCastBtn: '기본 배정 복원',
     legendSections: Object.freeze({
-      rooms: '공간 · 방 안내', agents: 'LLM별 캐릭터 배정', catalog: '캐릭터 · 품종 도감 (19종)',
+      rooms: '공간 · 방 안내', agents: 'LLM별 캐릭터 배정', catalog: '캐릭터 · 품종 도감 (21종)',
       signals: '상태 · 색깔 신호', controls: '카메라 · 단축키',
     }),
     allNo: '전체', allName: '모든 프로젝트 층 보기', globalFloor: '전역 · 미지정',
@@ -313,7 +307,7 @@ export const UI_TEXT = Object.freeze({
     petBtn: 'Pet · Voice', controlLabel: 'Controls', legendBtn: 'Legend & Cast', logBtn: 'Activity Log',
     logTitle: 'Activity Log', legendTitle: 'Visual Legend & LLM Cast', resetCastBtn: 'Reset Cast',
     legendSections: Object.freeze({
-      rooms: 'Rooms & Zones', agents: 'LLM Character Mapping', catalog: 'Character & Breed Catalog (19)',
+      rooms: 'Rooms & Zones', agents: 'LLM Character Mapping', catalog: 'Character & Breed Catalog (21)',
       signals: 'Status & Color Signals', controls: 'Camera & Shortcuts',
     }),
     allNo: 'ALL', allName: 'All Project Floors', globalFloor: 'Global · Unassigned',
@@ -389,9 +383,10 @@ export function renderLegend(legendEl, themeKey = activeTheme, lang = activeLang
       li.dataset.agentId = a.id;
       li.dataset.llmSlot = a.slot;
       li.tabIndex = 0;
+      const [baseAgent, slotSurface = ''] = a.slot.split(':');
       const resolved = resolveAgentAppearance({
-        agent: a.slot.startsWith('antigravity') ? 'antigravity' : a.slot === 'sub' ? 'claude-code' : a.slot,
-        surface: a.slot === 'antigravity:cli' ? 'cli' : a.slot === 'antigravity:app' ? 'app' : '',
+        agent: baseAgent === 'sub' ? 'claude-code' : baseAgent,
+        surface: slotSurface,
         isSub: a.slot === 'sub',
       });
       const charTitle = CHARACTER_CATALOG[resolved.charSpec]?.[l] || a.label[l];

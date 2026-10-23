@@ -246,7 +246,7 @@ export class Store {
   // 층 상속, agentType 도. agent 는 이벤트에 없을 때 entry 의 agent.
   patch(ev, e) {
     if (!ev || ev.type !== 'session' || !e) return ev;
-    const surface = AGY_SURFACE[e.ref?.facts?.base] ?? null;
+    const surface = e.state?.surface ?? AGY_SURFACE[e.ref?.facts?.base] ?? null;
     if (e.kind === 'main') {
       const floor = this.floorOf(e, ev.project);
       if (!floor && !surface) return ev;
@@ -256,6 +256,7 @@ export class Store {
     const own = e.state?.firstCwd;
     const floor = this.floorOf(e, typeof own === 'string' && own !== '' ? own : ev.project);
     const mainEv = this.mainEvent(e.sid);
+    const subSurface = surface ?? mainEv?.surface ?? null;
     return {
       ...ev,
       sessionId: e.charId,
@@ -267,6 +268,7 @@ export class Store {
       title: isClaude(e) ? subTitle(e.meta, e.label, e.charId) : subTitle(null, ev.title, e.charId),
       ...(floor ?? {}),
       ...(mainEv ? { project: mainEv.project, projectLabel: mainEv.projectLabel } : {}),
+      ...(subSurface ? { surface: subSurface } : {}),
     };
   }
 

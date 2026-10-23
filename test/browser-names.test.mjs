@@ -20,6 +20,10 @@ import {
 } from '../public/js/sound.js';
 import { THEME_LAYOUTS, corridorWaypoints, obstaclesOf } from '../public/js/theme-layouts.js';
 import { MockSource } from '../public/js/sources.js';
+import { SessionState, claudeSurfaceOf } from '../src/session.mjs';
+import { CodexSession } from '../src/adapters/codex/session.mjs';
+import { codexSurfaceOf } from '../src/adapters/codex/records.mjs';
+import { Store } from '../src/store.mjs';
 
 // Map 으로 만든 가짜 localStorage. 실제 브라우저 저장소는 건드리지 않는다.
 function fakeStorage(init = {}) {
@@ -64,14 +68,21 @@ test('loadPrefs reads the new key after migration and survives missing, corrupt 
   assert.deepEqual(loadPrefs(throwing), {});
 });
 
-test('agentLabel: the four agent ids get display labels (with Antigravity surface distinction), unknown ids pass through as-is', () => {
+test('agentLabel: the four agent ids get display labels (with App/CLI surface pairs), unknown ids pass through as-is', () => {
   assert.equal(agentLabel('claude-code'), 'Claude Code');
+  assert.equal(agentLabel('claude-code', 'app'), 'Claude/Claude Code·App');
+  assert.equal(agentLabel('claude-code', 'cli'), 'Claude Code·CLI');
+  assert.equal(agentLabel('claude-code', 'ide'), 'Claude Code·IDE');
   assert.equal(agentLabel('codex'), 'Codex');
+  assert.equal(agentLabel('codex', 'app'), 'ChatGPT/Codex·App');
+  assert.equal(agentLabel('codex', 'cli'), 'Codex·CLI');
+  assert.equal(agentLabel('codex', 'ide'), 'Codex·IDE');
   assert.equal(agentLabel('grok'), 'Grok');
+  assert.equal(agentLabel('grok', 'cli'), 'Grok Build·CLI');
   assert.equal(agentLabel('antigravity'), 'Antigravity');
-  assert.equal(agentLabel('antigravity', 'cli'), 'Antigravity (CLI)');
-  assert.equal(agentLabel('antigravity', 'app'), 'Antigravity (App)');
-  assert.equal(agentLabel('antigravity', 'ide'), 'Antigravity (IDE)');
+  assert.equal(agentLabel('antigravity', 'cli'), 'Antigravity·CLI');
+  assert.equal(agentLabel('antigravity', 'app'), 'Antigravity·App');
+  assert.equal(agentLabel('antigravity', 'ide'), 'Antigravity·IDE');
   assert.equal(agentLabel('cursor'), 'cursor');
   assert.equal(agentLabel('constructor'), 'constructor');
 });
@@ -89,21 +100,32 @@ test('controlPresetOf: supports map, figma, orbit and blender presets and falls 
 
 test('agentBadge and brandHue: compact badges and distinct brand hue families per agent and surface', () => {
   assert.equal(agentBadge('claude-code'), 'Claude');
+  assert.equal(agentBadge('claude-code', 'app'), 'Claude·App');
+  assert.equal(agentBadge('claude-code', 'cli'), 'Claude·CLI');
   assert.equal(agentBadge('codex'), 'Codex');
+  assert.equal(agentBadge('codex', 'app'), 'ChatGPT·App');
+  assert.equal(agentBadge('codex', 'cli'), 'Codex·CLI');
   assert.equal(agentBadge('grok'), 'Grok');
+  assert.equal(agentBadge('grok', 'cli'), 'Grok·CLI');
   assert.equal(agentBadge('antigravity'), 'AGY');
   assert.equal(agentBadge('antigravity', 'cli'), 'AGY·CLI');
   assert.equal(agentBadge('antigravity', 'app'), 'AGY·App');
   assert.equal(agentBadge('antigravity', 'ide'), 'AGY·IDE');
   assert.equal(agentBadge(''), '');
 
-  const hClaude = brandHue('claude-code', '', 'sid-1');
-  const hCodex = brandHue('codex', '', 'sid-2');
-  const hGrok = brandHue('grok', '', 'sid-3');
+  const hClaudeCli = brandHue('claude-code', 'cli', 'sid-1');
+  const hClaudeApp = brandHue('claude-code', 'app', 'sid-1');
+  const hCodexCli = brandHue('codex', 'cli', 'sid-2');
+  const hCodexApp = brandHue('codex', 'app', 'sid-2');
+  const hGrok = brandHue('grok', 'cli', 'sid-3');
   const hAgyCli = brandHue('antigravity', 'cli', 'sid-4');
   const hAgyApp = brandHue('antigravity', 'app', 'sid-4');
-  assert.ok(hueGap(hClaude, BRAND_HUES['claude-code']) <= 20);
-  assert.ok(hueGap(hCodex, BRAND_HUES.codex) <= 20);
+  assert.ok(hueGap(hClaudeCli, BRAND_HUES['claude-code:cli']) <= 20);
+  assert.ok(hueGap(hClaudeApp, BRAND_HUES['claude-code:app']) <= 20);
+  assert.notEqual(hClaudeCli, hClaudeApp);
+  assert.ok(hueGap(hCodexCli, BRAND_HUES['codex:cli']) <= 20);
+  assert.ok(hueGap(hCodexApp, BRAND_HUES['codex:app']) <= 20);
+  assert.notEqual(hCodexCli, hCodexApp);
   assert.ok(hueGap(hGrok, BRAND_HUES.grok) <= 20);
   assert.ok(hueGap(hAgyCli, BRAND_HUES['antigravity:cli']) <= 20);
   assert.ok(hueGap(hAgyApp, BRAND_HUES['antigravity:app']) <= 20);
@@ -170,28 +192,30 @@ test('THEME_LAYOUTS and route: non-rectangular ring themes detour around central
 });
 
 test('LEGEND_AGENTS and LEGEND_SIGNALS: provide theme-adaptive agent/pet swatches and status color signals in KO/EN', () => {
-  assert.equal(LEGEND_AGENTS.length, 6);
+  assert.equal(LEGEND_AGENTS.length, 8);
   assert.equal(LEGEND_SIGNALS.length, 7);
   const palaceKo = legendAgentsFor('palace', 'ko');
-  assert.ok(palaceKo.find((a) => a.id === 'claude')?.desc.includes('정자관'));
-  assert.ok(palaceKo.find((a) => a.id === 'codex')?.desc.includes('흑립 갓'));
+  assert.ok(palaceKo.find((a) => a.id === 'claude-cli')?.desc.includes('정자관'));
+  assert.ok(palaceKo.find((a) => a.id === 'codex-cli')?.desc.includes('흑립 갓'));
   const dogsKo = legendAgentsFor('dogs', 'ko');
   assert.equal(dogsKo.length, 8);
   assert.ok(dogsKo.some((d) => d.id === 'dog-jindo-bear' && d.desc.includes('반달 가슴털')));
   assert.ok(dogsKo.some((d) => d.id === 'dog-collie' && d.label === '보더 콜리'));
   const catsEn = legendAgentsFor('cats', 'en');
-  assert.equal(catsEn.length, 6);
+  assert.equal(catsEn.length, 8);
   assert.ok(catsEn.some((c) => c.id === 'cat-savannah' && c.desc.includes('Highest-priced cat')));
+  assert.ok(catsEn.some((c) => c.id === 'cat-mainecoon' && c.label === 'Maine Coon'));
+  assert.ok(catsEn.some((c) => c.id === 'cat-persian' && c.label === 'Chinchilla Persian'));
   const starshipEn = legendAgentsFor('starship', 'en');
   assert.ok(starshipEn.find((a) => a.id === 'sub')?.desc.includes('Hover drone rotor'));
   const signalsKo = legendSignalsFor('ko');
   assert.ok(signalsKo.some((s) => s.id === 'error' && s.desc.includes('식은땀')));
   const signalsEn = legendSignalsFor('en');
   assert.ok(signalsEn.some((s) => s.id === 'ask' && s.desc.includes('approval')));
-  assert.equal(LEGEND_CATALOG.length, 19);
-  assert.equal(legendCatalogFor('ko', 'all').length, 19);
+  assert.equal(LEGEND_CATALOG.length, 21);
+  assert.equal(legendCatalogFor('ko', 'all').length, 21);
   assert.equal(legendCatalogFor('ko', 'dogs').length, 8);
-  assert.equal(legendCatalogFor('ko', 'cats').length, 6);
+  assert.equal(legendCatalogFor('ko', 'cats').length, 8);
   assert.equal(legendCatalogFor('en', 'human').length, 5);
 });
 
@@ -257,23 +281,34 @@ test('Independent selections and custom LLM-to-character mapping (llmCharMap + p
   assert.ok(Object.keys(CHARACTER_CATALOG).includes('cat:savannah'));
   assert.ok(Object.keys(CHARACTER_CATALOG).includes('human:palace'));
 
-  // Tier 3: default mapping from activeCharTheme ('dogs')
-  const claudeDefault = resolveAgentAppearance({ agent: 'claude-code', surface: '' });
-  assert.equal(claudeDefault.charSpec, DEFAULT_LLM_CHAR_MAP.dogs['claude-code']);
-  assert.equal(claudeDefault.family, 'dogs');
-  assert.equal(claudeDefault.breed, 'golden');
-  assert.equal(claudeDefault.posture, 'tetrapod');
-  assert.equal(claudeDefault.voiceKind, 'dogs');
+  // Tier 3: default mapping from activeCharTheme ('dogs') across App & CLI pairs
+  const claudeAppDefault = resolveAgentAppearance({ agent: 'claude-code', surface: 'app' });
+  assert.equal(claudeAppDefault.charSpec, DEFAULT_LLM_CHAR_MAP.dogs['claude-code:app']);
+  assert.equal(claudeAppDefault.family, 'dogs');
+  assert.equal(claudeAppDefault.breed, 'golden');
+  assert.equal(claudeAppDefault.posture, 'tetrapod');
+  assert.equal(claudeAppDefault.voiceKind, 'dogs');
+  const claudeCliDefault = resolveAgentAppearance({ agent: 'claude-code', surface: 'cli' });
+  assert.equal(claudeCliDefault.breed, 'shiba');
+  const codexAppDefault = resolveAgentAppearance({ agent: 'codex', surface: 'app' });
+  assert.equal(codexAppDefault.breed, 'jindo-black');
+  const codexCliDefault = resolveAgentAppearance({ agent: 'codex', surface: 'cli' });
+  assert.equal(codexCliDefault.breed, 'labrador');
 
   // Tier 2: custom LLM-to-character mapping overrides global charTheme for that LLM only
   setLlmCharMap('codex', 'cat:bengal');
+  setLlmCharMap('codex:app', 'cat:persian');
   setLlmCharMap('grok', 'human:starship');
-  assert.equal(activeLlmCharMapOf().codex, 'cat:bengal');
-  const codexMapped = resolveAgentAppearance({ agent: 'codex', surface: '' });
+  assert.equal(activeLlmCharMapOf()['codex:cli'], 'cat:bengal');
+  assert.equal(activeLlmCharMapOf()['codex:app'], 'cat:persian');
+  const codexMapped = resolveAgentAppearance({ agent: 'codex', surface: 'cli' });
   assert.equal(codexMapped.charSpec, 'cat:bengal');
   assert.equal(codexMapped.family, 'cats');
   assert.equal(codexMapped.breed, 'bengal');
   assert.equal(codexMapped.posture, 'tetrapod');
+  const codexAppMapped = resolveAgentAppearance({ agent: 'codex', surface: 'app' });
+  assert.equal(codexAppMapped.charSpec, 'cat:persian');
+  assert.equal(codexAppMapped.breed, 'persian');
   const grokMapped = resolveAgentAppearance({ agent: 'grok', surface: '' });
   assert.equal(grokMapped.charSpec, 'human:starship');
   assert.equal(grokMapped.family, 'human');
@@ -383,4 +418,29 @@ test('MockSource localizes demo session titles, thoughts, plans, questions and s
   enSrc.setLang();
   const koRelocalized = enEvents.filter((e) => e.type === 'session' && e.sessionId === 'demo-auth').pop();
   assert.equal(koRelocalized?.title, 'OAuth 세션 가드 점검');
+});
+
+test('Backend surface detection: Claude entrypoint and Codex originator map to app/cli/ide surfaces and Store.patch attaches surface', () => {
+  assert.equal(claudeSurfaceOf('claude-desktop'), 'app');
+  assert.equal(claudeSurfaceOf('cli'), 'cli');
+  assert.equal(claudeSurfaceOf('sdk-cli'), 'cli');
+  assert.equal(claudeSurfaceOf('claude-vscode'), 'ide');
+  assert.equal(codexSurfaceOf({ originator: 'Codex Desktop', source: 'vscode' }), 'app');
+  assert.equal(codexSurfaceOf({ originator: 'codex_cli_rs', source: 'cli' }), 'cli');
+  assert.equal(codexSurfaceOf({ originator: 'codex_exec', source: 'exec' }), 'cli');
+  assert.equal(codexSurfaceOf({ originator: 'codex_vscode', source: 'vscode' }), 'ide');
+
+  const claudeApp = new SessionState({ id: 'c-app' });
+  claudeApp.apply({ type: 'user', entrypoint: 'claude-desktop', message: { role: 'user', content: 'hi' } });
+  assert.equal(claudeApp.surface, 'app');
+
+  const codexApp = new CodexSession({ id: 'x-app' });
+  codexApp.apply({ type: 'session_meta', payload: { id: 'x-app', cwd: '/repo/proj', originator: 'Codex Desktop', source: 'vscode' } });
+  assert.equal(codexApp.surface, 'app');
+
+  const store = new Store();
+  const patchedClaude = store.patch(claudeApp.sessionEvent(), { agent: 'claude-code', state: claudeApp });
+  assert.equal(patchedClaude.surface, 'app');
+  const patchedCodex = store.patch({ type: 'session', sessionId: 'x-app', project: 'proj' }, { agent: 'codex', state: codexApp });
+  assert.equal(patchedCodex.surface, 'app');
 });

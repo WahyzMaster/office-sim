@@ -48,12 +48,14 @@ export const DOG_BREEDS = Object.freeze({
 });
 
 export const CAT_BREEDS = Object.freeze({
-  savannah: Object.freeze({ body: 0xe2b468, legs: 0xc99648, ear: 'serval', tail: 'cat', bib: 'cream', spots: true, eye: 0xf59e0b }),
-  bengal:   Object.freeze({ body: 0xd97e32, legs: 0xb8621e, ear: 'cat',    tail: 'cat', bib: 'cream', spots: true, eye: 0x10b981 }),
-  british:  Object.freeze({ body: 0x75889c, legs: 0x5e7084, ear: 'cat',    tail: 'cat', bib: 'none',  eye: 0xf59e0b }),
-  siamese:  Object.freeze({ body: 0xf5ebd6, legs: 0x3b2820, ear: 'seal',   tail: 'seal', bib: 'none', sealMask: true, eye: 0x38bdf8 }),
-  ragdoll:  Object.freeze({ body: 0xfaf8f5, legs: 0x8a9eb5, ear: 'blue',   tail: 'plume', bib: 'ruff', eye: 0x3b82f6 }),
-  fold:     Object.freeze({ body: 0xf2b365, legs: 0xfaf8f5, ear: 'fold',   tail: 'cat', bib: 'white', eye: 0x10b981 }),
+  savannah:  Object.freeze({ body: 0xe2b468, legs: 0xc99648, ear: 'serval', tail: 'cat',   bib: 'cream', spots: true, eye: 0xf59e0b }),
+  mainecoon: Object.freeze({ body: 0xc8643b, legs: 0xa34824, ear: 'serval', tail: 'plume', bib: 'ruff',  eye: 0xf59e0b }),
+  bengal:    Object.freeze({ body: 0xd97e32, legs: 0xb8621e, ear: 'cat',    tail: 'cat',   bib: 'cream', spots: true, eye: 0x10b981 }),
+  persian:   Object.freeze({ body: 0xf4f7f6, legs: 0xb8c9c4, ear: 'cat',    tail: 'plume', bib: 'ruff',  eye: 0x14b8a6 }),
+  british:   Object.freeze({ body: 0x75889c, legs: 0x5e7084, ear: 'cat',    tail: 'cat',   bib: 'none',  eye: 0xf59e0b }),
+  siamese:   Object.freeze({ body: 0xf5ebd6, legs: 0x3b2820, ear: 'seal',   tail: 'seal',  bib: 'none',  sealMask: true, eye: 0x38bdf8 }),
+  ragdoll:   Object.freeze({ body: 0xfaf8f5, legs: 0x8a9eb5, ear: 'blue',   tail: 'plume', bib: 'ruff',  eye: 0x3b82f6 }),
+  fold:      Object.freeze({ body: 0xf2b365, legs: 0xfaf8f5, ear: 'fold',   tail: 'cat',   bib: 'white', eye: 0x10b981 }),
 });
 
 export function applyPetMesh(agent, theme, posture = 'tetrapod', explicitBreed = '') {

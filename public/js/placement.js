@@ -10,10 +10,14 @@ const LANE_GAP = 0.1; // 15칸 x 0.1 = 복도 가운데 ±0.7, 문 폭(±1) 안�
 const LOUNGE_ROWS = [-1.35, 1.35, -0.75, 0.75, 0];
 export const AGENT_RADIUS = 0.24;
 
-// 에이전트 브랜드별 대표 색상(Hue): Claude(테라코타), Codex(에메랄드), Grok(코스믹 바이올렛), Antigravity(딥마인드 코발트/CLI 시안)
+// 에이전트 브랜드별 대표 색상(Hue): Claude(테라코타/코랄), Codex(에메랄드/민트), Grok(코스믹 바이올렛), Antigravity(딥마인드 코발트/CLI 시안)
 export const BRAND_HUES = Object.freeze({
   'claude-code': 18,
+  'claude-code:cli': 16,
+  'claude-code:app': 28,
   codex: 162,
+  'codex:cli': 156,
+  'codex:app': 174,
   grok: 268,
   antigravity: 222,
   'antigravity:cli': 195,
@@ -43,8 +47,8 @@ export function spreadHue(base, taken) {
 
 // 브랜드 색상 계열 안에서 세션마다 미세한 톤 차이를 준다(브랜드 정체성 유지 + 같은 층 동료 구분).
 export function brandHue(agent, surface, id, taken = []) {
-  const key = agent === 'antigravity' && surface && Object.hasOwn(BRAND_HUES, `antigravity:${surface}`)
-    ? `antigravity:${surface}` : agent;
+  const key = surface && Object.hasOwn(BRAND_HUES, `${agent}:${surface}`)
+    ? `${agent}:${surface}` : agent;
   if (!Object.hasOwn(BRAND_HUES, key)) return spreadHue(hueOf(id), taken);
   const center = BRAND_HUES[key];
   const seed = ((hueOf(id) % 17) - 8) * 1.2;

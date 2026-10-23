@@ -136,6 +136,7 @@ export class CodexSession {
   get firstCwd() { return this.core.firstCwd; }
   get lastActivityMs() { return this.core.lastActivityMs; }
   get ended() { return this.core.ended; }
+  get surface() { return this._facts?.surface ?? null; }
   get skipped() { return this._skipped + this._coreSkipped + this.core.skipped; }
 
   /** Plain copy of the core state plus the Codex normalizer state (tests, debugging). */
