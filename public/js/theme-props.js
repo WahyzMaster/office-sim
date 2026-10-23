@@ -184,8 +184,13 @@ export function buildStarshipProps(g, board) {
     col.scale.set(0.52, 2.35, 0.52);
     col.position.set(x, 1.18, -7.1);
     g.add(col);
+    // 기둥(반지름 0.52)을 두르는 고리 LED: 내접 반지름 0.585 라 기둥 밖으로 드러난다 (예전 상자 LED 는 기둥 속에 묻혀 있었다)
     for (let r = 0; r < 5; r++) {
-      leds.push(box(g, M.ledOn, 0.58, 0.08, 0.58, x, 0.42 + r * 0.38, -7.1, false));
+      const ring = new THREE.Mesh(CYL, M.ledOn);
+      ring.scale.set(0.6, 0.07, 0.6);
+      ring.position.set(x, 0.46 + r * 0.38, -7.1);
+      g.add(ring);
+      leds.push(ring);
     }
   }
   lowTable(g, tm.hullTrim, tm.hull, 8, -3.9, 1.5, 0.65, 0.72);
