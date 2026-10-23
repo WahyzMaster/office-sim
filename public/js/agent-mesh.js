@@ -374,7 +374,30 @@ export function animateAgentMesh(agent, reduced = false) {
   let tilt = 0;
   let headPitch = 0;
   let shake = 0;
-  if (agent.path.length) {
+  let rigPitch = 0;
+  let legSym = false;
+  const m = agent.maneuver;
+  if (m && m.dur > 0 && !reduced) {
+    const u = Math.min(1, Math.max(0, m.t / m.dur));
+    const arc = Math.sin(u * Math.PI);
+    const ease = u < 0.5 ? 2 * u * u : 1 - ((-2 * u + 2) ** 2) / 2;
+    bob = arc * (m.height || 0.9);
+    if (m.kind === 'roll' || m.kind === 'flip') {
+      rigPitch = ease * Math.PI * 2;
+      leg = 0.85 * arc;
+      legSym = true;
+      armL = armR = (isTetra ? -0.9 : -1.9) * arc;
+    } else if (m.kind === 'jump') {
+      rigPitch = Math.sin(u * Math.PI * 2) * 0.28;
+      leg = 0.72 * arc;
+      legSym = true;
+      armL = armR = (isTetra ? -0.65 : -2.1) * arc;
+    } else if (m.kind === 'prop-fly' || m.kind === 'phase') {
+      tilt = Math.sin(u * Math.PI * 2) * 0.16;
+      leg = Math.sin(t * 24) * 0.35;
+      armL = armR = (isTetra ? -0.45 : -1.4) * arc;
+    }
+  } else if (agent.path.length) {
     const f = (isTetra ? 10.5 : 9.5) * (1 + Math.min(agent.queue.length, 6) * 0.24);
     leg = Math.sin(t * f) * 0.64;
     armL = isTetra ? leg : -leg * 0.85;
@@ -441,22 +464,29 @@ export function animateAgentMesh(agent, reduced = false) {
     shake = reduced ? 0 : Math.sin(t * 70) * 0.04;
   }
   const floatOffset = agent.agent === 'antigravity' && !reduced ? 0.03 + Math.sin(t * 3.2) * 0.025 : 0;
+  const pivotY = isTetra ? 0.56 : 0.78;
   agent.legs[0].rotation.x = leg;
-  agent.legs[1].rotation.x = -leg;
+  agent.legs[1].rotation.x = legSym ? leg : -leg;
   agent.arms[0].rotation.x = armL;
   agent.arms[1].rotation.x = armR;
-  agent.rig.position.y = (reduced ? 0 : bob) + floatOffset;
+  agent.rig.rotation.x = rigPitch;
+  agent.rig.position.y = (reduced ? 0 : bob + pivotY * (1 - Math.cos(rigPitch))) + floatOffset;
+  agent.rig.position.z = reduced ? 0 : -pivotY * Math.sin(rigPitch);
   agent.rig.position.x = shake;
   agent.head.rotation.z = tilt;
   agent.head.rotation.x = headPitch;
+  if (agent.baseRing) {
+    const ringScale = m?.kind === 'phase' && !reduced ? 1 + Math.sin((m.t / m.dur) * Math.PI) * 0.42 : 1;
+    agent.baseRing.scale.setScalar(ringScale);
+  }
   if (!reduced && agent.flair && !agent.tailPivot) {
-    agent.flair.rotation.y = t * 1.8;
+    agent.flair.rotation.y = t * (m?.kind === 'phase' ? 6.4 : 1.8);
     if (agent.agent === 'antigravity' || agent.agent === 'codex') {
       agent.flair.position.y = (agent.agent === 'antigravity' ? 0.48 : 0.43) + Math.sin(t * 3.2) * 0.025;
     }
   }
   animateTail(agent, reduced);
   if (!reduced && agent.propeller) {
-    agent.propeller.rotation.y = t * (agent.path.length ? 18 : 7);
+    agent.propeller.rotation.y = t * (m?.kind === 'prop-fly' ? 48 : agent.path.length ? 18 : 7);
   }
 }

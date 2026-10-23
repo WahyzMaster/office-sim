@@ -101,6 +101,14 @@ export class DogVoice extends CharacterVoice {
     if (trigger === 'error') {
       return { soundId: 'whimper', ko: '낑…', en: 'Whine…', duration: 0.7 };
     }
+    if (trigger === 'hop' || trigger === 'roll') {
+      return {
+        soundId: 'hop',
+        ko: trigger === 'roll' ? '데구르르! 멍!' : (this.small ? '폴짝! 멍!' : '호잇! 왈!'),
+        en: trigger === 'roll' ? 'Tumble! Woof!' : (this.small ? 'Hop! Yap!' : 'Hup! Woof!'),
+        duration: 0.5,
+      };
+    }
     if (trigger === 'pet' || trigger === 'done') {
       return {
         soundId: 'happyBark',
@@ -119,7 +127,7 @@ export class DogVoice extends CharacterVoice {
 
   play(ctx, spec) {
     if (spec.soundId === 'whimper') return this.whimper(ctx);
-    if (spec.soundId === 'happyBark') return this.happyBark(ctx);
+    if (spec.soundId === 'happyBark' || spec.soundId === 'hop') return this.happyBark(ctx);
     return this.bark(ctx);
   }
 
@@ -157,6 +165,14 @@ export class CatVoice extends CharacterVoice {
   resolve(trigger) {
     if (trigger === 'error') {
       return { soundId: 'hiss', ko: '하악! 먀앗!', en: 'Hiss! Mew!', duration: 0.75 };
+    }
+    if (trigger === 'hop' || trigger === 'roll') {
+      return {
+        soundId: 'meow',
+        ko: trigger === 'roll' ? '데구르르! 냐앙~' : '사뿐! 야옹~',
+        en: trigger === 'roll' ? 'Tumble! Mew~' : 'Pounce! Meow~',
+        duration: 0.5,
+      };
     }
     if (trigger === 'work' || trigger === 'think' || trigger === 'pet') {
       return {
@@ -212,6 +228,14 @@ export class SynthVoice extends CharacterVoice {
     const id = this.theme === 'palace' || this.theme === 'hanok' ? 'chime'
       : this.theme === 'starship' ? 'chirp' : 'blip';
     if (trigger === 'error') return { soundId: id, ko: '앗! ♪', en: 'Oops! ♪', duration: 0.55 };
+    if (trigger === 'hop' || trigger === 'roll') {
+      return {
+        soundId: id,
+        ko: trigger === 'roll' ? '데구르르! ♪' : '폴짝! ♪',
+        en: trigger === 'roll' ? 'Roll! ♪' : 'Hop! ♪',
+        duration: 0.45,
+      };
+    }
     if (trigger === 'pet') return { soundId: id, ko: '반가워요! ♪', en: 'Hello! ♪', duration: 0.65 };
     return { soundId: id, ko: '톡! ♪', en: 'Blip! ♪', duration: 0.5 };
   }
