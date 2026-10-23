@@ -14,6 +14,15 @@ test('three-record: world samples compose T*R*S (non-uniform scale before rotati
   assert.ok(recordOf(m).samples.some(([x, , z]) => Math.abs(x - 10.348) < 1e-3 && Math.abs(z + 4.286) < 1e-3));
 });
 
+// 기록용 구현에 없는 기하·재질은 조용히 빈 Proxy 가 되면 모든 검사에서 빠진다 -> 바로 실패해야 한다.
+test('three-record: unimplemented geometry, material and texture types fail loudly instead of vanishing from the checks', async () => {
+  const W = await import('three');
+  assert.throws(() => new W.OctahedronGeometry(1), /three-record: OctahedronGeometry is not implemented/);
+  assert.throws(() => new W.CapsuleGeometry(0.2, 0.5), /not implemented/);
+  assert.throws(() => recordOf(new THREE.Mesh({ type: 'FakeGeometry', samples: [] }, mat)), /FakeGeometry has no samples/);
+  assert.throws(() => recordOf(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), { color: null })), /unknown material/);
+});
+
 test('buildTheme: every room theme builds through Floor.rebuildTheme with two doors, leds and a globe', () => {
   for (const t of THEMES) {
     const b = buildTheme(t);

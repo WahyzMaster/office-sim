@@ -22,7 +22,15 @@ const PROXY = `const H = { get(t, k) { if (k === Symbol.toPrimitive) return () =
 function mk() { const f = function () {}; f.s = {}; return new Proxy(f, H); }`;
 const recUrl = new URL('./three-record.mjs', import.meta.url).href;
 const addonsUrl = new URL('./three-addons-stub.mjs', import.meta.url).href;
-const WRAP = `export * from ${JSON.stringify(recUrl)};\n${PROXY}\n${extra.length ? `export const ${extra.map((n) => `${n} = mk()`).join(', ')};` : ''}`;
+// 기하·재질·텍스처는 Proxy 로 채우면 메시가 샘플 없이 모든 검사에서 조용히 빠진다 -> 쓰는 순간 실패하게 한다.
+const unimplemented = (n) => `export class ${n} { constructor() { throw new Error('three-record: ${n} is not implemented'); } }`;
+const proxied = extra.filter((n) => !/(Geometry|Material|Texture)$/.test(n));
+const WRAP = [
+  `export * from ${JSON.stringify(recUrl)};`,
+  PROXY,
+  proxied.length ? `export const ${proxied.map((n) => `${n} = mk()`).join(', ')};` : '',
+  ...extra.filter((n) => !proxied.includes(n)).map(unimplemented),
+].join('\n');
 const WRAP_URL = `data:text/javascript,${encodeURIComponent(WRAP)}`;
 register(`data:text/javascript,${encodeURIComponent(`export async function resolve(s, c, next) {
   if (s === 'three') return { url: ${JSON.stringify(WRAP_URL)}, shortCircuit: true };
@@ -62,7 +70,10 @@ export function recordOf(o, globe = null) {
   const W = o.matrixWorldOf();
   const g = o.geometry;
   const inst = o.isInstancedMesh;
-  const local = g.samples;
+  const local = g?.samples;
+  if (!Array.isArray(local) || !local.length) throw new Error(`three-record: ${o.src || '?'} ${g?.type} has no samples`);
+  const m0 = o.material;
+  if (!(m0?.isMeshStandardMaterial || m0?.isMeshBasicMaterial || m0?.isLineBasicMaterial)) throw new Error(`three-record: ${o.src || '?'} unknown material`);
   const samples = inst
     ? o.matrices.filter(Boolean).flatMap((m) => local.map((p) => new THREE.Vector3(...p).applyMatrix4(W.clone().multiply(m)).toArray()))
     : local.map((p) => new THREE.Vector3(...p).applyMatrix4(W).toArray());
