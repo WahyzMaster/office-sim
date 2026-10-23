@@ -16,6 +16,7 @@ export const DEFAULT_GROK_CLI_UUID = '00000000-0000-4000-8000-0000000009c1';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SKIP_CODES = new Set(['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM', 'ELOOP', 'ENAMETOOLONG']);
+const OPEN_FLAGS = FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) | (FS.O_NONBLOCK ?? 0);
 const MAX_TAIL_BYTES = 256 * 1024;
 const GROKBOT_FILES = [
   'local-exec-daemon.log',
@@ -71,7 +72,9 @@ async function readTailText(filePath, size, maxBytes = MAX_TAIL_BYTES) {
   if (len <= 0) return '';
   let fh;
   try {
-    fh = await fsp.open(filePath, FS.O_RDONLY | (FS.O_NONBLOCK ?? 0));
+    fh = await fsp.open(filePath, OPEN_FLAGS);
+    const fst = await fh.stat();
+    if (!fst.isFile()) return '';
     const buf = Buffer.allocUnsafe(len);
     const { bytesRead } = await fh.read(buf, 0, len, start);
     return buf.subarray(0, bytesRead).toString('utf8');

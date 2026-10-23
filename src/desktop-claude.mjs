@@ -4,14 +4,15 @@ import { constants as FS } from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { Tailer } from './tailer.mjs';
 
 export const CLAUDE_CLOUD_SESSION_ID = 'claude-desktop-cloud';
 export const CLAUDE_CLOUD_CWD = '/Claude Desktop';
 export const CLAUDE_CLOUD_TITLE = 'Claude Desktop Chat';
 
 const SKIP_CODES = new Set(['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM', 'ELOOP', 'ENAMETOOLONG']);
+const OPEN_FLAGS = FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) | (FS.O_NONBLOCK ?? 0);
 const MAX_MCP_READ_BYTES = 128 * 1024;
+const MAX_OPEN_TOOLS = 1024;
 const MCP_LINE_RE = /^(\d{4}-\d{2}-\d{2}T[\d:.]+Z)\s+\[info\]\s+\[([^\]]+)\]\s+Message from (client|server):\s+(.*)$/;
 const REQ_ID_RE = /\bid=(\d+|"[^"]+")|"id"\s*:\s*(\d+|"[^"]+")/;
 const TOOL_NAME_RE = /"name"\s*:\s*"([^"]+)"/;
@@ -22,7 +23,7 @@ function isSkippable(err) {
 
 async function statOrNull(fsApi, p) {
   try {
-    return await fsApi.stat(p);
+    return await (fsApi.lstat ?? fsApi.stat).call(fsApi, p);
   } catch (err) {
     if (isSkippable(err)) return null;
     throw err;
@@ -183,20 +184,7 @@ export function parseMcpLogLine(line) {
 }
 
 export class ClaudeDesktopTailer {
-  #inner;
   #cloud = new Map(); // path -> { sig, mcpOffset, mcpCarry, seq, openTools: Map<server:reqId, toolUseId> }
-
-  constructor(opts = {}) {
-    this.#inner = new Tailer(opts);
-  }
-
-  get skippedLines() {
-    return this.#inner.skippedLines;
-  }
-
-  #isCloud(ref) {
-    return ref && typeof ref === 'object' && ref.facts?.desktopKind === 'claude-cloud';
-  }
 
   async #emitTurn(state, ts, text, onLine) {
     const seq = ++state.seq;
@@ -242,7 +230,9 @@ export class ClaudeDesktopTailer {
     const len = st.size - start;
     let fh;
     try {
-      fh = await fsp.open(mcpPath, FS.O_RDONLY | (FS.O_NONBLOCK ?? 0));
+      fh = await fsp.open(mcpPath, OPEN_FLAGS);
+      const fst = await fh.stat();
+      if (!fst.isFile() || fst.ino !== st.ino) return 0;
       const buf = Buffer.allocUnsafe(len);
       const { bytesRead } = await fh.read(buf, 0, len, start);
       state.mcpOffset = start + bytesRead;
@@ -257,6 +247,9 @@ export class ClaudeDesktopTailer {
         if (parsed.kind === 'call') {
           const seq = ++state.seq;
           const toolUseId = `claude-cloud-tu-${seq}`;
+          if (!state.openTools.has(key) && state.openTools.size >= MAX_OPEN_TOOLS) {
+            state.openTools.delete(state.openTools.keys().next().value);
+          }
           state.openTools.set(key, toolUseId);
           await onLine(JSON.stringify({
             type: 'assistant',
@@ -315,8 +308,7 @@ export class ClaudeDesktopTailer {
     }
   }
 
-  async readAll(ref, onLine, opts) {
-    if (!this.#isCloud(ref)) return this.#inner.readAll(ref, onLine, opts);
+  async readAll(ref, onLine) {
     const act = await computeClaudeCloudActivity(fsp, ref.facts ?? {});
     if (!act) return { offset: 0, skipped: 0, gone: true };
     const ts = new Date(act.mtimeMs).toISOString();
@@ -339,7 +331,6 @@ export class ClaudeDesktopTailer {
   }
 
   async poll(ref, onLine) {
-    if (!this.#isCloud(ref)) return this.#inner.poll(ref, onLine);
     const state = this.#cloud.get(ref.path);
     if (!state) return { reset: true };
     const mcpPath = ref.facts?.logsDir ? path.join(ref.facts.logsDir, 'mcp.log') : null;
@@ -357,30 +348,8 @@ export class ClaudeDesktopTailer {
     return { bytes: mcpEvents > 0 ? 1 : 0, skipped: 0 };
   }
 
-  rename(from, to, meta) {
-    if (this.#cloud.has(from)) return false;
-    return this.#inner.rename(from, to, meta);
-  }
-
-  isBusy(p) {
-    return this.#inner.isBusy(p);
-  }
-
   forget(p) {
     this.#cloud.delete(p);
-    this.#inner.forget(p);
-  }
-
-  offsetOf(p) {
-    return this.#inner.offsetOf(p);
-  }
-
-  pendingBytes(p) {
-    return this.#inner.pendingBytes(p);
-  }
-
-  skippedOf(p) {
-    return this.#inner.skippedOf(p);
   }
 }
 

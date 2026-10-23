@@ -22,7 +22,7 @@ if (depKeys.length > 0) {
   violations.push(`package.json must have zero runtime dependencies (found: ${depKeys.join(', ')})`);
 }
 
-// 2. <= 500 lines per code file
+// 2. <= 500 lines per code file & O_NOFOLLOW symlink guard in watchers
 function walkCode(dirRel) {
   const absDir = path.join(ROOT, dirRel);
   if (!fs.existsSync(absDir)) return;
@@ -35,6 +35,11 @@ function walkCode(dirRel) {
       const lines = text.split('\n').length;
       if (lines > MAX_LINES) {
         violations.push(`${rel} has ${lines} lines (cap: ${MAX_LINES})`);
+      }
+      if (rel === 'src/desktop-claude.mjs' || rel.startsWith('src/adapters/') || rel.startsWith('src/observe/')) {
+        if (/fsp\.open\s*\([^)]*FS\.O_RDONLY\s*\|\s*\(FS\.O_NONBLOCK/.test(text)) {
+          violations.push(`${rel} calls fsp.open without O_NOFOLLOW (CONTRACT.md section 5 violation)`);
+        }
       }
     }
   }
