@@ -38,7 +38,7 @@ export function parseSummary(buf, ref = null) {
 
 /** The sidecar hook (ADAPTERS 3.3): the session folder's summary.json, read by SidecarWatcher. */
 export function grokSidecars(ref) {
-  if (typeof ref?.path !== 'string') return [];
+  if (typeof ref?.path !== 'string' || ref?.facts?.desktopKind) return [];
   return [{ path: path.join(path.dirname(ref.path), SUMMARY_FILE), parse: (buf) => parseSummary(buf, ref) }];
 }
 

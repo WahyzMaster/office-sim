@@ -7,6 +7,7 @@
 // 자식의 기록에는 부모가 없으므로 (61/62) 모든 cwd 그룹을 먼저 다 모은 뒤에 종류를 정한다 (자식 15/62 가 다른 그룹에 있다).
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { scanGrokDesktopBot } from './desktop-bot.mjs';
 
 export const GROK_AGENT = 'grok';
 export const TRANSCRIPT = 'updates.jsonl';
@@ -149,8 +150,14 @@ export function classify({ sessions, parentOf }, { activeMs, nowMs, hold = () =>
 }
 
 /** One stateless scan (no link grace): FileRef[] for the Runner. */
-export async function scanGrok(root, { activeMs, nowMs, limits = SCAN_LIMITS } = {}) {
-  return classify(await collectSessions(root, limits), { activeMs, nowMs, depth: limits.depth });
+export async function scanGrok(root, {
+  activeMs, nowMs, limits = SCAN_LIMITS, grokBotRoot, appSupportRoot, unifiedLogPath,
+} = {}) {
+  const localRefs = classify(await collectSessions(root, limits), { activeMs, nowMs, depth: limits.depth });
+  const botRefs = await scanGrokDesktopBot(root, {
+    activeMs, nowMs, localRefs, grokBotRoot, appSupportRoot, unifiedLogPath,
+  });
+  return botRefs.length ? [...localRefs, ...botRefs] : localRefs;
 }
 
 /**
@@ -160,7 +167,7 @@ export async function scanGrok(root, { activeMs, nowMs, limits = SCAN_LIMITS } =
 export function createGrokScanner({ linkGraceMs = LINK_GRACE_MS, limits = SCAN_LIMITS } = {}) {
   const firstSeen = new Map(); // uuid -> 처음 본 시각 (첫 scan 에서 본 것은 0: 기다리지 않는다)
   let scans = 0;
-  return async function scan(root, { activeMs, nowMs } = {}) {
+  return async function scan(root, { activeMs, nowMs, grokBotRoot, appSupportRoot, unifiedLogPath } = {}) {
     const walk = await collectSessions(root, limits);
     const now = Number.isFinite(nowMs) ? nowMs : Date.now();
     const first = scans++ === 0;
@@ -170,6 +177,15 @@ export function createGrokScanner({ linkGraceMs = LINK_GRACE_MS, limits = SCAN_L
       const t = firstSeen.get(id) ?? 0;
       return t > 0 && now - t < linkGraceMs;
     };
-    return classify(walk, { activeMs, nowMs, hold, depth: limits.depth });
+    const localRefs = classify(walk, { activeMs, nowMs, hold, depth: limits.depth });
+    const botRefs = await scanGrokDesktopBot(root, {
+      activeMs: Number.isFinite(activeMs) ? activeMs : Infinity,
+      nowMs: now,
+      localRefs,
+      grokBotRoot,
+      appSupportRoot,
+      unifiedLogPath,
+    });
+    return botRefs.length ? [...localRefs, ...botRefs] : localRefs;
   };
 }
