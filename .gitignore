@@ -21,14 +21,17 @@ secrets.*
 .worktrees/
 worktrees/
 
-# AI agent & MCP local state (keep shared .claude/launch.json tracked)
+# AI agent & MCP local state (keep shared .claude/launch.json and DOM skills tracked)
 .claude/*
 !.claude/launch.json
+!.claude/skills/
+!.claude/skills/**
 .codex/
 .gemini/
 .grok/
 .agents/
 .serena/
+.codegraph/
 .playwright-mcp/
 .mcp.json
 
