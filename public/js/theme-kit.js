@@ -9,7 +9,8 @@ import { mulberry32, seedOf } from './rng.js';
 const E = Math.PI / 2;
 const PLANE = new THREE.PlaneGeometry(1, 1);
 const CYL = new THREE.CylinderGeometry(1, 1, 1, 16);
-const CONE4 = new THREE.ConeGeometry(1, 1, 4);
+// 네모뿔 지붕: 회전을 기하에 구워 둔다. 메시에서 비균일 스케일 뒤에 돌리면(T*R*S) 지붕이 마름모 칼날로 찌그러진다.
+const ROOF4 = new THREE.ConeGeometry(1, 1, 4).rotateY(Math.PI / 4);
 const ICOSA = new THREE.IcosahedronGeometry(1, 0);
 
 let TM = null;
@@ -63,10 +64,9 @@ export function cyl(g, mat, rx, rz, h, x, y, z, geom = CYL, rotY = 0) {
 
 export function roofEave(g, mat, trimMat, w, h, d, x, y, z) {
   box(g, trimMat, w - 0.1, 0.16, d - 0.1, x, y, z);
-  const roof = new THREE.Mesh(CONE4, mat);
+  const roof = new THREE.Mesh(ROOF4, mat);
   roof.scale.set(w * 0.74, h, d * 0.74);
   roof.position.set(x, y + 0.16 + h / 2, z);
-  roof.rotation.y = Math.PI / 4;
   roof.castShadow = true;
   g.add(roof);
 }

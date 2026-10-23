@@ -3,8 +3,6 @@
 // 오른쪽 주석: 감사 id (docs/superpowers/plans/2026-10-23-place-theme-repair.md) 또는 triage.
 export const KNOWN = {
   // 비균일 스케일 뒤 회전: roofEave(궁궐 4, 한옥 3), 스타십 팔각 선체·갑판
-  'shear:palace': 4, // palace-01
-  'shear:hanok': 3, // hanok-01
   'shear:starship': 2, // starship-08
   // 다른 메시 속에 묻힘
   'hidden:starship': 20, // starship-03 엔진 코어 LED

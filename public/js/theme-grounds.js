@@ -95,9 +95,10 @@ function buildPalaceGround(g) {
     cyl(g, tm.vermilion, 0.2, 0.23, 2.5, x, 0, -7.8);
   }
   for (const z of [-6.5, -3.5, 3.5, 6.5]) cyl(g, tm.vermilion, 0.19, 0.22, 2.3, -11.8, 0, z);
-  roofEave(g, tm.tile, tm.dancheong, 9.2, 0.95, 2.4, 0, 2.45, -8.1);
-  roofEave(g, tm.tile, tm.dancheong, 8.2, 0.72, 1.8, -8, 2.3, -7.8);
-  roofEave(g, tm.tile, tm.dancheong, 8.2, 0.72, 1.8, 8, 2.3, -7.8);
+  // 처마는 열주 선(z -7.8) 위에만 걸쳐 북쪽 방을 가리지 않는다
+  roofEave(g, tm.tile, tm.dancheong, 9.2, 0.95, 1.3, 0, 2.45, -8.15);
+  roofEave(g, tm.tile, tm.dancheong, 8.2, 0.72, 1.0, -8, 2.3, -7.95);
+  roofEave(g, tm.tile, tm.dancheong, 8.2, 0.72, 1.0, 8, 2.3, -7.95);
   // 방 사이 전통 주칠·창호 칸막이
   for (const x of [-4, 4]) {
     box(g, tm.vermilion, 0.16, 1.15, 5.6, x, 0, -5);
