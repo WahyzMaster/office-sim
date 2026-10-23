@@ -8,8 +8,6 @@
 [![Node >=22](https://img.shields.io/badge/Node.js-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-10b981?style=flat-square)](#빠른-시작)
 [![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=flat-square)](LICENSE)
-[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub_Sponsors-ea4aaa?style=flat-square&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/WahyzMaster)
-[![Polar.sh](https://img.shields.io/badge/Sponsor-Polar.sh-0062ff?style=flat-square)](https://polar.sh/WahyzMaster)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-wahyzdad-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/wahyzdad)
 
 [English README](README.md) | **한국어** | [실시간 3D 웹 데모 열기](https://wahyzmaster.github.io/office-sim/?lang=ko#demo) | [고화질 데모 영상 (MP4)](docs/assets/ko/demo-hero.mp4)
@@ -144,21 +142,13 @@ npm run skill:uninstall
 
 ## 후원하기 (Support & Sponsorship)
 
-**Office Sim**이 AI 코딩 작업에 즐거움이나 도움이 되었다면 아래 채널을 통해 개발을 후원하실 수 있습니다:
+**Office Sim**이 AI 코딩 작업에 즐거움이나 도움이 되었다면 Buy Me a Coffee를 통해 개발을 후원하실 수 있습니다:
 
-<a href="https://github.com/sponsors/WahyzMaster" target="_blank" rel="noopener noreferrer">
-  <img src="https://img.shields.io/badge/GitHub_Sponsors-WahyzMaster-ea4aaa?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="GitHub Sponsors - WahyzMaster" />
-</a>
-<a href="https://polar.sh/WahyzMaster" target="_blank" rel="noopener noreferrer">
-  <img src="https://img.shields.io/badge/Polar.sh-WahyzMaster-0062ff?style=for-the-badge" alt="Polar.sh - WahyzMaster" />
-</a>
 <a href="https://www.buymeacoffee.com/wahyzdad" target="_blank" rel="noopener noreferrer">
   <img src="https://img.shields.io/badge/Buy_Me_a_Coffee-Support_wahyzdad-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee - wahyzdad" />
 </a>
 
-- **GitHub Sponsors** (플랫폼 수수료 0%, 기업 GitHub 빌링 연동): [https://github.com/sponsors/WahyzMaster](https://github.com/sponsors/WahyzMaster)
-- **Polar.sh** (기업 세금계산서·인보이스 및 팀 스폰서 티어 지원): [https://polar.sh/WahyzMaster](https://polar.sh/WahyzMaster)
-- **Buy Me a Coffee** (간편 일회성 커피 후원): [https://www.buymeacoffee.com/wahyzdad](https://www.buymeacoffee.com/wahyzdad)
+- **Buy Me a Coffee** (간편 커피 후원): [https://www.buymeacoffee.com/wahyzdad](https://www.buymeacoffee.com/wahyzdad)
 
 ## 라이선스
 
