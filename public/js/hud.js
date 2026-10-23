@@ -359,11 +359,8 @@ export class Hud {
     const t = uiText(this.lang);
     nav.replaceChildren();
     const make = (i, no, name) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'fl';
+      const b = Object.assign(document.createElement('button'), { type: 'button', className: 'fl', innerHTML: '<span class="no"></span><span class="nm"><b class="fn"></b><small class="ag" hidden></small></span><span class="ct"></span>' });
       b.dataset.i = String(i);
-      b.innerHTML = '<span class="no"></span><span class="nm"><b class="fn"></b><small class="ag" hidden></small></span><span class="ct"></span>';
       b.querySelector('.no').textContent = no;
       b.querySelector('.fn').textContent = name;
       nav.append(b);
@@ -390,10 +387,7 @@ export class Hud {
       const asking = agents.filter((a) => a.mode === 'ask').length;
       const approving = agents.filter((a) => a.mode === 'ask' && a.current?.approval).length;
       const counts = new Map();
-      for (const a of agents) {
-        const tag = agentBadge(a.agent, a.surface);
-        if (tag) counts.set(tag, (counts.get(tag) || 0) + 1);
-      }
+      for (const a of agents) { const tag = agentBadge(a.agent, a.surface); if (tag) counts.set(tag, (counts.get(tag) || 0) + 1); }
       const agEl = b.querySelector('.ag');
       if (agEl) {
         const summary = [...counts].map(([k, n]) => (n > 1 ? `${k} ${n}` : k)).join(' · ');
@@ -418,11 +412,9 @@ export class Hud {
   clearPing(floor) { if (floor) this.pings.delete(floor); }
 
   log(agent, text, kind) {
-    const li = document.createElement('li');
+    const li = Object.assign(document.createElement('li'), { hidden: !isLlmVisible(agent), innerHTML: '<time></time><i></i><b></b><span></span>' });
     li.dataset.kind = kind || '';
     li.dataset.sid = agent.id;
-    li.hidden = !isLlmVisible(agent);
-    li.innerHTML = '<time></time><i></i><b></b><span></span>';
     li.querySelector('time').textContent = time(new Date());
     li.querySelector('i').style.background = agent.color;
     const badge = agent.agent ? ` · ${agentBadge(agent.agent, agent.surface)}` : '';
@@ -434,7 +426,7 @@ export class Hud {
 
   inspect(a, office) {
     const box = this.el.insp;
-    if (!a) { box.hidden = true; return; }
+    if (!a) { box.hidden = true; delete box.dataset.sid; return; }
     const t = uiText(this.lang);
     box.hidden = false;
     box.querySelector('.dot').style.background = a.color;
@@ -443,41 +435,48 @@ export class Hud {
       : t.mode[a.panicT > 0 ? 'panic' : a.mode] || a.mode;
     const agentText = a.agent ? agentLabel(a.agent, a.surface || (a.agent === 'grok' ? 'cli' : '')) : '-';
     const rows = [
-      [t.rows.project, `${a.floor.number} · ${a.floor.label}`],
-      [t.rows.agent, a.isSub ? `${agentText} · ${t.subBadge(a.agentType)}` : agentText],
-      [t.rows.branch, a.worktree ? `${a.branch || '-'} (${t.worktreeBadge(a.worktree)})` : a.branch || '-'],
-      [t.rows.status, mode],
-      [t.rows.activity, a.activity],
-      [t.rows.queue, t.queueCount(a.queue.length)],
+      ['project', t.rows.project, `${a.floor.number} · ${a.floor.label}`],
+      ['agent', t.rows.agent, a.isSub ? `${agentText} · ${t.subBadge(a.agentType)}` : agentText],
+      ['branch', t.rows.branch, a.worktree ? `${a.branch || '-'} (${t.worktreeBadge(a.worktree)})` : a.branch || '-'],
+      ['status', t.rows.status, mode],
+      ['activity', t.rows.activity, a.activity],
+      ['queue', t.rows.queue, t.queueCount(a.queue.length)],
     ];
     const dl = box.querySelector('dl');
-    dl.replaceChildren(...rows.flatMap(([k, val]) => [
-      Object.assign(document.createElement('dt'), { textContent: k }),
-      Object.assign(document.createElement('dd'), { textContent: val }),
-    ]));
-    const addSelectRow = (label, opts, value, onChange) => {
-      const dt = Object.assign(document.createElement('dt'), { textContent: label });
-      const dd = document.createElement('dd');
-      const sel = document.createElement('select');
-      sel.replaceChildren(...opts.map(([k, text]) => Object.assign(document.createElement('option'), { value: k, textContent: text })));
-      sel.value = value || 'auto';
-      sel.addEventListener('change', () => onChange(sel.value));
-      dd.append(sel);
-      dl.append(dt, dd);
-    };
-    addSelectRow(t.rows.charOverride, Object.entries(CHARACTER_CATALOG).map(([k, v]) => [k, v[this.lang] || v.ko]), a.charOverride, (v) => { a.charOverride = v; a.refreshCharacter?.(); });
-    addSelectRow(t.rows.postureOverride, Object.entries(t.postures), a.postureOverride, (v) => { a.postureOverride = v; a.refreshCharacter?.(); });
-    addSelectRow(t.rows.motionOverride, Object.entries(t.motions), a.motionOverride, (v) => { a.motionOverride = v; a.pet?.(v === 'auto' ? '' : v); this.inspect(a, office); });
     const motionSel = box.querySelector('[data-act="motion"]');
-    if (motionSel) { for (const o of motionSel.options) o.textContent = t.motions[o.value] || o.textContent; motionSel.value = a.motionOverride || 'auto'; }
-    const ol = box.querySelector('ol');
-    ol.replaceChildren(...a.history.slice(0, 7).map((h) => {
-      const li = Object.assign(document.createElement('li'), { innerHTML: '<time></time><span></span>' });
-      li.dataset.kind = h.kind;
-      li.querySelector('time').textContent = time(h.at);
-      li.querySelector('span').textContent = h.text;
-      return li;
-    }));
+    if (box.dataset.sid !== a.id || box.dataset.lang !== this.lang) {
+      box.dataset.sid = a.id; box.dataset.lang = this.lang; delete box.dataset.histKey;
+      dl.replaceChildren(...rows.flatMap(([key, label, val]) => {
+        const dd = Object.assign(document.createElement('dd'), { textContent: val }); dd.dataset.row = key;
+        return [Object.assign(document.createElement('dt'), { textContent: label }), dd];
+      }));
+      const addSelectRow = (key, label, opts, value, onChange) => {
+        const dd = document.createElement('dd');
+        const sel = Object.assign(document.createElement('select'), { value: value || 'auto' }); sel.dataset.sel = key;
+        sel.replaceChildren(...opts.map(([k, text]) => Object.assign(document.createElement('option'), { value: k, textContent: text })));
+        sel.value = value || 'auto';
+        sel.addEventListener('change', () => onChange(sel.value));
+        dd.append(sel); dl.append(Object.assign(document.createElement('dt'), { textContent: label }), dd);
+      };
+      addSelectRow('charOverride', t.rows.charOverride, Object.entries(CHARACTER_CATALOG).map(([k, v]) => [k, v[this.lang] || v.ko]), a.charOverride, (v) => { a.charOverride = v; a.refreshCharacter?.(); });
+      addSelectRow('postureOverride', t.rows.postureOverride, Object.entries(t.postures), a.postureOverride, (v) => { a.postureOverride = v; a.refreshCharacter?.(); });
+      addSelectRow('motionOverride', t.rows.motionOverride, Object.entries(t.motions), a.motionOverride, (v) => { a.motionOverride = v; a.pet?.(v === 'auto' ? '' : v); this.inspect(a, office); });
+      if (motionSel) for (const o of motionSel.options) o.textContent = t.motions[o.value] || o.textContent;
+    } else {
+      for (const [key, , val] of rows) { const dd = dl.querySelector(`dd[data-row="${key}"]`); if (dd && dd.textContent !== val) dd.textContent = val; }
+    }
+    const syncSel = (sel, val) => { if (sel && globalThis.document?.activeElement !== sel && sel.value !== val) sel.value = val; };
+    for (const [k, v] of [['charOverride', a.charOverride], ['postureOverride', a.postureOverride], ['motionOverride', a.motionOverride]]) syncSel(dl.querySelector(`select[data-sel="${k}"]`), v || 'auto');
+    syncSel(motionSel, a.motionOverride || 'auto');
+    const histKey = `${a.history.length}:${a.history[0]?.at?.getTime?.() || 0}`;
+    if (box.dataset.histKey !== histKey) {
+      box.dataset.histKey = histKey;
+      box.querySelector('ol').replaceChildren(...a.history.slice(0, 7).map((h) => {
+        const li = Object.assign(document.createElement('li'), { innerHTML: '<time></time><span></span>' });
+        li.dataset.kind = h.kind; li.querySelector('time').textContent = time(h.at); li.querySelector('span').textContent = h.text;
+        return li;
+      }));
+    }
     box.querySelector('[data-act="follow"]').setAttribute('aria-pressed', String(office.follow));
   }
 
@@ -491,6 +490,6 @@ export class Hud {
     this.statT = 0.5;
     this.observe.tick();
     this.floorStats(office);
-    if (office.selected) this.inspect(office.selected, office);
+    if (office.selected && !(globalThis.document?.activeElement?.tagName === 'SELECT' && this.el.insp?.contains?.(globalThis.document.activeElement))) this.inspect(office.selected, office);
   }
 }

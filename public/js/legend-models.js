@@ -161,7 +161,8 @@ export function mountLegendModels(rootEl) {
     drawEntry(entry, -0.38, false);
     li.addEventListener('pointerenter', () => startHover(entry));
     li.addEventListener('pointerleave', () => { if (activeHover === entry) stopHover(); });
-    li.addEventListener('focus', () => startHover(entry));
+    li.addEventListener('focus', (e) => { if (e.target === li) startHover(entry); });
     li.addEventListener('blur', () => { if (activeHover === entry) stopHover(); });
+    li.querySelector('select.ag-map')?.addEventListener('pointerdown', () => stopHover());
   }
 }

@@ -407,7 +407,7 @@ export function renderLegend(legendEl, themeKey = activeTheme, lang = activeLang
           sel.append(opt);
         }
         sel.value = map[a.slot] || 'auto';
-        sel.addEventListener('click', (e) => e.stopPropagation());
+        for (const ev of ['pointerdown', 'mousedown', 'click']) sel.addEventListener(ev, (e) => e.stopPropagation());
         sel.addEventListener('change', (e) => {
           e.stopPropagation();
           setLlmCharMap(a.slot, sel.value);

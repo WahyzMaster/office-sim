@@ -402,3 +402,57 @@ test('Agent.start: leaving from a lounge seat walks to the elevator instead of v
   assert.deepEqual(walked, ['lounge', ELEVATOR.x, ELEVATOR.z]);
   assert.equal(opened, 0, 'no door opens while the agent is still at its seat');
 });
+
+test('Hud.inspect preserves <select> dropdown elements across periodic refreshes so open menus do not close', async () => {
+  const { Hud } = await import('../public/js/hud.js');
+  const mkNode = (tag) => ({
+    tagName: tag.toUpperCase(), dataset: {}, style: {}, children: [], options: [], value: '', textContent: '',
+    append(...ns) { this.children.push(...ns); if (this.tagName === 'SELECT') this.options = this.children; },
+    replaceChildren(...ns) { this.children = [...ns]; if (this.tagName === 'SELECT') this.options = this.children; },
+    addEventListener() {}, setAttribute() {},
+    querySelector(sel) {
+      if (sel.startsWith('dd[data-row="')) return this.children.find((c) => c.dataset?.row === sel.slice(13, -2)) || null;
+      if (sel.startsWith('select[data-sel="')) {
+        const key = sel.slice(17, -2);
+        for (const c of this.children) for (const sub of c.children || []) if (sub.dataset?.sel === key) return sub;
+      }
+      return null;
+    },
+  });
+  const prevDoc = globalThis.document;
+  const dl = mkNode('dl');
+  const ol = mkNode('ol');
+  const dot = mkNode('span');
+  const h2 = mkNode('h2');
+  const followBtn = mkNode('button');
+  const motionSel = mkNode('select');
+  motionSel.replaceChildren(Object.assign(mkNode('option'), { value: 'auto' }), Object.assign(mkNode('option'), { value: 'flip' }));
+  const box = {
+    hidden: true, dataset: {},
+    querySelector(s) { return { '.dot': dot, h2, dl, ol, '[data-act="motion"]': motionSel, '[data-act="follow"]': followBtn }[s] || null; },
+  };
+  globalThis.document = { createElement: (t) => mkNode(t), activeElement: null };
+  try {
+    const hud = Object.assign(Object.create(Hud.prototype), { lang: 'ko', el: { insp: box } });
+    const { office, a } = setup('insp-1');
+    a.floor = { number: '1F', label: 'proj' };
+    a.activity = '탐색 중';
+    hud.inspect(a, office);
+    const charSel1 = dl.querySelector('select[data-sel="charOverride"]');
+    const motionRowSel1 = dl.querySelector('select[data-sel="motionOverride"]');
+    assert.ok(charSel1 && motionRowSel1);
+    assert.equal(dl.querySelector('dd[data-row="activity"]')?.textContent, '탐색 중');
+
+    // Simulate user opening/focusing the dropdown while periodic inspect() runs
+    globalThis.document.activeElement = motionRowSel1;
+    motionRowSel1.value = 'spin';
+    a.activity = '작성 중';
+    hud.inspect(a, office);
+    assert.equal(dl.querySelector('select[data-sel="charOverride"]'), charSel1, 'charOverride <select> DOM node is preserved');
+    assert.equal(dl.querySelector('select[data-sel="motionOverride"]'), motionRowSel1, 'motionOverride <select> DOM node is preserved');
+    assert.equal(motionRowSel1.value, 'spin', 'focused <select> value is not overwritten during periodic inspect');
+    assert.equal(dl.querySelector('dd[data-row="activity"]')?.textContent, '작성 중', 'status text updates in-place without replacing <dl>');
+  } finally {
+    globalThis.document = prevDoc;
+  }
+});
