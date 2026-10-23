@@ -301,8 +301,9 @@ body.overview .sign, body.overview .tag span { display: none; }
 #legend ul[data-lg="agents"] li span, #legend ul[data-lg="catalog"] li span { display: none; }
 #legend p { margin: 4px 0 0; font-size: 11px; line-height: 1.4; color: var(--muted); }
 
-#inspector { grid-column: 2; grid-row: 3; justify-self: center; align-self: end; width: min(400px, 100%); max-height: 100%; min-height: 0; overflow-y: auto; padding: 12px 14px; box-sizing: border-box; }
-#inspector header { display: flex; align-items: center; gap: 8px; }
+#inspector { grid-column: 2; grid-row: 3; justify-self: center; align-self: end; width: min(440px, 100%); max-height: 100%; min-height: 0; overflow-y: auto; padding: 12px 14px; box-sizing: border-box; }
+#inspector header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+#inspector header select.ghost { background: var(--panel-solid); padding: 4px 6px; max-width: 138px; }
 #inspector .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 #inspector h2 { flex: 1; font: 400 18px/1.1 var(--font-sign); letter-spacing: 0; color: var(--fg); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #inspector dl { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 4px 10px; margin: 10px 0; align-items: center; }
@@ -397,6 +398,7 @@ body.overview .sign, body.overview .tag span { display: none; }
       <label class="interval" for="room-theme"><span id="theme-label">공간</span> <select id="room-theme" aria-label="공간 테마 프리셋"><option value="dogs">퍼피 파크</option><option value="cats">캣 타워 살롱</option><option value="studio">AI 스튜디오</option><option value="office">테크 오피스</option><option value="palace">조선 궁궐</option><option value="hanok">전통 한옥</option><option value="starship">SF 스타십</option></select></label>
       <label class="interval" for="char-theme"><span id="char-label">캐릭터</span> <select id="char-theme" aria-label="캐릭터 외형 프리셋"><option value="studio">AI 스튜디오</option><option value="office">테크 오피스</option><option value="palace">조선 궁궐</option><option value="hanok">전통 한옥</option><option value="starship">SF 스타십</option><option value="dogs">강아지 팩</option><option value="cats">고양이 팩</option></select></label>
       <label class="interval" for="posture-mode"><span id="posture-label">보행</span> <select id="posture-mode" aria-label="캐릭터 보행 자세"><option value="auto">자동 (캐릭터별)</option><option value="tetrapod">4족 보행 (네발)</option><option value="bipod">2족 보행 (두발)</option></select></label>
+      <label class="interval" for="motion-mode"><span id="motion-label">모션</span> <select id="motion-mode" aria-label="캐릭터 모션"><option value="auto">자동 (캐릭터별)</option><option value="jump">점프 (폴짝)</option><option value="roll">구르기 (데구르르)</option><option value="flip">공중제비 (캣플립)</option><option value="spin">회전 (빙글)</option><option value="prop-fly">프로펠러 비행 (붕붕)</option><option value="phase">무중력 활공 (페이즈)</option></select></label>
       <label class="interval" for="voice-mode"><span id="voice-label">소리</span> <select id="voice-mode" aria-label="캐릭터 음성"><option value="auto">자동 (캐릭터별)</option><option value="dogs">강아지 (멍멍)</option><option value="cats">고양이 (야옹)</option><option value="chime">국악 (옥소리)</option><option value="chirp">스타십 (비프)</option><option value="blip">스튜디오 (블립)</option><option value="mute">음소거</option></select></label>
       <div class="seg" id="llm-filter" role="group" aria-label="LLM 필터">
         <button type="button" data-llm="all" aria-pressed="true">전체</button>
@@ -460,6 +462,7 @@ body.overview .sign, body.overview .tag span { display: none; }
     <header>
       <span class="dot"></span>
       <h2></h2>
+      <select class="ghost" data-act="motion" aria-label="모션 선택"><option value="auto">자동 (캐릭터별)</option><option value="jump">점프 (폴짝)</option><option value="roll">구르기 (데구르르)</option><option value="flip">공중제비 (캣플립)</option><option value="spin">회전 (빙글)</option><option value="prop-fly">프로펠러 비행 (붕붕)</option><option value="phase">무중력 활공 (페이즈)</option></select>
       <button type="button" class="ghost" data-act="pet">쓰다듬기 · 소리</button>
       <button type="button" class="ghost" data-act="follow" aria-pressed="false">따라가기</button>
       <button type="button" class="ghost" data-act="close">닫기</button>

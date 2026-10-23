@@ -11,10 +11,9 @@ import {
   ROOMS, SLOTS, ELEVATOR, ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf, detectLang, roomLabel, applyRoomTheme, uiText,
   LEGEND_AGENTS, LEGEND_CATALOG, LEGEND_SIGNALS, legendAgentsFor, legendCatalogFor, legendSignalsFor,
   POSTURE_MODES, DEFAULT_POSTURE_MODE, postureModeOf, setPostureMode, effectivePosture,
-  CHAR_THEMES, charThemeOf, activeCharThemeOf, setCharTheme,
-  VOICE_MODES, voiceModeOf, setVoiceMode, COLOR_THEMES, colorThemeOf, setColorTheme,
-  LLM_FILTERS, llmFilterOf, setLlmFilter, isLlmVisible,
-  CHARACTER_CATALOG, DEFAULT_LLM_CHAR_MAP, activeLlmCharMapOf, setLlmCharMap, resetLlmCharMap, resolveAgentAppearance,
+  MOTION_MODES, DEFAULT_MOTION_MODE, motionModeOf, activeMotionOf, setMotionMode,
+  CHAR_THEMES, charThemeOf, activeCharThemeOf, setCharTheme, VOICE_MODES, voiceModeOf, setVoiceMode, COLOR_THEMES, colorThemeOf, setColorTheme,
+  LLM_FILTERS, llmFilterOf, setLlmFilter, isLlmVisible, CHARACTER_CATALOG, DEFAULT_LLM_CHAR_MAP, activeLlmCharMapOf, setLlmCharMap, resetLlmCharMap, resolveAgentAppearance,
 } from '../public/js/rooms.js';
 import {
   CharacterVoice, DogVoice, CatVoice, SynthVoice, voiceFor, makeSound, setSoundEnabled, isSoundEnabled,
@@ -70,22 +69,14 @@ test('loadPrefs reads the new key after migration and survives missing, corrupt 
 });
 
 test('agentLabel: the four agent ids get display labels (with App/CLI surface pairs), unknown ids pass through as-is', () => {
-  assert.equal(agentLabel('claude-code'), 'Claude Code');
-  assert.equal(agentLabel('claude-code', 'app'), 'Claude/Claude Code·App');
-  assert.equal(agentLabel('claude-code', 'cli'), 'Claude Code·CLI');
-  assert.equal(agentLabel('claude-code', 'ide'), 'Claude Code·IDE');
-  assert.equal(agentLabel('codex'), 'Codex');
-  assert.equal(agentLabel('codex', 'app'), 'ChatGPT/Codex·App');
-  assert.equal(agentLabel('codex', 'cli'), 'Codex·CLI');
-  assert.equal(agentLabel('codex', 'ide'), 'Codex·IDE');
-  assert.equal(agentLabel('grok'), 'Grok');
-  assert.equal(agentLabel('grok', 'cli'), 'Grok Build·CLI');
-  assert.equal(agentLabel('antigravity'), 'Antigravity');
-  assert.equal(agentLabel('antigravity', 'cli'), 'Antigravity·CLI');
-  assert.equal(agentLabel('antigravity', 'app'), 'Antigravity·App');
-  assert.equal(agentLabel('antigravity', 'ide'), 'Antigravity·IDE');
-  assert.equal(agentLabel('cursor'), 'cursor');
-  assert.equal(agentLabel('constructor'), 'constructor');
+  assert.equal(agentLabel('claude-code'), 'Claude Code'); assert.equal(agentLabel('claude-code', 'app'), 'Claude/Claude Code·App');
+  assert.equal(agentLabel('claude-code', 'cli'), 'Claude Code·CLI'); assert.equal(agentLabel('claude-code', 'ide'), 'Claude Code·IDE');
+  assert.equal(agentLabel('codex'), 'Codex'); assert.equal(agentLabel('codex', 'app'), 'ChatGPT/Codex·App');
+  assert.equal(agentLabel('codex', 'cli'), 'Codex·CLI'); assert.equal(agentLabel('codex', 'ide'), 'Codex·IDE');
+  assert.equal(agentLabel('grok'), 'Grok'); assert.equal(agentLabel('grok', 'cli'), 'Grok Build·CLI');
+  assert.equal(agentLabel('antigravity'), 'Antigravity'); assert.equal(agentLabel('antigravity', 'cli'), 'Antigravity·CLI');
+  assert.equal(agentLabel('antigravity', 'app'), 'Antigravity·App'); assert.equal(agentLabel('antigravity', 'ide'), 'Antigravity·IDE');
+  assert.equal(agentLabel('cursor'), 'cursor'); assert.equal(agentLabel('constructor'), 'constructor');
 });
 
 test('controlPresetOf: supports map, figma, orbit and blender presets and falls back to map', () => {
@@ -95,23 +86,14 @@ test('controlPresetOf: supports map, figma, orbit and blender presets and falls 
     assert.equal(controlPresetOf(k), k);
     assert.ok(CONTROL_PRESETS[k].label.length > 0 && CONTROL_PRESETS[k].hint.length > 0);
   }
-  assert.equal(controlPresetOf('unknown'), 'map');
-  assert.equal(controlPresetOf(undefined), 'map');
+  assert.equal(controlPresetOf('unknown'), 'map'); assert.equal(controlPresetOf(undefined), 'map');
 });
 
 test('agentBadge and brandHue: compact badges and distinct brand hue families per agent and surface', () => {
-  assert.equal(agentBadge('claude-code'), 'Claude');
-  assert.equal(agentBadge('claude-code', 'app'), 'Claude·App');
-  assert.equal(agentBadge('claude-code', 'cli'), 'Claude·CLI');
-  assert.equal(agentBadge('codex'), 'Codex');
-  assert.equal(agentBadge('codex', 'app'), 'ChatGPT·App');
-  assert.equal(agentBadge('codex', 'cli'), 'Codex·CLI');
-  assert.equal(agentBadge('grok'), 'Grok');
-  assert.equal(agentBadge('grok', 'cli'), 'Grok·CLI');
-  assert.equal(agentBadge('antigravity'), 'AGY');
-  assert.equal(agentBadge('antigravity', 'cli'), 'AGY·CLI');
-  assert.equal(agentBadge('antigravity', 'app'), 'AGY·App');
-  assert.equal(agentBadge('antigravity', 'ide'), 'AGY·IDE');
+  assert.equal(agentBadge('claude-code'), 'Claude'); assert.equal(agentBadge('claude-code', 'app'), 'Claude·App'); assert.equal(agentBadge('claude-code', 'cli'), 'Claude·CLI');
+  assert.equal(agentBadge('codex'), 'Codex'); assert.equal(agentBadge('codex', 'app'), 'ChatGPT·App'); assert.equal(agentBadge('codex', 'cli'), 'Codex·CLI');
+  assert.equal(agentBadge('grok'), 'Grok'); assert.equal(agentBadge('grok', 'cli'), 'Grok·CLI');
+  assert.equal(agentBadge('antigravity'), 'AGY'); assert.equal(agentBadge('antigravity', 'cli'), 'AGY·CLI'); assert.equal(agentBadge('antigravity', 'app'), 'AGY·App'); assert.equal(agentBadge('antigravity', 'ide'), 'AGY·IDE');
   assert.equal(agentBadge(''), '');
 
   const hClaudeCli = brandHue('claude-code', 'cli', 'sid-1');
@@ -463,6 +445,24 @@ test('Acrobatic pass-through maneuvers (jump, roll, flip, spin, prop-fly, phase)
   assert.deepEqual([0, 2].map((s) => pickManeuverKind({ charFamily: 'cats' }, 1, s)), ['flip', 'spin']);
   assert.deepEqual([0, 1, 2].map((s) => pickManeuverKind({ charFamily: 'dogs' }, 1, s)), ['jump', 'roll', 'spin']);
   assert.deepEqual([0, 1, 2].map((s) => pickManeuverKind({ charFamily: 'human' }, 1, s)), ['jump', 'roll', 'spin']);
+  assert.deepEqual(MOTION_MODES, ['auto', 'jump', 'roll', 'flip', 'spin', 'prop-fly', 'phase']);
+  assert.equal(DEFAULT_MOTION_MODE, 'auto');
+  assert.equal(motionModeOf('invalid'), 'auto');
+  assert.equal(setMotionMode('spin'), 'spin');
+  assert.equal(activeMotionOf(), 'spin');
+  assert.equal(pickManeuverKind({ charFamily: 'dogs' }, 1, 0), 'spin', 'global motion dropdown overrides auto');
+  assert.equal(pickManeuverKind({ charFamily: 'dogs', motionOverride: 'flip' }, 1, 0), 'flip', 'per-character motionOverride overrides global');
+  assert.equal(pickManeuverKind({ charFamily: 'dogs', motionOverride: 'flip' }, 1, 0, 'phase'), 'phase', 'explicit pet(kind) takes top priority');
+  setMotionMode('auto');
+
+  // Stationary character clicked / petted keeps manual maneuver alive across stepAgentPath frames until dur completes
+  const idle = { charFamily: 'cats', path: [], group: { visible: true, position: { x: 0, z: 0 } } };
+  assert.equal(startAgentManeuver(idle, 1, 'flip', true), 'hop');
+  assert.equal(idle.maneuver?.kind, 'flip');
+  stepAgentPath(idle, 0.2, 3.4, 'studio');
+  assert.equal(idle.maneuver?.kind, 'flip', 'stationary agent retains manual maneuver mid-flight');
+  stepAgentPath(idle, 0.4, 3.4, 'studio');
+  assert.equal(idle.maneuver, null, 'stationary agent clears maneuver after duration');
 
   // Blocked intermediate waypoint is skipped when the next waypoint has clear line-of-sight
   const blockerAtWp = { group: { visible: true, position: { x: 0, z: 0 } } };

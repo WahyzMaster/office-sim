@@ -5,7 +5,7 @@ import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { activeThemeOf, ELEVATOR, isLlmVisible, resolveAgentAppearance, tr } from './rooms.js';
 import { buildAgentMesh, buildBrandFlair, tintAgent, animateAgentMesh } from './agent-mesh.js';
 import { compactQueue, collapse, QUEUE_CAP, softKind } from './agent-queue.js';
-import { hueOf, brandHue, familyHue, familyLight, laneOffset, route, wrapAngle, safeSpawnPos, stepAgentPath } from './placement.js';
+import { hueOf, brandHue, familyHue, familyLight, laneOffset, route, wrapAngle, safeSpawnPos, startAgentManeuver, stepAgentPath } from './placement.js';
 import { agentBadge } from './hud.js';
 import { makeSound } from './sound.js';
 
@@ -33,6 +33,7 @@ export class Agent {
     this.surface = info.surface || '';
     this.charOverride = info.charOverride || 'auto';
     this.postureOverride = info.postureOverride || 'auto';
+    this.motionOverride = info.motionOverride || 'auto';
     this.name = info.title || (this.isSub ? this.agentType : tr(`세션 ${this.id.slice(0, 6)}`, `Session ${this.id.slice(0, 6)}`));
     this.childSeq = 0;
     this.paint(this.parentId ? office.agents.get(this.parentId) : null);
@@ -174,9 +175,12 @@ export class Agent {
     return res;
   }
 
-  pet() {
-    const res = this.makeSound('pet', { force: true });
-    if (res) this.bubble('say', res.text, 2.2);
+  pet(kind = '') {
+    const trig = startAgentManeuver(this, 1, kind, true);
+    const res = this.makeSound('pet', { force: true }) || this.makeSound(trig, { force: true });
+    const text = res?.text || (this.maneuver ? tr(this.maneuver.ko, this.maneuver.en) : '');
+    if (text) this.bubble('say', text, 2.2);
+    this.refreshTag();
     return res;
   }
 
@@ -449,7 +453,7 @@ export class Agent {
       if (nav.heading !== null) this.turnTo(nav.heading, dt);
       if (nav.arrived) this.arrived();
     } else {
-      if (hadManeuver) this.refreshTag();
+      if (hadManeuver && !this.maneuver) this.refreshTag();
       this.turnTo(this.face, dt);
     }
 

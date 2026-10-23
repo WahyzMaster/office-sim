@@ -3,9 +3,8 @@ import {
   ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, CHAR_THEMES, charThemeOf, setCharTheme,
   CHARACTER_CATALOG, activeLlmCharMapOf, setLlmCharMap, resetLlmCharMap,
   VOICE_MODES, voiceModeOf, setVoiceMode, COLOR_THEMES, colorThemeOf, setColorTheme,
-  llmFilterOf, setLlmFilter, isLlmVisible,
-  langOf, detectLang, applyRoomTheme, uiText, renderLegend,
-  postureModeOf, setPostureMode,
+  llmFilterOf, setLlmFilter, isLlmVisible, langOf, detectLang, applyRoomTheme, uiText, renderLegend,
+  postureModeOf, setPostureMode, motionModeOf, setMotionMode,
 } from './rooms.js';
 import { ObservePanel } from './observe-panel.js';
 import { setSoundEnabled } from './sound.js';
@@ -62,10 +61,7 @@ export function migratePrefs(storage) {
 }
 export function loadPrefs(storage) {
   migratePrefs(storage);
-  try {
-    const v = JSON.parse(storeOf(storage).getItem(STORE));
-    return v && typeof v === 'object' ? v : {};
-  } catch { return {}; }
+  try { const v = JSON.parse(storeOf(storage).getItem(STORE)); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
 }
 const savePrefs = (p) => { try { storeOf().setItem(STORE, JSON.stringify(p)); } catch { /* ignore */ } };
 
@@ -75,8 +71,8 @@ export class Hud {
     this.el = {
       source: $('source'), sub: $('sub'), speed: $('speed'), interval: $('interval'),
       roomTheme: $('room-theme'), themeLabel: $('theme-label'), charTheme: $('char-theme'), charLabel: $('char-label'),
-      posture: $('posture-mode'), postureLabel: $('posture-label'), voice: $('voice-mode'), voiceLabel: $('voice-label'),
-      llmFilter: $('llm-filter'), colorBtn: $('color-theme'), resetCastBtn: $('reset-llm-map'),
+      posture: $('posture-mode'), postureLabel: $('posture-label'), motion: $('motion-mode'), motionLabel: $('motion-label'),
+      voice: $('voice-mode'), voiceLabel: $('voice-label'), llmFilter: $('llm-filter'), colorBtn: $('color-theme'), resetCastBtn: $('reset-llm-map'),
       preset: $('control-preset'), controlLabel: $('control-label'), soundBtn: $('sound-toggle'), langBtn: $('lang-toggle'), tail: $('tail'),
       logBtn: $('toggle-log'), legendBtn: $('toggle-legend'), floors: $('floors'),
       log: $('log'), list: $('log-list'), legend: $('legend'), legendControls: $('legend-controls'), insp: $('inspector'),
@@ -86,6 +82,7 @@ export class Hud {
     this.charTheme = setCharTheme(p.charTheme ?? this.roomTheme);
     this.llmCharMap = setLlmCharMap(p.llmCharMap);
     this.postureMode = setPostureMode(p.postureMode);
+    this.motionMode = setMotionMode(p.motionMode);
     this.voiceMode = setVoiceMode(p.voiceMode);
     this.colorTheme = setColorTheme(p.colorTheme);
     this.llmFilter = setLlmFilter(p.llmFilter);
@@ -140,12 +137,7 @@ export class Hud {
       if (!this.replay) el.sub.textContent = uiText(this.lang).subInterval(cfg.intervalMs);
     };
     setInterval(cfg.intervalMs);
-    el.interval.addEventListener('change', () => {
-      setInterval(Number(el.interval.value));
-      getSource()?.setInterval?.(cfg.intervalMs);
-      prefs.intervalMs = cfg.intervalMs;
-      save();
-    });
+    el.interval.addEventListener('change', () => { setInterval(Number(el.interval.value)); getSource()?.setInterval?.(cfg.intervalMs); prefs.intervalMs = cfg.intervalMs; save(); });
 
     const applyPreset = (id) => {
       this.controlPreset = controlPresetOf(id);
@@ -166,12 +158,7 @@ export class Hud {
         if (allBtn) allBtn.textContent = uiText(this.lang).llmAll;
         for (const b of el.llmFilter.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.llm === this.llmFilter));
       }
-      if (el.list) {
-        for (const li of el.list.children) {
-          const a = office.agents.get(li.dataset.sid);
-          if (a) li.hidden = !isLlmVisible(a);
-        }
-      }
+      if (el.list) for (const li of el.list.children) { const a = office.agents.get(li.dataset.sid); if (a) li.hidden = !isLlmVisible(a); }
       office.refreshVisibility?.();
     };
     const fillSelect = (sel, map, val) => {
@@ -188,11 +175,13 @@ export class Hud {
       if (el.themeLabel) el.themeLabel.textContent = t.themeLabel;
       if (el.charLabel) el.charLabel.textContent = t.charLabel;
       if (el.postureLabel) el.postureLabel.textContent = t.postureLabel;
+      if (el.motionLabel) el.motionLabel.textContent = t.motionLabel;
       if (el.voiceLabel) el.voiceLabel.textContent = t.voiceLabel;
       if (el.controlLabel) el.controlLabel.textContent = t.controlLabel;
       fillSelect(el.roomTheme, (v) => ROOM_THEMES[v]?.name?.[this.lang], this.roomTheme);
       this.populateCharSelect(el.charTheme);
       fillSelect(el.posture, (v) => t.postures[v], this.postureMode);
+      fillSelect(el.motion, (v) => t.motions[v], this.motionMode);
       fillSelect(el.voice, (v) => t.voices[v], this.voiceMode);
       fillSelect(el.preset, (v) => t.controls[v]?.label);
       this.applyColorScheme(this.colorTheme);
@@ -203,6 +192,7 @@ export class Hud {
       el.log.querySelector('h2').textContent = t.logTitle;
       const petBtn = el.insp.querySelector('[data-act="pet"]');
       if (petBtn) petBtn.textContent = t.petBtn;
+      fillSelect(el.insp.querySelector('[data-act="motion"]'), (v) => t.motions[v], office.selected?.motionOverride || 'auto');
       el.insp.querySelector('[data-act="follow"]').textContent = t.follow;
       el.insp.querySelector('[data-act="close"]').textContent = t.close;
       this.buildLegend();
@@ -218,6 +208,13 @@ export class Hud {
     el.roomTheme?.addEventListener('change', () => { applyThemeAndLang(el.roomTheme.value, this.lang); prefs.roomTheme = this.roomTheme; save(); });
     el.charTheme?.addEventListener('change', () => { this.charTheme = setCharTheme(charThemeOf(el.charTheme.value)); prefs.charTheme = this.charTheme; refreshCast(); });
     el.posture?.addEventListener('change', () => { this.postureMode = setPostureMode(postureModeOf(el.posture.value)); prefs.postureMode = this.postureMode; refreshCast(); });
+    el.motion?.addEventListener('change', () => {
+      this.motionMode = setMotionMode(motionModeOf(el.motion.value));
+      prefs.motionMode = this.motionMode;
+      office.selected?.pet?.(this.motionMode === 'auto' ? '' : this.motionMode);
+      if (office.selected) this.inspect(office.selected, office);
+      save();
+    });
     el.voice?.addEventListener('change', () => {
       this.voiceMode = setVoiceMode(voiceModeOf(el.voice.value));
       this.soundOn = setSoundEnabled(this.voiceMode !== 'mute');
@@ -226,15 +223,8 @@ export class Hud {
       prefs.soundOn = this.soundOn;
       save();
     });
-    el.llmFilter?.addEventListener('click', (e) => {
-      const b = e.target.closest('button');
-      if (b) { syncLlmFilter(b.dataset.llm); prefs.llmFilter = this.llmFilter; save(); }
-    });
-    el.colorBtn?.addEventListener('click', () => {
-      this.applyColorScheme(COLOR_THEMES[(COLOR_THEMES.indexOf(this.colorTheme) + 1) % COLOR_THEMES.length]);
-      prefs.colorTheme = this.colorTheme;
-      save();
-    });
+    el.llmFilter?.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { syncLlmFilter(b.dataset.llm); prefs.llmFilter = this.llmFilter; save(); } });
+    el.colorBtn?.addEventListener('click', () => { this.applyColorScheme(COLOR_THEMES[(COLOR_THEMES.indexOf(this.colorTheme) + 1) % COLOR_THEMES.length]); prefs.colorTheme = this.colorTheme; save(); });
     el.resetCastBtn?.addEventListener('click', () => { this.llmCharMap = resetLlmCharMap(); prefs.llmCharMap = this.llmCharMap; refreshCast(); });
     el.soundBtn?.addEventListener('click', () => { this.soundOn = setSoundEnabled(!this.soundOn); syncSoundBtn(); prefs.soundOn = this.soundOn; save(); });
     el.langBtn?.addEventListener('click', () => { applyThemeAndLang(this.roomTheme, this.lang === 'ko' ? 'en' : 'ko'); getSource()?.setLang?.(this.lang); prefs.lang = this.lang; save(); });
@@ -250,16 +240,20 @@ export class Hud {
     toggle(el.legendBtn, el.legend, 'legend', false);
     el.legend?.querySelector('#close-legend')?.addEventListener('click', () => el.legendBtn?.click());
 
-    el.floors.addEventListener('click', (e) => {
-      const b = e.target.closest('button');
-      if (b) office.focus(b.dataset.i === 'all' ? 'all' : Number(b.dataset.i));
-    });
+    el.floors.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) office.focus(b.dataset.i === 'all' ? 'all' : Number(b.dataset.i)); });
     el.list.addEventListener('click', (e) => {
       const li = e.target.closest('li');
       const a = li && office.agents.get(li.dataset.sid);
       if (!a) return;
       if (a.floor.index !== office.focusIndex || office.overview) office.focus(a.floor.index);
       office.select(a);
+    });
+    el.insp.querySelector('[data-act="motion"]')?.addEventListener('change', (e) => {
+      const a = office.selected;
+      if (!a) return;
+      a.motionOverride = motionModeOf(e.target.value);
+      a.pet?.(a.motionOverride === 'auto' ? '' : a.motionOverride);
+      this.inspect(a, office);
     });
     el.insp.querySelector('[data-act="pet"]')?.addEventListener('click', () => { office.selected?.pet?.(); if (office.selected) this.inspect(office.selected, office); });
     el.insp.querySelector('[data-act="follow"]').addEventListener('click', () => { office.follow = !office.follow; if (!office.follow) office.layout({ snapPan: true }); this.inspect(office.selected, office); });
@@ -281,7 +275,7 @@ export class Hud {
       }
       if (e.shiftKey && this.controlPreset === 'figma' && ['Digit0', 'Digit1', 'Digit2'].includes(e.code)) {
         e.preventDefault();
-        if (e.code === 'Digit2' && office.selected) { office.select(office.selected, { focusPan: true }); office.stage.zoomTo?.(1.6); }
+        if (e.code === 'Digit2' && office.selected) { office.select(office.selected, { focusPan: true, silent: true }); office.stage.zoomTo?.(1.6); }
         else resetCamera();
         return;
       }
@@ -297,7 +291,7 @@ export class Hud {
       else if (e.key === '-' || e.key === '_') office.stage.zoomBy?.(1 / 1.2);
       else if (k === 'r' || e.key === 'Home') resetCamera();
       else if ((k === 'f' || e.key === '.') && office.selected) {
-        if (e.key === '.') office.select(office.selected, { focusPan: true });
+        if (e.key === '.') office.select(office.selected, { focusPan: true, silent: true });
         else { office.follow = !office.follow; if (!office.follow) office.layout({ snapPan: true }); this.inspect(office.selected, office); }
       }
     });
@@ -473,6 +467,9 @@ export class Hud {
     };
     addSelectRow(t.rows.charOverride, Object.entries(CHARACTER_CATALOG).map(([k, v]) => [k, v[this.lang] || v.ko]), a.charOverride, (v) => { a.charOverride = v; a.refreshCharacter?.(); });
     addSelectRow(t.rows.postureOverride, Object.entries(t.postures), a.postureOverride, (v) => { a.postureOverride = v; a.refreshCharacter?.(); });
+    addSelectRow(t.rows.motionOverride, Object.entries(t.motions), a.motionOverride, (v) => { a.motionOverride = v; a.pet?.(v === 'auto' ? '' : v); this.inspect(a, office); });
+    const motionSel = box.querySelector('[data-act="motion"]');
+    if (motionSel) { for (const o of motionSel.options) o.textContent = t.motions[o.value] || o.textContent; motionSel.value = a.motionOverride || 'auto'; }
     const ol = box.querySelector('ol');
     ol.replaceChildren(...a.history.slice(0, 7).map((h) => {
       const li = Object.assign(document.createElement('li'), { innerHTML: '<time></time><span></span>' });
