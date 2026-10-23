@@ -16,7 +16,7 @@ import {
   LLM_FILTERS, llmFilterOf, setLlmFilter, isLlmVisible, CHARACTER_CATALOG, DEFAULT_LLM_CHAR_MAP, activeLlmCharMapOf, setLlmCharMap, resetLlmCharMap, resolveAgentAppearance,
 } from '../public/js/rooms.js';
 import {
-  CharacterVoice, DogVoice, CatVoice, SynthVoice, voiceFor, makeSound, setSoundEnabled, isSoundEnabled,
+  CharacterVoice, DogVoice, CatVoice, BotVoice, SynthVoice, voiceFor, makeSound, setSoundEnabled, isSoundEnabled,
 } from '../public/js/sound.js';
 import { THEME_LAYOUTS, corridorWaypoints, obstaclesOf } from '../public/js/theme-layouts.js';
 import { MockSource } from '../public/js/sources.js';
@@ -195,10 +195,16 @@ test('LEGEND_AGENTS and LEGEND_SIGNALS: provide theme-adaptive agent/pet swatche
   assert.ok(signalsKo.some((s) => s.id === 'error' && s.desc.includes('식은땀')));
   const signalsEn = legendSignalsFor('en');
   assert.ok(signalsEn.some((s) => s.id === 'ask' && s.desc.includes('approval')));
-  assert.equal(LEGEND_CATALOG.length, 21);
-  assert.equal(legendCatalogFor('ko', 'all').length, 21);
+  const botsEn = legendAgentsFor('bots', 'en');
+  assert.equal(botsEn.length, 8);
+  assert.ok(botsEn.some((b) => b.id === 'bot-claude-duet' && b.label === 'Claude Duet'));
+  assert.ok(botsEn.some((b) => b.id === 'bot-chatgpt-dot' && b.label === 'ChatGPT Dot'));
+  assert.ok(botsEn.some((b) => b.id === 'bot-grok-bot' && b.label === 'Grok Bot'));
+  assert.equal(LEGEND_CATALOG.length, 29);
+  assert.equal(legendCatalogFor('ko', 'all').length, 29);
   assert.equal(legendCatalogFor('ko', 'dogs').length, 8);
   assert.equal(legendCatalogFor('ko', 'cats').length, 8);
+  assert.equal(legendCatalogFor('ko', 'bots').length, 8);
   assert.equal(legendCatalogFor('en', 'human').length, 5);
 });
 
@@ -232,6 +238,14 @@ test('CharacterVoice abstraction and DogVoice/CatVoice/SynthVoice implementation
   assert.equal(cat.makeSound('click').soundId, 'meow');
   assert.equal(cat.makeSound('work').soundId, 'purr');
   assert.equal(cat.makeSound('error').soundId, 'hiss');
+
+  const duetBot = voiceFor({ id: 'b1', agent: 'claude-code', surface: 'app' }, 'bots');
+  assert.ok(duetBot instanceof BotVoice);
+  assert.equal(duetBot.makeSound('click').soundId, 'duet');
+  assert.equal(duetBot.makeSound('hop').soundId, 'servoHop');
+  assert.equal(duetBot.makeSound('error').soundId, 'botError');
+  assert.equal(voiceFor({ id: 'b2', agent: 'codex', surface: 'app' }, 'bots').makeSound('click').soundId, 'dot');
+  assert.equal(voiceFor({ id: 'b3', agent: 'grok' }, 'bots').makeSound('click').soundId, 'grok');
 
   const palace = voiceFor({ id: 's3', agent: 'codex' }, 'palace');
   assert.ok(palace instanceof SynthVoice);
@@ -267,16 +281,10 @@ test('Independent selections and custom LLM-to-character mapping (llmCharMap + p
   // Tier 3: default mapping from activeCharTheme ('dogs') across App & CLI pairs
   const claudeAppDefault = resolveAgentAppearance({ agent: 'claude-code', surface: 'app' });
   assert.equal(claudeAppDefault.charSpec, DEFAULT_LLM_CHAR_MAP.dogs['claude-code:app']);
-  assert.equal(claudeAppDefault.family, 'dogs');
-  assert.equal(claudeAppDefault.breed, 'golden');
-  assert.equal(claudeAppDefault.posture, 'tetrapod');
-  assert.equal(claudeAppDefault.voiceKind, 'dogs');
-  const claudeCliDefault = resolveAgentAppearance({ agent: 'claude-code', surface: 'cli' });
-  assert.equal(claudeCliDefault.breed, 'shiba');
-  const codexAppDefault = resolveAgentAppearance({ agent: 'codex', surface: 'app' });
-  assert.equal(codexAppDefault.breed, 'jindo-black');
-  const codexCliDefault = resolveAgentAppearance({ agent: 'codex', surface: 'cli' });
-  assert.equal(codexCliDefault.breed, 'labrador');
+  assert.deepEqual([claudeAppDefault.family, claudeAppDefault.breed, claudeAppDefault.posture, claudeAppDefault.voiceKind], ['dogs', 'golden', 'tetrapod', 'dogs']);
+  assert.equal(resolveAgentAppearance({ agent: 'claude-code', surface: 'cli' }).breed, 'shiba');
+  assert.equal(resolveAgentAppearance({ agent: 'codex', surface: 'app' }).breed, 'jindo-black');
+  assert.equal(resolveAgentAppearance({ agent: 'codex', surface: 'cli' }).breed, 'labrador');
 
   // Tier 2: custom LLM-to-character mapping overrides global charTheme for that LLM only
   setLlmCharMap('codex', 'cat:bengal');
@@ -285,35 +293,23 @@ test('Independent selections and custom LLM-to-character mapping (llmCharMap + p
   assert.equal(activeLlmCharMapOf()['codex:cli'], 'cat:bengal');
   assert.equal(activeLlmCharMapOf()['codex:app'], 'cat:persian');
   const codexMapped = resolveAgentAppearance({ agent: 'codex', surface: 'cli' });
-  assert.equal(codexMapped.charSpec, 'cat:bengal');
-  assert.equal(codexMapped.family, 'cats');
-  assert.equal(codexMapped.breed, 'bengal');
-  assert.equal(codexMapped.posture, 'tetrapod');
-  const codexAppMapped = resolveAgentAppearance({ agent: 'codex', surface: 'app' });
-  assert.equal(codexAppMapped.charSpec, 'cat:persian');
-  assert.equal(codexAppMapped.breed, 'persian');
+  assert.deepEqual([codexMapped.charSpec, codexMapped.family, codexMapped.breed, codexMapped.posture], ['cat:bengal', 'cats', 'bengal', 'tetrapod']);
+  assert.deepEqual([resolveAgentAppearance({ agent: 'codex', surface: 'app' }).charSpec, resolveAgentAppearance({ agent: 'codex', surface: 'app' }).breed], ['cat:persian', 'persian']);
   const grokMapped = resolveAgentAppearance({ agent: 'grok', surface: '' });
-  assert.equal(grokMapped.charSpec, 'human:starship');
-  assert.equal(grokMapped.family, 'human');
-  assert.equal(grokMapped.style, 'starship');
-  assert.equal(grokMapped.posture, 'bipod');
+  assert.deepEqual([grokMapped.charSpec, grokMapped.family, grokMapped.style, grokMapped.posture], ['human:starship', 'human', 'starship', 'bipod']);
 
   // Tier 1: per-agent charOverride & postureOverride take highest priority
-  const customSession = resolveAgentAppearance({
-    agent: 'codex',
-    surface: '',
-    charOverride: 'dog:corgi',
-    postureOverride: 'bipod',
-  });
-  assert.equal(customSession.charSpec, 'dog:corgi');
-  assert.equal(customSession.breed, 'corgi');
-  assert.equal(customSession.posture, 'bipod');
+  const customSession = resolveAgentAppearance({ agent: 'codex', surface: '', charOverride: 'dog:corgi', postureOverride: 'bipod' });
+  assert.deepEqual([customSession.charSpec, customSession.breed, customSession.posture], ['dog:corgi', 'corgi', 'bipod']);
 
   // Independent voiceMode, colorTheme, and llmFilter
+  setLlmCharMap('grok', 'bot:grok-bot');
+  const grokBot = resolveAgentAppearance({ agent: 'grok' });
+  assert.deepEqual([grokBot.family, grokBot.breed, grokBot.voiceKind], ['bots', 'grok-bot', 'bots']);
   assert.equal(setVoiceMode('chime'), 'chime');
   assert.equal(voiceModeOf('invalid'), 'auto');
   assert.equal(resolveAgentAppearance({ agent: 'claude-code' }).voiceStyle, 'palace');
-  assert.deepEqual(VOICE_MODES, ['auto', 'dogs', 'cats', 'chime', 'chirp', 'blip', 'mute']);
+  assert.deepEqual(VOICE_MODES, ['auto', 'dogs', 'cats', 'bots', 'chime', 'chirp', 'blip', 'mute']);
   assert.deepEqual(COLOR_THEMES, ['system', 'light', 'dark']);
   assert.equal(setColorTheme('dark'), 'dark');
   assert.equal(colorThemeOf('invalid'), 'system');
@@ -441,6 +437,7 @@ test('Acrobatic pass-through maneuvers (jump, roll, flip, spin, prop-fly, phase)
 
   assert.equal(pickManeuverKind({ isSub: true }, 1, 0), 'prop-fly');
   assert.equal(pickManeuverKind({ isSub: true }, 2, 1), 'roll');
+  assert.deepEqual([0, 1, 2].map((s) => pickManeuverKind({ charFamily: 'bots' }, 1, s)), ['phase', 'spin', 'roll']);
   assert.deepEqual([0, 1, 2].map((s) => pickManeuverKind({ agent: 'antigravity', charFamily: 'human' }, 1, s)), ['phase', 'spin', 'roll']);
   assert.deepEqual([0, 2].map((s) => pickManeuverKind({ charFamily: 'cats' }, 1, s)), ['flip', 'spin']);
   assert.deepEqual([0, 1, 2].map((s) => pickManeuverKind({ charFamily: 'dogs' }, 1, s)), ['jump', 'roll', 'spin']);

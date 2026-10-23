@@ -305,6 +305,7 @@ export function pickManeuverKind(agent = {}, blockerCount = 1, seq = 0, explicit
   if (ov && MANEUVER_SPECS[ov]) return ov;
   const family = agent.charFamily || resolveAgentAppearance(agent).family;
   if (agent.isSub) return blockerCount >= 2 && seq % 2 === 1 ? 'roll' : 'prop-fly';
+  if (family === 'bots') return blockerCount >= 2 && seq % 2 === 1 ? 'prop-fly' : (seq % 3 === 2 ? 'roll' : (seq % 3 === 1 ? 'spin' : 'phase'));
   if (agent.agent === 'antigravity' && family === 'human') return seq % 3 === 2 ? 'roll' : (seq % 3 === 1 ? 'spin' : 'phase');
   if (family === 'cats') return blockerCount >= 3 && seq % 2 === 1 ? 'roll' : (seq % 3 === 2 ? 'spin' : 'flip');
   if (family === 'dogs') return blockerCount >= 2 ? 'roll' : (seq % 3 === 2 ? 'spin' : (seq % 2 === 1 ? 'roll' : 'jump'));

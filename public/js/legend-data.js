@@ -128,6 +128,17 @@ export const LEGEND_CATS = Object.freeze([
   Object.freeze({ id: 'cat-fold', spec: 'cat:fold', swatch: 'background:conic-gradient(#ffd166,#38bdf8,#a855f7,#ffd166);border-radius:50%', label: Object.freeze({ ko: '스코티시 폴드', en: 'Scottish Fold' }), desc: Object.freeze({ ko: '서브에이전트(0.74×) · 동그랗게 접힌 귀 · 살구빛 치즈 태비', en: 'Subagent (0.74×) · Adorable folded ears · honey-apricot tabby' }) }),
 ]);
 
+export const LEGEND_BOTS = Object.freeze([
+  Object.freeze({ id: 'bot-claude-duet', spec: 'bot:claude-duet', swatch: 'background:#f08c5b;border-radius:50%', label: Object.freeze({ ko: '클로드 듀엣 봇', en: 'Claude Duet' }), desc: Object.freeze({ ko: 'Claude·App · 코랄 포슬린 섀시 · 트윈 하모닉 공명 링 + 듀엣 안테나', en: 'Claude·App · Coral-porcelain chassis · twin harmonic duet rings' }) }),
+  Object.freeze({ id: 'bot-claude-code', spec: 'bot:claude-code', swatch: 'background:#d97757;border-radius:50%', label: Object.freeze({ ko: '클로드 코드 봇', en: 'Claude Bot' }), desc: Object.freeze({ ko: 'Claude Code·CLI · 테라코타 메카 · 터미널 챙 바이저 + 스파크 안테나', en: 'Claude Code·CLI · Terracotta mech · terminal visor & spark antenna' }) }),
+  Object.freeze({ id: 'bot-chatgpt-dot', spec: 'bot:chatgpt-dot', swatch: 'background:#14b8a6;border-radius:50%', label: Object.freeze({ ko: '챗GPT 도트 봇', en: 'ChatGPT Dot' }), desc: Object.freeze({ ko: 'ChatGPT·App · 민트 구형 도트 오브 · 보이스 파동 링 + 자기부상 호버', en: 'ChatGPT·App · Mint spherical Dot orb · voice-wave ring & hover disc' }) }),
+  Object.freeze({ id: 'bot-codex-droid', spec: 'bot:codex-droid', swatch: 'background:#10b981;border-radius:50%', label: Object.freeze({ ko: '코덱스 드로이드', en: 'Codex Droid' }), desc: Object.freeze({ ko: 'Codex·CLI · 에메랄드 헥사 장갑 · 매트릭스 HUD 바이저 + 트윈 셀', en: 'Codex·CLI · Emerald hex-armor · matrix HUD visor & twin cells' }) }),
+  Object.freeze({ id: 'bot-grok-bot', spec: 'bot:grok-bot', swatch: 'background:#a855f7;border-radius:50%', label: Object.freeze({ ko: '그록 봇', en: 'Grok Bot' }), desc: Object.freeze({ ko: 'Grok Build·CLI · 옵시디언·바이올렛 · 블랙홀 토성 궤도 링 + X-코어', en: 'Grok Build·CLI · Obsidian-violet · Saturn orbit ring & X-core' }) }),
+  Object.freeze({ id: 'bot-agy-probe', spec: 'bot:agy-probe', swatch: 'background:#06b6d4;border-radius:50%', label: Object.freeze({ ko: 'AGY 프로브 봇', en: 'AGY Probe Bot' }), desc: Object.freeze({ ko: 'Antigravity·CLI · 시안 제로G 프로브 · 이중 반중력 링 + 프리즘 코어', en: 'Antigravity·CLI · Cyan zero-G probe · dual gravity rings & prism' }) }),
+  Object.freeze({ id: 'bot-agy-mech', spec: 'bot:agy-mech', swatch: 'background:#3b82f6;border-radius:50%', label: Object.freeze({ ko: 'AGY 아스트랄 봇', en: 'AGY Astral Bot' }), desc: Object.freeze({ ko: 'Antigravity·App · 코발트 센티넬 메카 · 사파이어 크라운 + 플라즈마 제트', en: 'Antigravity·App · Cobalt sentinel mech · sapphire crown & thrusters' }) }),
+  Object.freeze({ id: 'bot-mini-drone', spec: 'bot:mini-drone', swatch: 'background:conic-gradient(#ffd166,#38bdf8,#a855f7,#ffd166);border-radius:50%', label: Object.freeze({ ko: '미니 드론 봇', en: 'Mini Drone Bot' }), desc: Object.freeze({ ko: '서브에이전트(0.74×) · 동축 로터 드론 봇 · 부모 색상 계승 + 호버 포드', en: 'Subagent (0.74×) · Coaxial rotor drone bot · inherits parent hue' }) }),
+]);
+
 export const LEGEND_SIGNALS = Object.freeze([
   Object.freeze({ id: 'speech', swatch: 'background:#fffdf8;border:1.5px solid #2b2a27;border-radius:6px', label: Object.freeze({ ko: '일반 말풍선', en: 'Speech Bubble' }), desc: Object.freeze({ ko: '도구 실행 · 대답 · 작업 완료', en: 'Tool execution · reply · task done' }) }),
   Object.freeze({ id: 'think', swatch: 'background:#fffdf8;border:1.5px dotted #6b6358;border-radius:50%', label: Object.freeze({ ko: '구름 말풍선', en: 'Cloud Bubble' }), desc: Object.freeze({ ko: '에이전트 추론 · 생각 중 (손글씨체)', en: 'Internal reasoning · thinking' }) }),
@@ -148,6 +159,7 @@ export const CHAR_THEMES = Object.freeze({
   starship:        Object.freeze({ ko: 'SF 스타십 크루',     en: 'Sci-Fi Starship Crew' }),
   dogs:            Object.freeze({ ko: '강아지 군단 (기본)', en: 'Dog Pack (Default)' }),
   cats:            Object.freeze({ ko: '고양이 살롱 (기본)', en: 'Cat Pack (Default)' }),
+  bots:            Object.freeze({ ko: '로봇 군단 (기본)',   en: 'Bot Squad (Default)' }),
   mix:             Object.freeze({ ko: '동물·캐릭터 혼합',   en: 'Mixed Cast' }),
   'dog:golden':      Object.freeze({ ko: '강아지 · 골든 리트리버', en: 'Dog · Golden Retriever' }),
   'dog:labrador':    Object.freeze({ ko: '강아지 · 래브라도',      en: 'Dog · Labrador' }),
@@ -165,6 +177,14 @@ export const CHAR_THEMES = Object.freeze({
   'cat:siamese':     Object.freeze({ ko: '고양이 · 샤미즈(샴)',    en: 'Cat · Siamese' }),
   'cat:ragdoll':     Object.freeze({ ko: '고양이 · 랙돌',          en: 'Cat · Ragdoll' }),
   'cat:fold':        Object.freeze({ ko: '고양이 · 스코티시 폴드', en: 'Cat · Scottish Fold' }),
+  'bot:claude-duet': Object.freeze({ ko: '로봇 · 클로드 듀엣 봇',  en: 'Bot · Claude Duet' }),
+  'bot:claude-code': Object.freeze({ ko: '로봇 · 클로드 코드 봇',  en: 'Bot · Claude Bot' }),
+  'bot:chatgpt-dot': Object.freeze({ ko: '로봇 · 챗GPT 도트 봇',   en: 'Bot · ChatGPT Dot' }),
+  'bot:codex-droid': Object.freeze({ ko: '로봇 · 코덱스 드로이드', en: 'Bot · Codex Droid' }),
+  'bot:grok-bot':    Object.freeze({ ko: '로봇 · 그록 봇',         en: 'Bot · Grok Bot' }),
+  'bot:agy-probe':   Object.freeze({ ko: '로봇 · AGY 프로브 봇',   en: 'Bot · AGY Probe Bot' }),
+  'bot:agy-mech':    Object.freeze({ ko: '로봇 · AGY 아스트랄 봇', en: 'Bot · AGY Astral Bot' }),
+  'bot:mini-drone':  Object.freeze({ ko: '로봇 · 미니 드론 봇',    en: 'Bot · Mini Drone Bot' }),
 });
 
 export const DEFAULT_CHAR_THEME = 'studio';
@@ -192,6 +212,14 @@ export const CHARACTER_CATALOG = Object.freeze({
   'cat:siamese':     Object.freeze({ ko: '고양이 · 샤미즈(샴)',     en: 'Cat · Siamese' }),
   'cat:ragdoll':     Object.freeze({ ko: '고양이 · 랙돌',           en: 'Cat · Ragdoll' }),
   'cat:fold':        Object.freeze({ ko: '고양이 · 스코티시 폴드',  en: 'Cat · Scottish Fold' }),
+  'bot:claude-duet': Object.freeze({ ko: '로봇 · 클로드 듀엣 봇',   en: 'Bot · Claude Duet' }),
+  'bot:claude-code': Object.freeze({ ko: '로봇 · 클로드 코드 봇',   en: 'Bot · Claude Bot' }),
+  'bot:chatgpt-dot': Object.freeze({ ko: '로봇 · 챗GPT 도트 봇',    en: 'Bot · ChatGPT Dot' }),
+  'bot:codex-droid': Object.freeze({ ko: '로봇 · 코덱스 드로이드',  en: 'Bot · Codex Droid' }),
+  'bot:grok-bot':    Object.freeze({ ko: '로봇 · 그록 봇',          en: 'Bot · Grok Bot' }),
+  'bot:agy-probe':   Object.freeze({ ko: '로봇 · AGY 프로브 봇',    en: 'Bot · AGY Probe Bot' }),
+  'bot:agy-mech':    Object.freeze({ ko: '로봇 · AGY 아스트랄 봇',  en: 'Bot · AGY Astral Bot' }),
+  'bot:mini-drone':  Object.freeze({ ko: '로봇 · 미니 드론 봇',     en: 'Bot · Mini Drone Bot' }),
 });
 
 export const LLM_SLOTS = Object.freeze([
@@ -230,17 +258,29 @@ export const DEFAULT_LLM_CHAR_MAP = Object.freeze({
     'antigravity:app': 'cat:ragdoll',
     sub: 'cat:fold',
   }),
+  bots: Object.freeze({
+    'claude-code': 'bot:claude-code',
+    'claude-code:app': 'bot:claude-duet',
+    'claude-code:cli': 'bot:claude-code',
+    codex: 'bot:codex-droid',
+    'codex:app': 'bot:chatgpt-dot',
+    'codex:cli': 'bot:codex-droid',
+    grok: 'bot:grok-bot',
+    'antigravity:cli': 'bot:agy-probe',
+    'antigravity:app': 'bot:agy-mech',
+    sub: 'bot:mini-drone',
+  }),
   mix: Object.freeze({
     'claude-code': 'dog:golden',
-    'claude-code:app': 'dog:golden',
+    'claude-code:app': 'bot:claude-duet',
     'claude-code:cli': 'cat:mainecoon',
     codex: 'cat:bengal',
-    'codex:app': 'cat:persian',
+    'codex:app': 'bot:chatgpt-dot',
     'codex:cli': 'cat:bengal',
-    grok: 'human:starship',
+    grok: 'bot:grok-bot',
     'antigravity:cli': 'dog:jindo-white',
     'antigravity:app': 'cat:ragdoll',
-    sub: 'dog:corgi',
+    sub: 'bot:mini-drone',
   }),
   studio:   uniformPack('human:studio'),
   office:   uniformPack('human:office'),
@@ -249,7 +289,7 @@ export const DEFAULT_LLM_CHAR_MAP = Object.freeze({
   starship: uniformPack('human:starship'),
 });
 
-export const VOICE_MODES = Object.freeze(['auto', 'dogs', 'cats', 'chime', 'chirp', 'blip', 'mute']);
+export const VOICE_MODES = Object.freeze(['auto', 'dogs', 'cats', 'bots', 'chime', 'chirp', 'blip', 'mute']);
 export const DEFAULT_VOICE_MODE = 'auto';
 
 export const COLOR_THEMES = Object.freeze(['system', 'light', 'dark']);
@@ -269,6 +309,7 @@ export const LEGEND_HUMANS = Object.freeze([
 export const LEGEND_CATALOG = Object.freeze([
   ...LEGEND_DOGS.map((d) => Object.freeze({ ...d, category: 'dogs', theme: d.spec })),
   ...LEGEND_CATS.map((c) => Object.freeze({ ...c, category: 'cats', theme: c.spec })),
+  ...LEGEND_BOTS.map((b) => Object.freeze({ ...b, category: 'bots', theme: b.spec })),
   ...LEGEND_HUMANS.map((h) => Object.freeze({ ...h, category: 'human' })),
 ]);
 
@@ -288,8 +329,8 @@ export function legendCatalogFor(lang = 'ko', category = 'all') {
 }
 
 export const CATALOG_TABS = Object.freeze({
-  ko: Object.freeze({ all: '전체 21', dogs: '강아지 8', cats: '고양이 8', human: '휴먼 5' }),
-  en: Object.freeze({ all: 'All 21', dogs: 'Dogs 8', cats: 'Cats 8', human: 'Humans 5' }),
+  ko: Object.freeze({ all: '전체 29', dogs: '강아지 8', cats: '고양이 8', bots: '로봇 8', human: '휴먼 5' }),
+  en: Object.freeze({ all: 'All 29', dogs: 'Dogs 8', cats: 'Cats 8', bots: 'Bots 8', human: 'Humans 5' }),
 });
 
 export function renderCatalogSection(legendEl, lang, activeCharTheme, onPickTheme) {
