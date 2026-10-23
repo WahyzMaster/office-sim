@@ -140,6 +140,13 @@ test('package.json, FUNDING.yml, and source files stay under 500 lines and inclu
   assert.match(funding, /polar:\s*WahyzMaster/);
   assert.match(funding, /buy_me_a_coffee:\s*wahyzdad/);
 
+  const publishWf = read('.github/workflows/publish.yml');
+  assert.match(publishWf, /branches:\s*\n\s*-\s*master/);
+  assert.match(publishWf, /contents:\s*write/);
+  assert.match(publishWf, /chore\(release\):/);
+  assert.match(publishWf, /npm version "\$BUMP"/);
+  assert.match(publishWf, /npm publish --provenance --access public/);
+
   for (const rel of ['public/office.html', 'public/js/share.js', 'public/js/scene.js', 'public/js/main.js', 'public/js/hud.js']) {
     const lines = read(rel).split('\n').length;
     assert.ok(lines <= 500, `${rel} is ${lines} lines (must be <= 500)`);
