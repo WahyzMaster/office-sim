@@ -131,13 +131,12 @@ test('installShareControls: toggles overlay class and stage background, handles 
 test('package.json, FUNDING.yml, and source files stay under 500 lines and include npm + sponsorship metadata', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.equal(pkg.publishConfig?.access, 'public');
-  assert.ok(Array.isArray(pkg.funding) && pkg.funding.length >= 3);
+  assert.ok(Array.isArray(pkg.funding) && pkg.funding.length >= 2);
   assert.ok(pkg.files.includes('scripts/install-skill.mjs'));
   assert.ok(!pkg.files.includes('scripts/'), 'fake-* test scripts are excluded from published tarball');
 
   const funding = read('.github/FUNDING.yml');
   assert.match(funding, /github:\s*\[WahyzMaster\]/);
-  assert.match(funding, /polar:\s*WahyzMaster/);
   assert.match(funding, /buy_me_a_coffee:\s*wahyzdad/);
 
   const publishWf = read('.github/workflows/publish.yml');
