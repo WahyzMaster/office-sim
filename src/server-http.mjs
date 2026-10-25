@@ -2,6 +2,9 @@
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { cspCache, crossSiteFetch, createAuth } from './server-guard.mjs';
+import { parseClaudeHookPayload } from './hooks-receiver.mjs';
+import { focusTerminalForSession } from './terminal-focus.mjs';
+import { SessionRecapTracker } from './session-recap.mjs';
 
 const HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
   + '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
@@ -10,7 +13,7 @@ const TAIL = '</body></html>';
 const JS_RE = /^\/js\/([a-z0-9_-]+)\.js$/;
 const MAX_BODY = 4096;
 const DRAIN_LIMIT = 1024 * 1024; // 413 뒤에 버리며 읽는 상한: 넘게 보내면 연결을 끊는다
-const DATA_ROUTES = new Set(['/events', '/state', '/config']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
+const DATA_ROUTES = new Set(['/events', '/state', '/config', '/api/hooks/claude', '/api/focus-terminal', '/api/recap', '/api/recap/review']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
 const OBSERVE_ROUTES = new Set([...DATA_ROUTES, '/observe']); // 기록 관찰이 켜졌을 때만
 const OBSERVE_ACTIONS = new Set(['start', 'stop']);
 const ERROR_CODE_RE = /^E[A-Z0-9_]{1,31}$/;
@@ -79,11 +82,20 @@ function readBody(req, limit) {
  *           observe?: { status(): object, start(): Promise<object>, stop(): Promise<object> } | null }} o
  *   observe: the live log observation control (ObserveControl). null = feature off: no /observe route, no observe frame.
  */
-export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, log = () => {} }) {
+export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, focusOpts = null, log = () => {} }) {
   const clients = new Set();
   const auth = createAuth(authToken, getPort);
   const csp = cspCache();
   const dataRoutes = observe ? OBSERVE_ROUTES : DATA_ROUTES;
+  const activeHookTools = new Map();
+  const recapTracker = new SessionRecapTracker();
+  for (const ev of store.snapshot().events) recapTracker.observeEvent(ev);
+  const origPush = store.push.bind(store);
+  store.push = (ev) => {
+    const res = origPush(ev);
+    recapTracker.observeEvent(ev);
+    return res;
+  };
 
   function hostAllowed(req) {
     const port = getPort();
@@ -269,6 +281,41 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
       if (isGet) return sendJson(res, 200, { type: 'observe', ...observe.status() });
       return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD, POST' });
     }
+    if (rawPath === '/api/hooks/claude') {
+      if (m !== 'POST') return send(res, 405, 'method not allowed', undefined, { allow: 'POST' });
+      const got = await jsonBody(req, res);
+      if (!got) return;
+      const parsed = parseClaudeHookPayload(got.body, { activeHookTools });
+      if (!parsed) return sendJson(res, 400, { error: 'invalid hook payload' });
+      for (const ev of parsed.events) store.push(ev);
+      return sendJson(res, 200, { ok: true, sessionId: parsed.sessionId, accepted: parsed.events.length });
+    }
+    if (rawPath === '/api/focus-terminal') {
+      if (m !== 'POST') return send(res, 405, 'method not allowed', undefined, { allow: 'POST' });
+      const got = await jsonBody(req, res);
+      if (!got) return;
+      const result = await focusTerminalForSession(got.body?.sessionId, {
+        store, ttyHint: got.body?.tty ?? null, ...(focusOpts ?? {}),
+      });
+      return sendJson(res, result.ok ? 200 : 404, result);
+    }
+    if (rawPath === '/api/recap') {
+      if (!isGet) return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD' });
+      const sid = q >= 0 ? new URLSearchParams(raw.slice(q + 1)).get('sessionId') : null;
+      if (sid) {
+        const recap = recapTracker.getRecap(sid);
+        if (!recap) return sendJson(res, 404, { error: 'session not found' });
+        return sendJson(res, 200, recap);
+      }
+      return sendJson(res, 200, { sessions: recapTracker.summaryList() });
+    }
+    if (rawPath === '/api/recap/review') {
+      if (m !== 'POST') return send(res, 405, 'method not allowed', undefined, { allow: 'POST' });
+      const got = await jsonBody(req, res);
+      if (!got) return;
+      const ok = recapTracker.markReviewed(got.body?.sessionId);
+      return sendJson(res, ok ? 200 : 404, { ok });
+    }
     if (!isGet) return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD' });
     if (rawPath === '/' || rawPath === '/index.html') return serveIndex(res);
     if (rawPath === '/events') {
@@ -295,6 +342,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
   }
 
   function closeAll() {
+    store.push = origPush;
     for (const c of [...clients]) {
       c.closed = true;
       clearInterval(c.timer);
@@ -304,5 +352,5 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     clients.clear();
   }
 
-  return { handler, clients, broadcastConfig, broadcastObserve, closeAll };
+  return { handler, clients, broadcastConfig, broadcastObserve, recapTracker, closeAll };
 }
