@@ -12,6 +12,7 @@ import { COMMIT_RE, createHealth, packageVersion } from './server-health.mjs';
 import { newToken } from './server-guard.mjs';
 import { ADAPTERS, KNOWN_AGENTS, checkAgents, isKnownAgent, probeRoot, probeWithin, selectAdapters } from './adapters/index.mjs';
 import { ObserveControl } from './observe/control.mjs';
+import { parseNotifyArg } from './system-notify.mjs';
 
 const CLAUDE = 'claude-code';
 const OBSERVED = Object.freeze(['grok', 'codex']); // 기록 관찰이 보는 어댑터 (observe-spec)
@@ -21,6 +22,7 @@ export const FIRST_PASS_WAIT_MS = 10_000;
 export const DEFAULTS = Object.freeze({
   port: 4317, host: '127.0.0.1', intervalMs: 250, activeMinutes: 30, rescanMs: 3000,
   idleMs: 1000, pingMs: 15000, ringSize: 1000, auth: false, replay: null, speed: 1, loop: false,
+  notify: false, notifyCategories: null, notifyOpts: null,
   root: path.join(os.homedir(), '.claude', 'projects'),
   agents: null, roots: null, observeDir: null, build: null,
   publicDir: fileURLToPath(new URL('../public/', import.meta.url)),
@@ -50,6 +52,9 @@ function validate(o) {
   // 127.0.0.1 등 루프백에만 바인딩한다 (contract 0)
   if (!LOOPBACK_HOSTS.has(o.host)) throw new RangeError('host must be a loopback address (127.0.0.1, localhost, ::1)');
   if (typeof o.auth !== 'boolean') throw new RangeError('auth must be a boolean');
+  if (typeof o.notify !== 'boolean' && typeof o.notify !== 'string') throw new RangeError('notify must be a boolean or category string');
+  if (o.notifyCategories !== null) parseNotifyArg(o.notifyCategories);
+  if (typeof o.notify === 'string') parseNotifyArg(o.notify);
   if (o.replay !== null && (typeof o.replay !== 'string' || o.replay === '')) throw new RangeError('replay must be a file path');
   if (!(Number.isFinite(o.speed) && o.speed >= 0.1 && o.speed <= 1000)) throw new RangeError('speed must be 0.1..1000');
   if (typeof o.loop !== 'boolean') throw new RangeError('loop must be a boolean');
@@ -332,6 +337,7 @@ export async function start(options = {}) {
   });
   const token = opts.auth ? newToken() : null; // 프로세스 안에서만 만든다 (argv/env 는 다른 사용자에게 보인다)
   let port = opts.port;
+  const parsedNotify = parseNotifyArg(opts.notify ? (opts.notifyCategories ?? opts.notify) : false);
   httpLayer = createHttp({
     store,
     publicDir: opts.publicDir,
@@ -348,6 +354,12 @@ export async function start(options = {}) {
     authToken: token,
     observe,
     focusOpts: opts.focusOpts ?? null,
+    notifyOpts: {
+      enabled: opts.replay ? false : parsedNotify.enabled,
+      categories: parsedNotify.categories,
+      ready: false,
+      ...(opts.notifyOpts ?? {}),
+    },
     log,
   });
   // 시작, 끝, 진행(바뀌었을 때 1초에 한 번까지)을 SSE 로 알린다. config 처럼 제어 메시지라 Store 와 링에는 없다.
@@ -364,7 +376,7 @@ export async function start(options = {}) {
   const urlHost = opts.host.includes(':') ? `[${opts.host}]` : opts.host;
   const url = `http://${urlHost}:${port}/${token ? `?t=${token}` : ''}`;
   group.startLoops();
-  const ready = group.rescan(); // 첫 탐색은 듣기 시작한 뒤 백그라운드로
+  const ready = group.rescan().finally(() => httpLayer.notifier?.setReady(true)); // 첫 탐색은 듣기 시작한 뒤 백그라운드로
   let closing = null;
   const close = () => {
     closing ??= (async () => {
@@ -380,6 +392,7 @@ export async function start(options = {}) {
   };
   return {
     url, token, port, store, ready, close, notImplemented,
+    notifier: httpLayer.notifier,
     stats: () => ({ ...group.stats(), ...store.stats() }),
     get agents() { return group.ids; }, // 늦게 켜진 어댑터도 (F1)
   };

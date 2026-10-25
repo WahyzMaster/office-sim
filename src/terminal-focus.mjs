@@ -92,6 +92,20 @@ on run argv
 end run
 `.trim();
 
+export const WIN_FOCUS_SCRIPT = `
+$target = [string]$env:OFFICE_SIM_TARGET_PROJECT
+if (-not $target) { Write-Output 'none'; exit 0 }
+$procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like "*$target*" }
+$first = $procs | Select-Object -First 1
+if ($first) {
+  $wshell = New-Object -ComObject WScript.Shell
+  [void]$wshell.AppActivate($first.Id)
+  Write-Output ("matched:" + $first.ProcessName)
+} else {
+  Write-Output 'none'
+}
+`.trim();
+
 function execPromise(execFileFn, cmd, args, opts = {}) {
   return new Promise((resolve) => {
     execFileFn(cmd, args, { timeout: 2500, windowsHide: true, ...opts }, (err, stdout) => {
@@ -154,6 +168,21 @@ export async function focusTerminalForSession(sessionId, {
     || (entry?.lastSession?.project ? path.basename(entry.lastSession.project) : '')
     || '';
   const safeProject = projectLabel.replace(/[^a-zA-Z0-9._ -]/g, '').slice(0, 64).trim();
+
+  if (platform === 'win32') {
+    if (safeProject) {
+      const winRes = await execPromise(
+        execFileFn,
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-NoLogo', '-ExecutionPolicy', 'Bypass', '-Command', WIN_FOCUS_SCRIPT],
+        { env: { ...process.env, OFFICE_SIM_TARGET_PROJECT: safeProject } },
+      );
+      if (winRes.ok && winRes.stdout.startsWith('matched:')) {
+        return { ok: true, method: 'window-title', target: winRes.stdout.slice(8), projectLabel: safeProject, sessionId: safeSid };
+      }
+    }
+    return { ok: false, error: 'terminal_not_found', sessionId: safeSid, tty: null };
+  }
 
   if (platform !== 'darwin') {
     return { ok: false, error: 'unsupported_platform', sessionId: safeSid };

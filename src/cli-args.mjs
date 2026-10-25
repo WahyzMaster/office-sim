@@ -2,6 +2,7 @@
 import { expandHome, DEFAULTS, LOOPBACK_HOSTS } from './server.mjs';
 import { MIN_INTERVAL, MAX_INTERVAL } from './server-http.mjs';
 import { KNOWN_AGENTS, checkAgents } from './adapters/index.mjs';
+import { parseNotifyArg } from './system-notify.mjs';
 
 export const USAGE = `Usage: office-sim [options]
 
@@ -20,6 +21,7 @@ export const USAGE = `Usage: office-sim [options]
                        antigravity-ide/ folders are read, never the desktop app's antigravity/)
   --auth               require a per-run token: open the printed URL once, the browser then keeps a cookie
   --open               open the printed URL (with --auth, the token URL) in the default browser once listening
+  --notify [cats]      enable native OS notifications (default: ask,error,done; optional: tool_error, all)
   --replay <file>      replay one past session (<uuid>.jsonl plus its subagents) instead of tailing --claude-root
   --speed <x>          replay speed factor, 0.1..1000 (default 1)
   --loop               replay again from the start when it ends
@@ -43,6 +45,7 @@ const SPEC = {
   'antigravity-root': { key: 'roots', agent: 'antigravity', kind: 'path' },
   auth: { key: 'auth', kind: 'flag' },
   open: { key: 'open', kind: 'flag' }, // bin 만 쓴다 (start() 로 넘기지 않는다)
+  notify: { key: 'notify', kind: 'notify' },
   replay: { key: 'replay', kind: 'path' },
   speed: { key: 'speed', kind: 'num', min: 0.1, max: 1000 },
   loop: { key: 'loop', kind: 'flag' },
@@ -91,6 +94,23 @@ export function parseArgs(argv) {
     if (spec.kind === 'flag') { // 값 없는 스위치: 다음 인자를 먹지 않는다
       if (eq >= 0) throw new Error(`--${name} takes no value`);
       out[spec.key] = true;
+      continue;
+    }
+    if (spec.kind === 'notify') {
+      let raw = 'default';
+      if (eq >= 0) {
+        raw = a.slice(eq + 1);
+        if (raw === '') throw new Error('--notify needs category names');
+      } else if (argv[i + 1] !== undefined && !argv[i + 1].startsWith('-')) {
+        raw = String(argv[++i]);
+      }
+      try {
+        const parsed = parseNotifyArg(raw);
+        out.notify = parsed.enabled;
+        out.notifyCategories = parsed.categories;
+      } catch (err) {
+        throw new Error(`--notify: ${err.message}`);
+      }
       continue;
     }
     let raw = eq < 0 ? argv[++i] : a.slice(eq + 1);

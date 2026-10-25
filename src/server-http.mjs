@@ -5,6 +5,7 @@ import { cspCache, crossSiteFetch, createAuth } from './server-guard.mjs';
 import { parseClaudeHookPayload } from './hooks-receiver.mjs';
 import { focusTerminalForSession } from './terminal-focus.mjs';
 import { SessionRecapTracker } from './session-recap.mjs';
+import { SystemNotifier } from './system-notify.mjs';
 
 const HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
   + '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
@@ -13,7 +14,7 @@ const TAIL = '</body></html>';
 const JS_RE = /^\/js\/([a-z0-9_-]+)\.js$/;
 const MAX_BODY = 4096;
 const DRAIN_LIMIT = 1024 * 1024; // 413 뒤에 버리며 읽는 상한: 넘게 보내면 연결을 끊는다
-const DATA_ROUTES = new Set(['/events', '/state', '/config', '/api/hooks/claude', '/api/focus-terminal', '/api/recap', '/api/recap/review']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
+const DATA_ROUTES = new Set(['/events', '/state', '/config', '/api/hooks/claude', '/api/focus-terminal', '/api/recap', '/api/recap/review', '/api/notify']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
 const OBSERVE_ROUTES = new Set([...DATA_ROUTES, '/observe']); // 기록 관찰이 켜졌을 때만
 const OBSERVE_ACTIONS = new Set(['start', 'stop']);
 const ERROR_CODE_RE = /^E[A-Z0-9_]{1,31}$/;
@@ -82,19 +83,28 @@ function readBody(req, limit) {
  *           observe?: { status(): object, start(): Promise<object>, stop(): Promise<object> } | null }} o
  *   observe: the live log observation control (ObserveControl). null = feature off: no /observe route, no observe frame.
  */
-export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, focusOpts = null, log = () => {} }) {
+export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, focusOpts = null, notifyOpts = null, log = () => {} }) {
   const clients = new Set();
   const auth = createAuth(authToken, getPort);
   const csp = cspCache();
   const dataRoutes = observe ? OBSERVE_ROUTES : DATA_ROUTES;
   const activeHookTools = new Map();
   const recapTracker = new SessionRecapTracker();
-  for (const ev of store.snapshot().events) recapTracker.observeEvent(ev);
+  const notifier = new SystemNotifier(notifyOpts ?? {});
+  for (const ev of store.snapshot().events) {
+    recapTracker.observeEvent(ev);
+    notifier.observeEvent(ev, { live: false });
+  }
   const origPush = store.push.bind(store);
   store.push = (ev) => {
     const res = origPush(ev);
     recapTracker.observeEvent(ev);
+    notifier.observeEvent(ev);
     return res;
+  };
+  const currentConfig = () => {
+    const base = getConfig();
+    return notifier.enabled ? { ...base, notify: notifier.status() } : base;
   };
 
   function hostAllowed(req) {
@@ -166,7 +176,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
       const snap = store.snapshot();
       write(sseFrame(snap.seq, { type: 'snapshot', events: snap.events }));
     }
-    write(sseFrame(store.seq, { type: 'config', ...getConfig() }));
+    write(sseFrame(store.seq, { type: 'config', ...currentConfig() }));
     if (observe) write(sseFrame(store.seq, { type: 'observe', ...observe.status() }));
     if (client.closed) return;
     store.subscribe(listener);
@@ -188,7 +198,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     }
   }
 
-  const broadcastConfig = () => broadcast({ type: 'config', ...getConfig() });
+  const broadcastConfig = () => broadcast({ type: 'config', ...currentConfig() });
 
   function broadcastObserve(status = observe?.status()) {
     if (observe && status) broadcast({ type: 'observe', ...status });
@@ -229,9 +239,27 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     if (!validInterval(v)) {
       return sendJson(res, 400, { error: `intervalMs must be an integer ${MIN_INTERVAL}..${MAX_INTERVAL}` });
     }
-    const cfg = setConfig({ intervalMs: v });
+    setConfig({ intervalMs: v });
     broadcastConfig();
-    sendJson(res, 200, { type: 'config', ...cfg });
+    sendJson(res, 200, { type: 'config', ...currentConfig() });
+  }
+
+  async function postNotify(req, res) {
+    const got = await jsonBody(req, res);
+    if (!got) return;
+    if (got.body?.enabled !== undefined && typeof got.body.enabled !== 'boolean') {
+      return sendJson(res, 400, { error: 'enabled must be a boolean' });
+    }
+    try {
+      notifier.configure({ enabled: got.body?.enabled, categories: got.body?.categories });
+    } catch (err) {
+      return sendJson(res, 400, { error: err?.message ?? 'invalid notify options' });
+    }
+    if (got.body?.test === true) {
+      await notifier.sendTestNotification();
+    }
+    broadcastConfig();
+    sendJson(res, 200, { ok: true, ...notifier.status() });
   }
 
   // 기록 관찰 켜고 끄기: { action: 'start' | 'stop' }. 이미 그 상태면 아무것도 하지 않고 상태를 돌려준다.
@@ -273,7 +301,12 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     if (dataRoutes.has(rawPath) && crossSiteFetch(req)) return send(res, 403, 'cross-site request');
     if (rawPath === '/config') {
       if (m === 'POST') return postConfig(req, res);
-      if (isGet) return sendJson(res, 200, { type: 'config', ...getConfig() });
+      if (isGet) return sendJson(res, 200, { type: 'config', ...currentConfig() });
+      return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD, POST' });
+    }
+    if (rawPath === '/api/notify') {
+      if (m === 'POST') return postNotify(req, res);
+      if (isGet) return sendJson(res, 200, { ok: true, ...notifier.status() });
       return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD, POST' });
     }
     if (observe && rawPath === '/observe') {
@@ -352,5 +385,5 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     clients.clear();
   }
 
-  return { handler, clients, broadcastConfig, broadcastObserve, recapTracker, closeAll };
+  return { handler, clients, broadcastConfig, broadcastObserve, recapTracker, notifier, closeAll };
 }
