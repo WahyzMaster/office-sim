@@ -1,10 +1,12 @@
 // 진입점: 무대, 사무실, HUD, 이벤트 공급원을 연결하고 루프를 돌린다.
+import * as THREE from 'three';
 import { createStage } from './scene.js';
 import { Office } from './office.js';
 import { Hud } from './hud.js';
 import { MockSource, LiveSource } from './sources.js';
 import { scrollScreens } from './furniture.js';
 import { installShareControls } from './share.js';
+import { installAgentExtras } from './agent-extras.js';
 
 const cfg = { speed: 1, intervalMs: 250 };
 const stage = createStage(document.getElementById('stage'));
@@ -50,6 +52,7 @@ if (benchMode) {
 }
 hud.bind(office, cfg, () => source);
 installShareControls({ stage, hud });
+installAgentExtras({ stage, office, hud, THREE });
 
 let down = null;
 const canvas = stage.renderer.domElement;

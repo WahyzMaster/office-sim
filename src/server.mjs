@@ -347,6 +347,7 @@ export async function start(options = {}) {
     health: createHealth({ group, store, build: { version: packageVersion(), commit: opts.build?.commit ?? null }, startedAt }),
     authToken: token,
     observe,
+    focusOpts: opts.focusOpts ?? null,
     log,
   });
   // 시작, 끝, 진행(바뀌었을 때 1초에 한 번까지)을 SSE 로 알린다. config 처럼 제어 메시지라 Store 와 링에는 없다.
