@@ -7,6 +7,7 @@ import { MockSource, LiveSource } from './sources.js';
 import { scrollScreens } from './furniture.js';
 import { installShareControls } from './share.js';
 import { installAgentExtras } from './agent-extras.js';
+import { installSystemNotifications } from './system-notify.js';
 
 const cfg = { speed: 1, intervalMs: 250 };
 const stage = createStage(document.getElementById('stage'));
@@ -53,6 +54,7 @@ if (benchMode) {
 hud.bind(office, cfg, () => source);
 installShareControls({ stage, hud });
 installAgentExtras({ stage, office, hud, THREE });
+installSystemNotifications({ office, hud });
 
 let down = null;
 const canvas = stage.renderer.domElement;
