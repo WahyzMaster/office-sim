@@ -22,7 +22,7 @@
 
 ---
 
-**Office Sim** is a zero-dependency local 3D office visualizer that tails your AI coding agent session logs every 250ms and renders **Claude Code**, **OpenAI Codex**, **Grok (xAI Grok Build)**, and **Google Antigravity** (`agy` CLI & Desktop App) agents collaborating across project floors in real time.
+**Office Sim** is a zero-dependency local 3D office visualizer that tails your AI coding agent session logs every 250ms (plus sub-10ms Claude Code HTTP hooks) and renders **Claude Code** (CLI & Claude Desktop), **OpenAI Codex** (CLI & ChatGPT Desktop), **Grok (xAI Grok Build)** (CLI & Desktop Bot), and **Google Antigravity** (`agy` CLI & Desktop App) agents collaborating across project floors in real time.
 
 ## Quick Start
 
@@ -31,6 +31,9 @@ Requires **Node.js 22+** and has **zero runtime dependencies**.
 ```bash
 # Run directly with npx
 npx office-sim --open
+
+# Enable native macOS / Windows system notifications for agent prompts & completions
+npx office-sim --open --notify
 
 # Or clone and start locally
 git clone https://github.com/WahyzMaster/office-sim.git
@@ -45,31 +48,45 @@ npm start
 
 | Puppy Park (`dogs`) | Luxury Cat Salon (`cats`) |
 | :---: | :---: |
-| <img src="docs/assets/theme-dogs.png" alt="Puppy Park Theme with 8 3D Dog Breeds" width="100%" /> | <img src="docs/assets/theme-cats.png" alt="Luxury Cat Salon Theme with 6 3D Cat Breeds" width="100%" /> |
-| **Bone-shaped lawn, paw fountain, agility hoops & 8 3D dog breeds** (Golden/Labrador Retriever, White/Black/Four-Eyed Jindo, Border Collie, Welsh Corgi, Shiba Inu) | **Cat-ear velvet sunroom, 3-tier cat tower & 6 luxury 3D cat breeds** (Savannah/Ashera, Bengal, British/Russian Blue, Siamese, Ragdoll, Scottish Fold) |
+| <img src="docs/assets/theme-dogs.png" alt="Puppy Park Theme with 8 3D Dog Breeds" width="100%" /> | <img src="docs/assets/theme-cats.png" alt="Luxury Cat Salon Theme with 8 3D Cat Breeds" width="100%" /> |
+| **Bone-shaped lawn, paw fountain, agility hoops & 8 3D dog breeds** (Golden/Labrador Retriever, White/Black/Bear Jindo, Border Collie, Welsh Corgi, Shiba Inu) | **Cat-ear velvet sunroom, 3-tier cat tower & 8 luxury 3D cat breeds** (Savannah/Ashera, Maine Coon, Chinchilla Persian, Bengal, British/Russian Blue, Siamese, Ragdoll, Scottish Fold) |
 | **Joseon Palace (`palace` - Night Lighting)** | **Multi-Floor Overview (`starship` & `hanok`)** |
 | <img src="docs/assets/theme-palace-night.png" alt="Joseon Palace Theme in Night Mode" width="100%" /> | <img src="docs/assets/theme-hanok-starship.png" alt="Multi-Floor Sci-Fi Starship and Traditional Hanok Overview" width="100%" /> |
-| **Stepped white stone base (`Jangdaeseok`), Gyeonghoeru lotus pond & warm lantern glow** under Night lighting mode | **Stacked project floors** with octagonal Sci-Fi Starship warp core (`2F`) and L/U-shaped Traditional Hanok courtyard (`1F`) |
-| **AI Studio (`studio`)** | **19-Character Catalog & Custom LLM Mapping** |
-| <img src="docs/assets/theme-studio.png" alt="AI Studio Theme with Live Agent Speech Bubbles" width="100%" /> | <img src="docs/assets/legend-catalog.png" alt="Scrollable 19-Character Legend and Agent Inspector" width="100%" /> |
-| **Modern glass AI studio** with real-time tool speech bubbles, 3D whiteboard checklist, and Review & Approval Intercom Booth | **Scrollable Visual Legend** displaying all 19 rotating 3D character/pet models and per-LLM custom character assignments |
+| **Stepped white stone base (`Jangdaeseok`), Gyeonghoeru lotus pond & warm lantern glow** under Night lighting mode | **Stacked project floors** with octagonal Sci-Fi Starship warp core (`2F`), L/U-shaped Traditional Hanok courtyard (`1F`), and **Bot Squad** |
+| **AI Studio (`studio`)** | **29-Character Catalog & Agent Inspector** |
+| <img src="docs/assets/theme-studio.png" alt="AI Studio Theme with Live Agent Speech Bubbles" width="100%" /> | <img src="docs/assets/legend-catalog.png" alt="Scrollable 29-Character Legend and Agent Inspector" width="100%" /> |
+| **Modern glass AI studio** with real-time tool speech bubbles, **3D Context Fuel Rings**, whiteboard checklist, and Agent Inspector (`Focus TTY (T)` & `Sprint Recap (M)`) | **Scrollable 29-Character Visual Legend** (`All 29 | Dogs 8 | Cats 8 | Bots 8 | Humans 5`) alongside **8 per-LLM Cast assignment cards** |
 
 ## Features
 
-- **Multi-Agent Support Out of the Box**: Automatically discovers and tails local session logs from Claude Code (`~/.claude/projects`), OpenAI Codex (`~/.codex`), Grok (`~/.grok`), and Google Antigravity (`~/.gemini/{antigravity,antigravity-cli,antigravity-ide}`).
-- **7-Axis Independent Customization**:
+- **Multi-Agent CLI & Desktop Cloud Chat Support**:
+  - Automatically discovers and tails local CLI/IDE session logs from **Claude Code** (`~/.claude/projects`), **OpenAI Codex** (`~/.codex`), **Grok** (`~/.grok`), and **Google Antigravity** (`~/.gemini/{antigravity,antigravity-cli,antigravity-ide}`).
+  - Also detects active **Claude Desktop** (`claude-code:app`), **ChatGPT Desktop / Dot** (`codex:app`), and **Grok Desktop Bot** (`grok:app`) sessions and renders them as 3D Bot characters by default.
+  - Accepts real-time **Claude Code HTTP Hooks** (`POST /api/hooks/claude`) for sub-10ms event delivery alongside 250ms JSONL tailing.
+- **Native macOS & Windows System Notifications (`--notify` / `N`)**:
+  - Opt-in desktop alerts via `--notify [ask,error,done,tool_error]` or the top-bar **Notify Off / Notify On** (`#notify-toggle`, shortcut `N`) button, synced in real time via `GET/POST /api/notify`.
+  - Uses native macOS Notification Center (`/usr/bin/osascript`) and Windows 10/11 WinRT `ToastNotificationManager` (`NotifyIcon` fallback) with zero external dependencies and 5 corpus-backed anti-noise guards (`3.5s` Ask wait-confirm, `4.0s` Turn Done settle, `4.0s` per-agent cooldown, subagent intermediate suppression, and `replay` hard-mute), plus Web `Notification` API fallback.
+- **Click-to-Focus Native Terminal / IDE Tab (`T`)**:
+  - Click any 3D agent character or press `T` (`Focus TTY (T)` in the Inspector) to bring the agent's native terminal tab or IDE window to the foreground on **macOS** (`iTerm2`, `Terminal.app`, `Cursor`, `VS Code`, `Antigravity`, `Ghostty`, `WezTerm`, `Warp`) and **Windows** (`Windows Terminal`, `VS Code`, `Cursor`, `PowerShell`).
+- **3D Context Window Fuel Ring & Token / Cost Estimator**:
+  - Each 3D character stands on a live **Context Window Fuel Ring** that shifts from Green (`<60%`) to Amber (`60-85%`) to pulsing Red (`>85%`) and triggers a compaction particle burst when context is compacted.
+  - The Agent Inspector displays a live context utilization bar, token breakdown, and estimated session spend in USD.
+- **Unreviewed `Done` Badge & 1-Click Sprint Recap (`M`)**:
+  - Completed agent turns display an amber **`Done` badge** on the floating character tag until reviewed.
+  - Press `M` or click **Sprint Recap (M)** in the Inspector to view and copy a structured Markdown summary of edited files, commands, and verification steps.
+- **8-Axis Independent Customization**:
   - **Place (`7` Architectural Themes)**: Switch the 3D floor structure and room furniture between `AI Studio`, `Tech Office`, `Joseon Palace`, `Traditional Hanok`, `Sci-Fi Starship`, `Puppy Park`, and `Luxury Cat Salon`.
-  - **Character (`8` Presets + `Custom` Mode)**: Decouple character costumes/species from the building architecture (`Match Place`, `Modern Crew`, `Office Casual`, `Joseon Court`, `Hanok Scholars`, `Starfleet Crew`, `8 Dog Breeds`, `6 Cat Breeds`, or `Custom`).
-  - **Per-LLM Character Mapping (`19` 3D Models)**: Assign any of the 19 3D human costumes, dog breeds, or cat breeds individually to **Claude Code**, **OpenAI Codex**, **Grok**, **Antigravity (CLI)**, **Antigravity (App)**, and **Sub-agents** via the Custom Mapping modal (gear button), with persistent storage in `localStorage`.
-  - **Posture (`Auto` / `Sit` / `Stand`)**: Let characters sit at desks automatically or force standing/sitting poses across the floor.
-  - **Voice (`Off` / `Auto` / `Animal` / `Human`)**: Synthesized Web Audio sound effects tailored to human speech chimes, dog barks, or cat meows.
+  - **Character (`9` Presets + Individual Breeds/Bots)**: Decouple character costumes/species from the building architecture (`AI Studio Chibi`, `Tech Office Staff`, `Joseon Royal Official`, `Traditional Hanok Scholar`, `Sci-Fi Starship Crew`, `Dog Pack`, `Cat Pack`, `Bot Squad`, `Mixed Cast`, or any of the 29 individual models).
+  - **Per-LLM Character Mapping (`29` 3D Models across `8` Cast Slots)**: Assign any of the **29 3D models** (`8` Dog breeds + `8` Cat breeds + `8` 3D Bots: `Claude Duet`, `Claude Bot`, `ChatGPT Dot`, `Codex Droid`, `Grok Bot`, `AGY Probe Bot`, `AGY Astral Bot`, `Mini Drone Bot` + `5` Human Chibi themes) individually across **8 LLM cast slots** (`Claude/Claude Code·App`, `Claude Code·CLI`, `ChatGPT/Codex·App`, `Codex·CLI`, `Grok Build·CLI`, `Antigravity·CLI`, `Antigravity·App`, and `Subagent`).
+  - **Motion (`Auto` + `6` Acrobatic Stunts)**: Trigger `Jump`, `Roll`, `Cat Flip`, `Spin`, `Propeller Fly`, or `Phase` stunts globally, per agent in the Inspector, or by clicking any 3D character in the scene.
+  - **Posture (`Auto` / `Sit` / `Stand` / `Bipod` / `Tetrapod`)**: Let characters sit at desks automatically, force standing/sitting poses, or switch between 2-legged (`Bipod`) and 4-legged (`Tetrapod`) gaits.
+  - **Voice (`Off` / `Auto` / `Animal` / `Human` / `Bots`)**: Synthesized Web Audio sound effects tailored to human speech chimes, dog barks, cat meows, or sci-fi droid bleeps (`BotVoice`).
   - **Lighting (`Day` / `Night` / `Auto`)**: Switch between bright daylight, warm night-time architectural lighting, or local-clock automatic cycling.
   - **Controls (`4` Camera Presets) & Bilingual UI (`KO / EN`)**: Instant toggle between Korean and English UI labels.
 - **3D Obstacle & Furniture Collision Avoidance**:
-  - Every room desk, server rack, conference table, cat tower, and courtyard pond registers a 2D AABB collider per floor.
-  - Agents smoothly steer around furniture obstacles and doorway thresholds while walking between rooms and settling into non-overlapping seats.
+  - Every room desk, server rack, conference table, cat tower, and courtyard pond registers a 2D AABB collider per floor so agents smoothly steer around furniture and doorway thresholds.
 - **Scrollable Visual Legend & Interactive 3D Catalog**:
-  - Inspect all **19 rotating 3D models** (5 human themes + 8 dog breeds + 6 cat breeds) alongside the **6 live LLM assignment cards**, room color swatches, and speech bubble signal meanings.
+  - Inspect all **29 rotating 3D models** with category filter tabs (`All 29 | Dogs 8 | Cats 8 | Bots 8 | Humans 5`) alongside the **8 live LLM Cast cards**, room color swatches, and speech bubble signal meanings.
 - **Project Floors & Review Intercom Booth**:
   - Each repository/workspace gets its own floor (`1F`, `2F`, ...); git worktrees of the same repo share a floor, and workspace-less sessions gather on the `Global · Unassigned` (`전역 · 미지정`) floor.
   - The `desk` room features a **3D Review & Approval Intercom Booth** where agents walk to ask questions or await permission approval.
@@ -94,9 +111,9 @@ npm start
 
 | Agent | Agent ID | Status & Notes |
 |---|---|---|
-| Claude Code | `claude-code` | Supported (`~/.claude/projects/**/*.jsonl`, including subagents and `--replay`) |
-| Grok (xAI Grok Build) | `grok` | Supported (P5c). Live permission approval wait supported (P5g, 라이브 승인 대기 표시: reads only 4 fields from `events.jsonl`) |
-| OpenAI Codex (App, CLI, IDE) | `codex` | Supported (P5d, `~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl` & `session_index.jsonl`) |
+| Claude Code (CLI & Claude Desktop) | `claude-code` | Supported (`~/.claude/projects/**/*.jsonl`, HTTP hooks `POST /api/hooks/claude`, Claude Desktop App watcher, subagents, and `--replay`) |
+| Grok (xAI Grok Build) | `grok` | Supported (P5c). Live permission approval wait supported (P5g, 라이브 승인 대기 표시: reads only 4 fields from `events.jsonl`), plus Grok Desktop Bot watcher |
+| OpenAI Codex (App, CLI, IDE & ChatGPT Desktop) | `codex` | Supported (P5d, `~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl`, `session_index.jsonl`, and ChatGPT Desktop / Dot watcher) |
 | Antigravity CLI (`agy`) & Legacy IDE | `antigravity` (`surface: 'cli'`) | Supported (P5e, `~/.gemini/{antigravity-cli,antigravity-ide}/brain/<id>/.system_generated/logs/`) |
 | Antigravity Desktop App (2.x) | `antigravity` (`surface: 'app'`) | Supported (`~/.gemini/antigravity/brain/<id>/.system_generated/logs/`, plus `task.md` / `implementation_plan.md` checklists; never opens encrypted `conversations/*.pb`) |
 
@@ -109,7 +126,7 @@ npm start
 | **3D Orbit** | Orbit camera | Right-drag or `Shift`/`Space`+drag: Pan | Zoom in / out (`Q`/`E`: Rotate) |
 | **Blender** | Pan across floor | Middle-drag or `Alt`+Left-drag: Orbit | Zoom in / out (`.`/`F`: Focus selected, `Home`/`R`: Reset) |
 
-Common shortcuts: `WASD` / Arrow keys (pan), `Q` / `E` (rotate), `+` / `-` (zoom), `1`-`9` (select floor), `0` (overview all floors), `F` or double-click character (follow agent), `R` or `Home` (reset camera), `Esc` (deselect).
+Common shortcuts: `WASD` / Arrow keys (pan), `Q` / `E` (rotate), `+` / `-` (zoom), `1`-`9` (select floor), `0` (overview all floors), `F` or double-click character (follow agent), `T` (focus agent terminal / IDE tab), `M` (open Sprint Recap Markdown card), `N` (toggle system notifications), `O` (toggle streamer overlay mode), `R` or `Home` (reset camera), `Esc` (deselect).
 
 ## CLI Options
 
@@ -129,6 +146,7 @@ node bin/office-sim.mjs [options]
 | `--codex-root <dir>` | `~/.codex` | OpenAI Codex home directory |
 | `--grok-root <dir>` | `~/.grok` | xAI Grok Build home directory |
 | `--antigravity-root <dir>` | `~/.gemini` | Google Antigravity home directory |
+| `--notify [cats]` | off | Native OS notifications (`ask,error,done` default; accepts `tool_error`, `all`, `off`) |
 | `--replay <file.jsonl>` | off | Replay a recorded Claude Code session file with original timing |
 | `--speed <n>` | `1` | Replay speed multiplier (`0.1`..`1000`) |
 | `--loop` | off | Loop replay continuously |
