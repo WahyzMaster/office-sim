@@ -12,6 +12,11 @@ const HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
   + '<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style></head><body>';
 const TAIL = '</body></html>';
 const JS_RE = /^\/js\/([a-z0-9_-]+)\.js$/;
+const FAVICON_TYPES = Object.freeze({
+  '/favicon.svg': 'image/svg+xml; charset=utf-8',
+  '/favicon.png': 'image/png',
+  '/favicon.ico': 'image/x-icon',
+});
 const MAX_BODY = 4096;
 const DRAIN_LIMIT = 1024 * 1024; // 413 뒤에 버리며 읽는 상한: 넘게 보내면 연결을 끊는다
 const DATA_ROUTES = new Set(['/events', '/state', '/config', '/api/hooks/claude', '/api/focus-terminal', '/api/recap', '/api/recap/review', '/api/notify']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
@@ -139,6 +144,16 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
       return send(res, 404, 'not found');
     }
     send(res, 200, buf, 'text/javascript; charset=utf-8', { 'cache-control': 'no-cache' });
+  }
+
+  async function serveFavicon(res, rawPath) {
+    let buf;
+    try {
+      buf = await fsp.readFile(path.join(publicDir, rawPath.slice(1)));
+    } catch {
+      return send(res, 404, 'not found');
+    }
+    send(res, 200, buf, FAVICON_TYPES[rawPath], { 'cache-control': 'public, max-age=86400' });
   }
 
   function openEvents(req, res) {
@@ -360,6 +375,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
       return sendJson(res, 200, { type: 'snapshot', seq: snap.seq, events: snap.events });
     }
     if (rawPath === '/healthz') return sendJson(res, 200, health(clients.size)); // 본문은 server-health.mjs (처음 다섯 키는 예전 그대로)
+    if (FAVICON_TYPES[rawPath]) return serveFavicon(res, rawPath);
     const js = JS_RE.exec(rawPath);
     if (js) return serveJs(res, js[1]);
     return send(res, 404, 'not found');

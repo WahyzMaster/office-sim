@@ -183,6 +183,12 @@ test('GET / wraps office.html; /js serves modules and rejects traversal; Host an
     assert.equal(js.status, 200);
     assert.equal(js.headers['content-type'], 'text/javascript; charset=utf-8');
     assert.ok(js.body.includes('LiveSource'));
+    const favSvg = await request(port, { path: '/favicon.svg' });
+    assert.equal(favSvg.status, 200);
+    assert.equal(favSvg.headers['content-type'], 'image/svg+xml; charset=utf-8');
+    assert.ok(favSvg.body.includes('<svg'));
+    assert.equal((await request(port, { path: '/favicon.png' })).headers['content-type'], 'image/png');
+    assert.equal((await request(port, { path: '/favicon.ico' })).headers['content-type'], 'image/x-icon');
     for (const p of ['/js/../package.json', '/js/..%2fpackage.json', '/js/%2e%2e/main.js', '/js/x.css', '/js/Main.js', '/js/nope.js', '/package.json']) {
       const r = await request(port, { path: p });
       assert.ok(r.status === 400 || r.status === 404, `${p} -> ${r.status}`);
