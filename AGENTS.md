@@ -1,7 +1,7 @@
 # AGENTS.md — office-sim
 
 ## Scope & Global Profile
-- **User-Scope (`INV`)**: `WahyzDAD/wahyz_agent_profile#v1.3.0` (`~/.codex/AGENTS.md`).
+- **User-Scope (`INV`)**: `WahyzDAD/wahyz_agent_profile#v1.4.0` (`~/.codex/AGENTS.md`).
 - **Project-Scope (`DOM`)**: `office-sim` (Node.js 22+ zero-dependency 3D multi-agent visualizer). Read `CLAUDE.md` for full module architecture and privacy invariants.
 - **Harness² Budget**: Keep this file under `8,000 bytes` / `120 lines` (`skill -> script -> subagent -> hook -> gate -> memory -> always-on`).
 
@@ -11,6 +11,7 @@
 - **Narrowest Test First**:
   - Focused test: `node --test test/<name>.test.mjs`
   - Adapter conformance: `node --test test/adapter-*-conformance.test.mjs`
+  - Flywheel suite: `node --test test/flywheel-*.test.mjs`
   - Domain invariant gate: `node scripts/verify-dom-invariants.mjs`
   - Full suite: `npm test`
   - Surface gate: `python3 "${HOME}/.agents/skills/apply-wahyz-profile/scripts/verify_project_surface.py" .`

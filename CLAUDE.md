@@ -1,7 +1,7 @@
 # CLAUDE.md — office-sim
 
 ## 1. Profile & Scope (`INV` vs `DOM`)
-- **User-Scope (`INV` Baseline)**: `WahyzDAD/wahyz_agent_profile#v1.3.0` (`~/.claude/CLAUDE.md`). Global MCP routing (`serena`, `codegraph`, `morph-mcp`, `context7`, `tavily`), 60+ portable skills, and worktree isolation hooks (`using-git-worktrees`) come from the global profile — do not duplicate them here.
+- **User-Scope (`INV` Baseline)**: `WahyzDAD/wahyz_agent_profile#v1.4.0` (`~/.claude/CLAUDE.md`). Global MCP routing (`serena`, `codegraph`, `morph-mcp`, `context7`, `tavily`), 60+ portable skills, and worktree isolation hooks (`using-git-worktrees`) come from the global profile — do not duplicate them here.
 - **Project-Scope (`DOM` Contract)**: This file defines domain-specific architecture, build/test commands, and privacy/runtime invariants for `office-sim` (Node.js 22+ ESM + Three.js browser visualizer).
 - **Harness² Cost Hierarchy**: `skill -> script -> subagent -> hook -> gate -> memory -> always-on`. Keep this file under `16,000 bytes` / `220 lines`; load heavy specifications (`docs/CONTRACT.md`, `docs/ADAPTERS.md`) on demand only when modifying adapters or wire schemas.
 
@@ -15,6 +15,9 @@
   - `src/adapters/index.mjs` registers `claude-code` (`src/adapters/claude-code.mjs`), `codex` (`src/adapters/codex/`), `grok` (`src/adapters/grok/`), and `antigravity` (`src/adapters/antigravity/`).
 - **Observation Sidecar (`src/observe/`)**:
   - `src/observe/observer.mjs`, `src/observe/control.mjs`, `src/observe/records.mjs`, `src/observe/summary.mjs`, `src/observe/retention.mjs`: non-invasive file watcher (`O_RDONLY | O_NOFOLLOW | O_NONBLOCK`) emitting category/shape metrics without sensitive payloads.
+- **Improvement & Revision Flywheel (`src/flywheel/` & `scripts/flywheel/`)**:
+  - `src/flywheel/types.mjs`, `src/flywheel/router.mjs`, `src/flywheel/collectors.mjs`, `src/flywheel/control.mjs`: 8-source (`P1..P8`) runtime anomaly collector, 24-hex SHA-256 3-layer deduplication, 2-tick warn debounce, 72h regression detection, and Tier A/B/C dry-run router exposed via `/api/flywheel` and `public/js/flywheel-panel.js`.
+  - `scripts/flywheel/seed-loop-contract.mjs`, `scripts/flywheel/loop-attempt-ledger.mjs`, `scripts/flywheel/promote-lesson.mjs`, `scripts/flywheel/evidence-notes.mjs`: `L3 -> L1 -> L2` `Harness²` CLI tools paired with `.claude/skills/office-flywheel/SKILL.md`.
 - **3D Browser Client (`public/`)**:
   - `public/office.html` + `public/js/` (native ES modules + Three.js via `importmap`).
   - `public/js/rooms.js` defines the 7 functional rooms (`archive`, `dev`, `server`, `research`, `meeting`, `desk`, `lounge`), 7 architectural themes (`studio`, `office`, `palace`, `hanok`, `starship`, `dogs`, `cats`), and bilingual (`ko`/`en`) strings.

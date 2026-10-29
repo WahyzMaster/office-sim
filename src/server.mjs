@@ -360,6 +360,24 @@ export async function start(options = {}) {
       ready: false,
       ...(opts.notifyOpts ?? {}),
     },
+    flywheelOpts: {
+      runTierAAction: async (runbookId) => {
+        if (runbookId === 'rescan_adapter_roots') {
+          await group.rescan();
+          return `Rescanned ${group.ids.length} active adapter root(s)`;
+        }
+        if (runbookId === 'start_diagnostic_observe' && observe) {
+          await observe.start();
+          return 'Started bounded ObserveControl diagnostic capture';
+        }
+        if (runbookId === 'prune_observe_files' && observe) {
+          await observe._prune?.();
+          return 'Pruned observe output retention files';
+        }
+        return `Executed Tier A probe (${runbookId})`;
+      },
+      ...(opts.flywheelOpts ?? {}),
+    },
     log,
   });
   // 시작, 끝, 진행(바뀌었을 때 1초에 한 번까지)을 SSE 로 알린다. config 처럼 제어 메시지라 Store 와 링에는 없다.
@@ -393,6 +411,7 @@ export async function start(options = {}) {
   return {
     url, token, port, store, ready, close, notImplemented,
     notifier: httpLayer.notifier,
+    flywheel: httpLayer.flywheel,
     stats: () => ({ ...group.stats(), ...store.stats() }),
     get agents() { return group.ids; }, // 늦게 켜진 어댑터도 (F1)
   };

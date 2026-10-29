@@ -6,6 +6,7 @@ import { parseClaudeHookPayload } from './hooks-receiver.mjs';
 import { focusTerminalForSession } from './terminal-focus.mjs';
 import { SessionRecapTracker } from './session-recap.mjs';
 import { SystemNotifier } from './system-notify.mjs';
+import { FlywheelControl } from './flywheel/control.mjs';
 
 const HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
   + '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
@@ -19,7 +20,7 @@ const FAVICON_TYPES = Object.freeze({
 });
 const MAX_BODY = 4096;
 const DRAIN_LIMIT = 1024 * 1024; // 413 뒤에 버리며 읽는 상한: 넘게 보내면 연결을 끊는다
-const DATA_ROUTES = new Set(['/events', '/state', '/config', '/api/hooks/claude', '/api/focus-terminal', '/api/recap', '/api/recap/review', '/api/notify']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
+const DATA_ROUTES = new Set(['/events', '/state', '/config', '/api/hooks/claude', '/api/focus-terminal', '/api/recap', '/api/recap/review', '/api/notify', '/api/flywheel']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
 const OBSERVE_ROUTES = new Set([...DATA_ROUTES, '/observe']); // 기록 관찰이 켜졌을 때만
 const OBSERVE_ACTIONS = new Set(['start', 'stop']);
 const ERROR_CODE_RE = /^E[A-Z0-9_]{1,31}$/;
@@ -88,7 +89,7 @@ function readBody(req, limit) {
  *           observe?: { status(): object, start(): Promise<object>, stop(): Promise<object> } | null }} o
  *   observe: the live log observation control (ObserveControl). null = feature off: no /observe route, no observe frame.
  */
-export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, focusOpts = null, notifyOpts = null, log = () => {} }) {
+export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, focusOpts = null, notifyOpts = null, flywheelOpts = null, log = () => {} }) {
   const clients = new Set();
   const auth = createAuth(authToken, getPort);
   const csp = cspCache();
@@ -96,6 +97,8 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
   const activeHookTools = new Map();
   const recapTracker = new SessionRecapTracker();
   const notifier = new SystemNotifier(notifyOpts ?? {});
+  let crossSiteBlocks = 0;
+  let droppedClients = 0;
   for (const ev of store.snapshot().events) {
     recapTracker.observeEvent(ev);
     notifier.observeEvent(ev, { live: false });
@@ -168,7 +171,10 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     const write = (chunk) => {
       if (client.closed) return;
       res.write(chunk);
-      if (res.writableLength > MAX_BUFFERED) drop();
+      if (res.writableLength > MAX_BUFFERED) {
+        droppedClients += 1;
+        drop();
+      }
     };
     const listener = (item) => write(sseFrame(item.seq, item.event));
     const drop = () => {
@@ -209,7 +215,10 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     for (const c of [...clients]) {
       if (c.closed) continue;
       c.res.write(frame);
-      if (c.res.writableLength > MAX_BUFFERED) c.drop();
+      if (c.res.writableLength > MAX_BUFFERED) {
+        droppedClients += 1;
+        c.drop();
+      }
     }
   }
 
@@ -218,6 +227,21 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
   function broadcastObserve(status = observe?.status()) {
     if (observe && status) broadcast({ type: 'observe', ...status });
   }
+
+  const flywheel = new FlywheelControl({
+    getHealth: () => (typeof health === 'function' ? health(clients.size) : null),
+    getObserveSummary: () => {
+      const st = observe?.status?.();
+      return st?.summary ?? st ?? null;
+    },
+    getRecaps: () => recapTracker.summaryList(),
+    getSseMetrics: () => ({ crossSiteBlocks, droppedClients }),
+    ...(flywheelOpts ?? {}),
+    onChange: (snap) => {
+      flywheelOpts?.onChange?.(snap);
+      broadcast({ type: 'flywheel', ...snap });
+    },
+  });
 
   // 설정 변경은 같은 출처에서만: Origin 이 있으면 Host 헤더와 같은 출처(http://<Host>)여야 한다.
   // 루프백 목록 안의 다른 이름(localhost 와 127.0.0.1)이나 'null' 출처도 교차 출처로 본다.
@@ -233,7 +257,10 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
       sendJson(res, status, { error });
       return null;
     };
-    if (!sameOrigin(req)) return refuse(403, 'cross-origin request');
+    if (!sameOrigin(req)) {
+      crossSiteBlocks += 1;
+      return refuse(403, 'cross-origin request');
+    }
     const ctype = String(req.headers['content-type'] ?? '').toLowerCase();
     if (!ctype.startsWith('application/json')) return refuse(415, 'content-type must be application/json');
     if (Number(req.headers['content-length']) > MAX_BODY) { // 읽기 전에 거절한다
@@ -277,7 +304,34 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     sendJson(res, 200, { ok: true, ...notifier.status() });
   }
 
-  // 기록 관찰 켜고 끄기: { action: 'start' | 'stop' }. 이미 그 상태면 아무것도 하지 않고 상태를 돌려준다.
+  async function postFlywheel(req, res) {
+    const got = await jsonBody(req, res);
+    if (!got) return;
+    const action = got.body?.action;
+    if (action === 'scan') {
+      const snap = await flywheel.scan({
+        triggerSource: got.body?.triggerSource ?? 'on_demand',
+        extraCandidates: Array.isArray(got.body?.extraCandidates) ? got.body.extraCandidates : [],
+      });
+      return sendJson(res, 200, { ok: true, type: 'flywheel', ...snap });
+    }
+    if (action === 'config') {
+      const r = await flywheel.updateConfig(got.body?.config ?? got.body);
+      if (!r.ok) return sendJson(res, 400, { ok: false, error: r.error });
+      return sendJson(res, 200, { ok: true, type: 'flywheel', ...r.status });
+    }
+    if (action === 'approve') {
+      const r = await flywheel.approveDryRun(got.body?.fingerprint, { approvedBy: got.body?.approvedBy });
+      return sendJson(res, r.ok ? 200 : 400, r);
+    }
+    if (action === 'seed') {
+      const r = await flywheel.seedContract(got.body?.fingerprint, {
+        linearIssueIdentifier: got.body?.linearIssueIdentifier,
+      });
+      return sendJson(res, r.ok ? 200 : 400, r);
+    }
+    return sendJson(res, 400, { error: 'action must be "scan", "config", "approve", or "seed"' });
+  }
   // 시작 실패는 오류 코드만 답한다 (오류 문구와 폴더 경로는 보내지 않는다).
   async function postObserve(req, res) {
     const got = await jsonBody(req, res);
@@ -313,7 +367,19 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
         return send(res, 401, 'unauthorized: open the URL printed by office-sim\n', undefined, { 'cache-control': 'no-store' });
       }
     }
-    if (dataRoutes.has(rawPath) && crossSiteFetch(req)) return send(res, 403, 'cross-site request');
+    if (dataRoutes.has(rawPath) && crossSiteFetch(req)) {
+      crossSiteBlocks += 1;
+      return send(res, 403, 'cross-site request');
+    }
+    if (rawPath === '/api/flywheel') {
+      if (m === 'POST') return postFlywheel(req, res);
+      if (isGet) {
+        const wantScan = q >= 0 && new URLSearchParams(raw.slice(q + 1)).get('scan') === '1';
+        const snap = wantScan ? await flywheel.scan({ triggerSource: 'on_demand' }) : flywheel.status();
+        return sendJson(res, 200, { type: 'flywheel', ...snap });
+      }
+      return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD, POST' });
+    }
     if (rawPath === '/config') {
       if (m === 'POST') return postConfig(req, res);
       if (isGet) return sendJson(res, 200, { type: 'config', ...currentConfig() });
@@ -392,6 +458,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
 
   function closeAll() {
     store.push = origPush;
+    void flywheel.close();
     for (const c of [...clients]) {
       c.closed = true;
       clearInterval(c.timer);
@@ -401,5 +468,5 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     clients.clear();
   }
 
-  return { handler, clients, broadcastConfig, broadcastObserve, recapTracker, notifier, closeAll };
+  return { handler, clients, broadcastConfig, broadcastObserve, recapTracker, notifier, flywheel, closeAll };
 }
