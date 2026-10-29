@@ -96,17 +96,17 @@ export function renderAnchoredMemoryMarkdown({
   const resolvedDim = dimension === 'INV' ? 'INV' : 'DOM';
   assertNoGraderLeak({ text: `${cue}\n${lesson}\n${evidence}` });
 
-  const anchorsYaml = codeAnchors.map((a) => `  - "${a}"`).join('\n');
+  const anchorsYaml = codeAnchors.map((a) => `  - ${JSON.stringify(String(a))}`).join('\n');
   return [
     '---',
     'schema: harness2-v1',
-    `id: "${id}"`,
+    `id: ${JSON.stringify(String(id))}`,
     `dimension: ${resolvedDim}`,
     `component: ${component}`,
-    `cue: "${String(cue).replace(/"/g, '\\"')}"`,
+    `cue: ${JSON.stringify(String(cue))}`,
     `confidence: ${Number(confidence).toFixed(2)}`,
     `verdict: ${verdict}`,
-    `created_at: "${createdAt}"`,
+    `created_at: ${JSON.stringify(String(createdAt))}`,
     'code_anchors:',
     anchorsYaml,
     '---',
