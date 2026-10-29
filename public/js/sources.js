@@ -330,6 +330,7 @@ export class LiveSource {
         else for (const ev of msg.events || []) this.emit({ ...ev, replay: true });
       } else if (msg.type === 'config') this.onConfig?.(msg);
       else if (msg.type === 'observe') this.onObserve?.(msg); // 기록 관찰 상태: config 처럼 제어 메시지라 사무실로 보내지 않는다
+      else if (msg.type === 'flywheel') this.onFlywheel?.(msg);
       else {
         this.emit(msg);
         this.count(1);
