@@ -6,6 +6,7 @@ import { animateTail, applyPetMesh, applyPostureRig } from './pet-mesh.js';
 import { computeManeuverPose } from './placement.js';
 import { activeCharThemeOf, effectivePosture, resolveAgentAppearance } from './rooms.js';
 import { glowing } from './scene.js';
+import { applyLocationCuteAnim, resetAgentCutePose } from './sim-cute-anim.js';
 
 const CAPSULE = new THREE.CapsuleGeometry(0.31, 0.36, 6, 14);
 const HEAD = new THREE.SphereGeometry(0.31, 20, 16);
@@ -379,7 +380,6 @@ export function tintAgent(agent) {
 export function animateAgentMesh(agent, reduced = false) {
   const t = agent.t;
   const isTetra = agent.posture === 'tetrapod';
-  const isCat = agent.charFamily ? agent.charFamily === 'cats' : activeCharThemeOf() === 'cats';
   let leg = 0;
   let armL = 0;
   let armR = 0;
@@ -387,86 +387,48 @@ export function animateAgentMesh(agent, reduced = false) {
   let tilt = 0;
   let headPitch = 0;
   let shake = 0;
+  let cutePose = null;
   const m = agent.maneuver;
   const mp = computeManeuverPose(m, t, isTetra, reduced);
   if (mp) {
+    resetAgentCutePose(agent, isTetra);
     ({ bob, headPitch, leg, armL, armR } = mp);
   } else if (agent.path.length) {
+    resetAgentCutePose(agent, isTetra);
     const f = (isTetra ? 10.5 : 9.5) * (1 + Math.min(agent.queue.length, 6) * 0.24);
     leg = Math.sin(t * f) * 0.64;
     armL = isTetra ? leg : -leg * 0.85;
     armR = isTetra ? -leg : leg * 0.85;
     bob = Math.abs(Math.sin(t * f)) * 0.058;
     tilt = Math.sin(t * f * 0.5) * 0.055;
-  } else if (isTetra) {
-    switch (agent.mode) {
-      case 'work':
-        armL = isCat ? Math.max(0, Math.sin(t * 8)) * -0.45 : -0.35 + Math.sin(t * 18) * 0.32;
-        armR = isCat ? Math.max(0, -Math.sin(t * 8)) * -0.45 : -0.35 + Math.cos(t * 18) * 0.32;
-        bob = Math.abs(Math.sin(t * 6)) * 0.018;
-        break;
-      case 'think':
-        tilt = 0.26 * Math.sin(t * 2.2) + 0.16;
-        bob = Math.sin(t * 2) * 0.016;
-        break;
-      case 'write':
-        armR = -0.55 + Math.sin(t * 14) * 0.28;
-        tilt = 0.12;
-        break;
-      case 'ask':
-        armL = -0.65;
-        armR = -0.65;
-        headPitch = -0.18 + Math.sin(t * 6) * 0.1;
-        bob = Math.abs(Math.sin(t * 5)) * 0.032;
-        break;
-      default:
-        bob = Math.sin(t * 2.4) * 0.016;
-        tilt = Math.sin(t * 1.2) * 0.03;
-    }
   } else {
-    switch (agent.mode) {
-      case 'work':
-        armL = -1.1 + Math.sin(t * 22) * 0.2;
-        armR = -1.1 + Math.cos(t * 19) * 0.2;
-        bob = Math.abs(Math.sin(t * 6)) * 0.018;
-        break;
-      case 'think':
-        armR = -2.3;
-        tilt = 0.22;
-        bob = Math.sin(t * 2) * 0.018;
-        break;
-      case 'write':
-        armR = -2.5 + Math.sin(t * 14) * 0.25;
-        armL = -0.2;
-        break;
-      case 'ask':
-        armR = -2.75 + Math.sin(t * 6) * 0.14;
-        bob = Math.sin(t * 3.2) * 0.025;
-        break;
-      default:
-        bob = Math.sin(t * 2.4) * 0.018;
-        tilt = Math.sin(t * 1.2) * 0.03;
-    }
+    cutePose = applyLocationCuteAnim(agent, isTetra, reduced);
+    armL = cutePose.armL.x;
+    armR = cutePose.armR.x;
+    bob = cutePose.rig.bob;
+    tilt = cutePose.head.z;
+    headPitch = cutePose.head.x;
   }
   if (agent.soundT > 0 && !reduced) {
     headPitch = -0.22 * Math.abs(Math.sin(t * 16));
     bob += Math.abs(Math.sin(t * 14)) * 0.04;
   }
   if (agent.panicT > 0) {
+    resetAgentCutePose(agent, isTetra);
     armL = (isTetra ? -0.9 : -2.6) + Math.sin(t * 30) * 0.3;
     armR = (isTetra ? -0.9 : -2.6) - Math.sin(t * 30) * 0.3;
     shake = reduced ? 0 : Math.sin(t * 70) * 0.04;
   }
   const floatOffset = agent.agent === 'antigravity' && !reduced ? 0.03 + Math.sin(t * 3.2) * 0.025 : 0;
   const pivotY = isTetra ? 0.56 : 0.78;
-  const rigPitch = mp ? mp.rigPitch : 0;
+  const rigPitch = mp ? mp.rigPitch : (cutePose ? cutePose.rig.pitch : 0);
   agent.legs[0].rotation.x = leg;
   agent.legs[1].rotation.x = mp?.legSym ? leg : -leg;
   agent.arms[0].rotation.x = armL;
   agent.arms[1].rotation.x = armR;
   agent.rig.rotation.x = rigPitch;
-  agent.rig.rotation.y = mp ? mp.rigYaw : 0;
-  agent.rig.rotation.z = mp ? mp.rigRoll : 0;
+  agent.rig.rotation.y = mp ? mp.rigYaw : (cutePose ? cutePose.rig.yaw : 0);
+  agent.rig.rotation.z = mp ? mp.rigRoll : (cutePose ? cutePose.rig.roll : 0);
   agent.rig.position.y = (reduced ? 0 : bob + pivotY * (1 - Math.cos(rigPitch))) + floatOffset;
   agent.rig.position.z = reduced ? 0 : -pivotY * Math.sin(rigPitch);
   agent.rig.position.x = shake;
