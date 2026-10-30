@@ -85,13 +85,14 @@ const STYLE_CSS = `
   width: min(760px, calc(100vw - 32px));
   z-index: 26;
   pointer-events: auto;
-  background: rgba(252, 249, 242, 0.96);
+  background: var(--panel);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(58, 42, 29, 0.24);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(28, 20, 14, 0.18);
+  box-shadow: var(--shadow);
   padding: 8px 11px;
-  color: #2b2118;
+  color: var(--fg);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   display: flex;
@@ -112,38 +113,38 @@ const STYLE_CSS = `
   flex-wrap: wrap;
 }
 .sim-fw-btn {
-  border: 1px solid rgba(58, 42, 29, 0.22);
-  background: #fff;
-  color: #2b2118;
+  border: 1px solid var(--line);
+  background: var(--panel-solid);
+  color: var(--fg);
   border-radius: 7px;
-  padding: 2px 7px;
-  font-size: 10px;
+  padding: 3px 8px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
 }
-.sim-fw-btn:hover { background: #f3ece0; }
+.sim-fw-btn:hover { border-color: var(--accent); background: var(--muted-bg); }
 .sim-fw-stages {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 5px;
 }
 .sim-fw-stage {
-  border: 1px solid rgba(58, 42, 29, 0.18);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 5px 7px;
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--panel-solid);
   display: flex;
   flex-direction: column;
   gap: 2px;
   transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .sim-fw-stage.active {
-  border-color: #7c3aed;
-  background: #f5f3ff;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel-solid));
   transform: translateY(-1px);
 }
-.sim-fw-stage b { font-size: 10.5px; color: #1e1b4b; }
-.sim-fw-stage span { font-size: 9.5px; color: #5c4938; }
+.sim-fw-stage b { font-size: 11px; color: var(--fg); }
+.sim-fw-stage span { font-size: 10px; color: var(--muted); }
 `;
 
 export function buildFlywheelPipelineModel(rawStatus = null, lang = 'ko') {

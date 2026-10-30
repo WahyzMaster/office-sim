@@ -282,7 +282,7 @@ export class Hud {
         return;
       }
       if (MOVE_KEYS.has(k)) { this.keys.add(k); if (k.startsWith('arrow')) e.preventDefault(); return; }
-      if (e.key === 'Escape') office.select(null);
+      if (e.key === 'Escape') { if (!el.legend?.hidden) el.legendBtn?.click(); else office.select(null); }
       else if (e.key === '0') office.focus('all');
       else if (/^[1-9]$/.test(e.key) && Number(e.key) <= office.floors.length) office.focus(Number(e.key) - 1);
       else if ((e.key === '[' || e.key === 'PageDown') && office.floors.length) { e.preventDefault(); office.focus(office.overview ? 0 : Math.max(0, office.focusIndex - 1)); }

@@ -411,23 +411,38 @@ export function installAgentExtras({
         box.className = 'recap-box';
         insp.appendChild(box);
       }
-      box.replaceChildren();
-      const pre = doc.createElement('div');
-      pre.textContent = summary.markdown;
-      const copyBtn = doc.createElement('button');
-      copyBtn.type = 'button';
-      copyBtn.className = 'ghost primary';
-      copyBtn.textContent = t.copyBtn;
-      copyBtn.addEventListener('click', () => {
-        win?.navigator?.clipboard?.writeText?.(summary.markdown)?.catch?.(() => {});
-        copyBtn.textContent = t.copiedBtn;
-      });
-      box.append(pre, copyBtn);
+      if (!box._refs || !box.children?.length) {
+        box.replaceChildren();
+        const pre = doc.createElement('div');
+        const copyBtn = doc.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'ghost primary';
+        copyBtn.addEventListener('click', () => {
+          const textToCopy = box._refs?.latestMarkdown || '';
+          win?.navigator?.clipboard?.writeText?.(textToCopy)?.catch?.(() => {});
+          copyBtn.textContent = extrasText(hud.lang).copiedBtn;
+          copyBtn.dataset.copied = 'true';
+        });
+        box.append(pre, copyBtn);
+        box._refs = { pre, copyBtn, latestMarkdown: '' };
+      }
+      box._refs.latestMarkdown = summary.markdown;
+      if (box._refs.pre.textContent !== summary.markdown) {
+        box._refs.pre.textContent = summary.markdown;
+      }
+      if (box._refs.copyBtn.dataset.copied !== 'true') {
+        box._refs.copyBtn.textContent = t.copyBtn;
+      }
       box.hidden = false;
     } else if (box) {
       box.hidden = true;
+      if (box._refs?.copyBtn) delete box._refs.copyBtn.dataset.copied;
     }
   }
+
+  doc?.getElementById?.('lang-toggle')?.addEventListener?.('click', () => {
+    if (office.selected) renderInspectorExtras(office.selected);
+  });
 
   win?.addEventListener?.('keydown', (e) => {
     if (e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
