@@ -84,13 +84,18 @@ function createFakeDom() {
   const hudRoot = makeNode('div');
   hudRoot.id = 'hud';
   elementsById.set('hud', hudRoot);
+  const controls = makeNode('div');
+  controls.className = 'controls';
 
   const doc = {
     head,
     body,
     createElement(tag) { return makeNode(tag); },
     getElementById(id) { return elementsById.get(id) ?? null; },
-    querySelector() { return null; },
+    querySelector(sel) {
+      if (sel === '.bar .controls') return controls;
+      return null;
+    },
   };
 
   const winListeners = new Map();
@@ -105,7 +110,7 @@ function createFakeDom() {
     },
   };
 
-  return { doc, win, hudRoot, elementsById };
+  return { doc, win, controls, hudRoot, elementsById };
 }
 
 describe('Phase 1: Sims Motives, Action Queue & Moodlets (sim-motives.js)', () => {
@@ -169,17 +174,21 @@ describe('Phase 2: Impeccable Floating SimHUD Pill & 5-Mode Overlays (sim-overla
     );
     assert.equal(roomStates.server.colorHex, 0xef4444);
 
-    const { doc, win, elementsById } = createFakeDom();
+    const { doc, win, controls, elementsById } = createFakeDom();
     const office = { floors: [], agents: new Map(), onEvent() {} };
     const hud = { lang: 'en' };
     const ctrl = installSimOverlays({ office, hud, doc, win });
     assert.ok(elementsById.has('sim-hud-pill'));
+    assert.ok(elementsById.has('sim-lens-select'));
+    assert.equal(controls.children.includes(elementsById.get('sim-hud-pill')), true);
     assert.equal(ctrl.mode, 'normal');
 
     win.dispatch('keydown', { key: 'v', preventDefault() {} });
     assert.equal(ctrl.mode, 'heatmap');
+    assert.equal(elementsById.get('sim-lens-select').value, 'heatmap');
     ctrl.setMode('flywheel');
     assert.equal(ctrl.mode, 'flywheel');
+    assert.equal(elementsById.get('sim-lens-select').value, 'flywheel');
   });
 });
 
@@ -269,6 +278,6 @@ describe('Phase 4: Auto-Collapsing Advisor Strip & SimTower Prestige (sim-adviso
     const office = { floors: [floor], agents: new Map(), select() {}, focus() {} };
     const hud = { lang: 'en', el: { floors: null, insp: null }, floorStats() {} };
     installSimAdvisor({ office, hud, doc });
-    assert.ok(elementsById.has('sim-advisor-strip'));
+    assert.equal(elementsById.has('sim-advisor-strip'), false);
   });
 });
