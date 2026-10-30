@@ -389,7 +389,7 @@ export class Agent {
       if (q >= 0) this.queue.splice(q, 1);
       return;
     }
-    if (ev.ok || ev.errorKind === 'abandoned') return;
+    if (ev.ok || ev.errorKind === 'abandoned') { if (ev.ok) this.joyBurstT = (this.t || 0) + 0.42; return; }
     const err = ev.error || (ev.errorKind === 'interrupted' ? tr('사용자가 중단함', 'Interrupted by user') : tr('도구 실행 실패', 'Tool failed'));
     if (!it.error || (softKind(it.errorKind) && !softKind(ev.errorKind))) {
       it.error = err;
