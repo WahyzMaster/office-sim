@@ -90,7 +90,7 @@ export class Agent {
     this.bubbleEl = el.querySelector('.bubble');
     this.tagEl.style.setProperty('--c', this.color);
     this.tagEl.classList.toggle('sub', this.isSub);
-    this.tagEl.addEventListener('click', () => this.office.select(this));
+    for (const b of [this.tagEl, this.bubbleEl]) b.addEventListener('click', () => this.office.select(this));
     this.label = new CSS2DObject(el);
     this.label.position.set(0, 2.08, 0);
     this.group.add(this.label);
