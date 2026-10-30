@@ -9,6 +9,10 @@ import { installShareControls } from './share.js';
 import { installAgentExtras } from './agent-extras.js';
 import { installSystemNotifications } from './system-notify.js';
 import { installFlywheelPanel } from './flywheel-panel.js';
+import { installSimMotives } from './sim-motives.js';
+import { installSimOverlays } from './sim-overlays.js';
+import { installSimFlywheelViz } from './sim-flywheel-viz.js';
+import { installSimAdvisor } from './sim-advisor.js';
 
 const cfg = { speed: 1, intervalMs: 250 };
 const stage = createStage(document.getElementById('stage'));
@@ -54,9 +58,13 @@ if (benchMode) {
 }
 hud.bind(office, cfg, () => source);
 installShareControls({ stage, hud });
-installAgentExtras({ stage, office, hud, THREE });
+const extras = installAgentExtras({ stage, office, hud, THREE });
 installSystemNotifications({ office, hud });
 installFlywheelPanel({ hud, source });
+installSimMotives({ office, hud, extras, THREE });
+const overlays = installSimOverlays({ office, hud, extras, THREE });
+const flywheelViz = installSimFlywheelViz({ office, hud, source, overlays, THREE });
+installSimAdvisor({ office, hud, extras, overlays, flywheelViz });
 
 let down = null;
 const canvas = stage.renderer.domElement;
