@@ -95,21 +95,21 @@ const SOP_NEXT_MAP = Object.freeze({
 });
 
 const STYLE_CSS = `
-.sim-insp-card { margin-top: 6px; padding: 7px 9px; border-radius: 9px; background: rgba(58, 42, 29, 0.05); border: 1px solid rgba(58, 42, 29, 0.14); display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.sim-insp-card { margin-top: 6px; padding: 7px 9px; border-radius: 9px; background: var(--muted-bg); border: 1px solid var(--line); color: var(--fg); display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-variant-numeric: tabular-nums; }
 .sim-queue-row { display: flex; align-items: center; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
-.sim-q-chip { padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(58, 42, 29, 0.2); background: rgba(255, 255, 255, 0.85); white-space: nowrap; font-size: 10.5px; }
-.sim-q-chip.now { background: #2b2118; color: #fffdf9; font-weight: 700; }
+.sim-q-chip { padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel-solid); color: var(--fg); white-space: nowrap; font-size: 11px; }
+.sim-q-chip.now { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
 .sim-motives-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 10px; }
-.sim-motive-item { display: grid; grid-template-columns: 58px 1fr 32px; align-items: center; gap: 5px; font-size: 10.5px; }
-.sim-motive-track { height: 7px; border-radius: 999px; background: rgba(58, 42, 29, 0.14); overflow: hidden; }
+.sim-motive-item { display: grid; grid-template-columns: 58px 1fr 32px; align-items: center; gap: 5px; font-size: 11px; }
+.sim-motive-track { height: 7px; border-radius: 999px; background: color-mix(in srgb, var(--fg) 14%, transparent); overflow: hidden; }
 .sim-motive-fill { height: 100%; border-radius: 999px; transition: width 180ms cubic-bezier(0.22, 1, 0.36, 1); }
 .sim-moodlets-row { display: flex; flex-wrap: wrap; gap: 4px; }
-.sim-moodlet { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; border: 1px solid rgba(58, 42, 29, 0.16); }
-.sim-moodlet.good { background: #dcfce7; color: #166534; }
-.sim-moodlet.warn { background: #fef3c7; color: #92400e; }
-.sim-moodlet.bad { background: #fee2e2; color: #991b1b; }
-.sim-moodlet.info { background: #e0e7ff; color: #1e40af; }
-.sim-yield-pop { display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 999px; font-size: 10px; font-weight: 700; background: #fef08a; color: #713f12; border: 1px solid rgba(113, 63, 18, 0.3); }
+.sim-moodlet { padding: 2px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; border: 1px solid var(--line); }
+.sim-moodlet.good { background: color-mix(in srgb, #22c55e 18%, var(--panel-solid)); color: var(--fg); }
+.sim-moodlet.warn { background: var(--ask); color: var(--ask-ink); border-color: var(--ask-line); }
+.sim-moodlet.bad { background: color-mix(in srgb, var(--danger) 20%, var(--panel-solid)); color: var(--fg); }
+.sim-moodlet.info { background: color-mix(in srgb, var(--accent) 18%, var(--panel-solid)); color: var(--fg); }
+.sim-yield-pop { display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 999px; font-size: 10px; font-weight: 700; background: var(--ask); color: var(--ask-ink); border: 1px solid var(--ask-line); }
 `;
 
 export function createAgentMotiveState() {
@@ -307,54 +307,76 @@ export function installSimMotives({
       if (dl) insp.insertBefore(card, dl);
       else insp.appendChild(card);
     }
-    card.replaceChildren();
 
-    const qRow = doc.createElement('div');
-    qRow.className = 'sim-queue-row';
-    for (const item of queue) {
-      const chip = doc.createElement('span');
-      chip.className = `sim-q-chip${item.status === 'now' ? ' now' : ''}`;
-      chip.textContent = item.label;
-      qRow.appendChild(chip);
+    if (!card._refs || !card.children?.length) {
+      card.replaceChildren();
+      const qRow = doc.createElement('div');
+      qRow.className = 'sim-queue-row';
+      const qChips = [0, 1, 2].map(() => {
+        const chip = doc.createElement('span');
+        qRow.appendChild(chip);
+        return chip;
+      });
+      card.appendChild(qRow);
+
+      const mGrid = doc.createElement('div');
+      mGrid.className = 'sim-motives-grid';
+      const mRows = [0, 1, 2, 3].map(() => {
+        const row = doc.createElement('div');
+        row.className = 'sim-motive-item';
+        const b = doc.createElement('b');
+        const track = doc.createElement('div');
+        track.className = 'sim-motive-track';
+        const fill = doc.createElement('div');
+        fill.className = 'sim-motive-fill';
+        track.appendChild(fill);
+        const num = doc.createElement('span');
+        row.append(b, track, num);
+        mGrid.appendChild(row);
+        return { b, fill, num };
+      });
+      card.appendChild(mGrid);
+
+      const moodRow = doc.createElement('div');
+      moodRow.className = 'sim-moodlets-row';
+      card.appendChild(moodRow);
+      card._refs = { qChips, mRows, moodRow, moodKey: '' };
     }
-    card.appendChild(qRow);
 
-    const mGrid = doc.createElement('div');
-    mGrid.className = 'sim-motives-grid';
+    const { qChips, mRows, moodRow } = card._refs;
+    queue.forEach((item, i) => {
+      const chip = qChips[i];
+      if (!chip) return;
+      chip.className = `sim-q-chip${item.status === 'now' ? ' now' : ''}`;
+      if (chip.textContent !== item.label) chip.textContent = item.label;
+    });
+
     const pairs = [
       [t.freshness, motives.freshness],
       [t.momentum, motives.momentum],
       [t.alignment, motives.alignment],
       [t.verification, motives.verification],
     ];
-    for (const [label, val] of pairs) {
-      const row = doc.createElement('div');
-      row.className = 'sim-motive-item';
-      const b = doc.createElement('b');
-      b.textContent = label;
-      const track = doc.createElement('div');
-      track.className = 'sim-motive-track';
-      const fill = doc.createElement('div');
-      fill.className = 'sim-motive-fill';
-      fill.style.width = `${val}%`;
-      fill.style.background = motiveColor(val);
-      track.appendChild(fill);
-      const num = doc.createElement('span');
-      num.textContent = `${val}%`;
-      row.append(b, track, num);
-      mGrid.appendChild(row);
-    }
-    card.appendChild(mGrid);
+    pairs.forEach(([label, val], i) => {
+      const r = mRows[i];
+      if (!r) return;
+      if (r.b.textContent !== label) r.b.textContent = label;
+      r.fill.style.width = `${val}%`;
+      r.fill.style.background = motiveColor(val);
+      r.num.textContent = `${val}%`;
+    });
 
-    const moodRow = doc.createElement('div');
-    moodRow.className = 'sim-moodlets-row';
-    for (const m of moodlets) {
-      const chip = doc.createElement('span');
-      chip.className = `sim-moodlet ${m.tone}`;
-      chip.textContent = m.label;
-      moodRow.appendChild(chip);
+    const nextMoodKey = moodlets.map((m) => `${m.id}:${m.label}`).join('|');
+    if (card._refs.moodKey !== nextMoodKey) {
+      card._refs.moodKey = nextMoodKey;
+      moodRow.replaceChildren();
+      for (const m of moodlets) {
+        const chip = doc.createElement('span');
+        chip.className = `sim-moodlet ${m.tone}`;
+        chip.textContent = m.label;
+        moodRow.appendChild(chip);
+      }
     }
-    card.appendChild(moodRow);
   }
 
   function syncFloorTethers(floor) {
@@ -434,6 +456,10 @@ export function installSimMotives({
       }
     };
   }
+
+  doc?.getElementById?.('lang-toggle')?.addEventListener?.('click', () => {
+    if (office?.selected) renderInspectorMotives(office.selected);
+  });
 
   return { motivesBySid, renderInspectorMotives, ensureMotive };
 }

@@ -1,7 +1,8 @@
-// Phase 2 (SimCity RCI Meter & 5-Mode 3D Stage Lenses in .bar .controls):
-// - Inline #sim-hud-pill mounted inside .bar .controls (zero viewport occlusion)
+// Phase 2 (SimCity RCI Meter, 5-Mode 3D Stage Lenses & Top-Bar Progressive Disclosure):
+// - Inline #sim-hud-pill mounted inside .bar .controls with persistent DOM refs (never detaches open <select>)
 // - SimCity RCI Workload Balance Meter (R: Read/Explore, C: Code/Edit, I: Integrate/Verify)
 // - 5-Mode Viewport Overlay Selector (Shortcut V: 1 Normal, 2 Heatmap, 3 Desire, 4 Friction, 5 Flywheel)
+// - Progressive disclosure toggle (#sim-more-toggle) for secondary appearance/camera controls
 import { langOf, ROOMS } from './rooms.js';
 
 export const OVERLAY_MODES = Object.freeze(['normal', 'heatmap', 'desire', 'friction', 'flywheel']);
@@ -10,6 +11,8 @@ export const SIM_OVERLAYS_TEXT = Object.freeze({
   ko: Object.freeze({
     rciTitle: 'SimCity식 RCI 작업 수요 균형 (R: 탐색 · C: 구현 · I: 검증)',
     lensLabel: '렌즈 (V)',
+    moreBtn: '세부 설정',
+    moreTitle: '캐릭터·보행·모션·소리·조작·주기 등 세부 설정 펼치기/접기',
     modes: Object.freeze({
       normal: '1: 기본',
       heatmap: '2: 비용 열지도',
@@ -21,6 +24,8 @@ export const SIM_OVERLAYS_TEXT = Object.freeze({
   en: Object.freeze({
     rciTitle: 'SimCity RCI Workload Demand Balance (R: Read · C: Code · I: Verify)',
     lensLabel: 'Lens (V)',
+    moreBtn: 'Tune',
+    moreTitle: 'Show or hide secondary character, motion, voice, camera & tail interval controls',
     modes: Object.freeze({
       normal: '1: Normal',
       heatmap: '2: Heatmap',
@@ -40,19 +45,19 @@ const STYLE_CSS = `
   gap: 6px;
   padding: 3px 8px;
   border-radius: 8px;
-  background: var(--muted-bg, rgba(58, 42, 29, 0.06));
-  border: 1px solid var(--line, rgba(58, 42, 29, 0.2));
+  background: var(--muted-bg);
+  border: 1px solid var(--line);
   font: 500 11px/1.2 var(--font-mono, monospace);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: var(--fg, #2b2118);
+  color: var(--fg);
 }
 .sim-rci-box {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding-right: 6px;
-  border-right: 1px solid var(--line, rgba(58, 42, 29, 0.18));
+  border-right: 1px solid var(--line);
 }
 .sim-rci-bars {
   display: inline-flex;
@@ -61,7 +66,7 @@ const STYLE_CSS = `
   height: 14px;
   padding: 1px 2px;
   border-radius: 3px;
-  background: rgba(58, 42, 29, 0.08);
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
 }
 .sim-rci-bar {
   width: 4px;
@@ -74,11 +79,19 @@ const STYLE_CSS = `
 #sim-lens-select {
   padding: 2px 6px;
   border-radius: 6px;
-  border: 1px solid var(--line, rgba(58, 42, 29, 0.2));
-  background: var(--panel-solid, #fff);
-  color: var(--fg, #2b2118);
+  border: 1px solid var(--line);
+  background: var(--panel-solid);
+  color: var(--fg);
   font: 500 11.5px/1.2 var(--font-ui, sans-serif);
   cursor: pointer;
+}
+.controls[data-more="collapsed"] label[for="interval"],
+.controls[data-more="collapsed"] label[for="char-theme"],
+.controls[data-more="collapsed"] label[for="posture-mode"],
+.controls[data-more="collapsed"] label[for="motion-mode"],
+.controls[data-more="collapsed"] label[for="voice-mode"],
+.controls[data-more="collapsed"] label[for="control-preset"] {
+  display: none;
 }
 `;
 
@@ -160,6 +173,7 @@ export function installSimOverlays({
   win = globalThis.window,
 } = {}) {
   let activeMode = 'normal';
+  let moreOpen = false;
   const rciCounts = { r: 4, c: 5, i: 3 };
   const commuteEdges = new Map();
   const lastRoomBySid = new Map();
@@ -172,9 +186,29 @@ export function installSimOverlays({
     doc.head.appendChild(style);
   }
 
+  const controlsHost = doc?.querySelector?.('.bar .controls') ?? null;
+  if (controlsHost && !controlsHost.dataset?.more) {
+    if (controlsHost.dataset) controlsHost.dataset.more = 'collapsed';
+  }
+
+  let moreBtn = doc?.getElementById?.('sim-more-toggle') ?? null;
+  if (!moreBtn && doc && controlsHost) {
+    moreBtn = doc.createElement('button');
+    moreBtn.type = 'button';
+    moreBtn.id = 'sim-more-toggle';
+    moreBtn.className = 'ghost';
+    moreBtn.setAttribute('aria-pressed', 'false');
+    moreBtn.addEventListener('click', () => {
+      moreOpen = !moreOpen;
+      if (controlsHost.dataset) controlsHost.dataset.more = moreOpen ? 'open' : 'collapsed';
+      moreBtn.setAttribute('aria-pressed', String(moreOpen));
+    });
+    controlsHost.appendChild(moreBtn);
+  }
+
   let pill = doc?.getElementById?.('sim-hud-pill') ?? null;
   if (!pill && doc) {
-    const host = doc.querySelector?.('.bar .controls') ?? doc.getElementById?.('hud') ?? doc.body;
+    const host = controlsHost ?? doc.getElementById?.('hud') ?? doc.body;
     if (host) {
       pill = doc.createElement('div');
       pill.id = 'sim-hud-pill';
@@ -183,52 +217,85 @@ export function installSimOverlays({
     }
   }
 
+  let pillRefs = null;
+  function ensurePillDom() {
+    if (!pill || !doc) return null;
+    if (pillRefs && pill.children?.length > 0) return pillRefs;
+    pill.replaceChildren();
+
+    const rciBox = doc.createElement('div');
+    rciBox.className = 'sim-rci-box';
+    const bars = doc.createElement('div');
+    bars.className = 'sim-rci-bars';
+    const barNodes = {};
+    for (const k of ['r', 'c', 'i']) {
+      const b = doc.createElement('span');
+      b.className = `sim-rci-bar ${k}`;
+      bars.appendChild(b);
+      barNodes[k] = b;
+    }
+    const rciTxt = doc.createElement('span');
+    rciBox.append(bars, rciTxt);
+    pill.appendChild(rciBox);
+
+    const lensTag = doc.createElement('span');
+    pill.appendChild(lensTag);
+
+    const select = doc.createElement('select');
+    select.id = 'sim-lens-select';
+    const optNodes = {};
+    for (const mode of OVERLAY_MODES) {
+      const opt = doc.createElement('option');
+      opt.value = mode;
+      select.appendChild(opt);
+      optNodes[mode] = opt;
+    }
+    select.addEventListener('change', (e) => setMode(e?.target?.value || select.value));
+    pill.appendChild(select);
+
+    pillRefs = { rciBox, barNodes, rciTxt, lensTag, select, optNodes, renderedLang: '' };
+    return pillRefs;
+  }
+
   function recordCommute(fromRoom, toRoom) {
     if (!fromRoom || !toRoom || fromRoom === toRoom) return;
     const pair = [fromRoom, toRoom].sort().join('->');
     commuteEdges.set(pair, (commuteEdges.get(pair) || 0) + 1);
   }
 
-  function renderPill() {
-    if (!pill || !doc) return;
+  function renderPill({ forceSelectSync = false } = {}) {
+    const refs = ensurePillDom();
+    if (!refs) return;
     const lang = hud?.lang || 'ko';
     const t = simOverlaysText(lang);
     const rci = computeRciBalance(rciCounts);
-    pill.replaceChildren();
 
-    const rciBox = doc.createElement('div');
-    rciBox.className = 'sim-rci-box';
-    rciBox.title = t.rciTitle;
-    const bars = doc.createElement('div');
-    bars.className = 'sim-rci-bars';
-    for (const [k, pct] of [['r', rci.rPct], ['c', rci.cPct], ['i', rci.iPct]]) {
-      const b = doc.createElement('span');
-      b.className = `sim-rci-bar ${k}`;
-      b.style.height = `${Math.max(20, pct)}%`;
-      bars.appendChild(b);
+    refs.rciBox.title = t.rciTitle;
+    refs.barNodes.r.style.height = `${Math.max(20, rci.rPct)}%`;
+    refs.barNodes.c.style.height = `${Math.max(20, rci.cPct)}%`;
+    refs.barNodes.i.style.height = `${Math.max(20, rci.iPct)}%`;
+    refs.rciTxt.textContent = `R:${rci.rPct}% C:${rci.cPct}% I:${rci.iPct}%`;
+
+    if (refs.renderedLang !== lang) {
+      refs.renderedLang = lang;
+      refs.lensTag.textContent = t.lensLabel;
+      refs.select.setAttribute('aria-label', t.lensLabel);
+      for (const mode of OVERLAY_MODES) {
+        if (refs.optNodes[mode]) refs.optNodes[mode].textContent = t.modes[mode];
+      }
+      if (moreBtn) {
+        moreBtn.textContent = t.moreBtn;
+        moreBtn.title = t.moreTitle;
+      }
     }
-    const txt = doc.createElement('span');
-    txt.textContent = `R:${rci.rPct}% C:${rci.cPct}% I:${rci.iPct}%`;
-    rciBox.append(bars, txt);
-    pill.appendChild(rciBox);
 
-    const lensTag = doc.createElement('span');
-    lensTag.textContent = t.lensLabel;
-    pill.appendChild(lensTag);
-
-    const select = doc.createElement('select');
-    select.id = 'sim-lens-select';
-    select.setAttribute('aria-label', t.lensLabel);
-    for (const mode of OVERLAY_MODES) {
-      const opt = doc.createElement('option');
-      opt.value = mode;
-      opt.textContent = t.modes[mode];
-      if (mode === activeMode) opt.selected = true;
-      select.appendChild(opt);
+    // Never mutate select.value while the user has the native dropdown focused unless mode changed explicitly
+    if (forceSelectSync || (doc?.activeElement !== refs.select && refs.select.value !== activeMode)) {
+      refs.select.value = activeMode;
+      for (const mode of OVERLAY_MODES) {
+        if (refs.optNodes[mode]) refs.optNodes[mode].selected = mode === activeMode;
+      }
     }
-    select.value = activeMode;
-    select.addEventListener('change', (e) => setMode(e?.target?.value || select.value));
-    pill.appendChild(select);
   }
 
   function sync3DOverlays() {
@@ -291,7 +358,7 @@ export function installSimOverlays({
   function setMode(nextMode) {
     if (!OVERLAY_MODES.includes(nextMode)) return;
     activeMode = nextMode;
-    renderPill();
+    renderPill({ forceSelectSync: true });
     sync3DOverlays();
     for (const fn of modeListeners) {
       try { fn(activeMode); } catch { /* ignore */ }
@@ -313,12 +380,12 @@ export function installSimOverlays({
           lastRoomBySid.set(ev.sessionId, a.room);
         }
       }
-      renderPill();
+      renderPill({ forceSelectSync: false });
       if (activeMode !== 'normal') sync3DOverlays();
     };
   }
 
-  doc?.getElementById?.('lang-toggle')?.addEventListener?.('click', () => renderPill());
+  doc?.getElementById?.('lang-toggle')?.addEventListener?.('click', () => renderPill({ forceSelectSync: false }));
 
   win?.addEventListener?.('keydown', (e) => {
     if (e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
@@ -327,10 +394,12 @@ export function installSimOverlays({
       e.preventDefault();
       const idx = (OVERLAY_MODES.indexOf(activeMode) + 1) % OVERLAY_MODES.length;
       setMode(OVERLAY_MODES[idx]);
+    } else if (e.key === 'Escape' && activeMode !== 'normal' && !office?.selected) {
+      setMode('normal');
     }
   });
 
-  renderPill();
+  renderPill({ forceSelectSync: true });
 
   return {
     get mode() { return activeMode; },

@@ -48,16 +48,16 @@ const STYLE_CSS = `
   align-items: center;
   gap: 4px;
   margin-left: 4px;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
-  color: #854d0e;
+  color: var(--accent);
 }
 .sim-floor-q {
   padding: 0 4px;
   border-radius: 4px;
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid rgba(146, 64, 14, 0.28);
+  background: var(--ask);
+  color: var(--ask-ink);
+  border: 1px solid var(--ask-line);
 }
 `;
 

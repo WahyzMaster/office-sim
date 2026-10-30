@@ -180,8 +180,18 @@ describe('Phase 2: Impeccable Floating SimHUD Pill & 5-Mode Overlays (sim-overla
     const ctrl = installSimOverlays({ office, hud, doc, win });
     assert.ok(elementsById.has('sim-hud-pill'));
     assert.ok(elementsById.has('sim-lens-select'));
+    assert.ok(elementsById.has('sim-more-toggle'));
+    assert.equal(controls.dataset.more, 'collapsed');
+    elementsById.get('sim-more-toggle').dispatch('click');
+    assert.equal(controls.dataset.more, 'open');
     assert.equal(controls.children.includes(elementsById.get('sim-hud-pill')), true);
     assert.equal(ctrl.mode, 'normal');
+
+    const selectBefore = elementsById.get('sim-lens-select');
+    office.onEvent({ sessionId: 'a1', type: 'tool_start', tool: 'Edit' });
+    office.onEvent({ sessionId: 'a1', type: 'tool_start', tool: 'Bash' });
+    const selectAfter = elementsById.get('sim-lens-select');
+    assert.equal(selectBefore, selectAfter, '#sim-lens-select DOM node must persist across live events so open dropdown never closes');
 
     win.dispatch('keydown', { key: 'v', preventDefault() {} });
     assert.equal(ctrl.mode, 'heatmap');
@@ -189,6 +199,8 @@ describe('Phase 2: Impeccable Floating SimHUD Pill & 5-Mode Overlays (sim-overla
     ctrl.setMode('flywheel');
     assert.equal(ctrl.mode, 'flywheel');
     assert.equal(elementsById.get('sim-lens-select').value, 'flywheel');
+    win.dispatch('keydown', { key: 'Escape', preventDefault() {} });
+    assert.equal(ctrl.mode, 'normal');
   });
 });
 
