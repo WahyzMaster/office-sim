@@ -1,16 +1,12 @@
-// Phase 4 (Auto-Collapsing SimCity Advisor Toast Strip & SimTower Floor Prestige):
-// - Auto-collapsing floating Advisor & Flywheel Toast Strip (#sim-advisor-strip) docked above #inspector
+// Phase 4 (SimTower Floor Prestige & Queue Overflow Badges in #floors):
 // - SimTower 1..5 Star Floor Prestige Rating & Room Slot Queue Badges ([Q:n]) in #floors
+// - Pure advisor evaluation helpers (no redundant bottom #sim-advisor-strip banner)
 import { langOf } from './rooms.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 export const SIM_ADVISOR_TEXT = Object.freeze({
   ko: Object.freeze({
-    quietLabel: '[자문위원] P1..P8 정상 · 대기 병목 없음',
-    focusBtn: '이동',
-    collapseBtn: '접기 _',
-    expandBtn: '자문 ^',
     domains: Object.freeze({
       FLYWHEEL: '플라이휠',
       APPROVAL: '승인대기',
@@ -27,10 +23,6 @@ export const SIM_ADVISOR_TEXT = Object.freeze({
     }),
   }),
   en: Object.freeze({
-    quietLabel: '[ADVISOR] P1..P8 Nominal · 0 Bottlenecks',
-    focusBtn: 'Focus',
-    collapseBtn: 'Quiet _',
-    expandBtn: 'Advisor ^',
     domains: Object.freeze({
       FLYWHEEL: 'FLYWHEEL',
       APPROVAL: 'APPROVAL',
@@ -51,56 +43,6 @@ export const SIM_ADVISOR_TEXT = Object.freeze({
 export const simAdvisorText = (lang = 'ko') => SIM_ADVISOR_TEXT[langOf(lang)];
 
 const STYLE_CSS = `
-#sim-advisor-strip {
-  position: fixed;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 24;
-  pointer-events: auto;
-  max-width: min(680px, calc(100vw - 32px));
-  padding: 5px 11px;
-  border-radius: 999px;
-  background: rgba(252, 249, 242, 0.94);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(58, 42, 29, 0.22);
-  box-shadow: 0 8px 22px rgba(28, 20, 14, 0.14);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: #2b2118;
-  transform-origin: bottom center;
-  transition: bottom 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-#sim-advisor-strip.above-insp {
-  bottom: 224px;
-}
-#sim-advisor-strip.collapsed {
-  opacity: 0.85;
-  padding: 3px 9px;
-}
-.sim-adv-badge {
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 10px;
-}
-.sim-adv-badge.fail { background: #fee2e2; color: #991b1b; }
-.sim-adv-badge.warn { background: #fef3c7; color: #92400e; }
-.sim-adv-badge.good { background: #dcfce7; color: #166534; }
-.sim-adv-badge.info { background: #e0e7ff; color: #1e40af; }
-.sim-adv-btn {
-  border: 1px solid rgba(58, 42, 29, 0.2);
-  background: #fff;
-  color: #2b2118;
-  border-radius: 999px;
-  padding: 1px 7px;
-  font-size: 10px;
-  font-weight: 600;
-  cursor: pointer;
-}
 .sim-floor-meta {
   display: inline-flex;
   align-items: center;
@@ -222,12 +164,8 @@ export function installSimAdvisor({
   office,
   hud,
   extras = null,
-  overlays = null,
-  flywheelViz = null,
   doc = globalThis.document,
 } = {}) {
-  let collapsed = false;
-
   if (doc?.head && !doc.getElementById?.('sim-advisor-style')) {
     const style = doc.createElement('style');
     style.id = 'sim-advisor-style';
@@ -235,16 +173,7 @@ export function installSimAdvisor({
     doc.head.appendChild(style);
   }
 
-  let strip = doc?.getElementById?.('sim-advisor-strip') ?? null;
-  if (!strip && doc) {
-    const hudRoot = doc.getElementById?.('hud') ?? doc.body;
-    if (hudRoot) {
-      strip = doc.createElement('div');
-      strip.id = 'sim-advisor-strip';
-      strip.setAttribute('role', 'status');
-      hudRoot.appendChild(strip);
-    }
-  }
+  doc?.getElementById?.('sim-advisor-strip')?.remove?.();
 
   function decorateFloors() {
     const nav = hud?.el?.floors;
@@ -274,90 +203,19 @@ export function installSimAdvisor({
     }
   }
 
-  function renderStrip() {
-    if (!strip || !doc) return;
-    const lang = hud?.lang || 'ko';
-    const t = simAdvisorText(lang);
-    const inspOpen = Boolean(office?.selected && hud?.el?.insp && !hud.el.insp.hidden);
-    strip.classList.toggle('above-insp', inspOpen);
-    strip.classList.toggle('collapsed', collapsed);
-    strip.replaceChildren();
-
-    const fwModel = flywheelViz?.getModel?.() || null;
-    const alerts = evaluateAdvisors(office, extras?.metricsBySid, fwModel, lang);
-    const top = alerts[0] || null;
-
-    if (collapsed || !top) {
-      const badge = doc.createElement('span');
-      badge.className = `sim-adv-badge ${top ? top.severity : 'good'}`;
-      badge.textContent = top ? `${top.domain} (${alerts.length})` : t.quietLabel;
-      strip.appendChild(badge);
-      if (top) {
-        const expBtn = doc.createElement('button');
-        expBtn.type = 'button';
-        expBtn.className = 'sim-adv-btn';
-        expBtn.textContent = t.expandBtn;
-        expBtn.addEventListener('click', () => { collapsed = false; renderStrip(); });
-        strip.appendChild(expBtn);
-      }
-      return;
-    }
-
-    const badge = doc.createElement('span');
-    badge.className = `sim-adv-badge ${top.severity}`;
-    badge.textContent = top.domain;
-    const msg = doc.createElement('span');
-    msg.textContent = top.text;
-    strip.append(badge, msg);
-
-    if (top.openFlywheelMode || top.focusAgentId || top.focusFloorIndex !== null) {
-      const focusBtn = doc.createElement('button');
-      focusBtn.type = 'button';
-      focusBtn.className = 'sim-adv-btn';
-      focusBtn.textContent = t.focusBtn;
-      focusBtn.addEventListener('click', () => {
-        if (top.openFlywheelMode) overlays?.setMode?.('flywheel');
-        if (top.focusFloorIndex !== null) office?.focus?.(top.focusFloorIndex);
-        if (top.focusAgentId) {
-          const ag = office?.agents?.get?.(top.focusAgentId);
-          if (ag) office?.select?.(ag, { focusPan: true });
-        }
-      });
-      strip.appendChild(focusBtn);
-    }
-
-    const colBtn = doc.createElement('button');
-    colBtn.type = 'button';
-    colBtn.className = 'sim-adv-btn';
-    colBtn.textContent = t.collapseBtn;
-    colBtn.addEventListener('click', () => { collapsed = true; renderStrip(); });
-    strip.appendChild(colBtn);
-  }
-
   if (hud?.floorStats) {
     const origFloorStats = hud.floorStats.bind(hud);
     hud.floorStats = (off) => {
       origFloorStats(off);
       decorateFloors();
-      renderStrip();
-    };
-  }
-
-  if (office?.select) {
-    const origSelect = office.select.bind(office);
-    office.select = (a, opts) => {
-      origSelect(a, opts);
-      renderStrip();
     };
   }
 
   doc?.getElementById?.('lang-toggle')?.addEventListener?.('click', () => {
     decorateFloors();
-    renderStrip();
   });
 
   decorateFloors();
-  renderStrip();
 
-  return { renderStrip, decorateFloors };
+  return { decorateFloors };
 }

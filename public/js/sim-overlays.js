@@ -1,7 +1,7 @@
-// Phase 2 (Impeccable Floating SimHUD Pill, SimCity RCI Meter & 5-Mode 3D Stage Lenses):
-// - Top-Center Floating SimHUD Pill (#sim-hud-pill) anchored over #stage (Impeccable Operate mode)
+// Phase 2 (SimCity RCI Meter & 5-Mode 3D Stage Lenses in .bar .controls):
+// - Inline #sim-hud-pill mounted inside .bar .controls (zero viewport occlusion)
 // - SimCity RCI Workload Balance Meter (R: Read/Explore, C: Code/Edit, I: Integrate/Verify)
-// - 5-Mode Viewport Overlay Switcher (Shortcut V: 1 Normal, 2 Heatmap, 3 Desire, 4 Friction, 5 Flywheel)
+// - 5-Mode Viewport Overlay Selector (Shortcut V: 1 Normal, 2 Heatmap, 3 Desire, 4 Friction, 5 Flywheel)
 import { langOf, ROOMS } from './rooms.js';
 
 export const OVERLAY_MODES = Object.freeze(['normal', 'heatmap', 'desire', 'friction', 'flywheel']);
@@ -9,7 +9,7 @@ export const OVERLAY_MODES = Object.freeze(['normal', 'heatmap', 'desire', 'fric
 export const SIM_OVERLAYS_TEXT = Object.freeze({
   ko: Object.freeze({
     rciTitle: 'SimCity식 RCI 작업 수요 균형 (R: 탐색 · C: 구현 · I: 검증)',
-    lensLabel: '뷰 렌즈 (V)',
+    lensLabel: '렌즈 (V)',
     modes: Object.freeze({
       normal: '1: 기본',
       heatmap: '2: 비용 열지도',
@@ -35,69 +35,50 @@ export const simOverlaysText = (lang = 'ko') => SIM_OVERLAYS_TEXT[langOf(lang)];
 
 const STYLE_CSS = `
 #sim-hud-pill {
-  position: fixed;
-  top: 58px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 25;
-  pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 11px;
-  border-radius: 999px;
-  background: rgba(252, 249, 242, 0.92);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(58, 42, 29, 0.2);
-  box-shadow: 0 8px 24px rgba(28, 20, 14, 0.14);
-  font-size: 11px;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--muted-bg, rgba(58, 42, 29, 0.06));
+  border: 1px solid var(--line, rgba(58, 42, 29, 0.2));
+  font: 500 11px/1.2 var(--font-mono, monospace);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: #2b2118;
+  color: var(--fg, #2b2118);
 }
 .sim-rci-box {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding-right: 8px;
-  border-right: 1px solid rgba(58, 42, 29, 0.18);
+  gap: 5px;
+  padding-right: 6px;
+  border-right: 1px solid var(--line, rgba(58, 42, 29, 0.18));
 }
 .sim-rci-bars {
   display: inline-flex;
   align-items: flex-end;
   gap: 2px;
-  height: 16px;
-  padding: 2px 3px;
-  border-radius: 4px;
+  height: 14px;
+  padding: 1px 2px;
+  border-radius: 3px;
   background: rgba(58, 42, 29, 0.08);
 }
 .sim-rci-bar {
-  width: 5px;
-  border-radius: 2px;
+  width: 4px;
+  border-radius: 1.5px;
   transition: height 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .sim-rci-bar.r { background: #3b82f6; }
 .sim-rci-bar.c { background: #10b981; }
 .sim-rci-bar.i { background: #a855f7; }
-.sim-lens-btn {
-  border: 1px solid rgba(58, 42, 29, 0.18);
-  background: rgba(255, 255, 255, 0.78);
-  color: #2b2118;
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 10.5px;
-  font-weight: 600;
+#sim-lens-select {
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--line, rgba(58, 42, 29, 0.2));
+  background: var(--panel-solid, #fff);
+  color: var(--fg, #2b2118);
+  font: 500 11.5px/1.2 var(--font-ui, sans-serif);
   cursor: pointer;
-  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), background 160ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.sim-lens-btn:hover { background: #f5efe4; }
-.sim-lens-btn[aria-pressed="true"] {
-  background: #2b2118;
-  color: #fffdf9;
-  border-color: #2b2118;
-}
-@media (max-width: 900px) {
-  #sim-hud-pill { top: 96px; max-width: calc(100vw - 24px); overflow-x: auto; }
 }
 `;
 
@@ -193,12 +174,12 @@ export function installSimOverlays({
 
   let pill = doc?.getElementById?.('sim-hud-pill') ?? null;
   if (!pill && doc) {
-    const hudRoot = doc.getElementById?.('hud') ?? doc.body;
-    if (hudRoot) {
+    const host = doc.querySelector?.('.bar .controls') ?? doc.getElementById?.('hud') ?? doc.body;
+    if (host) {
       pill = doc.createElement('div');
       pill.id = 'sim-hud-pill';
-      pill.setAttribute('role', 'toolbar');
-      hudRoot.appendChild(pill);
+      pill.setAttribute('role', 'group');
+      host.appendChild(pill);
     }
   }
 
@@ -231,20 +212,23 @@ export function installSimOverlays({
     rciBox.append(bars, txt);
     pill.appendChild(rciBox);
 
-    const lensTag = doc.createElement('strong');
+    const lensTag = doc.createElement('span');
     lensTag.textContent = t.lensLabel;
     pill.appendChild(lensTag);
 
+    const select = doc.createElement('select');
+    select.id = 'sim-lens-select';
+    select.setAttribute('aria-label', t.lensLabel);
     for (const mode of OVERLAY_MODES) {
-      const btn = doc.createElement('button');
-      btn.type = 'button';
-      btn.className = 'sim-lens-btn';
-      btn.dataset.mode = mode;
-      btn.setAttribute('aria-pressed', String(activeMode === mode));
-      btn.textContent = t.modes[mode];
-      btn.addEventListener('click', () => setMode(mode));
-      pill.appendChild(btn);
+      const opt = doc.createElement('option');
+      opt.value = mode;
+      opt.textContent = t.modes[mode];
+      if (mode === activeMode) opt.selected = true;
+      select.appendChild(opt);
     }
+    select.value = activeMode;
+    select.addEventListener('change', (e) => setMode(e?.target?.value || select.value));
+    pill.appendChild(select);
   }
 
   function sync3DOverlays() {
