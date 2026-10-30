@@ -5,6 +5,7 @@ import { tr } from './rooms.js';
 
 const W = 1024;
 const H = 488;
+const MAX_HISTORY = 8;
 const INK = { title: '#1d3f8f', text: '#22303d', done: '#7b8794', doing: '#c8372d', box: '#22303d', check: '#2f8a4e' };
 const pen = (size) => `${size}px "Nanum Pen Script", "Gaegu", cursive`;
 
@@ -17,7 +18,9 @@ function clip(g, s, width) {
 
 export class Board {
   constructor() {
-    this.canvas = document.createElement('canvas');
+    this.canvas = typeof document !== 'undefined'
+      ? document.createElement('canvas')
+      : { width: W, height: H, getContext: () => null };
     this.canvas.width = W;
     this.canvas.height = H;
     this.tex = new THREE.CanvasTexture(this.canvas);
@@ -31,15 +34,32 @@ export class Board {
     this.title = '';
     this.items = [];
     this.ink = INK.title;
+    this.updatedAt = 0;
+    this.history = [];
+    this.listeners = new Set();
     this.draw();
+  }
+
+  onChange(fn) {
+    if (typeof fn !== 'function') return () => {};
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
   }
 
   set(owner, title, items, ink) {
     this.owner = owner;
     this.title = title;
-    this.items = items;
+    this.items = Array.isArray(items)
+      ? items.map((it) => ({ content: String(it?.content ?? ''), status: it?.status || 'pending' }))
+      : [];
     this.ink = ink || INK.title;
+    this.updatedAt = Date.now();
+    if (this.items.length > 0 && owner) {
+      const entry = { owner, title: title || String(owner), items: this.items, ink: this.ink, updatedAt: this.updatedAt };
+      this.history = [entry, ...this.history.filter((h) => h.owner !== owner)].slice(0, MAX_HISTORY);
+    }
     this.draw();
+    for (const fn of this.listeners) fn(this);
   }
 
   sameContent(owner, items) {
@@ -49,7 +69,8 @@ export class Board {
   }
 
   draw() {
-    const g = this.canvas.getContext('2d');
+    const g = this.canvas.getContext?.('2d');
+    if (!g) return;
     g.textAlign = 'left';
     g.fillStyle = '#fbfbf7';
     g.fillRect(0, 0, W, H);
@@ -130,6 +151,11 @@ export class Board {
       g.fillStyle = INK.done;
       g.fillText(tr(`+ ${this.items.length - max}개 더`, `+ ${this.items.length - max} more`), 112, y - 6);
     }
+    g.font = pen(34);
+    g.fillStyle = INK.done;
+    g.textAlign = 'right';
+    g.fillText(tr('클릭 · 상세 보기', 'Click · full plan'), W - 48, H - 18);
+    g.textAlign = 'left';
     this.tex.needsUpdate = true;
   }
 }

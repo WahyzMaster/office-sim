@@ -46,6 +46,7 @@ export class Floor {
       const el = document.createElement('div');
       el.className = 'sign';
       el.dataset.room = k;
+      el.dataset.floor = String(this.index);
       el.style.setProperty('--rc', `var(${r.token})`);
       el.textContent = r.label;
       const o = new CSS2DObject(el);
@@ -54,6 +55,7 @@ export class Floor {
     }
     this.tagEl = document.createElement('div');
     this.tagEl.className = 'floortag';
+    this.tagEl.dataset.floor = String(this.index);
     const tag = new CSS2DObject(this.tagEl);
     tag.position.set(FLOOR_W / 2 - 1.5, -0.3, FLOOR_D / 2 + 0.4);
     g.add(tag);

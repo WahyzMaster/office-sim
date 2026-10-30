@@ -19,7 +19,7 @@
   - `src/flywheel/types.mjs`, `src/flywheel/router.mjs`, `src/flywheel/collectors.mjs`, `src/flywheel/control.mjs`: 8-source (`P1..P8`) runtime anomaly collector, 24-hex SHA-256 3-layer deduplication, 2-tick warn debounce, 72h regression detection, and Tier A/B/C dry-run router exposed via `/api/flywheel` and `public/js/flywheel-panel.js`.
   - `scripts/flywheel/seed-loop-contract.mjs`, `scripts/flywheel/loop-attempt-ledger.mjs`, `scripts/flywheel/promote-lesson.mjs`, `scripts/flywheel/evidence-notes.mjs`: `L3 -> L1 -> L2` `Harness²` CLI tools paired with `.claude/skills/office-flywheel/SKILL.md`.
 - **3D Browser Client (`public/`)**:
-  - `public/office.html` + `public/js/` (native ES modules + Three.js via `importmap`), including simulation sidecars `public/js/sim-motives.js`, `public/js/sim-overlays.js`, `public/js/sim-flywheel-viz.js`, `public/js/sim-advisor.js`, and `public/js/sim-cute-anim.js`.
+  - `public/office.html` + `public/js/` (native ES modules + Three.js via `importmap`), including simulation sidecars `public/js/sim-motives.js`, `public/js/sim-overlays.js`, `public/js/sim-flywheel-viz.js`, `public/js/sim-advisor.js`, `public/js/sim-cute-anim.js`, and `public/js/board-detail.js`.
   - `public/js/rooms.js` defines the 7 functional rooms (`archive`, `dev`, `server`, `research`, `meeting`, `desk`, `lounge`), 7 architectural themes (`studio`, `office`, `palace`, `hanok`, `starship`, `dogs`, `cats`), and bilingual (`ko`/`en`) strings.
 - **Bundled Skills, Subagents & Scripts (`c5..c7`)**:
   - Runtime skill: `skills/office/SKILL.md` installed via `scripts/install-skill.mjs`.

@@ -13,6 +13,7 @@ import { installSimMotives } from './sim-motives.js';
 import { installSimOverlays } from './sim-overlays.js';
 import { installSimFlywheelViz } from './sim-flywheel-viz.js';
 import { installSimAdvisor } from './sim-advisor.js';
+import { installBoardDetail } from './board-detail.js';
 
 const cfg = { speed: 1, intervalMs: 250 };
 const stage = createStage(document.getElementById('stage'));
@@ -68,6 +69,7 @@ installSimAdvisor({ office, hud, extras, overlays, flywheelViz });
 
 let down = null;
 const canvas = stage.renderer.domElement;
+const boardDetail = installBoardDetail({ office, hud, stage, canvas });
 const ndcOf = (e) => {
   const r = canvas.getBoundingClientRect();
   return { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 };
@@ -79,19 +81,38 @@ canvas.addEventListener('pointerdown', (e) => {
 window.addEventListener('pointerup', () => canvas.classList.remove('dragging'));
 canvas.addEventListener('pointermove', (e) => {
   if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return;
-  canvas.classList.toggle('hovering', !!office.hitAgent(ndcOf(e)));
+  const ndc = ndcOf(e);
+  canvas.classList.toggle('hovering', !!(office.hitAgent(ndc) || boardDetail.hitBoard(ndc)));
 });
 canvas.addEventListener('pointerup', (e) => {
   const d = down;
   down = null;
   if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) return;
-  office.pick(ndcOf(e));
+  const ndc = ndcOf(e);
+  const hitA = office.hitAgent(ndc);
+  if (hitA) {
+    office.select(hitA);
+    return;
+  }
+  const hitB = boardDetail.hitBoard(ndc);
+  if (hitB) {
+    boardDetail.openFloorBoard(hitB);
+    return;
+  }
+  office.select(null);
 });
 canvas.addEventListener('dblclick', (e) => {
-  const hit = office.hitAgent(ndcOf(e));
+  const ndc = ndcOf(e);
+  const hit = office.hitAgent(ndc);
   if (hit) {
     if (hit.floor.index !== office.focusIndex || office.overview) office.focus(hit.floor.index);
     office.select(hit, { focusPan: true });
+    return;
+  }
+  const hitB = boardDetail.hitBoard(ndc);
+  if (hitB) {
+    if (hitB.index !== office.focusIndex || office.overview) office.focus(hitB.index);
+    boardDetail.openFloorBoard(hitB);
   } else {
     office.follow = false;
     office.layout({ snapPan: true });
