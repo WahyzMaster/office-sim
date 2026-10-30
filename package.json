@@ -1,6 +1,6 @@
 {
   "name": "office-sim",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Local 3D office visualizer for AI coding agents — tails Claude Code, Codex, Grok (xAI Grok Build), and Antigravity session logs in real time with zero dependencies.",
   "license": "MIT",
   "type": "module",
