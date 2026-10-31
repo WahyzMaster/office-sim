@@ -60,11 +60,27 @@ const SCENARIOS = [
     sessionId: 'demo-auth', agent: 'claude-code', surface: 'cli', project: 'web-app', title: L('OAuth 세션 가드 점검', 'Audit OAuth Session Guard'), branch: 'fix/auth-guard', start: 0.4, gap: 9,
     steps: [
       ['think', L('세션 가드부터 보자. 기존 토큰 검증 흐름을 먼저 읽어야겠다.', 'Let us inspect the session guard and trace the existing token verification flow.'), 2600],
-      ['plan', [[L('토큰 검증 흐름 파악', 'Trace token verification flow'), 1], [L('가드 테스트 작성', 'Write session guard tests'), 0], [L('세션 가드 구현', 'Enforce session guard'), 0], [L('테스트 실행', 'Run test suite'), 0]]],
+      ['plan', [
+        [L('토큰 검증 흐름 파악', 'Trace token verification flow'), 1],
+        [L('가드 단위 테스트 작성', 'Write session guard unit tests'), 0],
+        [L('세션 가드 미들웨어 구현', 'Implement session guard middleware'), 0],
+        [L('개발 모드 우회 분기 제거', 'Remove dev-mode bypass branch'), 0],
+        [L('어댑터 보안 경계 점검', 'Audit adapter security boundary'), 0],
+        [L('회귀 테스트 스위트 실행', 'Run regression test suite'), 0],
+        [L('PR 커밋 및 문서 정리', 'Create PR commit & update docs'), 0],
+      ]],
       ['tool', 'Grep', '"verifyToken" src/'],
       ['tool', 'Read', 'src/auth/verifyToken.ts'],
       ['tool', 'mcp__codegraph__codegraph_callers', 'authenticateSession'],
-      ['plan', [[L('토큰 검증 흐름 파악', 'Trace token verification flow'), 2], [L('가드 테스트 작성', 'Write session guard tests'), 1], [L('세션 가드 구현', 'Enforce session guard'), 0], [L('테스트 실행', 'Run test suite'), 0]]],
+      ['plan', [
+        [L('토큰 검증 흐름 파악', 'Trace token verification flow'), 2],
+        [L('가드 단위 테스트 작성', 'Write session guard unit tests'), 1],
+        [L('세션 가드 미들웨어 구현', 'Implement session guard middleware'), 1],
+        [L('개발 모드 우회 분기 제거', 'Remove dev-mode bypass branch'), 0],
+        [L('어댑터 보안 경계 점검', 'Audit adapter security boundary'), 0],
+        [L('회귀 테스트 스위트 실행', 'Run regression test suite'), 0],
+        [L('PR 커밋 및 문서 정리', 'Create PR commit & update docs'), 0],
+      ]],
       ['tool', 'Write', 'test/auth/sessionGuard.test.ts'],
       ['tool', 'Edit', 'src/auth/sessionGuard.ts'],
       ['tool', 'Bash', 'npm test -- sessionGuard', { dur: 3.2, fail: 'Exit code 1 · expected 403, received 200' }],
@@ -72,7 +88,15 @@ const SCENARIOS = [
       ['think', L('개발 모드 플래그에서 가드가 우회되고 있다. 환경 분기를 고치자.', 'The dev-mode flag is bypassing the guard. Let us fix the environment branch.'), 2400],
       ['tool', 'Edit', 'src/auth/sessionGuard.ts'],
       ['tool', 'Bash', 'npm test -- sessionGuard', { dur: 3 }],
-      ['plan', [[L('토큰 검증 흐름 파악', 'Trace token verification flow'), 2], [L('가드 테스트 작성', 'Write session guard tests'), 2], [L('세션 가드 구현', 'Enforce session guard'), 2], [L('테스트 실행', 'Run test suite'), 2]]],
+      ['plan', [
+        [L('토큰 검증 흐름 파악', 'Trace token verification flow'), 2],
+        [L('가드 단위 테스트 작성', 'Write session guard unit tests'), 2],
+        [L('세션 가드 미들웨어 구현', 'Implement session guard middleware'), 2],
+        [L('개발 모드 우회 분기 제거', 'Remove dev-mode bypass branch'), 2],
+        [L('어댑터 보안 경계 점검', 'Audit adapter security boundary'), 2],
+        [L('회귀 테스트 스위트 실행', 'Run regression test suite'), 2],
+        [L('PR 커밋 및 문서 정리', 'Create PR commit & update docs'), 1],
+      ]],
       ['ask', L('테스트 통과. 바로 머지할까요, PR을 열까요?', 'Tests pass. Open a PR or merge directly?'), [L('PR 열기', 'Open PR'), L('바로 머지', 'Merge now')], 6],
       ['tool', 'Bash', 'git commit -m "fix(auth): enforce session guard"'],
       ['say', L('PR용 커밋을 만들었어요.', 'Created the commit for the PR.')],
@@ -191,6 +215,7 @@ export class MockSource {
     this.seq = 0;
     this.timeline = [];
     this.buffer = [];
+    this.lastPlans = new Map();
     this.onBatch = null;
     this.scn = SCENARIOS.map((s) => ({ agent: 'claude-code', surface: 'cli', ...s, next: s.start + 0.8 }));
     for (const s of this.scn) {
@@ -279,6 +304,8 @@ export class MockSource {
     for (const s of this.scn) {
       if (this.t >= s.start) {
         this.emit({ ts, replay: true, type: 'session', sessionId: s.sessionId, agent: s.agent, surface: s.surface, project: s.project, title: pick(s.title), branch: s.branch });
+        const rawPlan = this.lastPlans.get(s.sessionId);
+        if (rawPlan) this.emit({ ts, replay: true, langSync: true, ...localizeEvent(rawPlan) });
       }
     }
   }
@@ -301,7 +328,10 @@ export class MockSource {
     const batch = this.buffer;
     this.buffer = [];
     const ts = new Date().toISOString();
-    for (const ev of batch) this.emit({ ts, ...localizeEvent(ev) });
+    for (const ev of batch) {
+      if (ev.type === 'plan') this.lastPlans.set(ev.sessionId, ev);
+      this.emit({ ts, ...localizeEvent(ev) });
+    }
     this.onBatch?.(batch.length);
   }
 }

@@ -59,6 +59,13 @@ const STYLE_CSS = `
   color: var(--ask-ink);
   border: 1px solid var(--ask-line);
 }
+.sim-floor-p {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--muted-bg));
+  color: var(--fg);
+  border: 1px solid var(--accent);
+}
 `;
 
 export function computeFloorPrestige(floorLike = {}, metricsBySid = new Map()) {
@@ -89,7 +96,14 @@ export function computeFloorPrestige(floorLike = {}, metricsBySid = new Map()) {
 
   const stars = clamp(rawStars, 1, 5);
   const starString = `[${'*'.repeat(stars)}${'-'.repeat(5 - stars)}]`;
-  return { stars, starString, queueCount, doneRatio: Math.round(doneRatio * 100) };
+  return {
+    stars,
+    starString,
+    queueCount,
+    doneRatio: Math.round(doneRatio * 100),
+    planDone: doneCount,
+    planTotal: boardItems.length,
+  };
 }
 
 export function evaluateAdvisors(officeLike = {}, metricsBySid = new Map(), flywheelModel = null, lang = 'ko') {
@@ -194,6 +208,12 @@ export function installSimAdvisor({
       const starsSpan = doc.createElement('span');
       starsSpan.textContent = p.starString;
       meta.appendChild(starsSpan);
+      if (p.planTotal > 0) {
+        const pSpan = doc.createElement('span');
+        pSpan.className = 'sim-floor-p';
+        pSpan.textContent = `P:${p.planDone}/${p.planTotal}`;
+        meta.appendChild(pSpan);
+      }
       if (p.queueCount > 0) {
         const qSpan = doc.createElement('span');
         qSpan.className = 'sim-floor-q';

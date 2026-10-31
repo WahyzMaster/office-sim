@@ -46,6 +46,25 @@ export class Board {
     return () => this.listeners.delete(fn);
   }
 
+  syncOwnerTitle(owner, title) {
+    if (!owner || !title) return;
+    let changed = false;
+    if (this.owner === owner && this.title !== title) {
+      this.title = title;
+      changed = true;
+    }
+    for (const h of this.history) {
+      if (h.owner === owner && h.title !== title) {
+        h.title = title;
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.draw();
+      for (const fn of this.listeners) fn(this);
+    }
+  }
+
   set(owner, title, items, ink) {
     this.owner = owner;
     this.title = title;
