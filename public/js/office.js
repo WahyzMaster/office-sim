@@ -117,7 +117,7 @@ export class Office {
         line = `“${ev.text}”`;
         break;
       case 'plan':
-        line = this.plan(a, ev.items || []);
+        line = this.plan(a, ev.items || [], !!ev.langSync);
         kind = 'plan';
         break;
       case 'turn_end':
@@ -192,6 +192,7 @@ export class Office {
       const flip = 'isSubagent' in info && !!info.isSubagent !== existing.isSub;
       if ((floor && floor !== existing.floor) || flip) return this.rehome(existing, info, floor || existing.floor);
       existing.rename(info);
+      existing.floor?.board?.syncOwnerTitle?.(existing.id, existing.name);
       return existing;
     }
     if (!floor) return null;
@@ -273,16 +274,16 @@ export class Office {
     return `${label} ${summary}${where}`;
   }
 
-  plan(a, items) {
+  plan(a, items, silent = false) {
     const done = items.filter((i) => i.status === 'completed').length;
     const board = a.floor.board;
-    if (board.sameContent(a.id, items)) {
+    if (silent || board.sameContent(a.id, items)) {
       board.set(a.id, a.name, items, a.ink);
-      a.bubble('info', `${tr('계획', 'Plan')} ${done}/${items.length}`, 2);
+      if (!silent) a.bubble('info', `${tr('계획', 'Plan')} ${done}/${items.length}`, 2);
     } else {
       a.push({ kind: 'plan', room: 'meeting', prefer: 0, items, activity: tr('화이트보드에 계획 쓰는 중', 'Writing plan on board') });
     }
-    return `${tr('계획', 'Plan')} ${done}/${items.length}`;
+    return silent ? null : `${tr('계획', 'Plan')} ${done}/${items.length}`;
   }
 
   writePlan(a, items) { a.floor.board.set(a.id, a.name, items, a.ink); }
