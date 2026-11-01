@@ -3,7 +3,7 @@
 ## 1. Profile & Scope (`INV` vs `DOM`)
 - **User-Scope (`INV` Baseline)**: `WahyzDAD/wahyz_agent_profile#v1.4.0` (`~/.claude/CLAUDE.md`). Global MCP routing (`serena`, `codegraph`, `morph-mcp`, `context7`, `tavily`), 60+ portable skills, and worktree isolation hooks (`using-git-worktrees`) come from the global profile — do not duplicate them here.
 - **Project-Scope (`DOM` Contract)**: This file defines domain-specific architecture, build/test commands, and privacy/runtime invariants for `office-sim` (Node.js 22+ ESM + Three.js browser visualizer).
-- **Harness² Cost Hierarchy**: `skill -> script -> subagent -> hook -> gate -> memory -> always-on`. Keep this file under `16,000 bytes` / `220 lines`; load heavy specifications (`docs/CONTRACT.md`, `docs/ADAPTERS.md`) on demand only when modifying adapters or wire schemas.
+- **Harness² Cost Hierarchy**: `skill -> script -> subagent -> hook -> gate -> memory -> always-on`. Keep this file under `16,000 bytes` / `220 lines`; load heavy specifications (`docs/CONTRACT.md`, `docs/ADAPTERS.md`, `docs/SOFTWARE_DEVELOPMENT_REPORT.md`) on demand only when modifying adapters, wire schemas, or system documentation.
 
 ## 2. Architecture & Module Map
 - **CLI Entrypoint**: `bin/office-sim.mjs` parses CLI flags via `src/cli-args.mjs` and launches the loopback server.

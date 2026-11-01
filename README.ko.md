@@ -157,7 +157,7 @@ npm run skill:uninstall
 ## 개인정보 보호 및 아키텍처 상세
 
 - 서버는 루프백(`127.0.0.1`)에만 열리며, 파일 내용·명령 원문·전체 경로·전체 URL·이메일·인증 파일은 절대 읽거나 브라우저로 보내지 않습니다.
-- 상세 계약과 어댑터 명세는 [`docs/CONTRACT.md`](docs/CONTRACT.md), [`docs/ADAPTERS.md`](docs/ADAPTERS.md), [`docs/HISTORY.md`](docs/HISTORY.md)를 참고하세요.
+- 상세 계약과 어댑터 명세 및 소프트웨어 개발 보고서는 [`docs/SOFTWARE_DEVELOPMENT_REPORT.md`](docs/SOFTWARE_DEVELOPMENT_REPORT.md), [`docs/CONTRACT.md`](docs/CONTRACT.md), [`docs/ADAPTERS.md`](docs/ADAPTERS.md), [`docs/HISTORY.md`](docs/HISTORY.md)를 참고하세요.
 - 어댑터 개발용 실시간 기록 관찰 패널은 `http://127.0.0.1:4317/?observe=1` (또는 `#observe`)로 열었을 때만 상단 바에 나타납니다.
 
 ## 후원하기 (Support & Sponsorship)
