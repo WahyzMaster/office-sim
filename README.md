@@ -170,6 +170,7 @@ Once installed, invoke `/office`, `/office demo`, `/office auth`, `/office statu
 - **Loopback-Only & Cross-Site Guards**: Rejects non-loopback `Host` headers, foreign `Origin` headers, and `Sec-Fetch-Site: cross-site` requests.
 - **Strict Scrubbing**: Only tool names, file basenames (never directory paths), URL hostnames (never query strings or paths), and short status summaries reach the browser. Credentials (`oauth_creds.json`, `.env`, SQLite DBs, raw prompt history files, encrypted `.pb` files) are never opened.
 - **Architecture & Specifications**:
+  - [`docs/SOFTWARE_DEVELOPMENT_REPORT.md`](docs/SOFTWARE_DEVELOPMENT_REPORT.md) — Industry-standard Software Development Report (requirements traceability, C4 architecture, security/privacy, verification report, and release history).
   - [`docs/CONTRACT.md`](docs/CONTRACT.md) — Event schema, adapter rules, privacy scrubbing contract, and `/healthz` specification.
   - [`docs/ADAPTERS.md`](docs/ADAPTERS.md) — Multi-agent adapter design and mapping tables.
   - [`docs/HISTORY.md`](docs/HISTORY.md) — Implementation history and engineering notes.
