@@ -6,6 +6,7 @@
 
 ## Worktree & Harness² Discipline
 - Antigravity `PreToolUse` hooks block direct edits on the primary checkout; always work inside `.worktrees/<slug>` branched from `origin/master` (`using-git-worktrees`). Never run `git stash`.
+- **Post-Merge Deployment Only (`P5`)**: Never run `npm publish` or site deployments from `.worktrees/<slug>` (`P1`–`P4`); releases execute only at `P5` after PR merge into `origin/master` (`worktree_land.sh deploy-check`). See `docs/workflows/README.md`.
 - Follow the `Harness²` cost ladder (`skill -> script -> subagent -> hook -> gate -> memory -> always-on`). Load `docs/CONTRACT.md` and `docs/ADAPTERS.md` only when editing `src/adapters/` or wire schemas.
 
 ## Key Commands & Invariants
