@@ -6,7 +6,7 @@
 - **Harness² Budget**: Keep this file under `8,000 bytes` / `120 lines` (`skill -> script -> subagent -> hook -> gate -> memory -> always-on`).
 
 ## Workflow & Narrow Verification
-- **Worktree Isolation & Post-Merge Deployment (`P5`)**: Perform all repository edits inside `.worktrees/<slug>` branched from `origin/master` (`using-git-worktrees`). Never run `git stash`. Never publish or deploy from `.worktrees/<slug>` (`P1`–`P4`); releases execute only at `P5` after PR merge to `origin/master` (`worktree_land.sh deploy-check`).
+- **Worktree Isolation, Merge-Wait Teardown & Post-Merge Deployment (`P5`)**: Perform all repository edits inside `.worktrees/<slug>` branched from `origin/master` (`using-git-worktrees`). Never run `git stash`. Run `worktree_land.sh preflight` before committing, land via `worktree_land.sh land --pr <N> --auto-merge --wait` (never chain `gh pr merge` with manual `git worktree remove`), and never publish or deploy from `.worktrees/<slug>` (`P1`–`P4`); releases execute only at `P5` after PR merge to `origin/master` (`worktree_land.sh deploy-check`).
 - **Structural Search**: Prefer `codegraph_*` and `serena` over raw grep for symbol/caller lookups.
 - **Narrowest Test First**:
   - Focused test: `node --test test/<name>.test.mjs`
