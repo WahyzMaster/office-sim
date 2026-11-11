@@ -164,6 +164,7 @@ test('a terminal with --no-open, or with CI set: the opener is never called; the
 });
 
 test('--demo opens the printed URL plus #demo; the URL line stays as it is and no no-session line follows', unixOnly, async () => {
+  const DEMO_LINE = 'office-sim: demo ';
   // in a terminal (default open), and forced with --open on a pipe; with --auth the token URL gets the same suffix
   for (const [args, tty, urlRe] of [
     [['--demo'], true, /^http:\/\/127\.0\.0\.1:\d+\/$/],
@@ -181,12 +182,38 @@ test('--demo opens the printed URL plus #demo; the URL line stays as it is and n
     assert.match(run.url, urlRe, `${args.join(' ')}: the URL line has no #demo`);
     assert.equal(await run.opened(), `1\n${run.url}#demo\n`, args.join(' '));
     assert.equal(out.includes('no agent session'), false, `${args.join(' ')}: the demo was asked for`);
+    assert.equal(out.includes(DEMO_LINE) || out.includes('#demo'), false, `${args.join(' ')}: the browser was opened, so stdout has no demo line`);
   }
-  const quiet = await runBin(['--demo', '--no-open'], { tty: true });
-  await quiet.firstPassDone();
-  const out = await quiet.stop();
-  assert.equal(await quiet.opened(), '', '--demo opens nothing by itself');
-  assert.equal(out.includes('#demo'), false, out);
+  // D19: when no browser is opened (--no-open in a terminal, or a pipe without --open), one line gives the demo URL,
+  // after the URL and agents lines; with --auth it is the token URL plus #demo
+  for (const [args, tty, urlRe] of [
+    [['--demo', '--no-open'], true, /^http:\/\/127\.0\.0\.1:\d+\/$/],
+    [['--demo'], false, /^http:\/\/127\.0\.0\.1:\d+\/$/],
+    [['--demo', '--auth', '--no-open'], true, /^http:\/\/127\.0\.0\.1:\d+\/\?t=[A-Za-z0-9_-]{43}$/],
+  ]) {
+    const quiet = await runBin(args, { tty });
+    await quiet.firstPassDone();
+    const out = await quiet.stop();
+    assert.match(quiet.url, urlRe, args.join(' '));
+    assert.equal(await quiet.opened(), '', `${args.join(' ')}: --demo opens nothing by itself`);
+    assert.equal(out, `office-sim: ${quiet.url}\noffice-sim: agents claude-code\n${DEMO_LINE}${quiet.url}#demo\noffice-sim: stopping\n`, args.join(' '));
+  }
+});
+
+test('D19 the demo line comes after the replay line, and never without --demo', unixOnly, async () => {
+  const run = await runBin(['--demo', '--no-open', '--replay', REPLAY, '--speed', '50'], { tty: true });
+  try {
+    await until(() => run.out().includes('office-sim: demo '), 8000);
+  } catch (e) {
+    await run.killAndThrow(e);
+  }
+  const out = await run.stop();
+  const demoRe = 'office-sim: demo http://127\\.0\\.0\\.1:\\d+/#demo\\n';
+  assert.match(out, new RegExp(`^${URL_LINE}office-sim: agents claude-code\\noffice-sim: replay 50x\\n${demoRe}office-sim: stopping\\n` + '$'));
+  // without --demo the stdout lines are the ones every other test here pins: URL, agents, stopping
+  const plain = await runBin(['--no-open']);
+  await plain.firstPassDone();
+  assert.equal((await plain.stop()).includes('office-sim: demo'), false);
 });
 
 test('a terminal with a live session: the page has a real office, so no no-session line', unixOnly, async () => {

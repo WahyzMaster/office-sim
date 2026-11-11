@@ -329,3 +329,41 @@ test('open snippet: one classified line for success, a failing or missing opener
     } catch { /* never started, or already gone */ }
   }
 });
+
+// ---- W7 (launch readiness): the start line of a skill copy (the plugin, office-sim init) --------------------------
+
+// Without a checkout the skill starts `npx -y office-sim@latest ...`. No test may use the network, so a fake `npx` in
+// a temp folder stands in: it records its arguments and runs this repository's bin with what follows the package
+// name, which is what npx does with a package's bin. Port 0 and a temp HOME, as for the checkout start above.
+test('npx start line (no checkout): the arguments reach the bin as written and the wait snippet reads its lines', unixOnly, async () => {
+  const cmd = /`(npx -y office-sim@latest [^`]+)`/.exec(SKILL)?.[1];
+  assert.equal(cmd, 'npx -y office-sim@latest --no-open <flags> --port <port> > "<out>" 2>&1');
+  assert.equal(BLOCKS.filter((b) => b.includes('npx ')).length, 0, 'the line is inline: the fenced blocks stay the checkout commands');
+  const home = await tmp();
+  const fake = path.join(home, 'fakebin');
+  await fs.mkdir(fake);
+  const log = path.join(home, 'npx.args');
+  await fs.writeFile(path.join(fake, 'npx'),
+    '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$NPX_LOG"\n[ "$1" = "-y" ] && [ "$2" = "office-sim@latest" ] || exit 64\nshift 2\nexec "$NPX_NODE" "$NPX_BIN" "$@"\n', { mode: 0o755 });
+  const env = { ...process.env, HOME: home, PATH: `${fake}:${process.env.PATH}`, NPX_LOG: log, NPX_NODE: process.execPath, NPX_BIN: path.join(REPO, 'bin', 'office-sim.mjs') };
+  for (const [flags, urlRe, health] of [
+    ['--auth', /^office-sim: http:\/\/127\.0\.0\.1:\d+\/\?t=[A-Za-z0-9_-]{43}$/, 'healthz 401'],
+    ['', /^office-sim: http:\/\/127\.0\.0\.1:\d+\/$/, 'healthz 200'],
+  ]) {
+    const out = sh(block('mktemp'), { TMPDIR: home });
+    const child = spawn('/bin/sh', ['-c', fill(cmd, { '<port>': '0', '<flags>': flags, '<out>': out })], { detached: true, stdio: 'ignore', env });
+    const stopGroup = () => { try { process.kill(-child.pid, 'SIGTERM'); } catch { /* already gone */ } };
+    cleanups.push(stopGroup);
+    try {
+      const lines = sh(fill(block('--input-type=module'), { '<out>': out })).split('\n');
+      assert.match(lines[0], urlRe);
+      assert.equal(lines[1], 'office-sim: agents none');
+      assert.equal(lines.at(-1), health);
+      assert.deepEqual(readFileSync(log, 'utf8').trim().split('\n'),
+        ['-y', 'office-sim@latest', '--no-open', ...(flags ? [flags] : []), '--port', '0'], 'what npx was given');
+    } finally {
+      stopGroup();
+    }
+    await until(() => !alive(child.pid), 5000);
+  }
+});

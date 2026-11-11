@@ -1,0 +1,16 @@
+{
+  "name": "office-sim",
+  "owner": {
+    "name": "WahyzMaster"
+  },
+  "metadata": {
+    "description": "Office Sim for Claude Code: permission prompts in the local 3D office, and the /office skill."
+  },
+  "plugins": [
+    {
+      "name": "office-sim",
+      "source": "./plugin",
+      "description": "Shows Claude Code permission prompts in the local Office Sim 3D office and adds the /office-sim:office skill that starts, opens, checks and stops the office-sim server."
+    }
+  ]
+}

@@ -5,8 +5,9 @@
 export const RENDERER_BACKENDS = Object.freeze(['webgl2', 'webgpu']);
 
 // The WebGPU renderer is the one part of three.js that is not vendored under public/vendor/: the importmap leaves it on
-// the CDN, and the local server's CSP allows that host only when it was started with --cdn. So "the files did not
-// load" is its own, expected outcome with its own text (ko/en) instead of the browser's raw import error.
+// the CDN, and the local server's CSP allows that host only when it was started with --cdn. So "the import was refused
+// or failed" is its own, expected outcome with its own text (ko/en) instead of the browser's raw import error.
+// An import that only fails to answer in time is not that outcome: it is a timeout like the others and names no flag.
 const LOAD_FAILED = Object.freeze({
   en: 'WebGPU files did not load; the local page needs office-sim --cdn',
   ko: 'WebGPU 파일을 불러오지 못했어요. 로컬 페이지는 office-sim --cdn 이 필요해요',
@@ -91,13 +92,15 @@ export function rendererBadgeLabel(info, lang = 'ko') {
   return lang === 'en' ? `WebGL2 fallback${why}` : `WebGL2 대체${why}`;
 }
 
+class InitTimeout extends Error {} // what withTimeout rejects with: told apart from a loader's own error by its class
+
 async function withTimeout(promise, ms) {
   let timer = null;
   try {
     return await Promise.race([
       promise,
       new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error('WebGPU init timed out')), ms);
+        timer = setTimeout(() => reject(new InitTimeout('WebGPU init timed out')), ms);
       }),
     ]);
   } finally {
@@ -109,8 +112,9 @@ async function withTimeout(promise, ms) {
  * Progressive WebGPU upgrade for `stage`. When `?renderer=webgpu` or `#webgpu` is active and `navigator.gpu`
  * succeeds, dynamically loads Three.js `WebGPURenderer`, awaits `.init()`, and swaps the stage renderer.
  * Any missing capability, module error, or timeout leaves the existing `THREE.WebGLRenderer` (`webgl2`) running.
- * When the renderer module itself cannot be loaded (refused by the CSP without --cdn, offline, or no answer in time)
- * the info also carries `fallbackCode: 'load'`, which `rendererBadgeLabel` turns into the ko/en hint naming --cdn.
+ * When the import of the renderer module is refused or fails (the CSP without --cdn, offline, any import error) the
+ * info also carries `fallbackCode: 'load'`, which `rendererBadgeLabel` turns into the ko/en hint naming --cdn. An
+ * import that does not answer within the time limit has no `fallbackCode`: its reason is the timeout text.
  */
 export async function initOptionalWebGPU(stage, opts = {}) {
   const search = opts.search ?? globalThis.location?.search ?? '';
@@ -137,7 +141,8 @@ export async function initOptionalWebGPU(stage, opts = {}) {
   let mod;
   try {
     mod = await withTimeout(Promise.resolve().then(loadWebGPU), timeoutMs);
-  } catch {
+  } catch (err) {
+    if (err instanceof InitTimeout) return settle({ requested: 'webgpu', active: 'webgl2', fallbackReason: err.message });
     return settle({ requested: 'webgpu', active: 'webgl2', fallbackReason: LOAD_FAILED.en, fallbackCode: 'load' });
   }
   let gpuRenderer = null;

@@ -13,6 +13,7 @@ import {
   formatMetricsSummary,
   installAgentExtras,
 } from '../public/js/agent-extras.js';
+import { SIM_OVERLAYS_TEXT } from '../public/js/sim-overlays.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -164,6 +165,25 @@ function sourceFiles(dir, exts, out = []) {
   }
   return out;
 }
+
+test('D24 the compaction toast states no percentage, in Korean and English', () => {
+  // the page knows that a compaction happened, not how much context it freed
+  assert.equal(EXTRAS_TEXT.en.compactToast, 'Context compacted');
+  assert.equal(EXTRAS_TEXT.ko.compactToast, '기억 압축 완료');
+  for (const lang of ['ko', 'en']) assert.doesNotMatch(EXTRAS_TEXT[lang].compactToast, /\d|%|percent|퍼센트|확보|freed/i, lang);
+  assert.doesNotMatch(read('public/js/agent-extras.js'), /65\s*%/);
+});
+
+test('D24 lens labels: no cost wording in either language (the heatmap shows context fill and crowding)', () => {
+  assert.deepEqual(Object.keys(SIM_OVERLAYS_TEXT.ko).sort(), Object.keys(SIM_OVERLAYS_TEXT.en).sort(), 'ko / en key parity');
+  assert.deepEqual(Object.keys(SIM_OVERLAYS_TEXT.ko.modes), Object.keys(SIM_OVERLAYS_TEXT.en.modes));
+  for (const lang of ['ko', 'en']) {
+    const shown = [...Object.values(SIM_OVERLAYS_TEXT[lang].modes), ...Object.values(SIM_OVERLAYS_TEXT[lang]).filter((v) => typeof v === 'string')];
+    for (const text of shown) assert.equal(COST_WORDS.test(text), false, `${lang}: ${text}`);
+  }
+  assert.equal(SIM_OVERLAYS_TEXT.ko.modes.heatmap, '2: 열지도');
+  assert.equal(SIM_OVERLAYS_TEXT.en.modes.heatmap, '2: Heatmap');
+});
 
 test('D11 source: no cost constant, field or label is left in src/, bin/ or public/', () => {
   const stale = /estimatedCostUsd|costUsd|costLabel|costRow|estCost|COST_PER_|cacheReadTokens/;

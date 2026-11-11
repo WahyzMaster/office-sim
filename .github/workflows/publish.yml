@@ -1,9 +1,11 @@
 # Releases are manual: this workflow never starts on a push or a merge. Start it from the Actions tab
 # (or `gh workflow run publish.yml`). dry_run=true (the default) tests, works out the version and previews the
 # tarball. dry_run=false also publishes to npm, pushes the release tag and creates the GitHub Release. When
-# package.json still has the version that is on npm, the job bumps it before publishing (a release commit) and
-# afterwards pushes that commit to master together with the tag.
-# The job releases the ref it is started on and does not check which ref that is: start a real release on master.
+# package.json still has the version that is on npm, the job bumps it before publishing (a release commit, which
+# also sets the same version in plugin/.claude-plugin/plugin.json) and afterwards pushes that commit to master
+# together with the tag.
+# A real release (dry_run=false) runs only when the workflow is started on master (refs/heads/master): started on
+# any other ref, the job is skipped and nothing is published. A dry run may be started on any ref.
 name: Publish to npm
 
 on:
@@ -25,6 +27,7 @@ concurrency:
 
 jobs:
   publish:
+    if: inputs.dry_run != false || github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -74,6 +77,14 @@ jobs:
               git fetch origin master
               git rebase origin/master
               NEW_VER=$(npm version "$BUMP" -m "chore(release): v%s [skip ci]")
+              # The plugin manifest carries the version of package.json (docs/CONTRACT.md 6.3, pinned by
+              # test/plugin-files.test.mjs). npm bumped and committed package.json alone: write the same version
+              # into the manifest, put it into that release commit, and move the tag npm made onto the new commit
+              # (an annotated tag with the commit's message, as npm makes it).
+              node -e 'const fs = require("node:fs"); const file = "plugin/.claude-plugin/plugin.json"; const manifest = JSON.parse(fs.readFileSync(file, "utf8")); manifest.version = JSON.parse(fs.readFileSync("package.json", "utf8")).version; fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");'
+              git add plugin/.claude-plugin/plugin.json
+              git commit --amend --no-edit
+              git tag -f -a "$NEW_VER" -m "chore(release): $NEW_VER [skip ci]"
             fi
           else
             BUMP="manual"

@@ -1,8 +1,8 @@
 // Antigravity (CLI `agy` 와 예전 IDE) 기록 탐색 (ADAPTERS 3.1, 5.3, 7.1, 결정 D6). 허용 목록 방식이다:
 //   <root>/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript_full.jsonl   (값이 잘리지 않은 기록, 먼저 고른다)
 //   <root>/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript.jsonl        (없거나 더 짧으면 이것)
-//   <root>/antigravity-ide/brain/... 도 같은 모양 (예전 IDE)
-// <root> 자체는 나열하지 않는다. <root>/antigravity/ (데스크톱 앱, D6), conversations/ (*.db, *.pb), messages/, steps/,
+//   <root>/antigravity-ide/brain/... 와 <root>/antigravity/brain/... 도 같은 모양 (예전 IDE, 데스크톱 앱: BASES)
+// <root> 자체는 나열하지 않는다. 세 하위 루트 밖의 폴더, conversations/ (*.db, *.pb), messages/, steps/,
 // tasks/, chunks/, history(파일과 폴더), oauth_creds.json, google_accounts.json, settings*.json, state.json,
 // trustedFolders.json, projects.json, cache/, sandbox/, tmp/, config/ 는 열지도 stat 하지도 않는다. 심볼릭 링크는 따라가지
 // 않는다: 하위 루트, brain/, 대화 폴더, .system_generated/, logs/ 는 lstat 이 진짜 폴더일 때만, 기록은 일반 파일일 때만 쓴다.

@@ -6,17 +6,15 @@ import { langOf } from './rooms.js';
 
 /** Seconds to wait after the empty first snapshot before the demo starts (the server's first rescan may still run). */
 export const GRACE_S = 1.5;
-/** The `--active` default (minutes), used until the server's `config` message says otherwise. */
-export const DEFAULT_ACTIVE_MINUTES = 30;
 
+// 문장은 시간 창을 말하지 않는다 (D21): 페이지가 아는 것은 "지금 붙은 세션이 없다" 뿐이고, --active 창은 서버의 탐색 기준이다.
 const EMPTY_TEXT = Object.freeze({
-  ko: (m) => `최근 ${m}분 동안 에이전트 세션이 없어요. Claude Code, Codex, Grok, Antigravity 중 하나를 시작하면 여기에 나타나요. 지금 보이는 것은 데모예요.`,
-  en: (m) => `No agent session in the last ${m} minutes. Start Claude Code, Codex, Grok or Antigravity and it appears here. This is a demo.`,
+  ko: '지금 실행 중인 에이전트 세션이 없어요. Claude Code, Codex, Grok, Antigravity 중 하나를 시작하면 여기에 나타나요. 지금 보이는 것은 데모예요.',
+  en: 'No agent session is running right now. Start Claude Code, Codex, Grok or Antigravity and it appears here. This is a demo.',
 });
-const minutesOf = (m) => (typeof m === 'number' && Number.isFinite(m) && m > 0 ? m : DEFAULT_ACTIVE_MINUTES);
 
-/** The banner sentence. `minutes` is the server's active window; anything that is not a positive number means 30. */
-export const emptyBannerText = (lang, minutes = DEFAULT_ACTIVE_MINUTES) => EMPTY_TEXT[langOf(lang)](minutesOf(minutes));
+/** The banner sentence (D21). It names no time window: a second argument (once the `--active` minutes) is ignored. */
+export const emptyBannerText = (lang) => EMPTY_TEXT[langOf(lang)];
 
 /** True when a snapshot's event list carries at least one `session` event. */
 export const hasSession = (events) => Array.isArray(events) && events.some((e) => e?.type === 'session');
@@ -83,15 +81,16 @@ const STYLE_CSS = `
 /**
  * The first-run controller of live mode. The LiveSource stays connected the whole time; the demo source is only an
  * overlay that this controller creates (`makeDemo()`), ticks and drops.
- * @param {{ office: object, hud: object, makeDemo: () => { tick: Function, setLang?: Function }, doc?: Document, graceS?: number }} o
+ * @param {{ office: object, hud: object, makeDemo: () => { tick: Function, setLang?: Function }, closeBoard?: () => void,
+ *   doc?: Document, graceS?: number }} o
  *   office: `applySnapshot`, `onEvent`, `pruneEmptyFloors`. hud: `lang`, `setSource`, `renderFloors`, `observe`, and
- *   `demoNote` (set here while the demo plays: the chip tooltip `setSource('demo')` shows).
+ *   `demoNote` (set here while the demo plays: the chip tooltip `setSource('demo')` shows). closeBoard: closes the plan
+ *   drawer (board-detail.js); called once when the demo ends, because a drawer open then shows a demo floor.
  */
-export function createFirstRun({ office, hud, makeDemo, doc = globalThis.document, graceS = GRACE_S } = {}) {
+export function createFirstRun({ office, hud, makeDemo, closeBoard = null, doc = globalThis.document, graceS = GRACE_S } = {}) {
   let state = FIRST_RUN_START;
   let demo = null;
   let conn = 'live'; // LiveSource 가 마지막으로 알린 연결 상태: 데모가 끝나면 칩을 이 값으로 돌린다
-  let minutes = DEFAULT_ACTIVE_MINUTES;
   let banner = null;
 
   const step = (input) => {
@@ -100,7 +99,7 @@ export function createFirstRun({ office, hud, makeDemo, doc = globalThis.documen
     return r.action;
   };
 
-  const text = (lang = hud?.lang) => emptyBannerText(lang, minutes);
+  const text = (lang = hud?.lang) => emptyBannerText(lang);
   function render() {
     if (demo && banner) banner.textContent = text();
   }
@@ -131,11 +130,13 @@ export function createFirstRun({ office, hud, makeDemo, doc = globalThis.documen
     hud.setSource('demo');
   }
 
-  // 데모를 치운다: 기존 reset 경로로 직원, 화이트보드, 맡아 둔 이벤트를 비우고, 남은 데모 층과 활동 기록의 데모 줄도 지운다.
+  // 데모를 치운다: 열린 계획 서랍을 먼저 닫고 (데모 중의 층은 모두 데모 층이다), 기존 reset 경로로 직원, 화이트보드, 맡아 둔
+  // 이벤트를 비우고, 남은 데모 층과 활동 기록의 데모 줄도 지운다.
   function endDemo() {
     demo = null;
     hud.demoNote = null;
     if (banner) banner.hidden = true;
+    closeBoard?.();
     office.applySnapshot([], { reset: true });
     office.pruneEmptyFloors?.(0);
     hud.renderFloors?.(office);
@@ -163,14 +164,9 @@ export function createFirstRun({ office, hud, makeDemo, doc = globalThis.documen
       office.onEvent(ev);
     },
 
-    /** The server's `config` message: replay or live, and the active window the banner names. */
+    /** The server's `config` message: replay or live. (Its `activeMinutes` is not used: the banner names no window, D21.) */
     onConfig(msg) {
-      const before = minutes;
-      if (Number.isFinite(msg?.activeMinutes) && msg.activeMinutes > 0) minutes = msg.activeMinutes;
       step({ type: 'config', replay: !!msg?.replay });
-      if (!demo || minutes === before) return;
-      render();
-      hud.setSource('demo'); // 칩 툴팁도 새 시간으로
     },
 
     /** The LiveSource connection state ('live' | 'retry'). During the demo the chip keeps saying demo. */

@@ -19,6 +19,7 @@ import { installReplayScrubber } from './replay-scrubber.js';
 import { initLabs } from './labs.js';
 import { createFirstRun } from './empty-state.js';
 import { installStaticText } from './static-text.js';
+import { installNeedsYou } from './needs-you.js';
 
 const cfg = { speed: 1, intervalMs: 250 };
 const labs = initLabs(); // 관리자용 도구(D10). Hud 가 설정을 읽기 전에: ?labs=1 을 같은 설정에 저장한다
@@ -32,6 +33,7 @@ stage.applyTheme();
 const emit = (ev) => office.onEvent(ev);
 let source = null;
 let scrubber = null;
+let boardDetail = null; // 아래에서 만든다. 첫 실행 조종기는 데모가 끝날 때 이것으로 계획 서랍을 닫는다
 let firstRun = null; // 라이브 모드의 첫 실행 조종기 (empty-state.js): 세션이 없으면 라이브 연결 위에 데모를 겹쳐 보여 준다
 
 function startDemo(state = 'demo') {
@@ -63,7 +65,7 @@ if (benchMode) {
     demo.onBatch = (n) => hud.flashTail(n);
     return demo;
   };
-  firstRun = createFirstRun({ office, hud, makeDemo });
+  firstRun = createFirstRun({ office, hud, makeDemo, closeBoard: () => boardDetail?.close() });
   source = new LiveSource((ev) => firstRun.onEvent(ev), (state) => (state === 'down' ? startDemo('down') : firstRun.onStatus(state)));
   // partial: 서버가 아직 파일을 붙이는 중이라 빠진 세션이 있을 수 있다는 표시(있으면 퇴근시키지 않는다).
   // 데모가 도는 동안의 빈 스냅샷은 조종기가 사무실에 넘기지 않는다 (false).
@@ -88,11 +90,14 @@ const sourceControls = {
 };
 hud.bind(office, cfg, () => sourceControls);
 installStaticText({ hud });
-// 데모 모드(호스팅 페이지, #demo, 서버 없음)에서는 /api/notify 와 /api/flywheel 을 부르지 않는다: 부를 서버가 없다
+// 데모 모드(호스팅 페이지, #demo, 서버 없음)에서는 /api/notify, /api/flywheel, /api/recap/review, /api/focus-terminal 을
+// 부르지 않는다: 부를 서버가 없다
 const isLive = () => source instanceof LiveSource;
 installShareControls({ stage, hud });
-const extras = installAgentExtras({ stage, office, hud, THREE });
+const extras = installAgentExtras({ stage, office, hud, THREE, isLive });
 installSystemNotifications({ office, hud, isLive });
+// 사람의 답을 기다리는 캐릭터 수: 탭 제목과 위 막대의 칩 (contract 9.5). 겹친 데모의 캐릭터는 세지 않는다
+installNeedsYou({ office, hud });
 installFlywheelPanel({ hud, source, isLive, labs });
 installSimMotives({ office, hud, extras, THREE });
 const overlays = installSimOverlays({ office, hud, extras, THREE, labs });
@@ -101,7 +106,7 @@ installSimAdvisor({ office, hud, extras, overlays, flywheelViz });
 
 let down = null;
 const canvas = stage.renderer.domElement;
-const boardDetail = installBoardDetail({ office, hud, stage, canvas });
+boardDetail = installBoardDetail({ office, hud, stage, canvas });
 scrubber = installReplayScrubber({ office, hud, boardDetail });
 const ndcOf = (e) => {
   const r = canvas.getBoundingClientRect();

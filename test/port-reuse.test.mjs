@@ -9,7 +9,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { start } from '../src/server.mjs';
 import { isOpenableUrl } from '../src/open-url.mjs';
-import { baseUrl, isOfficeSimHealth, probeHealthz, reuseRunning, PROBE_TIMEOUT_MS, MAX_PROBE_BODY } from '../src/port-reuse.mjs';
+import {
+  baseUrl, isOfficeSimHealth, probeHealthz, reuseRunning, PROBE_TIMEOUT_MS, MAX_PROBE_BODY,
+  REUSE_FLAGS, reuseAllowed, listenFailureHint, onListenFailure,
+} from '../src/port-reuse.mjs';
+import { parseArgs } from '../src/cli-args.mjs';
 
 // an answer that does come must not depend on the 1 s production deadline: only the silent and dripping listeners below
 // use a short one, where running out of time is the point
@@ -197,6 +201,98 @@ test('reuseRunning: another program, an --auth office-sim, a silent listener and
     assert.ok(Date.now() - t0 < PATIENT, `${name}: decided before the patient deadline`);
     assert.deepEqual([fx.written, fx.opened], [[], []], `${name}: nothing printed, nothing opened`);
   }
+});
+
+// ---- D18: only a run that says nothing but what to open reuses the running office-sim ----
+
+const OLD_HINT = ' (port in use: try --port 0 or another port)';
+
+test('D18 reuseAllowed: true only when argv holds nothing but --open, --no-open and --demo', () => {
+  assert.deepEqual([...REUSE_FLAGS], ['--open', '--no-open', '--demo']);
+  for (const argv of [[], ['--open'], ['--no-open'], ['--demo'], ['--demo', '--no-open'], ['--open', '--no-open', '--demo', '--open']]) {
+    assert.equal(reuseAllowed(argv), true, argv.join(' '));
+    assert.doesNotThrow(() => parseArgs(argv), 'each is an argv the bin accepts');
+  }
+  // every other option of the bin, alone and next to an allowed one; the = form; things that are not flags at all
+  for (const argv of [
+    ['--port', '4747'], ['--port=4747'], ['--port', '0'], ['--host', 'localhost'], ['--interval', '500'], ['--active', '5'], ['--rescan', '1000'],
+    ['--claude-root', '/tmp/x'], ['--root', '/tmp/x'], ['--agents', 'codex'], ['--codex-root', '/tmp/x'], ['--grok-root', '/tmp/x'],
+    ['--antigravity-root', '/tmp/x'], ['--plugins', 'gemini-cli'], ['--gemini-cli-root', '/tmp/x'], ['--auth'], ['--cdn'], ['--notify'],
+    ['--notify', 'all'], ['--replay', 'x.jsonl'], ['--replay', 'x.jsonl', '--speed', '2', '--loop'],
+    ['--demo', '--cdn'], ['--auth', '--open'], ['--no-open', '--agents', 'claude-code'],
+    ['--open=1'], ['--demo=yes'], ['--OPEN'], ['-h'], ['--help'], ['demo'], [''], ['--open', ''],
+  ]) assert.equal(reuseAllowed(argv), false, argv.join(' '));
+  for (const notArgv of [undefined, null, '--open', { 0: '--open', length: 1 }]) assert.equal(reuseAllowed(notArgv), false, String(notArgv));
+});
+
+test('D18 listenFailureHint: the old hint, or one line that names the running URL and --port', () => {
+  assert.equal(listenFailureHint(inUse()), OLD_HINT);
+  assert.equal(listenFailureHint(inUse(), null), OLD_HINT);
+  const hint = listenFailureHint(inUse(), 'http://127.0.0.1:4747/');
+  assert.match(hint, /^ \(.*\)$/);
+  assert.ok(hint.includes('office-sim running at http://127.0.0.1:4747/'), hint);
+  assert.match(hint, /try --port 0 or another port\)$/);
+  for (const flag of REUSE_FLAGS) assert.ok(hint.includes(flag), `names ${flag}`);
+  assert.equal(hint.includes('\n'), false, 'one line');
+  for (const err of [Object.assign(new Error('x'), { code: 'EACCES' }), new Error('no code'), null, undefined]) {
+    assert.equal(listenFailureHint(err, 'http://127.0.0.1:4747/'), '');
+    assert.equal(listenFailureHint(err), '');
+  }
+});
+
+test('D18 onListenFailure: a run with only --open / --no-open / --demo reuses the running office-sim', async () => {
+  const app = await officeSim();
+  for (const [argv, open] of [[[], false], [['--demo'], false], [['--no-open', '--demo'], false], [['--open'], true], [['--demo', '--open'], true]]) {
+    const fx = effects();
+    const got = await onListenFailure(inUse(), { argv, portArg: undefined, host: '127.0.0.1', port: app.port, open, write: fx.write, openUrl: fx.openUrl, timeoutMs: PATIENT });
+    assert.deepEqual(got, { reused: app.url, hint: '' }, argv.join(' '));
+    assert.deepEqual(fx.written, [`office-sim: already running at ${app.url}\n`], argv.join(' '));
+    assert.deepEqual(fx.opened, open ? [app.url] : [], argv.join(' '));
+  }
+});
+
+test('D18 onListenFailure: with any other option the conflict stays an error that names the running URL and --port', async () => {
+  const app = await officeSim();
+  for (const argv of [['--replay', 'x.jsonl'], ['--auth'], ['--agents', 'codex'], ['--claude-root', '/tmp/x'], ['--notify'], ['--cdn'], ['--demo', '--cdn'], ['--open', '--active', '5']]) {
+    const fx = effects();
+    const got = await onListenFailure(inUse(), { argv, portArg: undefined, host: '127.0.0.1', port: app.port, open: true, write: fx.write, openUrl: fx.openUrl, timeoutMs: PATIENT });
+    assert.equal(got.reused, null, argv.join(' '));
+    assert.equal(got.hint, listenFailureHint(inUse(), app.url), argv.join(' '));
+    assert.ok(got.hint.includes(app.url) && got.hint.includes('--port'), got.hint);
+    assert.deepEqual([fx.written, fx.opened], [[], []], `${argv.join(' ')}: nothing printed on stdout, nothing opened`);
+  }
+});
+
+test('D18 onListenFailure: an explicit --port never probes and keeps the old hint; so does a listener that is no office-sim', async () => {
+  const like = await otherProgram(json(200, { ok: true, agents: [] })); // answers /healthz the way an office-sim does
+  const fx = effects();
+  const base = { host: '127.0.0.1', port: like.port, open: true, write: fx.write, openUrl: fx.openUrl, timeoutMs: PATIENT };
+  for (const argv of [['--port', String(like.port)], ['--port', String(like.port), '--demo'], ['--port', String(like.port), '--replay', 'x.jsonl']]) {
+    assert.deepEqual(await onListenFailure(inUse(), { ...base, argv, portArg: like.port }), { reused: null, hint: OLD_HINT }, argv.join(' '));
+  }
+  assert.equal(like.seen.requests, 0, 'no request was sent for an explicit --port');
+  assert.deepEqual([fx.written, fx.opened], [[], []]);
+  const hello = await otherProgram((req, res) => res.end('hello'));
+  for (const argv of [[], ['--demo'], ['--cdn'], ['--auth']]) {
+    assert.deepEqual(await onListenFailure(inUse(), { ...base, port: hello.port, argv, portArg: undefined }), { reused: null, hint: OLD_HINT }, argv.join(' '));
+  }
+  assert.deepEqual([fx.written, fx.opened], [[], []]);
+  // an error that is not a busy port: no probe, no hint
+  const before = like.seen.requests;
+  assert.deepEqual(await onListenFailure(new RangeError('port must be 0..65535'), { ...base, argv: [], portArg: undefined }), { reused: null, hint: '' });
+  assert.deepEqual(await onListenFailure(new RangeError('x'), { ...base, argv: ['--cdn'], portArg: undefined }), { reused: null, hint: '' });
+  assert.equal(like.seen.requests, before);
+});
+
+test('the bin hands the failed listen to onListenFailure with its own argv, and prints the hint it returns', async () => {
+  const src = await fs.readFile(new URL('../src/cli-main.mjs', import.meta.url), 'utf8');
+  assert.match(src, /const argv = process\.argv\.slice\(2\);/);
+  assert.match(src, /args = parseArgs\(argv\);/);
+  assert.match(src, /await onListenFailure\(err, \{\s+argv, portArg: args\.port, host: args\.host \?\? DEFAULTS\.host, port: DEFAULTS\.port, open,/);
+  assert.match(src, /process\.stderr\.write\(`office-sim: \$\{err\?\.message \?\? err\}\$\{hint\}\\n`\);\n\s+process\.exit\(1\);/);
+  assert.doesNotMatch(src, /port in use/, 'the hint text lives in src/port-reuse.mjs');
+  // D19 in the reuse case: --demo without an opened browser prints the demo line for the running server's URL
+  assert.match(src, /if \(reused\) \{\n\s+if \(demo && !open\) process\.stdout\.write\(demoLine\(reused\)\);/);
 });
 
 test('the probe only asks: src/port-reuse.mjs never listens, so no second port is bound', async () => {

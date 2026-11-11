@@ -486,11 +486,11 @@ body.overview .sign, body.overview .tag span { display: none; }
 </script>
 <script type="module" src="js/main.js"></script>
 <script>
-  var b = document.getElementById('boot'), q = new URLSearchParams(location.search).get('lang'), lang = /^ko/i.test(navigator.language || '') ? 'ko' : 'en';
+  (function () { var b = document.getElementById('boot'), q = new URLSearchParams(location.search).get('lang'), lang = /^ko(?:[-_]|$)/i.test(navigator.language || '') ? 'ko' : 'en';
   try { var p = JSON.parse(localStorage.getItem('office-sim:v1')); if (p && p.lang != null) lang = p.lang; } catch (e) { /* storage blocked: keep the locale */ }
   if (q != null) lang = q; if (lang !== 'en') b.textContent = '사무실을 짓는 중…'; // the Hud's order (hud.js): ?lang=, the saved language, the browser locale
   setTimeout(function () {
     if (window.__officeReady) return;
-    b.textContent = lang !== 'en' ? '3D 엔진(three.js)을 불러오지 못했어요. 네트워크를 확인한 뒤 새로고침해 주세요.' : 'Could not load the 3D engine (three.js). Check your connection, then reload.'; b.classList.add('err');
-  }, 9000);
+    b.textContent = lang !== 'en' ? '3D 엔진(three.js)을 불러오지 못했어요. 페이지를 새로고침해 주세요.' : 'Could not load the 3D engine (three.js). Reload the page to try again.'; b.classList.add('err');
+  }, 9000); }());
 </script>

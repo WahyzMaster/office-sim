@@ -1,6 +1,7 @@
 // HUD notification toggle (#notify-toggle, shortcut N), server /api/notify sync,
 // and Web Notification API fallback when native OS notifications are unavailable.
 // `isLive()` false (the hosted page, #demo) keeps /api/notify off: the toggle then only saves the browser-side choice.
+// It also keeps a clicked notification from posting to /api/focus-terminal.
 // Events marked `demo: true` (the first-run demo that plays while a live server has no session) are never announced.
 import { langOf } from './rooms.js';
 
@@ -278,7 +279,7 @@ export function installSystemNotifications({
             if (agent.floor?.index !== office.focusIndex || office.overview) office.focus?.(agent.floor.index);
             office.select?.(agent, { focusPan: true });
           }
-          if (sid && typeof fetchFn === 'function') {
+          if (sid && isLive() && typeof fetchFn === 'function') {
             fetchFn('/api/focus-terminal', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },

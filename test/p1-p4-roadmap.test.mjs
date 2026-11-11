@@ -13,7 +13,7 @@ import {
   HOOK_EVENTS,
   HOOK_MARKER,
   parseClaudeHookPayload,
-  buildHookCommand,
+  buildHookUrl,
   installClaudeHooks,
   uninstallClaudeHooks,
 } from '../src/hooks-receiver.mjs';
@@ -65,6 +65,8 @@ test('P1: parseClaudeHookPayload maps SessionStart, Notification, PreToolUse, Po
   assert.equal(perm.waitingApproval, true);
   assert.equal(perm.events[0].type, 'tool_wait');
   assert.equal(perm.events[0].waiting, true);
+  // D25: a tool_wait carries exactly toolUseId and waiting (no question text from the hook message)
+  assert.deepEqual(Object.keys(perm.events[0]).sort(), ['sessionId', 'toolUseId', 'ts', 'type', 'waiting']);
 
   const activeHookTools = new Map();
   const preTool = parseClaudeHookPayload({
@@ -122,7 +124,13 @@ test('P1: installClaudeHooks and uninstallClaudeHooks merge safely in os.tmpdir(
     const afterInstall = JSON.parse(await fs.readFile(settingsPath, 'utf8'));
     assert.equal(afterInstall.theme, 'dark');
     assert.equal(afterInstall.hooks.Notification.length, 2, 'preserved existing hook + added office-sim hook');
-    assert.ok(buildHookCommand({ port: 4242 }).includes(HOOK_MARKER));
+    // D13: exactly two events, as http hooks whose URL carries the marker the uninstaller looks for
+    assert.deepEqual([...HOOK_EVENTS], ['PermissionRequest', 'Notification']);
+    assert.ok(buildHookUrl({ port: 4242 }).includes(HOOK_MARKER));
+    assert.deepEqual(afterInstall.hooks.Notification[1], {
+      matcher: 'permission_prompt', hooks: [{ type: 'http', url: buildHookUrl({ port: 4242 }), timeout: 2 }],
+    });
+    assert.deepEqual(afterInstall.hooks.PermissionRequest, [{ hooks: [{ type: 'http', url: buildHookUrl({ port: 4242 }), timeout: 2 }] }]);
 
     // Backup file created once
     const bak = await fs.readFile(`${settingsPath}.office-sim.bak`, 'utf8');
@@ -140,6 +148,7 @@ test('P1: installClaudeHooks and uninstallClaudeHooks merge safely in os.tmpdir(
     assert.equal(afterUninstall.hooks.Notification.length, 1);
     assert.equal(afterUninstall.hooks.Notification[0].hooks[0].command, 'echo custom-hook');
     assert.equal(afterUninstall.hooks.PreCompact, undefined);
+    assert.equal(afterUninstall.hooks.PermissionRequest, undefined);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -291,7 +300,7 @@ test('P1–P4 HTTP integration: /api/hooks/claude, /api/focus-terminal, /api/rec
       }),
     });
     assert.equal(hookRes.status, 200);
-    assert.equal(JSON.parse(hookRes.body).sessionId, 'hook-live-1');
+    assert.equal(hookRes.body, '{}', 'D16: the hook route answers exactly {}');
 
     await request(port, {
       method: 'POST',

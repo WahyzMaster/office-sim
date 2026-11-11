@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { parseLabsParam, readLabsPref, resolveLabs, initLabs, isLabs, LABS_CLASS } from '../public/js/labs.js';
 import { STORE, LEGACY_STORE, loadPrefs } from '../public/js/hud.js';
 import { installFlywheelPanel } from '../public/js/flywheel-panel.js';
-import { installSimOverlays } from '../public/js/sim-overlays.js';
+import { installSimOverlays, simOverlaysText } from '../public/js/sim-overlays.js';
 import { installSimFlywheelViz } from '../public/js/sim-flywheel-viz.js';
 import { installSystemNotifications } from '../public/js/system-notify.js';
 
@@ -184,6 +184,33 @@ test('sim overlays: with labs off the RCI and Lens pill is hidden and V does not
   assert.equal(ctl.mode, 'normal', 'no lens can be switched on without its control');
   office.onEvent({ sessionId: 'a1', type: 'tool_start', tool: 'Edit' });
   assert.equal(byId.get('sim-hud-pill').hidden, true, 'live events do not bring it back');
+});
+
+test('sim overlays (D24): the Tune tooltip names the tail-interval control only when labs shows that control', () => {
+  const INTERVAL = /interval|tail|주기|간격/i;
+  for (const lang of ['en', 'ko']) {
+    const t = simOverlaysText(lang);
+    const tune = (opts) => {
+      const { doc, win, byId } = fakeDom();
+      installSimOverlays({ office: { floors: [], agents: new Map(), onEvent() {} }, hud: { lang }, doc, win, ...opts });
+      return byId.get('sim-more-toggle');
+    };
+    const off = tune({ labs: false });
+    assert.equal(off.title, t.moreTitle, lang);
+    assert.ok(off.title.length > 10, 'still a tooltip');
+    assert.doesNotMatch(off.title, INTERVAL, `${lang}: the tail-interval input is hidden without labs (office.html)`);
+    for (const opts of [{ labs: true }, {}]) {
+      const on = tune(opts);
+      assert.equal(on.title, t.moreTitleLabs, lang);
+      assert.match(on.title, INTERVAL, `${lang}: with labs the control is there and is named`);
+    }
+    assert.equal(off.textContent, t.moreBtn, 'the button text is the same either way');
+  }
+  // apart from that control the two tooltips name the same things
+  assert.equal(simOverlaysText('en').moreTitleLabs.replace(', camera & tail interval controls', ' & camera controls'), simOverlaysText('en').moreTitle);
+  assert.equal(simOverlaysText('ko').moreTitleLabs.replace('·주기', ''), simOverlaysText('ko').moreTitle);
+  // the rule that hides the control is still the labs class
+  assert.match(readFileSync(new URL('../public/office.html', import.meta.url), 'utf8'), /body:not\(\.labs\) label\[for="interval"\] \{ display: none; \}/);
 });
 
 test('sim overlays: with labs on (and by default) the pill shows and V cycles the lens', () => {

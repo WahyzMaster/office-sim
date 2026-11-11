@@ -1,5 +1,6 @@
 // Lightweight passive watcher for Claude Desktop (macOS /Applications/Claude.app) Cloud Chat & Cowork tabs.
 // Zero LLM token usage: only stats IndexedDB (https_claude.ai_0) + tails ~/Library/Logs/Claude/mcp.log.
+import crypto from 'node:crypto';
 import { constants as FS } from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
@@ -14,8 +15,15 @@ const OPEN_FLAGS = FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0) | (FS.O_NONBLOCK ?? 0);
 const MAX_MCP_READ_BYTES = 128 * 1024;
 const MAX_OPEN_TOOLS = 1024;
 const MCP_LINE_RE = /^(\d{4}-\d{2}-\d{2}T[\d:.]+Z)\s+\[info\]\s+\[([^\]]+)\]\s+Message from (client|server):\s+(.*)$/;
-const REQ_ID_RE = /\bid=(\d+|"[^"]+")|"id"\s*:\s*(\d+|"[^"]+")/;
-const TOOL_NAME_RE = /"name"\s*:\s*"([^"]+)"/;
+// The two non-JSON summary forms the log also has (test/desktop-cloud-chats.test.mjs): a client line that is exactly
+// `method="tools/call" [id=<n>] ...` and a server line `id=<n> result|error`. Neither carries a name.
+const SUMMARY_CALL_RE = /^method="tools\/call"(?:\s+id=(\d{1,20}|"[^"]{1,64}"))?(?:\s|$)/;
+const SUMMARY_ID_RE = /\bid=(\d{1,20}|"[^"]{1,64}")/;
+/** The only shape of an MCP server or tool name that may leave this module (launch readiness D20). */
+export const MCP_NAME_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
+/** What stands in for a server or tool name that does not have that shape, or that the line does not give. */
+export const GENERIC_SERVER = 'mcp';
+export const GENERIC_TOOL = 'call';
 
 function isSkippable(err) {
   return Boolean(err && SKIP_CODES.has(err.code));
@@ -161,30 +169,100 @@ export async function scanClaudeDesktopCloud(root, { activeMs = Infinity, nowMs 
   }];
 }
 
-function sanitizeIdPart(s) {
-  return String(s || 'mcp').replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || 'mcp';
+// One part of `mcp__<server>__<tool>`: a name of the allowed shape with every run of other characters as `_`, else the label.
+function idPart(name, generic) {
+  if (typeof name !== 'string' || !MCP_NAME_RE.test(name)) return generic;
+  return name.replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || generic;
 }
 
-export function parseMcpLogLine(line) {
-  const m = typeof line === 'string' ? MCP_LINE_RE.exec(line.trim()) : null;
-  if (!m) return null;
-  const [, ts, server, role, rest] = m;
-  const idMatch = REQ_ID_RE.exec(rest);
-  const reqId = idMatch ? (idMatch[1] ?? idMatch[2]).replace(/^"|"$/g, '') : null;
-  if (role === 'client') {
-    if (!rest.includes('tools/call')) return null;
-    const nameMatch = TOOL_NAME_RE.exec(rest);
-    const tool = nameMatch ? nameMatch[1] : 'call';
-    return { kind: 'call', ts, server, reqId: reqId ?? '0', toolName: `mcp__${sanitizeIdPart(server)}__${sanitizeIdPart(tool)}` };
-  }
-  if (role === 'server' && reqId !== null && (rest.includes('result') || rest.includes('error'))) {
-    return { kind: 'result', ts, server, reqId, isError: rest.includes('error') && !rest.includes('result') };
+// The JSON-RPC message at the start of `rest`: the whole text, or its first complete `{...}` when the app wrote more
+// after it. Null when `rest` does not start with `{`, is cut off, or does not parse as an object.
+function leadingJsonObject(rest) {
+  if (rest[0] !== '{') return null;
+  const parse = (text) => {
+    try {
+      const v = JSON.parse(text);
+      return v !== null && typeof v === 'object' && !Array.isArray(v) ? v : null;
+    } catch {
+      return null;
+    }
+  };
+  let depth = 0;
+  let inString = false;
+  for (let i = 0; i < rest.length; i++) {
+    const c = rest[i];
+    if (inString) {
+      if (c === '\\') i += 1;
+      else if (c === '"') inString = false;
+    } else if (c === '"') inString = true;
+    else if (c === '{' || c === '[') depth += 1;
+    else if ((c === '}' || c === ']') && --depth === 0) return parse(rest.slice(0, i + 1));
   }
   return null;
 }
 
+const own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+// A JSON-RPC id as text: a string or a finite number, else null.
+const idText = (id) => (typeof id === 'string' ? id : typeof id === 'number' && Number.isFinite(id) ? String(id) : null);
+const unquote = (s) => s.replace(/^"|"$/g, '');
+// The in-memory name of an open call. A server name or id of the allowed shape is used as it is; any other text is
+// kept only as a digest, so two servers that share the generic label never close each other's calls and no free
+// text of the log stays in memory.
+const keyPart = (text) => (MCP_NAME_RE.test(text) ? text : `#${crypto.createHash('sha256').update(text).digest('hex').slice(0, 16)}`);
+
+// parseMcpLogLine plus `key` (the open-call key). D20: a tool name comes only from `params.name` of a JSON-parsed
+// client request whose method is exactly tools/call; `params.arguments` is never read; names that do not match
+// MCP_NAME_RE, server names included, become the generic label.
+function parseMcpLine(line) {
+  const m = typeof line === 'string' ? MCP_LINE_RE.exec(line.trim()) : null;
+  if (!m) return null;
+  const [, ts, rawServer, role, rest] = m;
+  const server = MCP_NAME_RE.test(rawServer) ? rawServer : GENERIC_SERVER;
+  // reqId leaves this function in the same form as in the key: an id of the allowed shape, else its digest
+  const out = (fields, reqId) => ({ ...fields, reqId: keyPart(reqId), key: `${keyPart(rawServer)}:${keyPart(reqId)}` });
+  const msg = leadingJsonObject(rest);
+  if (role === 'client') {
+    let reqId;
+    let tool = GENERIC_TOOL;
+    if (msg) {
+      if (msg.method !== 'tools/call') return null;
+      reqId = idText(msg.id) ?? '0';
+      const params = msg.params;
+      if (params !== null && typeof params === 'object' && !Array.isArray(params) && own(params, 'name')) tool = params.name;
+    } else {
+      const summary = rest[0] === '{' ? null : SUMMARY_CALL_RE.exec(rest);
+      if (!summary) return null;
+      reqId = summary[1] ? unquote(summary[1]) : '0';
+    }
+    const toolName = `mcp__${idPart(server, GENERIC_SERVER)}__${idPart(tool, GENERIC_TOOL)}`;
+    return out({ kind: 'call', ts, server, reqId, toolName }, reqId);
+  }
+  if (msg) {
+    const reqId = own(msg, 'method') ? null : idText(msg.id);
+    if (reqId === null || !(own(msg, 'result') || own(msg, 'error'))) return null;
+    return out({ kind: 'result', ts, server, reqId, isError: !own(msg, 'result') }, reqId);
+  }
+  if (rest[0] === '{') return null;
+  const idMatch = SUMMARY_ID_RE.exec(rest);
+  if (!idMatch || !(rest.includes('result') || rest.includes('error'))) return null;
+  const reqId = unquote(idMatch[1]);
+  return out({ kind: 'result', ts, server, reqId, isError: rest.includes('error') && !rest.includes('result') }, reqId);
+}
+
+/**
+ * One mcp.log line -> `{ kind: 'call', ts, server, reqId, toolName }`, `{ kind: 'result', ts, server, reqId, isError }`
+ * or null. `server` and `toolName` hold only names of the MCP_NAME_RE shape or the generic labels (D20); `reqId` is
+ * the JSON-RPC id when it has that shape, else `#` and 16 hex digits of its digest (no free text of the log).
+ */
+export function parseMcpLogLine(line) {
+  const parsed = parseMcpLine(line);
+  if (!parsed) return null;
+  const { key: _key, ...pub } = parsed;
+  return pub;
+}
+
 export class ClaudeDesktopTailer {
-  #cloud = new Map(); // path -> { sig, mcpOffset, mcpCarry, seq, openTools: Map<server:reqId, toolUseId> }
+  #cloud = new Map(); // path -> { sig, mcpOffset, mcpCarry, seq, openTools: Map<parseMcpLine key, toolUseId> }
 
   async #emitTurn(state, ts, text, onLine) {
     const seq = ++state.seq;
@@ -241,9 +319,9 @@ export class ClaudeDesktopTailer {
       state.mcpCarry = lines.pop() ?? '';
       let emitted = 0;
       for (const line of lines) {
-        const parsed = parseMcpLogLine(line);
+        const parsed = parseMcpLine(line);
         if (!parsed) continue;
-        const key = `${parsed.server}:${parsed.reqId}`;
+        const { key } = parsed;
         if (parsed.kind === 'call') {
           const seq = ++state.seq;
           const toolUseId = `claude-cloud-tu-${seq}`;

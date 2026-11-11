@@ -18,8 +18,8 @@ export const USAGE = `Usage: office-sim [options]
                        adapter whose root exists. Implemented today: claude-code, codex, grok, antigravity
   --codex-root <dir>   Codex root: desktop app, CLI and IDE threads (default ~/.codex)
   --grok-root <dir>    Grok (xAI Grok Build) root (default ~/.grok)
-  --antigravity-root <dir>  Antigravity CLI and legacy IDE root (default ~/.gemini; only its antigravity-cli/ and
-                       antigravity-ide/ folders are read, never the desktop app's antigravity/)
+  --antigravity-root <dir>  Antigravity root: CLI, legacy IDE and desktop app (default ~/.gemini; only its
+                       antigravity-cli/, antigravity-ide/ and antigravity/ folders are read)
   --plugins <id,id>    enable optional plug-in adapters (${KNOWN_PLUGINS.join(', ')})
   --gemini-cli-root <dir>  Gemini CLI session root when --plugins gemini-cli is enabled (default ~/.gemini/tmp)
   --auth               require a per-run token: open the printed URL once, the browser then keeps a cookie
@@ -29,12 +29,17 @@ export const USAGE = `Usage: office-sim [options]
                        Without --open or --no-open it opens only in a terminal: stdout is a TTY, CI is not set
                        and an opener exists (and not with --auth on Linux, where the token would show in ps)
   --no-open            never open the browser
-  --demo               when the browser is opened, open the page in demo mode (the printed URL plus #demo)
+  --demo               when the browser is opened, open the page in demo mode (the printed URL plus #demo);
+                       when it is not, print that URL in one more line (office-sim: demo <url>#demo)
   --notify [cats]      enable native OS notifications (default: ask,error,done; optional: tool_error, all)
   --replay <file>      replay one past session (<uuid>.jsonl plus its subagents) instead of tailing --claude-root
   --speed <x>          replay speed factor, 0.1..1000 (default 1)
   --loop               replay again from the start when it ends
   -h, --help           show this help
+
+Setup commands for Claude Code (they start no server; details: office-sim init --help):
+  office-sim init                              install the permission-prompt hooks and copy the /office skill
+  office-sim hooks install|uninstall|status    add, remove or check the hooks alone
 `;
 
 const SPEC = {

@@ -2,7 +2,7 @@
 
 ## Scope & Global Profile
 - **User-Scope (`INV`)**: `WahyzDAD/wahyz_agent_profile#v1.4.3` (`~/.codex/AGENTS.md`).
-- **Project-Scope (`DOM`)**: `office-sim` (Node.js 22+ zero-dependency 3D multi-agent visualizer). Read `CLAUDE.md` for full module architecture and privacy invariants.
+- **Project-Scope (`DOM`)**: `office-sim` (Node.js 22+ 3D multi-agent visualizer; the server has no npm dependencies and the page ships a vendored three.js). Read `CLAUDE.md` for full module architecture and privacy invariants.
 - **Harness² Budget**: Keep this file under `8,000 bytes` / `120 lines` (`skill -> script -> subagent -> hook -> gate -> memory -> always-on`).
 
 ## Workflow & Narrow Verification
@@ -17,6 +17,7 @@
   - Surface gate: `python3 "${HOME}/.agents/skills/apply-wahyz-profile/scripts/verify_project_surface.py" .`
 
 ## Critical Invariants
-- **Zero Dependencies**: Use only `node:*` built-in modules on the server (`bin/office-sim.mjs`, `src/`, `scripts/`) and native ES modules in `public/js/`.
+- **Zero Dependencies**: Use only `node:*` built-in modules on the server (`bin/office-sim.mjs` is a stub that loads `src/cli-main.mjs`; `src/`, `scripts/`) and native ES modules in `public/js/`. three.js is vendored under `public/vendor/` (sha256-pinned), so the default page loads from loopback only.
+- **Default Port**: `4747`, with no fallback port. It is written into hook URLs, `skills/office/SKILL.md` and `plugin/hooks/hooks.json` (a byte-identical skill copy lives in `plugin/skills/office/SKILL.md`), so change them together.
 - **Privacy & Synthetic Roots**: Never read or write real `~/.claude`, `~/.codex`, `~/.grok`, or `~/.gemini` in tests (`scripts/fake-root-guard.mjs` + `os.tmpdir()`). Enforce `O_NOFOLLOW` symlink rejection and basename/hostname scrubbing per `docs/CONTRACT.md`.
-- **Module Hygiene**: Max `500 lines` per file; no emoticons in markdown; preserve `ko`/`en` parity across all 7 room themes in `public/js/rooms.js`.
+- **Module Hygiene**: Max `500 lines` per file (third-party files under `public/vendor/` are exempt); no emoticons in markdown; a user-visible change gets a `CHANGELOG.md` entry; preserve `ko`/`en` parity across all 7 room themes in `public/js/rooms.js`.

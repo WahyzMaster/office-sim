@@ -125,7 +125,9 @@ test('a WebGPU renderer that cannot be loaded settles to WebGL2 with a short rea
   const cases = [
     ['the import is refused (the default CSP)', { loadWebGPU: blockedByCsp }],
     ['the loader throws at once', { loadWebGPU: () => { throw new Error('boom'); } }],
-    ['the import never answers', { loadWebGPU: () => new Promise(() => {}), timeoutMs: 25 }],
+    ['the import fails a moment later', { loadWebGPU: () => new Promise((_, reject) => setTimeout(() => reject(new Error('boom')), 5)) }],
+    // a failure whose text looks like the timeout is still a failed import
+    ['the import fails with the timeout wording', { loadWebGPU: async () => { throw new Error('WebGPU init timed out'); } }],
   ];
   // the module's own import(): in Node nothing maps three/addons/ (no importmap, zero dependencies), so it fails as it
   // does behind the default CSP. Skipped only if some node_modules above the checkout happens to hold three.
@@ -142,6 +144,7 @@ test('a WebGPU renderer that cannot be loaded settles to WebGL2 with a short rea
     assert.equal(info.requested, 'webgpu', what);
     assert.equal(info.active, 'webgl2', what);
     assert.match(info.fallbackReason, /--cdn/, what);
+    assert.equal(info.fallbackCode, 'load', `${what}: the code the badge keys its hint on`);
     assert.doesNotMatch(info.fallbackReason, /https?:|jsdelivr|Failed to fetch|boom/, `${what}: no URL or raw error text`);
     assert.ok(info.fallbackReason.length <= 80, `${what}: short`);
     assert.equal(stage.seen.swapped, null, what);
@@ -153,6 +156,25 @@ test('a WebGPU renderer that cannot be loaded settles to WebGL2 with a short rea
     assert.match(ko, /^WebGL2 대체 \(.*--cdn.*\)$/, what);
     assert.match(ko.replace('WebGL2 대체', ''), HANGUL, `${what}: the Korean reason is in Korean`);
   }
+});
+
+test('a WebGPU import that does not answer in time is a timeout, not a refused load: no --cdn hint', async () => {
+  // a slow or stalled CDN says nothing about the CSP: the server may well run with --cdn already
+  const stage = makeStage();
+  const info = await initOptionalWebGPU(stage, { search: '?renderer=webgpu', hash: '', nav: gpuNav, loadWebGPU: () => new Promise(() => {}), timeoutMs: 25 });
+  assert.deepEqual(info, { requested: 'webgpu', active: 'webgl2', fallbackReason: 'WebGPU init timed out' });
+  assert.equal('fallbackCode' in info, false, 'only a refused or failed import carries fallbackCode');
+  assert.equal(stage.seen.swapped, null);
+  assert.equal(stage.seen.info, info);
+  assert.equal(rendererBadgeLabel(info, 'en'), 'WebGL2 fallback (WebGPU init timed out)');
+  assert.equal(rendererBadgeLabel(info, 'ko'), 'WebGL2 대체 (WebGPU init timed out)');
+  for (const lang of ['en', 'ko']) assert.doesNotMatch(rendererBadgeLabel(info, lang), /--cdn/, lang);
+  // the same reason the other two timeouts give (the adapter probe, the renderer's init)
+  const hungAdapter = await initOptionalWebGPU(makeStage(), { search: '?renderer=webgpu', nav: { gpu: { requestAdapter: () => new Promise(() => {}) } }, timeoutMs: 25 });
+  assert.equal(hungAdapter.fallbackReason, info.fallbackReason);
+  // the hint is keyed on the code alone: the same reason text with the code shows the --cdn hint, without it does not
+  assert.match(rendererBadgeLabel({ ...info, fallbackCode: 'load' }, 'en'), /--cdn/);
+  assert.match(rendererBadgeLabel({ ...info, fallbackCode: 'load' }, 'ko'), /--cdn/);
 });
 
 test('other WebGPU outcomes keep their own reason and never name --cdn', async () => {

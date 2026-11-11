@@ -149,7 +149,8 @@ test('D12 what reaches the page: fixed strings, the MCP server and tool name, no
 
 test('D12 documents: README.md, README.ko.md and CONTRACT 5.1 name the paths and what is done with them', () => {
   const paths = ['~/Library/Application Support/Claude/IndexedDB/', 'https_claude.ai_0.indexeddb.leveldb',
-    'https_claude.ai_0.indexeddb.blob', '~/Library/Logs/Claude/', '`main.log`', '`mcp.log`', '128 KiB', '`"name"`',
+    'https_claude.ai_0.indexeddb.blob', '~/Library/Logs/Claude/', '`main.log`', '`mcp.log`', '128 KiB', '`params.name`',
+    '`params.arguments`', '`[A-Za-z0-9_.:-]{1,64}`', '`mcp`', '`call`', // D20: the name comes from the parsed request only
     '~/Library/Logs/com.openai.codex/', '~/Library/Application Support/com.openai.chat/', '~/.grokbot/',
     '~/Library/Application Support/Grok Bot/', '`Cookies`', '--claude-root', '--replay'];
   for (const rel of ['README.md', 'README.ko.md']) {
@@ -166,12 +167,18 @@ test('D12 documents: README.md, README.ko.md and CONTRACT 5.1 name the paths and
   for (const re of [
     /`~\/Library\/Application Support\/Claude`/, /`~\/Library\/Logs\/Claude`/, /https_claude\.ai_0\.indexeddb\.leveldb/,
     /https_claude\.ai_0\.indexeddb\.blob\/1\//, /No IndexedDB file and not `main\.log` is ever opened/,
-    /at most the last 128 KiB per read \(`MAX_MCP_READ_BYTES`/, /the first `"name": "<text>"`/, /Known limit:/,
+    /at most the last 128 KiB per read \(`MAX_MCP_READ_BYTES`/, /Known limit:/,
+    // D20: no pattern match on the line; the parsed request's method and params.name, and the name shape
+    /the object's own `method` is the string\s+`tools\/call`/, /`params\.arguments` is never read/,
+    /match `\[A-Za-z0-9_\.:-\]\{1,64\}` \(`MCP_NAME_RE`\)/, /generic label: `mcp` for a server name/,
     /`mcp__<server>__<name>`/, /`Completed <server>`/, /`claude-desktop-cloud`/, /`lsof -t -- <anchor file>`/,
     /`~\/Library\/Logs\/com\.openai\.codex`/, /`~\/Library\/Application Support\/com\.openai\.chat\/`/,
     /`~\/\.grokbot\/`/, /`Cookies`, `Preferences`/, /sand-client-persistence/, /`~\/\.grok\/logs\/unified\.jsonl`/,
     /None has a switch of its own/, /`--replay` \(no scan runs there\)/,
   ]) assert.match(s51, re);
-  // The constant the text quotes is the one in the code.
+  assert.doesNotMatch(s51, /matched with patterns, not parsed as JSON|the first `"name"/, 'the pre-D20 limit is gone');
+  for (const rel of ['README.md', 'README.ko.md']) assert.doesNotMatch(read(rel), /first `"name"`|첫 `"name"`/, rel);
+  // The constants the text quotes are the ones in the code.
   assert.match(read('src/desktop-claude.mjs'), /const MAX_MCP_READ_BYTES = 128 \* 1024;/);
+  assert.match(read('src/desktop-claude.mjs'), /export const MCP_NAME_RE = \/\^\[A-Za-z0-9_\.:-\]\{1,64\}\$\/;/);
 });

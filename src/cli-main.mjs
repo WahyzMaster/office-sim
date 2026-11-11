@@ -7,13 +7,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, USAGE } from './cli-args.mjs';
+import { isCommand, run as runCommand } from './cli-init.mjs';
 import { start, DEFAULTS } from './server.mjs';
 import { COMMIT_RE } from './server-health.mjs';
 import { defaultRoots } from './adapters/index.mjs';
 import { pluginDefaultRoots } from './adapters/plugins.mjs';
 import { openUrl } from './open-url.mjs';
-import { shouldOpen, pageUrl, noSessionLine, noSessionLineWanted } from './open-policy.mjs';
-import { reuseRunning } from './port-reuse.mjs';
+import { shouldOpen, pageUrl, demoLine, noSessionLine, noSessionLineWanted } from './open-policy.mjs';
+import { onListenFailure } from './port-reuse.mjs';
 
 // /healthz 의 commit: 실행 파일이 있는 체크아웃의 짧은 sha (12자). 시작할 때 한 번만 구한다. git 이 없거나, 저장소가
 // 아니거나, 2초 안에 답하지 않으면 null. git 의 출력과 오류는 받기만 하고 내보내지 않는다 (stdout 의 office-sim: 줄은 그대로).
@@ -95,9 +96,16 @@ export async function main(binUrl) {
   // 재생 모드는 Claude Code 만 돌아 볼 Grok·Codex 기록이 없으므로 기록 관찰을 켜지 않는다 (버튼도 나오지 않는다).
   const observeDir = fileURLToPath(new URL('../.observe', binUrl));
 
+  const argv = process.argv.slice(2);
+  // 설치 명령 (contract 6.3): 첫 인자가 init 이나 hooks 면 서버 옵션을 해석하기 전에 갈라진다. 서버는 띄우지 않는다.
+  // 스킬 원본(<root>/skills/office)도 stub 의 위치가 기준이다. 종료 코드만 정하고 돌아간다 (stdout 이 다 나간 뒤 끝나게)
+  if (isCommand(argv[0])) {
+    process.exitCode = await runCommand(argv, { root });
+    return;
+  }
   let args;
   try {
-    args = parseArgs(process.argv.slice(2));
+    args = parseArgs(argv);
   } catch (err) {
     process.stderr.write(`office-sim: ${err.message}\n\n${USAGE}`);
     process.exit(2);
@@ -111,7 +119,7 @@ export async function main(binUrl) {
   // 기본 포트 재사용 (D2) 도 같은 답을 쓴다. 플래그가 없으면 stdout 이 터미널이고 CI 가 없을 때만 연다 (src/open-policy.mjs)
   const isTTY = process.stdout.isTTY === true;
   const open = shouldOpen({ open: args.open, auth: args.auth === true, isTTY, env: process.env, platform: process.platform });
-  const demo = args.demo === true; // 여는 주소에만 #demo 를 붙인다. 출력하는 주소 줄은 그대로다
+  const demo = args.demo === true; // 여는 주소에만 #demo 를 붙인다. 출력하는 주소 줄은 그대로다. 열지 않으면 그 주소를 한 줄로 낸다 (D19)
   delete args.open;
   delete args.demo;
 
@@ -128,16 +136,17 @@ export async function main(binUrl) {
       log,
     });
   } catch (err) {
-    // 기본 포트가 쓰이고 있고 --port 를 주지 않았으면 (D2): 그 자리의 office-sim 을 알려 주고 0 으로 끝난다. 다른 포트는 열지 않는다
-    const running = await reuseRunning(err, {
-      portArg: args.port, host: args.host ?? DEFAULTS.host, port: DEFAULTS.port, open,
+    // 기본 포트가 쓰이고 있고 --port 를 주지 않았으면 (D2): 그 자리의 office-sim 을 알려 주고 0 으로 끝난다. 다른 포트는 열지 않는다.
+    // 다시 쓰는 것은 argv 가 --open / --no-open / --demo 뿐일 때다 (D18): 다른 옵션이 있으면 실패로 남고, 줄이 그 주소와 --port 를 말한다
+    const { reused, hint } = await onListenFailure(err, {
+      argv, portArg: args.port, host: args.host ?? DEFAULTS.host, port: DEFAULTS.port, open,
       write: (line) => process.stdout.write(line), openUrl: (url) => openUrl(pageUrl(url, demo), { log }),
     });
-    if (running) {
+    if (reused) {
+      if (demo && !open) process.stdout.write(demoLine(reused)); // D19
       await new Promise((resolve) => setImmediate(resolve)); // 여는 프로그램이 없을 때의 `open failed` 한 줄이 나갈 틈
       process.exit(0);
     }
-    const hint = err?.code === 'EADDRINUSE' ? ' (port in use: try --port 0 or another port)' : '';
     process.stderr.write(`office-sim: ${err?.message ?? err}${hint}\n`);
     process.exit(1);
   }
@@ -147,8 +156,10 @@ export async function main(binUrl) {
   process.stdout.write(`office-sim: agents ${app.agents.length ? app.agents.join(',') : 'none'}\n`);
   for (const id of app.notImplemented) process.stdout.write(`office-sim: ${id} is not implemented yet\n`);
   if (args.replay) process.stdout.write(`office-sim: replay ${args.speed ?? 1}x${args.loop ? ', loop' : ''}\n`);
-  // 출력한 주소를 연다 (--auth 면 토큰 주소, --demo 면 그 뒤에 #demo). 실패는 로그 한 줄로 끝나고 서버는 계속 돈다
+  // 출력한 주소를 연다 (--auth 면 토큰 주소, --demo 면 그 뒤에 #demo). 실패는 로그 한 줄로 끝나고 서버는 계속 돈다.
+  // --demo 인데 열지 않으면 데모 주소를 한 줄로 낸다 (D19). --demo 가 없으면 줄은 예전 그대로다
   if (open) openUrl(pageUrl(app.url, demo), { log });
+  else if (demo) process.stdout.write(demoLine(app.url));
 
   // `npm start` 의 Ctrl-C 는 신호가 두 번 온다 (터미널이 프로세스 묶음에 보내고 npm 이 자식에게 한 번 더, 1~2 ms 사이).
   // 그래서 첫 신호에서 REPEAT_MS 안에 온 같은 신호는 같은 키 입력으로 보고 넘긴다 (관찰 요약을 쓰는 중에 끊지 않게).

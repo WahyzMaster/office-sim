@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  GRACE_S, DEFAULT_ACTIVE_MINUTES, FIRST_RUN_START, firstRunStep, hasSession, emptyBannerText, createFirstRun,
+  GRACE_S, FIRST_RUN_START, firstRunStep, hasSession, emptyBannerText, createFirstRun,
 } from '../public/js/empty-state.js';
 import { Hud } from '../public/js/hud.js';
 import { uiText } from '../public/js/rooms.js';
@@ -127,21 +127,23 @@ test('firstRunStep: never mutates the state it was given and tolerates junk inpu
 
 // ---- 배너 문구 ----
 
-test('emptyBannerText: Korean and English, with the --active window and the four agents', () => {
-  assert.equal(DEFAULT_ACTIVE_MINUTES, 30);
+test('emptyBannerText (D21): Korean and English, the four agents, and no time window', () => {
   assert.equal(
     emptyBannerText('en'),
-    'No agent session in the last 30 minutes. Start Claude Code, Codex, Grok or Antigravity and it appears here. This is a demo.',
+    'No agent session is running right now. Start Claude Code, Codex, Grok or Antigravity and it appears here. This is a demo.',
   );
   const ko = emptyBannerText('ko');
-  assert.match(ko, /30분/);
+  assert.equal(ko, '지금 실행 중인 에이전트 세션이 없어요. Claude Code, Codex, Grok, Antigravity 중 하나를 시작하면 여기에 나타나요. 지금 보이는 것은 데모예요.');
   assert.match(ko, /[가-힣]/);
   assert.match(ko, /데모/);
   for (const name of ['Claude Code', 'Codex', 'Grok', 'Antigravity']) assert.ok(ko.includes(name), name);
-  assert.doesNotMatch(emptyBannerText('en', 45), /[가-힣]/);
-  assert.match(emptyBannerText('en', 45), /last 45 minutes/);
-  assert.match(emptyBannerText('ko', 45), /45분/);
-  for (const bad of [0, -1, NaN, null, '10', Infinity]) assert.match(emptyBannerText('en', bad), /last 30 minutes/, String(bad));
+  assert.doesNotMatch(emptyBannerText('en'), /[가-힣]/);
+  assert.equal(emptyBannerText('fr'), ko, 'any language that is not en is Korean, as everywhere on the page');
+  // no window: no number and no word for one, whatever a caller still passes as a second argument
+  for (const lang of ['en', 'ko']) {
+    assert.doesNotMatch(emptyBannerText(lang), /\d|minute|in the last|최근|분 동안/, lang);
+    for (const minutes of [45, 5, 0, -1, NaN, null, '10', Infinity]) assert.equal(emptyBannerText(lang, minutes), emptyBannerText(lang), String(minutes));
+  }
 });
 
 // ---- 조종기: 가짜 office, hud, 문서 ----
@@ -170,7 +172,7 @@ function fakeDoc() {
   };
 }
 
-function setup({ lang = 'en' } = {}) {
+function setup({ lang = 'en', withBoard = false } = {}) {
   const calls = [];
   const doc = fakeDoc();
   const office = {
@@ -190,7 +192,8 @@ function setup({ lang = 'en' } = {}) {
     demos.push(demo);
     return demo;
   };
-  const ctl = createFirstRun({ office, hud, makeDemo, doc });
+  // withBoard: 계획 서랍을 닫는 고리(closeBoard)를 준다. 주지 않은 조종기는 예전과 같은 호출만 한다
+  const ctl = createFirstRun({ office, hud, makeDemo, doc, ...(withBoard ? { closeBoard: () => calls.push(['closeBoard']) } : {}) });
   const names = () => calls.map((c) => c[0]);
   const banner = () => doc.byId.get('empty-banner') ?? null;
   // 서버의 첫 연결: 열림 -> 스냅샷 -> config. 그 뒤 프레임이 grace 를 넘긴다.
@@ -235,19 +238,21 @@ test('createFirstRun: an empty first snapshot shows the demo under the banner, w
   assert.deepEqual(s.demos[0].ticks.at(-1), [0.05, 0.05, 250]);
 });
 
-test('createFirstRun: the banner uses the --active window from the config and follows the language', () => {
+test('createFirstRun: the banner follows the language and names no window, whatever --active the config carries (D21)', () => {
   const s = setup({ lang: 'ko' });
   s.startDemo(45);
-  assert.equal(s.banner().textContent, emptyBannerText('ko', 45));
+  assert.equal(s.banner().textContent, emptyBannerText('ko'));
+  assert.doesNotMatch(s.banner().textContent, /45/);
   s.hud.lang = 'en';
   s.ctl.setLang('en');
-  assert.equal(s.banner().textContent, emptyBannerText('en', 45));
+  assert.equal(s.banner().textContent, emptyBannerText('en'));
   assert.deepEqual(s.demos[0].langs, ['en'], 'the demo sessions are re-labelled too');
   const n = s.calls.length;
   s.ctl.onConfig({ type: 'config', intervalMs: 500, activeMinutes: 10 });
-  assert.equal(s.banner().textContent, emptyBannerText('en', 10));
-  assert.equal(s.hud.demoNote('en'), emptyBannerText('en', 10));
-  assert.deepEqual(s.calls.slice(n), [['setSource', 'demo']], 'the chip tooltip is refreshed for the new window');
+  assert.equal(s.banner().textContent, emptyBannerText('en'));
+  assert.equal(s.hud.demoNote('en'), emptyBannerText('en'));
+  assert.doesNotMatch(s.hud.demoNote('en'), /\d/);
+  assert.deepEqual(s.calls.slice(n), [], 'another --active window changes nothing on the page: the sentence names none');
 });
 
 test('createFirstRun: while the demo runs, reconnects keep the chip on demo and empty snapshots never reach the office', () => {
@@ -298,6 +303,43 @@ test('createFirstRun: the first real session event stops the demo, clears the of
   assert.equal(s.demos.length, 1);
   s.ctl.onStatus('retry');
   assert.deepEqual(s.calls.at(-1), ['setSource', 'retry']);
+});
+
+test('createFirstRun: when the demo ends, an open plan drawer (it shows a demo floor) is closed first, once', () => {
+  const s = setup({ withBoard: true });
+  s.ctl.onStatus('live');
+  s.ctl.onSnapshot([], {});
+  s.ctl.onConfig({ type: 'config', intervalMs: 250 });
+  for (let t = 0; t < GRACE_S + 0.2; t += 0.1) s.ctl.tick(0.1, 0.1, 250);
+  assert.equal(s.ctl.demoing, true);
+  assert.equal(s.names().includes('closeBoard'), false, 'not while the demo starts or runs');
+  const n = s.calls.length;
+  s.ctl.onEvent(SESSION);
+  assert.deepEqual(s.calls.slice(n), [
+    ['closeBoard'],
+    ['applySnapshot', [], { reset: true }],
+    ['pruneEmptyFloors', 0],
+    ['renderFloors', true],
+    ['setSource', 'live'],
+    ['onEvent', SESSION],
+  ], 'before the floors it reads from are cleared and removed');
+  // live from here on: a drawer the visitor opens on a real floor is left alone
+  s.ctl.onSnapshot([], {});
+  s.ctl.onEvent({ ...SESSION, sessionId: 'real-2' });
+  assert.equal(s.names().filter((c) => c === 'closeBoard').length, 1);
+  // the same through a snapshot, and a controller without the hook still switches
+  const snap = setup({ withBoard: true });
+  snap.startDemo();
+  const m = snap.calls.length;
+  snap.ctl.onSnapshot([SESSION], {});
+  assert.deepEqual(snap.calls[m], ['closeBoard']);
+  // a session inside the grace time never started a demo: nothing to close
+  const early = setup({ withBoard: true });
+  early.ctl.onStatus('live');
+  early.ctl.onSnapshot([], {});
+  early.ctl.onConfig({ type: 'config', intervalMs: 250 });
+  early.ctl.onEvent(SESSION);
+  assert.equal(early.names().includes('closeBoard'), false);
 });
 
 test('createFirstRun: a later snapshot with a session switches the same way and is then applied as given', () => {
@@ -379,6 +421,10 @@ test('main wiring: live mode keeps the LiveSource and drives the first-run contr
   const main = readFileSync(new URL('../public/js/main.js', import.meta.url), 'utf8');
   assert.match(main, /import \{ createFirstRun \} from '\.\/empty-state\.js';/);
   assert.match(main, /firstRun = createFirstRun\(\{ office, hud, makeDemo/);
+  // the plan drawer is made after the controller, so the hook reads it late (like the scrubber)
+  assert.match(main, /createFirstRun\(\{ office, hud, makeDemo, closeBoard: \(\) => boardDetail\?\.close\(\) \}\)/);
+  assert.match(main, /\nlet boardDetail = null;/);
+  assert.match(main, /\nboardDetail = installBoardDetail\(\{ office, hud, stage, canvas \}\);/);
   assert.match(main, /new LiveSource\(\(ev\) => firstRun\.onEvent\(ev\)/, 'live events pass through the controller');
   assert.match(main, /firstRun\.onSnapshot\(events, msg\)/);
   assert.match(main, /firstRun\.onConfig\(msg\)/);

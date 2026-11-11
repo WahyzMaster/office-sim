@@ -5,7 +5,8 @@ and streams them to the 3D office page (`public/`) over SSE. This file is the si
 module boundaries, the event schema and the parsing rules. The format rules come from a corpus study of
 5,016 local transcript files (Claude Code 2.1.181 to 2.1.299, entrypoint `claude-desktop`).
 Since P5e all four adapters are implemented: Claude Code (4.1-4.5), Grok (xAI Grok Build, 4.6), Codex (OpenAI Codex,
-all clients, 4.7) and Antigravity (the CLI `agy` and the legacy IDE, 4.8; the desktop app is out of scope, D6). The
+all clients, 4.7) and Antigravity (the CLI `agy`, the legacy IDE and the step transcripts of the 2.x desktop app, 4.8;
+the desktop app's encrypted conversation store is never opened, D6). The
 approved multi-agent design is `docs/ADAPTERS.md`; its shared groundwork (P5a) is in 4.0.1, the shared session core for
 the new adapters (P5b) in 4.0.2, the Grok adapter (P5c) in 4.6, the Codex adapter (P5d) in 4.7 and the Antigravity
 adapter (P5e) in 4.8.
@@ -19,7 +20,8 @@ adapter (P5e) in 4.8.
   `test/fixtures/` are not test files).
   Run all tests with `node --test test/`.
 - Every source file stays under 500 lines. No `console.log` in `src/` (use the injected `log` callback); `bin/` and
-  the CLI body it runs (`src/cli-main.mjs`, section 6) may print to stdout and stderr.
+  the CLI modules it runs (`src/cli-main.mjs`, section 6, and the setup commands of `src/cli-init.mjs`, 6.3) may
+  print to stdout and stderr.
 - Third-party files vendored under `public/vendor/` (section 6) are not project source and are exempt from the
   500-line cap (`scripts/verify-dom-invariants.mjs` skips that folder); they are never edited, only replaced
   together with their sha256 pins in `test/vendor-assets.test.mjs`.
@@ -36,13 +38,20 @@ adapter (P5e) in 4.8.
 
 ```
 bin/office-sim.mjs      CLI stub: no static project import; the Node floor warning, then main() of src/cli-main.mjs
-src/cli-main.mjs        CLI body: parse args, start server, print URL, open the browser, the no-session line, reuse on a busy default port
-src/port-reuse.mjs      the busy default port: one bounded GET /healthz, is the listener an office-sim? (section 6)
+src/cli-main.mjs        CLI body: parse args, start server, print URL, open the browser, the no-session line, reuse on a busy default port;
+                        hands `init` and `hooks` to src/cli-init.mjs before any server option is parsed
+src/cli-init.mjs        the setup commands (6.3): `office-sim init`, `office-sim hooks install|uninstall|status`; print the
+                        change, ask or --yes, then write (init) a copy of the skill and, last, the settings file
+src/port-reuse.mjs      the busy default port: one bounded GET /healthz, is the listener an office-sim, may this run reuse it? (section 6)
 src/cli-args.mjs        argv -> start() options (pure), USAGE text
 src/open-url.mjs        --open: platform opener command and a detached, never-awaited spawn (injectable, P4)
-src/open-policy.mjs     first-run decisions (pure): open the browser or not (--open, --no-open, the terminal default), --demo URL, the no-session line
-skills/office/SKILL.md  the /office Claude Code skill (P4): start or reuse, open, status, stop
+src/open-policy.mjs     first-run decisions (pure): open the browser or not (--open, --no-open, the terminal default), --demo URL and line, the no-session line
+skills/office/SKILL.md  the /office Claude Code skill (P4): start or reuse, open, status, stop; one text for the clone
+                        symlink, the plugin copy and the `office-sim init` copy (section 6)
 scripts/install-skill.mjs links <home>/.claude/skills/office to skills/office (P4; npm run skill:install / skill:uninstall)
+.claude-plugin/marketplace.json the Claude Code plugin marketplace file; its one plugin is the folder plugin/ (6.3)
+plugin/                 the Claude Code plugin (6.3): .claude-plugin/plugin.json, hooks/hooks.json (the two http hooks of
+                        7.2) and skills/office/SKILL.md (a byte-identical copy of skills/office/SKILL.md)
 src/summarize.mjs       tool_use -> { summary, room? } (pure); cleanText, the one section 5 text scrub
 src/summarize-shell.mjs Bash/Monitor command -> program name (+ allow-listed subcommand) (pure)
 src/plan.mjs            update_plan / task list / ExitPlanMode plan reconstruction (pure)
@@ -62,6 +71,11 @@ src/store-claude.mjs    Claude subagent linking (4.5, R28/R29, R36 forwarding), 
                         buffered sub meta and journal labels
 src/store-link.mjs      Store helpers: file identity, link facts, per-session index, ring lookup, the open tool ids
                         of a moved character (section 6 relocation) (pure)
+src/hooks-bridge.mjs    POST /api/hooks/claude: a Claude Code permission prompt (hook) -> `tool_wait` for an open tool,
+                        held waits, the snapshot copy (`HooksBridge`, section 7.2)
+src/hooks-receiver.mjs  the settings.json hook installer and uninstaller (two http hooks, 7.2), their write-free plans
+                        and the status listing that the setup commands print (6.3), and the event mapping for
+                        sessions only hooks report (`parseClaudeHookPayload`)
 src/adapters/index.mjs  adapter registry: KNOWN_AGENTS, AGENT_LABELS, ADAPTERS, enabled-adapter selection (4.0.1)
 src/adapters/claude-code.mjs the claude-code descriptor; points at the Claude modules where they are (D8)
 src/adapters/grok/      the Grok adapter (P5c, 4.6), every file under 500 lines: `discover.mjs` (allowlist discovery,
@@ -78,7 +92,7 @@ src/adapters/codex/     the Codex adapter (P5d, 4.7), every file under 500 lines
                         `session.mjs` (`CodexSession`: turn, tool and inherited-context state around SessionCore) and
                         the descriptor `index.mjs` (id `codex`, default root `~/.codex`, `worktreeFloor`)
 src/adapters/antigravity/ the Antigravity adapter (P5e, 4.8), every file under 500 lines: `discover.mjs` (allowlist
-                        discovery in the two app folders, transcript file preference by line count), `meta.mjs`
+                        discovery in the three app folders, transcript file preference by line count), `meta.mjs`
                         (`AntigravityMeta`, the metadata watcher, and the summary / annotation / `task.md` parsers),
                         `proto.mjs` (a bounded, never-throwing protobuf wire-format reader), `records.mjs` (one step ->
                         item pieces, pure), `tools.mjs` (tool name table -> descriptors, pure), `session.mjs`
@@ -138,7 +152,8 @@ public/                 the browser app; owned by the browser module (public/js/
                         First run (section 9): js/empty-state.js (when live mode shows the demo and when it stops:
                         the pure `firstRunStep`, the banner text, the `createFirstRun` controller), js/labs.js (the
                         maintainer-tools switch, `?labs=1`), js/static-text.js (Korean and English for the
-                        `aria-label`s of office.html, and `<html lang>`)
+                        `aria-label`s of office.html, and `<html lang>`), js/needs-you.js (9.5: how many characters
+                        wait on the human, in the tab title and one top-bar chip)
 public/vendor/          third-party files, served as they are by `GET /vendor/<name>` (section 6): from the npm
                         package three@0.160.0 `three.module.min.js`, `OrbitControls.js`, `CSS2DRenderer.js` and its
                         licence as `LICENSE-three.txt`; byte-pinned by test/vendor-assets.test.mjs
@@ -153,12 +168,12 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 
 | type | fields |
 |---|---|
-| `session` | `agent` (stable source id of the adapter, see below), `project` (stable floor key, see 4.4), `projectLabel` (basename), `title` (<= 80), `branch` (<= 60, `HEAD` -> `detached`), `worktree` (name <= 60, or null), `isSubagent`, `parentSessionId` (null for main), `agentType` (subagent only, <= 60) |
+| `session` | `agent` (stable source id of the adapter, see below), `project` (stable floor key, see 4.4), `projectLabel` (basename), `title` (<= 80), `branch` (<= 60, `HEAD` -> `detached`), `worktree` (name <= 60, or null), `isSubagent`, `parentSessionId` (null for main), `agentType` (subagent only, <= 60), `surface` (optional: `cli` \| `ide` \| `app`, where the session runs, when the adapter knows it: 4.8 for Antigravity, 5.1 for the Claude desktop app) |
 | `session_end` | `reason`: `done` \| `idle` |
 | `prompt` | `text` (human prompt, <= 80 code points) |
 | `tool_start` | `toolUseId`, `tool` (raw name, except a connector-uuid mcp server segment, see 5), `summary`, `room` (optional hint, see 5), `question`, `options` (ask tools only), `background` (bool, optional), `awaitsApproval` (`true` only in replay mode, when the call waited for a human answer to a permission prompt, see 7) |
 | `tool_end` | `toolUseId`, `ok` (bool), `errorKind`: `failed` \| `denied` \| `interrupted` \| `abandoned` (absent when ok), `error` (<= 120 code points, absent when ok) |
-| `tool_wait` | `toolUseId`, `waiting` (bool), exactly these two. Live Grok only (P5g, 4.6 Approval wait, section 7): `waiting: true` when a read finds a permission prompt for that open, visible, non-ask tool open 1 s or more (`ts` = the time the prompt opened), `waiting: false` when that prompt was allowed (`ts` = the answer's time), or when a caught-up read no longer lists a prompt that was shown and its answer was not seen (the events tail was rebuilt, 4.6; `ts` = that read's time). A deny sends no `false`: the tool's `tool_end` with `errorKind: 'denied'` closes the wait (only a deny whose answer was lost with a rebuilt tail gets the settle `false` first, before its `tool_end` `denied`). At most one `true` per `toolUseId` per announce (a re-announce of the character, after a same-path re-attach or a move to a new inode, repeats the open `tool_start` and its `tool_wait` copy), `false` only after it, both only between the tool's `tool_start` and its `tool_end` |
+| `tool_wait` | `toolUseId`, `waiting` (bool), exactly these two. Live Grok only (P5g, 4.6 Approval wait, section 7): `waiting: true` when a read finds a permission prompt for that open, visible, non-ask tool open 1 s or more (`ts` = the time the prompt opened), `waiting: false` when that prompt was allowed (`ts` = the answer's time), or when a caught-up read no longer lists a prompt that was shown and its answer was not seen (the events tail was rebuilt, 4.6; `ts` = that read's time). A deny sends no `false`: the tool's `tool_end` with `errorKind: 'denied'` closes the wait (only a deny whose answer was lost with a rebuilt tail gets the settle `false` first, before its `tool_end` `denied`). At most one `true` per `toolUseId` per announce (a re-announce of the character, after a same-path re-attach or a move to a new inode, repeats the open `tool_start` and its `tool_wait` copy), `false` only after it, both only between the tool's `tool_start` and its `tool_end`. Second source, Claude Code with its hooks installed (launch readiness D13, D25, section 7.2): `waiting: true` when a `PermissionRequest` hook (or the later `Notification` of type `permission_prompt`) is matched to an open, non-ask tool of that session (`ts` = the time the hook arrived); never a `false`, because no hook reports an allow, so the wait ends with that tool's `tool_end`; at most one `true` per `toolUseId`, only between the tool's `tool_start` and its `tool_end`. A re-announce of the character on the live stream repeats the open `tool_start` without a `tool_wait` copy (the tool keeps its one `true`; a page ignores a repeated `tool_start` of an id it already shows); only snapshots carry the copy (7.2 Snapshots). One exception, a session only hooks report (7.2, D14; never in a snapshot): its `Notification` about a permission sends `waiting: true` under the synthetic id `perm_<first 8 characters of the session id>`, which names no `tool_start` and may repeat (the office scene does nothing with it; the notifiers announce it) |
 | `thinking` | `text` (first sentence <= 100 code points, or `null` when the block is signature-only), `durationMs` (number or null) |
 | `say` | `text` (<= 100 code points) |
 | `plan` | `items`: `[{ content, status }]` with status `pending` \| `in_progress` \| `completed`, `source`: `update_plan` \| `tasks` \| `exit_plan`. Every `content` is scrubbed (section 5) and capped at 80 code points. `exit_plan` carries at most 6 items (`planFromMarkdown`, each raw line cut at 1000 chars before parsing); `update_plan` and `tasks` carry the whole list (no count cap) |
@@ -175,8 +190,11 @@ around `SessionCore`) and its Store entry (4.0.1).
 `tool_wait` order (P5g): in a snapshot and in `/state`, the `tool_wait { waiting: true }` of a tool that still waits
 comes right after that tool's `tool_start`, as a JSON-identical copy of the live event; a wait that was allowed (or a
 tool that ended) leaves no `tool_wait` there. The Store, `/state` and the ring keep `tool_wait` like any other event,
-and a page that does not know the type ignores it. `awaitsApproval` stays replay-only (Claude, section 7); Claude,
-Codex and Antigravity never send `tool_wait`.
+and a page that does not know the type ignores it. A Grok wait is part of its session's snapshot events (4.0.2). A
+Claude Code hook wait (7.2) is kept by the hook bridge instead: the HTTP layer puts its copy into `/state` and every
+`snapshot` message, so `Store.snapshot()` alone does not carry it. `awaitsApproval` stays replay-only (Claude,
+section 7). No adapter but Grok sends `tool_wait`: the Claude Code, Codex and Antigravity transcripts never produce
+one, and a Claude Code `tool_wait` comes only from the hook route.
 
 Wire messages on `/events` (each SSE `data:` line is one JSON object, every message has an `id:` line = seq):
 - `{ "type": "snapshot", "events": [ ...events ] }` first message on every connection (or replay, see 6).
@@ -406,8 +424,9 @@ Approved decisions (reasons and the alternatives not taken: ADAPTERS section 11)
   the page does not change.
 - D5 `plan.source`: no new values. Full lists (Codex `update_plan`, Grok `plan`) are `update_plan`, markdown plan
   proposals are `exit_plan`, the Antigravity `task.md` checklist is `tasks`.
-- D6 Antigravity scope: the CLI (`agy`) and old IDE transcripts only; the desktop app is out of scope (its
-  conversation files look encrypted).
+- D6 Antigravity scope: step transcripts only. At P5e these were the CLI (`agy`) and old IDE transcripts; since
+  2026-10-22 (commit `7199a02`) the desktop app's folder `antigravity/` is entered too, for the same transcript and
+  metadata files (4.8). The desktop app's conversation files (`conversations/*.pb`) look encrypted and are never opened.
 - D7 Grok live approval wait (`events.jsonl`): a separate, optional stage after the base Grok adapter; the contract
   change it needs is decided then. Done in P5g: a new event `tool_wait { toolUseId, waiting }` (section 2), not a
   field on `tool_start`; `awaitsApproval` stays replay-only (4.6 Approval wait, section 7).
@@ -1431,13 +1450,18 @@ bin's `office-sim: agents claude-code,codex,grok` line. The only real-data use i
 (events, unpaired tools, apply errors, privacy hits).
 
 ### 4.8 Antigravity adapter (P5e)
-The Antigravity adapter reads the step transcripts of Google Antigravity's CLI (`agy`) and of the legacy Antigravity
-IDE. Scope (D6): those two only. The Antigravity desktop app (Antigravity.app 2.x, data root `<root>/antigravity/`) is
-out of scope: its conversations (`conversations/<uuid>.pb`) look encrypted (a distinct prefix per file, entropy 8.0
-bits/byte, no protobuf parse from offset 0) and are rewritten whole, and its brain folders hold no logs, so it has no
-tool events; nothing under `<root>/antigravity/` is listed, `stat`ed or opened, not even its task lists or its summary
-file. Format facts come from the structure-only study `docs/research/antigravity-format.json` (34 CLI transcripts and 2
-legacy IDE transcripts, about 16,800 lines, CLI language servers 1.3.5-1.4.2); the design is ADAPTERS 5.3, 6.1 and 6.2,
+The Antigravity adapter reads the step transcripts of Google Antigravity's CLI (`agy`), of the legacy Antigravity IDE
+and of the Antigravity desktop app (Antigravity.app 2.x, data root `<root>/antigravity/`). Scope (D6, widened on
+2026-10-22 by commit `7199a02`; at P5e the desktop app was out of scope and nothing under `<root>/antigravity/` was
+touched): step transcripts and the three metadata files below, in those three app folders and nowhere else. The desktop
+app is read the same way as the other two: a conversation appears only when its brain folder holds a transcript under
+`.system_generated/logs/`, and the metadata files of `<root>/antigravity/` (the summaries file, annotations, `task.md`)
+are read for such a conversation only. The desktop app's own conversation store (`conversations/<uuid>.pb`) looks
+encrypted (a distinct prefix per file, entropy 8.0 bits/byte, no protobuf parse from offset 0) and is rewritten whole: it
+is never opened, listed or `stat`ed, like every other file of that folder that the lists below do not name.
+Format facts come from the structure-only study `docs/research/antigravity-format.json` (34 CLI transcripts and 2
+legacy IDE transcripts, about 16,800 lines, CLI language servers 1.3.5-1.4.2; the 64 desktop brain folders of the study
+held no `logs/`, so the desktop folder is covered by synthetic fixtures only); the design is ADAPTERS 5.3, 6.1 and 6.2,
 and where this section differs from those proposals, this section wins. Agent id `antigravity`, default root `~/.gemini`
 (`--antigravity-root`, section 6). Code: `src/adapters/antigravity/`: `discover.mjs` (allowlist discovery, transcript
 file preference), `meta.mjs` (`AntigravityMeta`, the metadata watcher, and the summary, annotation and `task.md`
@@ -1449,12 +1473,15 @@ Codex behaviour does not change (4.1-4.7 and section 5 keep their rules).
 
 Discovery (allowlist, ADAPTERS 7.1; `discover.mjs`):
 - `<root>` (`~/.gemini`) is shared with the Gemini CLI and holds credentials and raw input history, so `<root>` itself
-  is never listed; only two app folders under it are entered: `<root>/antigravity-cli/` (the CLI) and
-  `<root>/antigravity-ide/` (the legacy IDE). In each, the only transcript paths accepted are
+  is never listed; only three app folders under it are entered (`BASES`): `<root>/antigravity-cli/` (the CLI),
+  `<root>/antigravity-ide/` (the legacy IDE) and `<root>/antigravity/` (the 2.x desktop app). A root whose own folder
+  name is one of the three is read as that one app folder (`--antigravity-root ~/.gemini/antigravity-cli`). In each, the
+  only transcript paths accepted are
   `<app>/brain/<uuid>/.system_generated/logs/transcript_full.jsonl` and
   `<app>/brain/<uuid>/.system_generated/logs/transcript.jsonl`, with `<uuid>` the conversation id (a UUID folder name; it
-  equals the summary key and the `conversations/<uuid>.db` stem, 37/37). When the same uuid exists in both app folders,
-  the copy with the newer transcript mtime wins, then the larger transcripts, then `antigravity-cli`.
+  equals the summary key and the `conversations/<uuid>.db` stem, 37/37). When the same uuid exists in more than one app
+  folder, the copy with the newer transcript mtime wins, then the larger transcripts, then the order `antigravity-cli`,
+  `antigravity-ide`, `antigravity`.
 - File preference (one file per conversation): `transcript_full.jsonl` holds every step with untruncated values and
   native JSON arguments, and is preferred. `transcript.jsonl` holds the same steps with long `content`, `thinking` and
   `tool_calls` cut (listed in `truncated_fields`) and every argument JSON-encoded as a string; it is used when the full
@@ -1477,14 +1504,17 @@ Discovery (allowlist, ADAPTERS 7.1; `discover.mjs`):
   a real folder) and of the two transcript names (regular files only), the listing of `brain/` (UUID-named real
   directories only), the line counts above, an attached transcript through the Tailer (3.6) with `noFollow` (opened with
   `O_NOFOLLOW` and attached only when it is the regular file the scan `lstat`ed, its `ino`: a link or another file
-  planted between the scan and the attach is not read), and the metadata files below. Never opened, listed or `stat`ed: `<root>/antigravity/` (the desktop app, D6), `conversations/` (`*.db` with
-  `-wal` / `-shm`, `*.pb`), `conversation_summaries.db`, `implicit/`, the brain folders' `.system_generated/messages/`
+  planted between the scan and the attach is not read), and the metadata files below. Never opened, listed or
+  `stat`ed, in any of the three app folders: `conversations/` (`*.db` with
+  `-wal` / `-shm`, `*.pb`, the desktop app's encrypted conversations among them), `conversation_summaries.db`,
+  `implicit/`, the brain folders' `.system_generated/messages/`
   (`*.json`, `read.json`), `steps/*/output.txt`, `tasks/*.log` and `logs/chunks/`, the brain artifacts other than
   `task.md` (`walkthrough.md`, `implementation_plan.md`, `*.metadata.json`, `*.resolved*`, `scratch/`, `.git/`),
   `history.jsonl` and every `history` folder or file (raw input; they also hold workspace keys and are still never
   read), `cache/`, `log/`, `daemon/`, `presence/`, `browser_recordings/`, and the files of `<root>` itself:
   `oauth_creds.json`, `google_accounts.json`, `settings*.json`, `state.json`, `trustedFolders.json`, `projects.json`,
-  `sandbox/`, `tmp/`, `config/`.
+  `sandbox/`, `tmp/`, `config/`, and every other folder of `<root>` (a folder with a similar name and a valid-looking
+  transcript, such as `antigravity-bait/`, is skipped by its path, not by its shape).
 - Symlinks are never followed: a linked app folder, `.system_generated/` or `logs/` counts as missing, a linked `brain/`
   is an empty list, a linked conversation folder or transcript is no entry, and a linked `annotations/` folder counts as
   missing (Metadata files below). ENOENT, ENOTDIR, EACCES, EPERM, ELOOP and
@@ -1502,13 +1532,16 @@ Ids (D2, 4.0.1 F2):
   null and `nesting_depth` 0 in 166/166 rows, `has_subtrajectory` 0 in every step). `kind: 'main'`, `charId` = `sid` =
   `stem` = `antigravity-<uuid>`, `sessionId` = the uuid, `agent: 'antigravity'`; every ref passes the F2 guard. A ref
   also carries `facts: { full, base }` (which file and which app folder), which the Runner passes to the session
-  constructor: `full` tells the session how argument values are written (Tools below).
+  constructor: `full` tells the session how argument values are written (Tools below). From `base` the Store adds
+  `surface` to the conversation's `session` event (`AGY_SURFACE` in `src/store.mjs`): `cli` for `antigravity-cli`, `ide`
+  for `antigravity-ide`, `app` for `antigravity`; the page uses it for the character's badge and look.
   `manage_subagents` and `browser_subagent` calls are the conversation's own tools (Tools below).
 
 Metadata files (`AntigravityMeta`, `meta.mjs`):
 - Three small files describe a conversation, all in its own app folder: the summaries file
   (`antigravity-cli/jetbox_summaries_proto.pb` for a CLI conversation, `antigravity-ide/agyhub_summaries_proto.pb` for a
-  legacy IDE conversation, read when present), `<app>/annotations/<uuid>.pbtxt` and `<app>/brain/<uuid>/task.md`.
+  legacy IDE conversation and `antigravity/agyhub_summaries_proto.pb` for a desktop-app conversation, `SUMMARY_FILES`,
+  each read when present), `<app>/annotations/<uuid>.pbtxt` and `<app>/brain/<uuid>/task.md`.
 - The summaries file lists every conversation of its app folder and is replaced whole on change (inode changed twice in
   240 s), so it is not a per-session sidecar: the descriptor has no `sidecars(ref)` hook and hands the Runner an
   `AntigravityMeta` as `deps.sidecarWatcher` (`check(ref)` / `forget(path)`, the slot the Codex titles use, 4.7). The
@@ -1521,14 +1554,17 @@ Metadata files (`AntigravityMeta`, `meta.mjs`):
   `META_FILE_MAX_BYTES`). The `lstat` of a file does not cover its folders, so every check also `lstat`s them: nothing
   is read when `<app>` is not a real folder, the annotation only when `<app>/annotations/` is a real folder, and
   `task.md` only when `<app>/brain/` and `brain/<uuid>/` are; a linked folder counts as missing, so no file outside
-  `<app>/` (or under the desktop root `antigravity/`) is opened. A file that fails to parse is ignored until it changes.
+  the conversation's own `<app>/` is opened, not through a link into another app folder either (a CLI conversation
+  whose `annotations/` links into `antigravity/` reads nothing there). A file that fails to parse is ignored until it
+  changes.
   It never throws.
 - `check` returns only the fields whose value changed since the last delivery to that transcript: `{ title?, cwd?,
   branch?, status?, tasks? }`. Values never go back to empty: a file that disappears or no longer names the conversation
   leaves what was delivered. `forget(path)` drops a transcript's state when it is detached or moves.
-- The study found `agyhub_summaries_proto.pb` only under the desktop app root `antigravity/`, which is never read (D6),
-  and no summaries file under `antigravity-ide/`; a legacy IDE conversation therefore usually has no summary entry, and
-  its title and cwd come from the fallbacks below.
+- The study found `agyhub_summaries_proto.pb` only under the desktop app root `antigravity/` and no summaries file
+  under `antigravity-ide/`; a legacy IDE conversation therefore usually has no summary entry, and its title and cwd come
+  from the fallbacks below. A desktop-app conversation reads the summaries file of its own folder, never the CLI's
+  (`test/antigravity-meta.test.mjs`).
 
 Summary protobuf (`proto.mjs`, `parseSummaries` in `meta.mjs`):
 - `proto.mjs` reads the protobuf wire format without a schema: varint (at most 10 bytes), 64-bit, length-delimited and
@@ -1723,7 +1759,7 @@ Descriptor and session end:
 - A main never idles out by itself (4.0.2); it ends when its file leaves the active window (section 6).
 
 Tests (the P5e end condition, ADAPTERS 9): synthetic fixtures shaped from the research file (`test/fixtures/antigravity.mjs`
-record builder, `test/fixtures/antigravity-tree.mjs` folder trees with both app folders), under temp roots only (never
+record builder, `test/fixtures/antigravity-tree.mjs` folder trees with the app folders), under temp roots only (never
 the real `~/.gemini`, `~/.codex`, `~/.grok` or `~/.claude`); tests that spawn the bin set `HOME` to a temp folder,
 because the bin fills the default `~/.gemini` root. Unit tests per module (`test/antigravity-discover.test.mjs`,
 `antigravity-meta`, `antigravity-proto`, `antigravity-records`, `antigravity-session`), the review fixes
@@ -1734,8 +1770,9 @@ section against the name table); the conformance harness (4.0.2)
 must run against the Antigravity adapter too. Fixtures must cover both tool vocabularies (`view_file` / `write_to_file` with
 `toolAction` / `toolSummary` bait, and `read_file` / `write_file`), both transcript forms (native and JSON-string
 arguments), the file preference and its switch, the allowlist (bait files such as `history.jsonl`, `oauth_creds.json`,
-`conversations/*.db`, `messages/*.json` and a desktop-app `antigravity/` folder are never opened, checked with an fs
-spy), the proto reader (malformed and oversized input, depth bounds, no throw), the metadata files (annotation, summary
+`conversations/*.db`, `messages/*.json`, the desktop app's `antigravity/conversations/*.pb` and a look-alike folder
+`antigravity-bait/` with a valid-looking transcript are never opened, checked with an fs spy; a transcript under
+`antigravity/brain/` is read), the proto reader (malformed and oversized input, depth bounds, no throw), the metadata files (annotation, summary
 entry, `task.md` statuses, re-read only on change), every mapping row above (USER_REQUEST extraction, positional
 pairing, abandoned closes, `list_permissions`, `RUNNING` results, exit codes, quiet-time turn ends), a truncated last
 line, and a mixed start with Claude, Codex, Grok and Antigravity on one floor and the bin's `office-sim: agents
@@ -1763,8 +1800,11 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   `steps/*/output.txt`, the `USER_INPUT` blocks other than `USER_REQUEST` (`ADDITIONAL_METADATA`,
   `USER_SETTINGS_CHANGE`, `PLAN`), `SYSTEM_MESSAGE`, `CHECKPOINT` and `CONVERSATION_HISTORY` content, and every summary
   protobuf field other than the ones 4.8 names (the git remote URL and owner/repo above all). `history.jsonl`, the
-  background-message files (`messages/*.json`), the SQLite stores, the encrypted `.pb` conversations, the credential and
-  settings files of `~/.gemini` and the whole desktop-app folder `antigravity/` are never opened.
+  background-message files (`messages/*.json`), the SQLite stores, the encrypted `.pb` conversations (the desktop
+  app's `antigravity/conversations/*.pb` among them) and the credential and settings files of `~/.gemini` are never
+  opened. In the desktop-app folder `antigravity/` only the files 4.8 names are read, under the rules of the CLI folder:
+  the step transcripts under `brain/<uuid>/.system_generated/logs/`, `agyhub_summaries_proto.pb` (four fields per
+  conversation), `annotations/<uuid>.pbtxt` (the title) and `brain/<uuid>/task.md`.
 - One scrub (`cleanText` in `summarize.mjs`) runs on every free-text field before it is truncated: `prompt.text`,
   `say.text`, `thinking.text`, `session.title`, `tool_start.summary` pieces, `question`, `options`, plan item
   `content` (ExitPlanMode items after the markdown links, HTML and backticks are stripped), `tool_end.error`,
@@ -1799,6 +1839,38 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   `/events`; on a shared machine use `--auth`. Raw `/state` or SSE output carries these paths, so check it before you
   share it.
 - The browser classifies rooms with `public/js/rooms.js`; the server only sends `room` hints from 3.1.
+- Claude Code hook bodies (`POST /api/hooks/claude`, 7.2, launch readiness D16): a body is read, reduced to a tool
+  name match and discarded. For a session the Store follows, exactly six fields are read: `session_id`,
+  `hook_event_name`, `notification_type`, `tool_name` (of a `PermissionRequest`), `agent_id`, and `transcript_path`,
+  which is only compared with the Claude root: by spelling, and when that fails by what the file system says of the
+  folder part (`realpath` of the nearest folder that exists, 7.2). The transcript itself is never opened or looked
+  at, nothing is read or listed, and the path is not kept or logged.
+  `tool_input`, `message`, `title`, `cwd`, `permission_mode`, `permission_suggestions` and every other field are not
+  read. The event that results,
+  `tool_wait`, carries the character id, a time and the `toolUseId` of a `tool_start` the transcript already produced,
+  so no text of the body reaches the Store, the ring, `/state` or a page. After the handler returns nothing of the
+  body is kept, with three exceptions, all ids and a tool name only (the session id, the `agent_id` or character id,
+  and the name as `tool_start.tool` would carry it, at most 200 characters). A wait that was sent keeps the session
+  id, the character id and the `toolUseId` until that tool's `tool_end`, the character's `session_end`, or the moment
+  the tool or the character leaves the bounded list of open tools (7.2 Matching), so there are never more of them
+  than open tools. A wait that is held until its
+  `tool_start` arrives keeps them, at most 64 at a time; a held wait is used for at most 10 s and is dropped at the
+  next hook body, pushed event or counter read after that (no timer runs). A permission event that sent or held a
+  wait keeps them for the repeat rule of 7.2, at most 256 at a time, used for 1 s and dropped the same way.
+  `/healthz` and the bridge's counters hold numbers only. A session only hooks report (not
+  in the Store, D14) is mapped as before by `parseClaudeHookPayload`, which also keeps, per tool such a session has
+  open, its session id and tool name with the id of the `tool_start` it sent (at most 500 entries), to close that
+  tool at `PostToolUse`. The events of such a session follow the rules of this section: the summary
+  through `summarize` (3.1), every text through `cleanText`, `project`, `projectLabel` and `worktree` from `cwd` like
+  a transcript's, and nothing else of `tool_input`. Stricter than a transcript in four places: the error line of a
+  failed tool is the fixed text `Tool failed` (the hook's `error` and `tool_output` fields are not read, because a
+  line of them can carry a secret that `cleanText` does not know); the line of a `StopFailure` is the fixed text
+  `API error / rate limit` (`stop_reason` is not read, for the same reason); the `agent_type` of a `SubagentStart`
+  is the `Agent` tool's summary only when it matches `[A-Za-z0-9_.:-]{1,64}`, else the summary is `subagent`; and a
+  `tool_name` goes on the wire only when it matches `[A-Za-z0-9_.:-]{1,128}` (the charset of D20; a connector uuid
+  in an mcp name is masked as in 3.1), else the event is not sent. A body `tool_use_id` is used as the `toolUseId`
+  only when it passes the id rule of a session id (`publicSessionId`), else a synthetic id is made. A `Notification`
+  of such a session sends no text of its `message`.
 - Live log observation (6.2): the output file, every status object (GET / POST `/observe`) and every `observe` SSE
   message hold only numbers, booleans, ISO times, the per-observation ids `f#` / `s#`, the agent ids, the file kinds,
   the checklist ids, the end reasons (`user`, `ready`, `duration`, `bytes`, `close`), fs error codes (`/^E[A-Z0-9_]{1,31}$/`, else `?`), the output file's own name (never its folder)
@@ -1855,23 +1927,34 @@ the scan options (`appSupportDir`, `logsDir`, `logsRoot`, `classicRoot`, `grokBo
   open checks that the handle is a regular file with the inode `lstat` saw. The text is split into lines; the
   unfinished last line waits in memory for the next read. A line is used only when it has the form
   `<ISO time>Z [info] [<server>] Message from client: <rest>` or `... Message from server: <rest>`:
-  - a client line whose `<rest>` contains `tools/call` opens a call. Kept: the time, `<server>`, the request id (the
-    first `id=<n>` or `"id": <n>` in `<rest>`, a number or a quoted string, else `0`) and the first `"name": "<text>"`
-    in `<rest>` (else `call`);
-  - a server line with a request id whose `<rest>` contains `result` or `error` closes the open call of the same
-    server and id; it is an error when `error` is there and `result` is not;
+  - a client line opens a call only when `<rest>` is a request whose method is exactly `tools/call` (launch
+    readiness D20). A `<rest>` that starts with `{` is read as JSON: its first complete object is parsed (whatever the
+    app writes after that object is ignored), and the line is a call only when the object's own `method` is the string
+    `tools/call`. Kept: the time, `<server>`, the request `id` (a string or a number, else `0`) and `params.name`.
+    `params.arguments` is never read. The one other form that opens a call is the summary line, a `<rest>` that
+    begins `method="tools/call"` (then `id=<n>`, a number or a quoted string, else `0`); it gives no name. A `<rest>`
+    that starts with `{` and is cut off or does not parse, a request with any other method, and any other text that
+    merely contains `tools/call` open nothing;
+  - a server line closes the open call of the same server and id when `<rest>` is a JSON object (read the same way)
+    that has no `method`, an `id` (a string or a number) and a `result` or an `error` member; it is an error when
+    there is no `result`. A `<rest>` that does not start with `{` closes a call when it has `id=<n>` and contains
+    `result` or `error` (an error when `error` is there and `result` is not);
   - every other line, and everything else on these lines, is dropped. `<rest>` is where the app logs the JSON-RPC
-    message, tool arguments and results included, so those bytes are read into memory. Apart from the items kept
-    above they are discarded after the match: never stored, logged or sent (one caveat: Known limit, below). At most
-    1,024 open calls are remembered (server and request id).
-- What reaches the page from `mcp.log`: `tool_start` with `tool` `mcp__<server>__<name>` (in each of the two parts
-  every run of characters other than letters, digits and `_` becomes `_`), a `summary` made from that name by the
-  usual tool rule, and the line's time; its `tool_end`; and `say` `Completed <server>` with the server name through
-  the `cleanText` scrub.
-- Known limit: `<rest>` is matched with patterns, not parsed as JSON. The name is the first `"name"` string on the
-  line, which is the tool name when `params.name` comes before `params.arguments`. If a client ever wrote the
-  arguments first and they held a `name` key, that value would be taken as the tool name and reach the page. The name
-  has no length cap in this module.
+    message, tool arguments and results included, so those bytes are read into memory and parsed. Apart from the
+    items kept above they are discarded right after the parse: never stored, logged or sent. At most 1,024 open calls
+    are remembered, each under its server name and request id; a server name or id that does not have the name shape
+    below is remembered only as the first 16 hex digits of its SHA-256 digest.
+- Names (D20). A server name (the text in `[<server>]`) and a tool name (`params.name`) are passed on only when they
+  match `[A-Za-z0-9_.:-]{1,64}` (`MCP_NAME_RE`). Any other value becomes a generic label: `mcp` for a server name
+  with a space, a path, an email address or more than 64 characters; `call` for a tool name of another shape, a
+  missing one, or one that is not a string.
+- What reaches the page from `mcp.log`: `tool_start` with `tool` `mcp__<server>__<name>` (the two names after the
+  rule above; in each part every run of characters other than letters, digits and `_` becomes `_`), a `summary` made
+  from that name by the usual tool rule, and the line's time; its `tool_end`; and `say` `Completed <server>` with the
+  same server name or label.
+- Known limit: the names are checked for their shape, not against a list. A string of the allowed shape that an MCP
+  server registered as a tool name, or that the app's configuration gives a server as its name, is shown as it is.
+  Servers whose names have spaces all show as `mcp`.
 - `POST /api/focus-terminal` for this character (macOS) runs `lsof -t -- <anchor file>` and `ps -o tty= -p <pid>`,
   as it does with the transcript path of any other character.
 
@@ -1914,7 +1997,10 @@ the scan options (`appSupportDir`, `logsDir`, `logsRoot`, `classicRoot`, `grokBo
 
 `test/desktop-cloud-chats.test.mjs` runs the three scans against temp folders; `test/desktop-disclosure.test.mjs`
 pins the Claude Desktop statements above (which calls touch which paths, and that BAIT text in `main.log`, in the
-IndexedDB files and in the arguments and results of `mcp.log` lines reaches neither the Store nor a live event).
+IndexedDB files and in the arguments and results of `mcp.log` lines reaches neither the Store nor a live event);
+`test/desktop-claude-names.test.mjs` pins the D20 rules with bait in every place a name used to be taken from
+(arguments written before the name, a line that only mentions `tools/call`, a server name with an email address and a
+path, a 300-character name).
 
 ## 6. Server behaviour (`src/server.mjs`, `bin/office-sim.mjs`)
 - The bin is two files. `bin/office-sim.mjs` is a stub with no static import of a project module: it reads
@@ -1947,9 +2033,12 @@ IndexedDB files and in the arguments and results of `mcp.log` lines reaches neit
     `xdg-open` needs a graphical session); and, with `--auth`, the opener is not `xdg-open` (the trade-off below: on
     Linux and the BSDs the user opens the printed token URL by hand).
   So a bin whose stdout is a pipe or a file (a script, the `/office` skill, every test) opens nothing unless `--open`
-  is given. `--demo` only changes the URL that is opened: the printed URL plus `#demo` (`pageUrl`), the page's demo
-  mode. The printed `office-sim: <url>` line never carries the fragment, and `--demo` does nothing when the bin does
-  not open. `open` and `demo` are not `start()` options (the bin strips them).
+  is given. `--demo` changes the URL that is opened: the printed URL plus `#demo` (`pageUrl`), the page's demo
+  mode. The printed `office-sim: <url>` line never carries the fragment. When the bin does not open (D19), `--demo`
+  instead adds one stdout line, `office-sim: demo <url>#demo` (`demoLine`; `<url>` is the printed URL, so with
+  `--auth` the token URL), after the URL, agents, not-implemented and replay lines; in the reuse case below it
+  follows the `already running` line. Without `--demo` the stdout lines are unchanged. `open` and `demo` are not
+  `start()` options (the bin strips them).
   When it opens: after the listen and the URL / agents lines (and the
   replay line), the bin opens the printed `url` in the default browser through `src/open-url.mjs`, so with `--auth` it
   opens the token URL. Opener: darwin `open <url>`, win32 `cmd /c start "" <url>` (verbatim arguments), anything else
@@ -1981,17 +2070,25 @@ IndexedDB files and in the arguments and results of `mcp.log` lines reaches neit
   still counts as a session here, so the line can be missing while the page has nobody to show. The page half of D6
   (the demo and its banner) is section 9.1.
 - The default port is 4747 and there is no fallback port: the port is written into hook URLs and into the `/office`
-  skill, so the bin never binds another port by itself. A busy default port (`src/port-reuse.mjs`): when the listen
-  fails with EADDRINUSE and the user did not pass `--port` (so the port is the default one), the bin sends one `GET
-  http://<host>:4747/healthz`, bounded to 1 s for the whole exchange and to 64 KiB of body. If the answer is what the
-  skill's probe accepts (status 200, JSON with `ok: true` and an `agents` array), it prints `office-sim: already
-  running at http://<host>:4747/` on stdout, opens that URL when opening is on (the decision above, made with this
-  run's flags: `--open`, or the terminal default; with `--demo` the opened URL ends in `#demo`), and exits 0; no second server is
-  started, and the flags of this run (`--auth`, `--replay`, roots) do not reach the running one. Anything else (another
-  program, an office-sim started with `--auth`, which answers 401, no answer in time, or any explicit `--port`, even
-  `--port 4747`) is the failed listen described below: one line with the `(port in use: try --port 0 or another port)`
-  hint, exit 1. In the reuse case the process ends right after it starts the opener, so only a refused URL or a
-  missing opener is logged, not the opener's exit code.
+  skill, so the bin never binds another port by itself. A busy default port (`src/port-reuse.mjs`,
+  `onListenFailure`): when the listen fails with EADDRINUSE and the user did not pass `--port` (so the port is the
+  default one), the bin sends one `GET http://<host>:4747/healthz`, bounded to 1 s for the whole exchange and to
+  64 KiB of body, and looks whether the answer is what the skill's probe accepts (status 200, JSON with `ok: true`
+  and an `agents` array). What it does with an office-sim found there depends on this run's arguments (D18):
+  - Reuse, only when argv holds nothing but `--open`, `--no-open` and `--demo` (`reuseAllowed`; an empty argv
+    included): it prints `office-sim: already running at http://<host>:4747/` on stdout, opens that URL when opening
+    is on (the decision above, made with this run's flags: `--open`, or the terminal default; with `--demo` the
+    opened URL ends in `#demo`, and when nothing is opened the `office-sim: demo <url>#demo` line follows), and exits
+    0; no second server is started. In the reuse case the process ends right after it starts the opener, so only a
+    refused URL or a missing opener is logged, not the opener's exit code.
+  - With any other argument (`--replay`, `--auth`, `--agents`, a root, `--notify`, `--cdn`, `--host`, ...) the
+    running server is not reused, because those options would not reach it: the failed listen stays an error (one
+    stderr line, exit 1) whose hint names the running server and `--port`: `office-sim: <message> (port in use by the
+    office-sim running at http://<host>:4747/; only a run with no option other than --open, --no-open, --demo reuses
+    it: stop it, or try --port 0 or another port)`. Nothing is printed on stdout and nothing is opened.
+  Anything else (another program, an office-sim started with `--auth`, which answers 401, no answer in time) and any
+  explicit `--port`, even `--port 4747` (never probed), is the failed listen described below: one line with the
+  `(port in use: try --port 0 or another port)` hint, exit 1.
 - The `/office` skill (P4, `skills/office/SKILL.md`) depends on these server facts, so changing one means changing the
   skill and `test/skill-commands.test.mjs`: `GET /healthz` -> 200 JSON that starts `{"ok":true,` and has an `agents`
   array (the probe prints at most the first 2000 characters; the whole body is shorter, `test/skill-file.test.mjs`
@@ -2009,13 +2106,27 @@ IndexedDB files and in the arguments and results of `mcp.log` lines reaches neit
   3 s and reports the result (on Linux it never runs `xdg-open` with an `--auth` token URL), so a failed open is seen
   and the user gets the URL to open by hand. Before it says `/office stop` stops a server it reused on 4747, it checks
   that the server's argv is that command (`ours pid <n>`).
+  One text serves three installs (W7), and its step 1 decides which one it is with one command: the real path of
+  the skill's base directory, two levels up, either holds `bin/office-sim.mjs` or it does not (`MISSING`).
+  - A path: the skill is the link `npm run skill:install` made into a clone. Everything above applies.
+  - `MISSING`: the skill is a copy with no checkout behind it, either the plugin's (`plugin/skills/office`, 6.3,
+    invoked as `/office-sim:office`) or the one `office-sim init` made (6.3). It starts the server from npm instead,
+    `npx -y office-sim@latest --no-open [--auth] --port <4747|0>`, as a background task with the same private output
+    file, and reads the same `office-sim:` lines with the same wait command, run up to two more times when it printed
+    nothing because npx was still downloading the package. Probe, status, open and the report are the same.
+    Without a checkout there is no bin path to match, so the skill stops nothing by a process pattern: a reused
+    server counts as ours only when the same conversation started it, and `/office stop` stops only the background
+    task that conversation started (the two stop commands are for the checkout only).
+  `test/skill-commands.test.mjs` runs the npx line with a fake `npx` that hands its arguments to this repository's
+  bin; no test contacts the registry, and `npx -y office-sim@latest` itself is not verified here.
 - Adapters (P5a, 4.0.1): `--agents <id,id>` is a comma list of adapter ids, each validated against `KNOWN_AGENTS` (an
   unknown id is a usage error, exit 2). It narrows the enabled set (D3); without it every implemented adapter whose root
   exists is on. `--codex-root <dir>`, `--grok-root <dir>` and `--antigravity-root <dir>` are accepted, `~`-expanded and
   stored in the `start()` option `roots`. `--grok-root` is live since P5c: it is the Grok root (default `~/.grok`, 4.6).
   `--codex-root` is live since P5d: it is the Codex root (default `~/.codex`, 4.7). `--antigravity-root` is live since
-  P5e: it is the Antigravity root (default `~/.gemini`; the adapter enters only its `antigravity-cli/` and
-  `antigravity-ide/` folders, 4.8). The bin fills the
+  P5e: it is the Antigravity root (default `~/.gemini`; the adapter enters only its `antigravity-cli/`,
+  `antigravity-ide/` and `antigravity/` folders, or the root itself when its folder name is one of the three, 4.8). The
+  bin fills the
   root of every implemented non-Claude adapter that has no flag with the descriptor's default
   (`roots: { ...defaultRoots(), ...flags }`); `start()` itself never falls back to a default root, so a `start()` call
   without `roots.grok` (every test that does not pass one) never checks or reads `~/.grok`, one without
@@ -2132,7 +2243,8 @@ IndexedDB files and in the arguments and results of `mcp.log` lines reaches neit
      `Content-Length` or body -> 413 `{error:'body too large'}`, the rest is drained up to 1 MiB so the client gets the
      413, beyond that the socket is closed); invalid JSON -> 400; `/config`: `intervalMs` must be an integer
      50..5000 (400); `/observe`: `action` must be `"start"` or `"stop"` (400 `{error}`), nothing starts on a refused
-     request.
+     request. `POST /api/hooks/claude` (7.2) passes checks 1 to 5 as well, with one difference: its body may be up
+     to 1 MiB (a larger one -> the same 413, drained up to 2 MiB).
 - Hosted demo (GitHub Pages, `https://wahyzmaster.github.io/office-sim/`): `node scripts/build-demo.mjs --out <dir>`
   (default `_site`; zero dependencies, no network) writes a static copy of `public/` plus `index.html`, `og.png` (a copy
   of `docs/assets/theme-studio.png`) and an empty `.nojekyll`. `index.html` is the same wrapper with `lang="en"` and,
@@ -2391,10 +2503,158 @@ user asks (`관찰 결과 반영해 줘`); (4) the status shows only in the pane
   `src/observe/summary.mjs` rebuilds it from the records) and updates ADAPTERS 5.1 / 5.2 and the CONTRACT sections the numbers settle. The file
   holds only what section 5 allows, so it can be read without exposing content.
 
-## 7. Permission-approval wait (P3 finding, Grok live in P5g)
+### 6.3 Setup commands and the Claude Code plugin (launch readiness W7)
+
+Two things connect Claude Code to a running office-sim: the two hooks of 7.2 and the `/office` skill. They reach a
+user in one of three ways: the plugin (hooks and skill), `office-sim init` (hooks and skill), or from a clone
+`npm run skill:install` (the skill, as a link) with `office-sim hooks install` (the hooks). None of it happens at
+server start, and the server never writes a settings file.
+
+- Dispatch. When the first argument of the bin is `init` or `hooks`, `main()` hands the whole argv to `run()` of
+  `src/cli-init.mjs` before any server option is parsed, sets the exit code from its result and returns. No server is
+  started. Only the first argument counts: `office-sim --port 0 init` is still the usage error `unexpected argument:
+  init`. The forms are `office-sim init`, `office-sim hooks install`, `office-sim hooks uninstall` and `office-sim
+  hooks status`; `hooks` without one of the three actions is a usage error. `-h` or `--help` anywhere after the
+  command prints the setup usage (`COMMAND_USAGE`) and exits 0. The server usage (`USAGE`) ends with three lines that
+  name the commands and `office-sim init --help`.
+- Options, the same for every command: `--settings <path>` (the Claude Code settings file, default
+  `<home>/.claude/settings.json`), `--home <dir>` (default `os.homedir()`), `--port <n>` (an integer in 1..65535,
+  default 4747: the port written into the hook URL, and the port `status` asks; 0 is refused, because the URL goes
+  into a file and must name the port the server listens on), and the switches `--dry-run` and `--yes`. `--name=value`
+  is accepted for the three options with a value. A bad argument writes one stderr line, an empty line and the setup
+  usage, and exits 2. The home directory is looked up only when a default path needs it: with `--home` no path under
+  the real home directory is built, read or written, and a `hooks` command with `--settings` needs no home at all.
+- What a command may write, and nothing else:
+  1. the settings file: the merge of `installClaudeHooks`, or the removal of `uninstallClaudeHooks` (both 7.2);
+  2. `<settings>.office-sim.bak`, once: the settings file as it was before the first install changed it;
+  3. `init` only: the folder `<home>/.claude/skills/office` with a copy of every regular file under
+     `<package root>/skills/office` (today `SKILL.md`) and the marker file `.office-sim-init.json`
+     (`{ "installedBy": "office-sim init", "version": "<package version>" }`). The marker is written first, then
+     the files.
+  `init` writes in the order 3, 2, 1: the skill folder first, the settings file last.
+  Missing parent folders are created. Nothing is ever deleted, moved or renamed, and no link is made. Links above
+  the skill folder are followed as the user set them up: a `<home>`, `<home>/.claude` or `<home>/.claude/skills`
+  that is a symbolic link (a dotfiles setup), and a settings file that is one, are written through, with the backup
+  beside the link. The no-link rule below covers the skill folder itself and what is inside it. The package
+  root is the folder above the bin (the same root as for `commit`, section 6), so the copy comes from the install
+  that runs the command. `uninstall` leaves the backup and the skill folder as they are.
+- Print first, then ask. `init`, `hooks install` and `hooks uninstall` print what they would change as `office-sim: `
+  lines on stdout before anything is written: `settings file <path> (exists | will be created)`; the backup
+  (`backup <path> (the file as it is now, written once before the first change)`, `backup <path> is already there and
+  stays as it is`, or `backup: none (there is no settings file yet)`); one line per hook, `add hook <Event>[ (matcher
+  permission_prompt)]: http POST <url>, timeout 2 s`; `replace <n> office-sim hook(s) already in the file` when older
+  ones go; for `init`, `skill folder <path> (will be created | will be updated | is up to date)` with the source
+  folder and the file names; for `uninstall`, `remove <n> office-sim hook(s): <Event> <n>, ...`. Then:
+  - `--dry-run`: `office-sim: dry run: nothing written`, exit 0. It wins over `--yes`.
+  - `--yes`: write.
+  - neither, and stdin and stdout are both terminals: one prompt, `office-sim: write these changes? [y/N] `. `y` or
+    `yes` (any letter case) writes. Anything else, Enter and the end of input included, writes nothing: stderr
+    `office-sim: nothing written`, exit 1.
+  - neither, and no terminal: nothing is written; one stderr line that starts `office-sim: nothing written:` and
+    names `--yes` and `--dry-run`; exit 1.
+  When there is nothing to change, nothing is asked and nothing is written, exit 0: `the hooks are already in <path>:
+  nothing to change` (decided on the parsed JSON, so a settings file that already holds exactly these hooks is not
+  rewritten, whatever its layout), a skill folder that `is up to date`, `no office-sim hooks in <path>: nothing to
+  remove`, `no settings file at <path>: nothing to remove`. After a write: `copied the skill to <path>`, `wrote
+  backup <path>` (when one was made), `wrote <settings>`, `removed <n> office-sim hook(s) from <path>`. The printed
+  plan and the written file come from the same functions (`planClaudeHooks`, `planClaudeUnhook`: read, compute, write
+  nothing); the write computes again from the file as it is at that moment, so a change made while the prompt was
+  open is merged, not overwritten. After a yes (the prompt or `--yes`) and before the first write, the plan is made
+  once more (`hooks install`: the settings plan; `init`: that and the skill plan): a refusal that only shows then (a
+  settings file that stopped being mergeable, a skill folder somebody made meanwhile) is reported like the refusals
+  below, with `office-sim: nothing was written`. A settings write that fails (`office-sim: failed: <code> while
+  writing <settings>`, exit 1) can leave the backup of step 2 behind, because the backup is written first; one more
+  stderr line then says so (`the backup <path> was written before the failure and stays: a later install keeps it
+  as it is`). An empty or whitespace-only settings file holds no hooks for all three commands: `install` treats it
+  as `{}`, `status` counts none, `uninstall` answers `no office-sim hooks in <path>: nothing to remove`.
+- Refusals: exit 1, on stderr, before any prompt and with nothing written. A settings file that is not a JSON object,
+  whose `hooks` is not an object, or whose `hooks.PermissionRequest` or `hooks.Notification` is there and is not an
+  array (the messages of 7.2, followed by the path). For `init`, a skill target that `init` did not make. The target
+  is examined with `lstat` and never followed: a symbolic link (the link `npm run skill:install` makes: writing
+  through it would change the clone), a file, or a folder without the marker file (or whose marker does not say
+  `office-sim init`, or is not a regular file: a marker that is a link is not read). The message is `office-sim:
+  refused: <path> ...` and a second line that starts `office-sim: nothing was written.` and says how to proceed:
+  remove or rename the folder yourself (for the link, `npm run skill:uninstall` in that checkout) and run `init`
+  again, or run `office-sim hooks install` for the hooks alone. A target that cannot be examined at all (for example
+  a file where `<home>/.claude/skills` should be) is refused the same way: `refused: <path> cannot be looked at
+  (<code>)`. A refused `init` installs no hooks either.
+  A folder with the marker is ours: when a file in it differs from the source, `init` writes the source's files over
+  it; a file the source does not have is left alone. Inside such a folder nothing is read or written through a
+  link. Every path the copy would write (each file of the source and the marker, and each folder on the way to
+  them) is examined with `lstat` before the prompt: a symbolic link there (also one that points to nothing), a
+  folder where a file belongs, or a file where a folder belongs, is refused, `refused: <path> is a symbolic link,
+  and init never writes through a link` or `refused: <path> is not a regular file | folder, and init does not
+  replace it`, with the same second line (remove or rename that path yourself). The writes then open each file
+  with `O_NOFOLLOW` (where the platform has that flag), so a link put in a file's place after the check fails the
+  copy (`ELOOP`) instead of being followed; a folder on the way is checked only before the write. A package
+  without `skills/office/SKILL.md` is refused the same way.
+- A write that fails (exit 1). The two parts of `init` are two writes and cannot be made one step, so `init` does
+  not promise both or neither after the first write has begun; it promises the order and an exact report. The skill
+  is copied first. When that copy fails: `office-sim: failed: <code> while copying the skill to <path>` and a line
+  that says the settings file was not changed and that a second `init` completes a folder the copy left behind (or
+  refuses it when its marker file is not whole: then the folder has to be removed by hand first). The settings file
+  is written last. When that write fails: `office-sim: failed: <code> while writing <settings>` and, for `init`
+  after a copy in the same run, a line that says the skill was already copied to `<path>` and stays there, and how
+  to go on (`init` again or `office-sim hooks install` for the hooks; removing the folder by hand takes the copy
+  back). No `wrote` line and no `done` line is printed for a part that failed.
+- `hooks status` writes nothing. It prints the state of the settings file (`no such file`, `not JSON, cannot be
+  read`, or `<n> office-sim hook(s)`); for each event of `HOOK_EVENTS` one of `installed, posts to <url>` (an http
+  hook of ours whose URL is exactly `buildHookUrl({ port })`), `installed for port <p>, not <port>` or `not
+  installed`; the number of older command hooks (7.2), when there are any; `hooks installed: yes | no | partly`; and
+  what one `GET /healthz` at `127.0.0.1:<port>` says (the bounded probe of the busy default port, section 6):
+  `running (an office-sim answers /healthz)`, `running with --auth (...)` for the 401 of 7.2, `another program
+  answers there`, or, when the probe got nothing it could use, `no office-sim answers (nothing listens there, or a
+  program holds the port and gave no usable /healthz answer in 1 s)`: the probe does not tell a refused connection
+  from a listener that stays silent or sends too much, so this line does not say the port is free. The last line
+  says that hooks from the plugin are not in the settings file and are not checked. Exit 0, or 1 when the settings
+  file is not JSON.
+- Exit codes: 0 done, nothing to do, or a dry run; 1 refused, declined, failed, or no terminal without `--yes`;
+  2 usage error.
+- The plugin. The marketplace file is at the repository root and the plugin in its own folder, because Claude Code
+  copies only the plugin folder into its cache:
+  - `.claude-plugin/marketplace.json`: `name` `office-sim`, `owner.name`, and one entry in `plugins`: `name`
+    `office-sim`, `source` `./plugin`, a `description`.
+  - `plugin/.claude-plugin/plugin.json`: `name` `office-sim`, `version`, `description`, `author.name`, `homepage`,
+    `repository`, `license` `MIT`, `keywords`. `version` equals the `version` of `package.json`
+    (`test/plugin-files.test.mjs` fails when they differ), so every version bump changes both files in the same
+    commit. A bump made by hand (as for 0.12.0) edits both. `publish.yml` bumps by itself only in a real release
+    whose `package.json` still has the version that is on npm: there `npm version` changes and commits
+    `package.json` alone, and the four lines after it write the same version into the manifest, add it, amend the
+    release commit (`git commit --amend --no-edit`) and move the tag onto the amended commit (`git tag -f -a`,
+    annotated with the commit's message, as npm makes it), all before the publish step, so the commit that is
+    published and pushed carries both files. A dry run changes neither file. `test/release-workflow.test.mjs` pins
+    the lines and their place; `test/release-plugin-version.test.mjs` runs them as written in a temporary
+    repository.
+  - `plugin/hooks/hooks.json`: `{ "hooks": { "PermissionRequest": [{ "hooks": [h] }], "Notification": [{ "matcher":
+    "permission_prompt", "hooks": [h] }] } }` with `h` = `{ "type": "http", "url":
+    "http://127.0.0.1:4747/api/hooks/claude", "timeout": 2 }`. That is what the installer writes, without the marker
+    query: a plugin hook is not in a settings file, so no uninstaller has to find it. The port is the default one
+    (D1), so a server started with another `--port` gets nothing from the plugin; `office-sim hooks install --port
+    <n>` writes hooks for such a server.
+  - `plugin/skills/office/SKILL.md`: a byte-identical copy of `skills/office/SKILL.md`, a regular file. As a plugin
+    skill its command is `/office-sim:office`.
+  The plugin folder holds these three files and nothing else. Claude Code fetches it from the GitHub repository
+  (`/plugin marketplace add WahyzMaster/office-sim`, then `/plugin install office-sim@office-sim`). It is not part
+  of the npm package: `package.json` `files` ships `skills/` (which `init` copies) and neither `plugin/` nor
+  `.claude-plugin/`. With the plugin and the settings hooks both in place every prompt is reported twice, and the
+  repeat rule of 7.2 drops the second report.
+- Tests: `test/cli-init.test.mjs` (every command in process, with `--home` or an injected home under the temp
+  folder and the prompt as a function), `test/cli-init-safety.test.mjs` (links and other odd entries inside the
+  skill folder, a refusal that shows only while the prompt is open, the write order and the two failure reports, a
+  held port in `status`), `test/cli-init-bin.test.mjs` (the real bin with a `HOME` that does not
+  exist: no command creates it or names it), `test/plugin-files.test.mjs` (the three plugin files against
+  `HOOK_EVENTS`, the default port, the hook route on a real server, the package version and the skill copy).
+  `status` asks only a server on port 0, a port that was just closed, or a throwaway listener.
+- Not verified here: that a running Claude Code installs the plugin from this layout and fires its http hooks (the
+  layout follows the plugin reference as read on 2026-11-12), the limits of 7.2, and a run of `publish.yml` on
+  GitHub Actions with the manifest lines (they were run with a local npm and git only).
+
+## 7. Permission-approval wait (P3 finding, Grok live in P5g, Claude Code hooks in 7.2)
 
 Question: can the page show "waiting for the user's permission" while a tool call waits for an approval prompt?
-Answer for live Claude Code: **no certain signal exists, so live Claude mode shows nothing** (unchanged by P5g).
+Answer for live Claude Code, from the transcript alone: **no certain signal exists, so live Claude mode shows nothing**
+(unchanged by P5g), unless the Claude Code hooks of 7.2 are installed: they report the prompt from outside the
+transcript (launch readiness D13).
 Codex and Antigravity write nothing while a prompt is open either, so they show nothing live. Live Grok does show it
 (P5g, below), because Grok Build writes a record when the prompt opens. Evidence for Claude, from a structure-only
 count over the local corpus (5,107 files, 929,610 lines, 225,155 paired tool_use/tool_result; counts in
@@ -2415,7 +2675,8 @@ count over the local corpus (5,107 files, 929,610 lines, 225,155 paired tool_use
   mode they would be common and still invisible in the transcript.
 
 What would make live mode possible: a record written when the prompt opens, e.g. a user-configured
-`PermissionRequest` / `Notification` hook that appends to a side file the server could tail.
+`PermissionRequest` / `Notification` hook that appends to a side file the server could tail. 7.2 does this with an
+http hook that posts to the server (no side file).
 
 Replay mode can show it without guessing, because the result line is already on disk: a tool_start gets
 `awaitsApproval: true` when its result has `permissionDecision.source === 'user_temporary'` or is a user rejection
@@ -2454,14 +2715,156 @@ the decider may be Grok's automatic review rather than a person (no field names 
   a wait shows, the re-announce repeats the open `tool_start` and, if the prompt is still open, its `tool_wait` copy
   (the page ignores both). If the allow lands while the file re-attaches, the new session has no wait and no `false`
   is sent: `/state` and new pages are right, but an open page keeps the desk visit until the `tool_end` (or a reload).
-- `awaitsApproval` stays replay-only (Claude). Claude, Codex and Antigravity never send `tool_wait`, and their wire
-  output is unchanged.
+- `awaitsApproval` stays replay-only (Claude). The Claude Code, Codex and Antigravity adapters never send
+  `tool_wait`, and their wire output is unchanged; a Claude Code `tool_wait` comes only from the hook route (7.2).
+
+### 7.2 Claude Code live, through hooks (launch readiness D13 to D16, D25)
+
+The transcript has no record of an open prompt (above), but Claude Code runs hooks when one opens. With the two hooks
+below installed, a live Claude Code permission prompt shows the same desk visit as 7.1. Without them nothing changes:
+live Claude mode shows no approval wait.
+
+- Hooks (`src/hooks-receiver.mjs`): `HOOK_EVENTS` is exactly `PermissionRequest` and `Notification` (D13).
+  `installClaudeHooks({ settingsPath, port, host })` merges into a Claude Code `settings.json`: per event one matcher
+  group `{ hooks: [{ type: 'http', url, timeout: 2 }] }`, the `Notification` group with `matcher: 'permission_prompt'`.
+  `url` is `buildHookUrl({ port, host })`: `http://127.0.0.1:<port>/api/hooks/claude?source=office-sim-claude-hook`
+  (`[::1]` for host `::1`, `127.0.0.1` for any other host; port 4747 for a value that is not a port number). The query
+  is the marker (`HOOK_MARKER`) by which the uninstaller knows our hooks; the route ignores it. The installer keeps
+  every other setting, event and hook, refuses a file that is not a JSON object (`Refusing to modify unparseable
+  settings.json`, `Refusing to modify non-object settings.json`), whose `hooks` is not an object (`Refusing to modify
+  settings.json: hooks field is not an object`), or whose value under one of the two events is there and is not an
+  array (`Refusing to modify settings.json: hooks.<Event> is not an array`: the installer adds to that list and would
+  otherwise replace the value; under any other event such a value is left exactly as it is). A refused file stays as
+  it was and gets no backup. The installer writes the file as it was to `<settings>.office-sim.bak` once, before
+  the first change, and first removes every older office-sim hook, whatever its event (versions before 0.12.0 wrote a curl `command`
+  hook with the marker for thirteen events), so a second run changes nothing. `uninstallClaudeHooks({ settingsPath })`
+  removes the http hooks and those older command hooks: only our handlers leave a matcher group, a group or an event
+  list that this empties is dropped, and so is an emptied `hooks` object; it writes only when it removed something.
+  Neither function runs at server start: installing is an explicit step, `office-sim hooks install` or `office-sim
+  init` (6.3). Both functions write what their plan functions compute without writing (`planClaudeHooks`,
+  `planClaudeUnhook`), and `findClaudeHooks` lists our hooks in a file for `office-sim hooks status`. The plugin
+  (6.3) registers the same two hooks in its own `hooks/hooks.json`, with the same URL minus the marker query.
+- Route: `POST /api/hooks/claude` (other methods 405). The guards of `POST /config` apply (section 6: Host and Origin,
+  the `--auth` cookie, `Sec-Fetch-Site`, `Content-Type: application/json` else 415), with a body limit of 1 MiB
+  (`HOOK_MAX_BODY`: the `tool_input` of a `Write` or `Edit` call is large; a larger `Content-Length` or body -> 413,
+  drained up to 2 MiB). 400 only when the body is not JSON (`{error:'invalid json'}`), or is not an object with a
+  `session_id` that fits the public id rule (`publicSessionId`; `{error:'invalid hook payload'}`). Every other body,
+  used or ignored, gets 200 with exactly `{}` (D16): a 2xx without decision fields leaves Claude Code's prompt as it
+  is. With `--auth` the hook request carries no cookie and gets 401, so no wait shows.
+- Which bodies count (`HooksBridge.handle` in `src/hooks-bridge.mjs`), in this order:
+  1. D15: a `transcript_path` that is a string must resolve (a leading `~/` expanded, then `path.resolve`) to a path
+     strictly inside the Claude root (`--claude-root`), compared by spelling. Only when that fails is the file system
+     asked, so that a root and a path that reach the same folder through a link (a linked `~/.claude`, a root given
+     in its real spelling) or in another letter case (a volume that ignores case) still match: the root as
+     `fs.realpathSync.native` spells it (once per run), then, per body, the folder that would hold the transcript
+     (`realpath` of the nearest folder that exists, at most 64 levels up, the rest of the path appended as given).
+     The bridge does not touch the root folder before a body names a path outside it. The transcript itself is not
+     opened or looked at and need not exist; a path longer than 4096 characters or with a NUL is not looked up.
+     Otherwise the body is ignored and counted (`foreign`), with one log line per run that names no path: another
+     agent that runs Claude hook files must not show as Claude Code. A body without `transcript_path` passes. A
+     `session_id` the Store holds as another adapter's character is ignored the same way.
+  2. `PermissionRequest`, and `Notification` with `notification_type: 'permission_prompt'`: a permission event
+     (Matching, below). Any other `Notification` of a session the Store follows is ignored.
+  3. Any other event name: ignored when the Store has an entry for that `session_id` (D14: the transcript stays the
+     source of sessions, tools and turns). For a session the Store does not follow, the mapping of before 0.12.0
+     stays (`parseClaudeHookPayload`): `SessionStart` -> `session`, `PreToolUse` -> `tool_start`, `PostToolUse` /
+     `PostToolUseFailure` -> `tool_end` (a failure with the fixed error line `Tool failed`, section 5),
+     `SubagentStart` / `SubagentStop` -> an `Agent` tool (summary: a name-shaped `agent_type`, else `subagent`,
+     section 5), `PreCompact` -> `system` `compact`, `Stop` / `TeammateIdle` -> `turn_end`, `StopFailure` ->
+     `system` `api_error` (the fixed line `API error / rate limit`, section 5) and `turn_end`,
+     `SessionEnd` / `TaskCompleted` -> `session_end`. Such a session is not in the Store's registry: its events reach
+     the ring and the open pages, never a snapshot. The installed hooks send none of these events.
+  4. `Notification` of a session the Store does not follow (D14, as before 0.12.0): one of type `permission_prompt`,
+     or one whose `message` matches `/permission|approve|approval|confirm/i`, sends `tool_wait { toolUseId:
+     'perm_<first 8 characters of the session id>', waiting: true }`, exactly the D25 fields and nothing of the
+     message. The id names no `tool_start`, so the office scene does nothing with it (no character walks to the
+     desk, an open question stays, and a session the page has no `session` event for gets no character:
+     `test/page-approval-hooks.test.mjs`). The notifiers announce it: the native one shows "Waiting for Approval"
+     (text `Command awaiting approval`), and the page's Web Notification fallback its "input needed" line. The same
+     id is sent again for the next such Notification, so "at most one `true` per `toolUseId`" does not hold for it. One of
+     type `permission_prompt` is first treated as a permission event: when hooks of that session opened a tool
+     (`PreToolUse` of an older install), that tool is marked instead, and when a wait of that session already shows,
+     or the same Notification came less than 1 s ago, nothing is sent. A `PermissionRequest` of such a session is a
+     permission event like any other (it can only match a tool that hooks opened).
+- Matching. The hook body has no tool_use id, so the bridge keeps the open tools of every character from the events
+  the Store pushes (`tool_start` opens, `tool_end` closes, `session_end` clears; at most 256 tools per character and
+  1000 characters, the oldest leaving first together with its sent wait). The character is the `session_id`, or, with an `agent_id` the Store holds as a Claude Code
+  character of that session (a subagent's character id is its `agentId` and its entry's `sid` is the session id,
+  4.5), that subagent. A permission event picks the newest open tool of the character whose `tool` equals `tool_name`
+  (compared as on the wire, a connector uuid masked), that is not an ask tool (a `tool_start` with `question` or
+  `options`, the room `desk`, or an ask tool's name: those walk to the desk on their own, R33/R34) and that has no
+  wait yet, and sends `tool_wait { toolUseId, waiting: true }` with `ts` = the time the hook arrived. A
+  `PermissionRequest` whose `tool_name` is an ask tool, or is not a non-empty string of at most 200 characters, is
+  ignored. Characters of the other adapters are not tracked and are never the target.
+  - Repeats (`DEDUP_MS`, 1 s), checked before anything is picked or held: a permission event is ignored and counted
+    (`duplicates`) when one with the same `session_id`, the same `agent_id` (or none) and the same `tool_name` (none
+    for a `Notification`) is held right now, or sent or held a wait less than 1 s ago. This is one prompt reported
+    twice, for example by a hook that is registered both in `settings.json` and by a plugin: the two bodies arrive
+    together. Without the rule the second body would mark a second open tool of that name, or stay held and mark the
+    next tool of that name, which never prompted. The ids are those of the body, not the character it resolves to.
+    Limit: a second real prompt for the same tool name less than 1 s after the first (two parallel calls answered at
+    once), or while the first is still held, gets no wait from its `PermissionRequest`.
+  - No such tool, `PermissionRequest`: the hook can arrive before the tailer has read the `tool_use` line (the tail
+    interval, 250 ms by default). The wait is held, at most 64 at a time (the oldest is dropped first) and for 10 s
+    (`HOLD_MS`), and is sent right after the matching `tool_start` is pushed, with `ts` still the hook's arrival
+    time. That also covers a session or a subagent whose file the next rescan attaches within those 10 s.
+  - Every open tool of that name already had its wait (and the request is no repeat): nothing is sent and nothing is
+    held (`unmatched`). Holding it would hand the wait to the next `tool_start` of that name, whichever call that
+    is. Limit: a prompt for a second tool of that name whose `tool_use` line is not read yet, while the first one
+    was allowed and still runs, is not shown (the character is still at the desk for the first).
+  - An `agent_id` the Store does not have (yet): the parent's matching open tool when there is one, else the wait is
+    held for the subagent's character only. An `agent_id` that is a character of another session is ignored.
+  - `Notification` carries no `tool_name` and fires only after the prompt has waited about six seconds. It does
+    nothing when the session already has a sent wait that is still open, or when the character has an open ask
+    tool (`duplicates`). Else it marks the newest open non-ask tool of the character that never had a wait, whatever
+    its name (a guess, right when one tool is open), and it is never held. A request of that session that is still
+    held does not stop it: by then that request found no tool for six seconds (a tool name the transcript spells
+    another way, a subagent whose `agent_id` is not its character id), so the Notification takes its place, and
+    when it marks a tool the session's oldest held request is dropped (one prompt, one wait). With no open tool to
+    mark it does nothing (`unmatched`) and the held request stays. For such a subagent the marked tool is the
+    parent's (usually the `Agent` call that runs it), since nothing ties the prompt to the subagent's character.
+- End of a wait: no hook reports that a prompt was allowed, so `waiting: false` is never sent. The wait ends with the
+  tool's `tool_end` (`ok` shows `승인됨`; `denied` and `interrupted` show `거절됨`, as in replay mode); the page also
+  closes it at a new prompt, the turn end or the session end, as for Grok (7.1). Limit: after an allow the character
+  stays at the desk until the tool ends, so an approved long-running tool (a long build, a subagent run) shows
+  "awaiting approval" for its whole run, as in replay mode (above). A tool gets one `true` at most: a later
+  permission event never marks a tool that already had its wait.
+- Snapshots (D25): the bridge keeps the sent `tool_wait` of a tool until that tool's `tool_end` (or the character's
+  `session_end`), and the HTTP layer puts a copy right after that tool's `tool_start` into `GET /state` and every
+  `snapshot` message (`HooksBridge.decorate`), so a page that connects or reconnects shows the wait; without the copy
+  the page would read the open tool as allowed (7.1 Reconnect). This is the `/state` rule of section 2: an open tool
+  whose last `tool_wait` is `true` has its copy there. The waits live in the server process: after a server restart
+  an open prompt is not shown again, because its hook fired only once.
+- Native notifications (`--notify`) and the recap treat a hook `tool_wait` like the Grok one: one `ask` notification
+  "Waiting for Approval" whose text is the summary of the open tool's `tool_start` (the per-session cool-down
+  applies), and no recap counter changes.
+- Not shown: a prompt whose hook body is refused (D15, `--auth`), a prompt of a tool without a `tool_start` (plumbing
+  tools), a prompt whose `tool_use` line is read more than 10 s after the hook, the two limits of Matching (a second
+  prompt for the same tool name within 1 s or while the first is held; a prompt that beats the tailer while an older
+  tool of that name still shows its wait), a later prompt whose `PermissionRequest` was lost in one of these ways
+  while another tool of the session still shows its wait (the `Notification` does nothing then), and every prompt
+  while the server is not running or listens on another port than the hook URL names (D1). D15 is decided by
+  spelling and by the folder part as the file system resolves it; the transcript file itself is not resolved, so a
+  transcript that is itself a link from outside the root is refused.
+- `start()` returns the bridge as `hooks`. `hooks.stats()` gives counters only: `{ waits, duplicates, unmatched,
+  expired, dropped, ignored, foreign, legacy, held, openWaits }` (`waits` sent; `duplicates` repeats and
+  Notifications of a prompt that already shows; `unmatched` permission events with nothing to mark that were not
+  held; `expired` and `dropped` held waits that left by age or by the bound; `ignored` other events and unusable
+  bodies; `foreign` D15; `legacy` events of hook-only sessions). They are not part of `/healthz`.
+- Not verified against a running Claude Code: that its http hook request carries `Content-Type: application/json` and
+  no cross-site `Origin` or `Sec-Fetch-Site` (else the guards answer 415 or 403 and no wait shows), that a subagent
+  call's `agent_id` equals the `agentId` of its transcript file (when it does not, only the Notification shows the
+  prompt, on the parent), whether a `Notification` carries `agent_id`, that two parallel calls never send their
+  `PermissionRequest` within 1 s of each other, the six seconds of the `Notification`, and what Claude Code does when
+  the server is slow or down. The tests use fixture bodies shaped as the hook reference describes them (read
+  2026-11-12): `test/hooks-bridge.test.mjs`, `test/hooks-bridge-repeat.test.mjs`, `test/hooks-http.test.mjs`,
+  `test/hooks-install.test.mjs` and `test/page-approval-hooks.test.mjs`.
 
 ## 8. Post-`v0.10.1` Extensions (`v0.11.0`, `GLO-1243`)
 
 ### 8.1 Progressive WebGPU Renderer & High-Concurrency LOD (`public/js/webgpu-stage.js`, `public/js/detail.js`)
 - Default rendering remains `THREE.WebGLRenderer` (`webgl2`). Appending `?renderer=webgpu` or `#webgpu` probes `navigator.gpu.requestAdapter()`, dynamically imports Three.js `WebGPURenderer`, awaits `.init()`, and swaps the stage renderer in place (`stage.swapRenderer`). Any missing capability, timeout, or runtime exception leaves `webgl2` running with zero crash and records `fallbackReason` on `stage.rendererInfo`.
-- The WebGPU renderer files are not vendored: the import resolves through the importmap's `three/addons/` prefix to `https://cdn.jsdelivr.net`, which the local page's CSP allows only when the server runs with `--cdn` (section 6). When that module cannot be loaded (refused by the CSP, offline, or no answer within the time limit) the page stays on `webgl2` and the info carries `fallbackCode: 'load'` with a short `fallbackReason` naming `--cdn`; `rendererBadgeLabel` shows that hint in Korean or English. Other outcomes have no `fallbackCode`.
+- The WebGPU renderer files are not vendored: the import resolves through the importmap's `three/addons/` prefix to `https://cdn.jsdelivr.net`, which the local page's CSP allows only when the server runs with `--cdn` (section 6). When the import of that module is refused or fails (the CSP without `--cdn`, offline, any import error) the page stays on `webgl2` and the info carries `fallbackCode: 'load'` with a short `fallbackReason` naming `--cdn`; `rendererBadgeLabel` shows that hint in Korean or English, and only for that code. Other outcomes have no `fallbackCode`. An import that does not answer within the time limit is one of them: it is a timeout like the adapter probe's and the renderer init's (`fallbackReason` `WebGPU init timed out`) and shows no `--cdn` hint, because a slow CDN says nothing about the CSP.
 - High-concurrency benchmark URLs (`#bench-20x6` or `?bench=1&floors=20&mains=4&subs=2`) drive `100+` concurrent agents across `20+` floors (`public/js/bench.js`). `floorDetail(index, focusIndex, overview, { totalFloors, totalAgents })` and `crowdStride({ totalAgents, overview })` automatically shed overview cast shadows above `60` agents / `12` floors and stride distant non-focused animation ticks while keeping the focused floor at full `1x` fidelity.
 
 ### 8.2 Interactive `--replay` Timeline Scrubber (`GET/POST /api/replay`, `src/replay-control.mjs`, `public/js/replay-scrubber.js`)
@@ -2498,28 +2901,37 @@ format, the Store and the routes are unchanged.
   A first snapshot that has a session, a `session` inside the grace time, or replay mode end the decision: the page is
   live for good and never shows the demo, also when the office empties later.
 - While the demo runs: a banner (`#empty-banner`, `role="status"`, inside `#hud` so overlay mode hides it; it lets
-  clicks through to the stage) reads `No agent session in the last <N> minutes. Start Claude Code, Codex, Grok or
-  Antigravity and it appears here. This is a demo.` or its Korean equivalent, with `<N>` the `activeMinutes` of the last
-  `config` (30 before one arrives). The source chip shows the demo state whatever the connection does (its tooltip is
+  clicks through to the stage) reads `No agent session is running right now. Start Claude Code, Codex, Grok or
+  Antigravity and it appears here. This is a demo.` or its Korean equivalent. The sentence names no time window (D21):
+  the `activeMinutes` of the `config` message is not used by the page, and only the terminal line of section 6 names
+  the `--active` window. The source chip shows the demo state whatever the connection does (its tooltip is
   the banner text; a lost connection still reaches the observe panel). An empty snapshot (a reconnect, a restarted
   server) is not handed to the office, because it would send the demo staff home. Live events that are not `session`
   pass to the office as usual (they belong to no character the page knows, so they wait in the inbox).
 - When it stops: at the first `session` event from the live source, or the first snapshot that carries one. In this
-  order: the demo source is dropped and the banner is hidden; the office is cleared through the reset path
+  order: the demo source is dropped and the banner is hidden; an open plan drawer is closed (the `closeBoard` hook,
+  `close()` of `public/js/board-detail.js`: during the demo every floor is a demo floor, so the drawer can only show
+  one of them); the office is cleared through the reset path
   (`applySnapshot([], { reset: true })`: characters, boards, held events, tool texts); the empty demo floors are
   removed, all of them (`pruneEmptyFloors(0)`; everywhere else one empty floor is kept); the activity log is emptied;
   the chip goes back to the connection state; then the event or snapshot that caused the switch is applied. From then
   on the page is plain live mode.
-- The page calls `/api/notify` and `/api/flywheel` only when its source is the `LiveSource` (`isLive`): never on the
-  hosted page, with `#demo` or in `#bench`. The notification toggle there only saves the browser-side choice. The
-  first-run demo does count as live (the server is there), but its `demo: true` events are never announced by the
-  browser notification fallback.
+- The page calls `/api/notify`, `/api/flywheel`, `/api/recap/review` and `/api/focus-terminal` only when its source
+  is the `LiveSource` (`isLive`): never on the hosted page, with `#demo` or in `#bench`. The notification toggle there
+  only saves the browser-side choice, and the focus button and the `T` key show the usual "not found" bubble without a
+  request. The first-run demo does count as live (the server is there), but its sessions are not the server's: its
+  `demo: true` events are never announced by the browser notification fallback, and a session whose events carry
+  that mark is never sent to `/api/recap/review` or `/api/focus-terminal` (`public/js/agent-extras.js` remembers the
+  marked ids; a `session` event without the mark makes an id a real session again).
+  `test/demo-api-gate.test.mjs` checks both kinds of demo with a recording fetch.
 
 ### 9.2 Language (D8)
 - The UI language is, in this order: `?lang=` (`en` is English; any other value is Korean, as before), the saved
   choice (`lang` in the `office-sim:v1` preferences, written when the language button is used), the browser locale.
-  For the locale, `detectLang` returns `ko` when `navigator.language` starts with `ko` (any letter case: `ko`, `ko-KR`)
-  and `en` for everything else, a missing locale included.
+  For the locale, `detectLang` returns `ko` only when the language subtag of `navigator.language` is `ko` (D22: the
+  whole value, or the part before the first `-` or `_`, in any letter case: `ko`, `ko-KR`, `KO-kr`) and `en` for
+  everything else, a missing locale included. Other subtags that merely begin with those letters (`kok-IN`, `kor`)
+  are not Korean.
 - `public/office.html` carries English text and English `aria-label`s, and the server wraps it in `lang="en"`
   (section 6), so the page reads as English before scripts run and for every non-Korean visitor. The exception is the
   observe panel (`#observe`, `#toggle-observe`, 6.2), which starts hidden and is Korean only.
@@ -2527,7 +2939,9 @@ format, the Store and the routes are unchanged.
   `public/js/static-text.js` sets the `aria-label`s (`STATIC_TEXT`, Korean and English for each) and `<html lang>`, at
   start and after every use of the language button.
 - The inline script of `office.html` (the boot line and the message shown when the 3D engine has not loaded after 9 s)
-  picks its language by the same order, since no module has run at that point.
+  picks its language by the same order and the same subtag rule, since no module has run at that point. It runs
+  inside one function and leaves no global variable. Its 9 s message asks for a reload and names no network: the 3D
+  engine is served by the page's own origin (`public/vendor/`, section 6).
 
 ### 9.3 Sound (D9)
 - Sound starts off. It is on at page load only when the saved preference says so (`soundOn: true` in `office-sim:v1`,
@@ -2542,8 +2956,42 @@ format, the Store and the routes are unchanged.
   is hidden and its `V` shortcut does nothing; the tail-interval input is hidden (`body:not(.labs)` in `office.html`);
   and the page sends no request to `/api/flywheel` (not the scan at load, not from the flywheel conveyor). The features
   are still in the page: labs only shows them. The `Tune` button (the secondary appearance and camera controls) is not
-  a maintainer tool and always shows.
+  a maintainer tool and always shows; its tooltip names the tail-interval control only with labs on (D24:
+  `moreTitleLabs` / `moreTitle` in `SIM_OVERLAYS_TEXT`). The lens labels name no cost in either language (the second
+  lens is `2: Heatmap` / `2: 열지도`: it colours a room by the context estimate of section 10 and by how many
+  characters are in it).
 - With labs on, everything behaves as before, except that `/api/flywheel` also needs live mode (9.1).
+
+### 9.5 Characters that wait on you: the tab title and one chip (W7, `public/js/needs-you.js`)
+- What is counted: the characters that have an ask nobody answered yet. The page keeps, per character, a map from
+  tool id to the task it became (`pending`, `public/js/agent.js`); a character counts when one of those tasks is an
+  ask (`kind: 'ask'`) that is not answered (`waitsOnHuman`). That covers a question and a plan approval
+  (`AskUserQuestion`, `ExitPlanMode`, and whatever else a `tool_start` sends to the room `desk`), a permission wait
+  known in replay mode (`awaitsApproval`, section 7) and an open live `tool_wait` (7.1, 7.2). Limit: a Claude Code
+  permission wait (7.2) has no end of its own, because no hook reports an allow, so after the prompt was allowed the
+  character stays counted until that tool ends; for a long-running tool the count overstates for that long. It is counted from
+  the moment the event arrives, not from the moment the character reaches the desk: walking needs frames, and a
+  hidden tab runs none. A character is counted once, however many asks it has.
+- What is not counted: a character of the first-run demo (9.1). The module keeps the ids whose events carry `demo:
+  true`, by the rule of 9.1 (a `session` event without the mark makes an id real again), so a question that is part
+  of that demo never shows as waiting. A character the LLM filter hides is not counted either, like in the floor
+  buttons. Everything else the page shows counts, also the characters of the stand-alone demo (`#demo`, the hosted
+  page), of replay mode and of `#bench`: there the count describes the scene on the page.
+- The tab title: `document.title` is `(N) Office Sim` while N characters wait and `Office Sim` (what `office.html`
+  starts with) at zero (`needsYouTitle`). The title is not translated.
+- The chip: one `<button id="needs-you" class="chip">`, made by the module and placed right after the source chip
+  (`office.html` has no markup for it). It is hidden at zero. Its label is `Needs you N` / `확인 필요 N`, and its
+  tooltip and `aria-label` say in the same language that N characters wait for an answer and that a click goes
+  through them (`needsYouText`). A click selects the next waiting character (`nextWaiting`): the one after the
+  selected character in the list, around its end, or the first one when the selection is elsewhere. The list is
+  ordered by floor, then by arrival. The floor is focused first when the character is on another one or the page is
+  in overview, and the camera follows the character, as after a click on a notification. The selection is silent:
+  the character is not petted, because that would replace its question bubble.
+- When it is refreshed: after every office event and every applied snapshot (once per burst, in a microtask, so
+  also in a hidden tab), at a click on the language button, and once a second for what changes without an event
+  (the LLM filter). Nothing is sent to the server and nothing is saved.
+- `test/needs-you.test.mjs` checks the pure functions and, with the real `Office` and `Agent` classes and a fake
+  document, the count through questions, plan approvals, live waits, their ends, snapshots and demo events.
 
 ## 10. Estimated context and token figures (launch readiness `v0.12.0`, D11)
 
@@ -2554,9 +3002,11 @@ format, the Store and the routes are unchanged.
   the server (`SessionRecapTracker`) and the page (`applyEventToMetrics`) each add a fixed amount per event they see:
   `prompt` 650 tokens (input), `thinking` 450 (output), `say` 1.5 tokens per character of the event text with a floor of
   80 (output), `tool_start` 900 (input). Every amount is also added to the context estimate, which stops at the window
-  and is multiplied by 0.35 at a `system` event of kind `compact`. The window is 200,000 tokens for every agent and
-  model (`DEFAULT_CONTEXT_WINDOW`, `DEFAULT_CONTEXT_LIMIT`). The two counts are independent (the page counts in the
-  browser, per page load; the server counts the events of its Store), so they need not agree.
+  and is multiplied by 0.35 at a `system` event of kind `compact` (that factor is part of the estimate only: the
+  toast a character shows at a compaction, `Context compacted` / `기억 압축 완료`, states no percentage, D24). The
+  window is 200,000 tokens for every agent and model (`DEFAULT_CONTEXT_WINDOW`, `DEFAULT_CONTEXT_LIMIT`). The two
+  counts are independent (the page counts in the browser, per page load; the server counts the events of its Store),
+  so they need not agree.
 - `GET /api/recap?sessionId=<id>` answers `200` with `{ sessionId, agent, title, projectLabel, branch, worktree,
   durationSec, turns, compactions, apiErrors, toolCalls, toolErrors, toolCounts, filesTouched, contextTokens,
   contextWindow, contextOccupancyPct, estimatedInputTokens, estimatedOutputTokens, unreviewedDone, ended, markdown }`

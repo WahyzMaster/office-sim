@@ -195,3 +195,60 @@ test('the healthz keys the skill reads are on a real server, and a four-agent bo
   const worst = JSON.stringify(createHealth({ group, store, build: { version: '10.20.30', commit: 'f'.repeat(40) }, startedAt: 0 })(big));
   assert.ok(worst.length < n, `worst-case body ${worst.length} chars < probe slice ${n}`);
 });
+
+// ---- W7 (launch readiness): one text for three installs --------------------------------------------------------
+
+// The skill reaches a user three ways: the symlink into a clone (npm run skill:install), the Claude Code plugin
+// (plugin/skills/office, a byte-identical copy: test/plugin-files.test.mjs) and the copy `office-sim init` makes.
+// Step 1 decides which it is with the one root snippet; only the first has a checkout behind it.
+test('step 1 says how it decides: a path means a clone checkout, MISSING means a copy that runs the server with npx', () => {
+  const step1 = section('## 1. Repo root', '## 2. Action');
+  assert.match(step1.split('\n')[0], /^## 1\. Repo root \(/);
+  for (const s of [
+    'symlink into an office-sim checkout', '`npm run skill:install`', 'Call the path `<root>`', // the clone
+    'It prints `MISSING` or fails', 'a copy with no checkout behind it', // the two copies
+    'the office-sim plugin', '`/office-sim:office`', '`office-sim init`',
+    '`npx -y office-sim@latest`', 'without a checkout',
+  ]) assert.ok(step1.includes(s), s);
+  // MISSING is no longer a dead end
+  assert.doesNotMatch(SKILL, /stop and tell the user to run `npm run skill:install`/);
+  // the names are the code's: the npm package and its bin, the plugin and its skill folder, the init subcommand
+  const pkg = JSON.parse(read('package.json'));
+  assert.equal(pkg.name, 'office-sim');
+  assert.deepEqual(Object.keys(pkg.bin), ['office-sim']);
+  assert.equal(JSON.parse(read('plugin/.claude-plugin/plugin.json')).name, 'office-sim');
+  assert.ok(fs.existsSync(new URL('../plugin/skills/office/SKILL.md', import.meta.url)), 'the plugin skill is office-sim:office');
+  assert.match(USAGE, /\n {2}office-sim init\b/, 'the main usage names the init subcommand');
+});
+
+test('without a checkout: one npx start line with --no-open and never --open, the same wait, a longer first start', () => {
+  const lines = SKILL.split('\n').filter((l) => l.includes('npx -y office-sim@latest --no-open'));
+  assert.equal(lines.length, 1, 'one start line for the copies');
+  const cmd = /`(npx -y office-sim@latest [^`]+)`/.exec(lines[0])?.[1];
+  assert.equal(cmd, 'npx -y office-sim@latest --no-open <flags> --port <port> > "<out>" 2>&1');
+  assert.ok(!cmd.includes('--open') && !cmd.includes('--host'));
+  const step2 = section('2. Make a private', '3. Wait for it');
+  assert.ok(step2.includes(lines[0]), 'it sits in step 2, after the checkout start');
+  assert.ok(step2.indexOf('node "<root>/bin/office-sim.mjs"') < step2.indexOf(cmd));
+  const step3 = section('3. Wait for it', '4. Open `<page>`');
+  for (const s of ['Without a checkout', 'npx may first download the package', 'run it once or twice more', 'npx could not start the server']) {
+    assert.ok(step3.includes(s), s);
+  }
+});
+
+test('without a checkout nothing is stopped by a process pattern: only the background task this conversation started', () => {
+  const step1 = section('1. Probe.', '2. Make a private');
+  assert.ok(step1.includes('Without a checkout skip this check: it is ours only if you started it earlier in this conversation'));
+  const stop = section('## stop');
+  const rule = stop.split('\n').find((l) => l.startsWith('Stop only office-sim servers started from this repo'));
+  for (const s of ['Never kill anything else', 'Without a checkout there is no such path', 'run neither command below',
+    'stop the background task you started the server with in this conversation', 'if you started none, stop nothing']) {
+    assert.ok(rule.includes(s), s);
+  }
+  // the two stop commands still match by the checkout's bin path and nothing wider
+  const posix = /```bash\n([\s\S]*?)```/.exec(stop)[1];
+  assert.ok(posix.trimEnd().endsWith('\' "<root>/bin/office-sim.mjs"'));
+  assert.ok(posix.includes('(m[3] === bin || m[3].startsWith(bin + " "))'));
+  assert.doesNotMatch(stop, /node_modules|_npx|pkill|killall/);
+  assert.ok(stop.includes('or `npx` in another Claude Code session'));
+});

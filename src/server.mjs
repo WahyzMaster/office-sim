@@ -370,6 +370,7 @@ export async function start(options = {}) {
     observe,
     replayRunner,
     focusOpts: opts.focusOpts ?? null,
+    claudeRoot: opts.root, // D15: 훅 본문의 transcript_path 는 이 루트 안이어야 한다
     notifyOpts: {
       enabled: opts.replay ? false : parsedNotify.enabled,
       categories: parsedNotify.categories,
@@ -428,6 +429,7 @@ export async function start(options = {}) {
     url, token, port, store, ready, close, notImplemented,
     notifier: httpLayer.notifier,
     flywheel: httpLayer.flywheel,
+    hooks: httpLayer.hooks,
     stats: () => ({ ...group.stats(), ...store.stats() }),
     get agents() { return group.ids; }, // 늦게 켜진 어댑터도 (F1)
   };

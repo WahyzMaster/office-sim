@@ -10,7 +10,7 @@
 - Follow the `Harness²` cost ladder (`skill -> script -> subagent -> hook -> gate -> memory -> always-on`). Load `docs/CONTRACT.md` and `docs/ADAPTERS.md` only when editing `src/adapters/` or wire schemas.
 
 ## Key Commands & Invariants
-- Entrypoint: `bin/office-sim.mjs` (`npm start`); skill installer: `scripts/install-skill.mjs` (`skills/office/SKILL.md`); flywheel skill: `.claude/skills/office-flywheel/SKILL.md`.
+- Entrypoint: `bin/office-sim.mjs` (`npm start`), a stub that loads `src/cli-main.mjs`; default port `4747`, no fallback port (it is written into hook URLs, the skill and `plugin/hooks/hooks.json`); setup commands `office-sim init` and `office-sim hooks` live in `src/cli-init.mjs`; skill installer: `scripts/install-skill.mjs` (`skills/office/SKILL.md`); flywheel skill: `.claude/skills/office-flywheel/SKILL.md`.
 - Narrowest test: `node --test test/<name>.test.mjs` before running full `npm test`.
 - Domain & surface checks: `node scripts/verify-dom-invariants.mjs` and `python3 "${HOME}/.agents/skills/apply-wahyz-profile/scripts/verify_project_surface.py" .`
-- Keep zero runtime dependencies (`node:*` built-ins only), `<= 500 lines` per file, no emoticons in markdown, and strict `os.tmpdir()` test isolation (`scripts/fake-root-guard.mjs`).
+- Keep zero runtime dependencies on the server (`node:*` built-ins only; three.js is vendored under `public/vendor/`, sha256-pinned and exempt from the line cap), `<= 500 lines` per file, no emoticons in markdown, a `CHANGELOG.md` entry for user-visible changes, and strict `os.tmpdir()` test isolation (`scripts/fake-root-guard.mjs`).

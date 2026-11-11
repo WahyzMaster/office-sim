@@ -18,10 +18,14 @@ const openTag = (id) => HTML.match(new RegExp(`<[a-z0-9]+\\b[^>]*\\bid="${id}"[^
 // ---- D8: 언어 ----
 
 test('detectLang: Korean only for a Korean browser locale, English for every other', () => {
-  // D8 그대로: 로케일이 ko 로 시작할 때만 한국어 (대소문자는 가리지 않는다)
+  // D8, D22: 언어 subtag 가 ko 일 때만 한국어 (대소문자는 가리지 않는다). ko 로 시작할 뿐인 다른 subtag 는 한국어가 아니다
   for (const ko of ['ko', 'ko-KR', 'KO-kr', 'ko_KR', 'ko-Kore-KR']) assert.equal(detectLang(ko), 'ko', ko);
   for (const en of ['en', 'en-US', 'fr-FR', 'ja', 'zh-Hans-CN', 'de', 'x-ko', ' ko', '', undefined, null, 42]) {
     assert.equal(detectLang(en), 'en', String(en));
+  }
+  // D22: Konkani (kok), the ISO 639-2 code kor, Komi (koi, kv is its 639-1), Kosraean (kos), Kongo written long (kon)
+  for (const other of ['kok-IN', 'kok', 'KOK-in', 'kor', 'kor-KR', 'koi-RU', 'kos', 'kon-CD', 'kok_IN', 'ko1', 'korean']) {
+    assert.equal(detectLang(other), 'en', other);
   }
 });
 
@@ -172,8 +176,9 @@ function runBoot({ navLang = 'en-US', search = '', saved, ready = false, storage
     JSON,
     setTimeout: (fn, ms) => timers.push([fn, ms]),
   });
+  const before = Object.keys(context);
   vm.runInContext(INLINE[0], context);
-  return { boot, timers, window };
+  return { boot, timers, window, added: Object.keys(context).filter((k) => !before.includes(k)) };
 }
 
 test('boot text: English by default, Korean for a Korean locale; the saved or URL language wins, as in the Hud', () => {
@@ -189,6 +194,22 @@ test('boot text: English by default, Korean for a Korean locale; the saved or UR
   assert.match(runBoot({ navLang: 'en-US', search: '?lang=ko', saved: { lang: 'en' } }).boot.textContent, HANGUL, '?lang= wins over the saved one');
   assert.match(runBoot({ navLang: 'ko-KR', storageThrows: true }).boot.textContent, HANGUL, 'blocked storage falls back to the locale');
   assert.match(runBoot({ navLang: 'en-US', storageThrows: true }).boot.textContent, /^Building/);
+  // D22: the same subtag rule as detectLang, since no module has run yet
+  for (const navLang of ['ko', 'ko-KR', 'KO-kr', 'ko_KR', 'ko-Kore-KR']) assert.match(runBoot({ navLang }).boot.textContent, HANGUL, navLang);
+  for (const navLang of ['kok-IN', 'kok', 'kor', 'kor-KR', 'KOK-in', 'koi-RU', '', undefined]) {
+    assert.match(runBoot({ navLang }).boot.textContent, /^Building/, String(navLang));
+    assert.equal(detectLang(navLang), 'en', String(navLang));
+  }
+});
+
+test('the inline script leaves no global behind: it runs inside one function', () => {
+  for (const opts of [{}, { navLang: 'ko-KR' }, { saved: { lang: 'ko' } }, { search: '?lang=en' }, { storageThrows: true }]) {
+    const run = runBoot(opts);
+    assert.deepEqual(run.added, [], JSON.stringify(opts));
+    run.timers[0][0](); // the timeout callback still sees what it needs
+    assert.deepEqual(run.boot.classes, ['err']);
+  }
+  assert.match(INLINE[0].trim(), /^\(function \(\) \{[\s\S]*\}\(\)\);$/);
 });
 
 test('load-error text: after 9 s without the 3D engine, in the same language; nothing when the page is ready', () => {
@@ -203,6 +224,13 @@ test('load-error text: after 9 s without the 3D engine, in the same language; no
   ko.timers[0][0]();
   assert.match(ko.boot.textContent, /three\.js/);
   assert.match(ko.boot.textContent, HANGUL);
+  // three.js is served by this page's own origin (public/vendor), so the message does not send the visitor to
+  // check a network: it says to reload
+  for (const text of [en.boot.textContent, ko.boot.textContent]) {
+    assert.doesNotMatch(text, /network|connection|internet|online|네트워크|인터넷|연결/i, text);
+  }
+  assert.match(en.boot.textContent, /[Rr]eload/);
+  assert.match(ko.boot.textContent, /새로고침/);
   const fine = runBoot({ navLang: 'ko-KR' });
   fine.window.__officeReady = true;
   fine.timers[0][0]();

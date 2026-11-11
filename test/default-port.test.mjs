@@ -46,6 +46,11 @@ test('.claude/launch.json previews on 4747 (live) and 4748 (replay), flag and po
   for (const c of configurations) {
     const i = c.runtimeArgs.indexOf('--port');
     assert.equal(c.runtimeArgs[i + 1], String(c.port), c.name);
+    // a preview server is shown in the preview pane: it must not also open the default browser (D7 opens in a terminal)
+    assert.ok(c.runtimeArgs.includes('--no-open'), `${c.name} passes --no-open`);
+    assert.equal(c.runtimeArgs.includes('--open'), false, c.name);
+    assert.doesNotThrow(() => parseArgs(c.runtimeArgs.slice(1)), `${c.name}: the bin accepts these arguments`);
+    assert.equal(parseArgs(c.runtimeArgs.slice(1)).open, false, c.name);
   }
 });
 

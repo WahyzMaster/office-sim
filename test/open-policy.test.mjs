@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { shouldOpen, hasOpener, pageUrl, noSessionLine, noSessionLineWanted, DEMO_HASH } from '../src/open-policy.mjs';
+import { shouldOpen, hasOpener, pageUrl, demoLine, noSessionLine, noSessionLineWanted, DEMO_HASH } from '../src/open-policy.mjs';
 import { isOpenableUrl } from '../src/open-url.mjs';
 import { parseArgs, USAGE } from '../src/cli-args.mjs';
 
@@ -78,6 +78,13 @@ test('pageUrl: --demo adds #demo to the URL that is opened, and the result is st
   assert.equal(pageUrl(plain, true), 'http://127.0.0.1:4747/#demo');
   assert.equal(pageUrl(token, true), 'http://127.0.0.1:50123/?t=AbC_-123xyz#demo');
   for (const url of [plain, token, 'http://[::1]:65535/']) assert.equal(isOpenableUrl(pageUrl(url, true)), true, url);
+});
+
+test('demoLine (D19): one office-sim: line with the demo URL, for a --demo run that opens no browser', () => {
+  assert.equal(demoLine('http://127.0.0.1:4747/'), 'office-sim: demo http://127.0.0.1:4747/#demo\n');
+  assert.equal(demoLine('http://127.0.0.1:50123/?t=AbC_-123xyz'), 'office-sim: demo http://127.0.0.1:50123/?t=AbC_-123xyz#demo\n');
+  assert.equal(demoLine('http://[::1]:4747/'), `office-sim: demo ${pageUrl('http://[::1]:4747/', true)}\n`, 'the URL --demo would have opened');
+  assert.equal(demoLine('http://127.0.0.1:4747/').split('\n').length, 2, 'exactly one line');
 });
 
 test('noSessionLine: one office-sim: line that names the active window', () => {

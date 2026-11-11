@@ -1,0 +1,3 @@
+# The files under public/vendor/ are third-party files pinned by sha256 (test/vendor-assets.test.mjs): no line-ending
+# conversion may ever change their bytes, whatever core.autocrlf says on the machine that checks them out.
+public/vendor/* -text

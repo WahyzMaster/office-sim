@@ -1,6 +1,6 @@
 // 첫 실행에서 bin 이 내리는 결정 (contract 6, launch readiness D6 의 플래그 쪽과 D7): 브라우저를 열지, 어느 주소를 열지,
-// 세션이 없을 때 터미널에 한 줄을 낼지. 모두 순수 함수다: 터미널 여부, 환경 변수, 플랫폼은 받아서 쓴다 (process 를 읽지
-// 않는다). 그래서 테스트는 이 컴퓨터의 터미널, CI 변수, 플랫폼과 상관없이 같은 답을 얻는다.
+// 열지 않는 --demo 실행이 내는 한 줄 (D19), 세션이 없을 때 터미널에 한 줄을 낼지. 모두 순수 함수다: 터미널 여부, 환경 변수,
+// 플랫폼은 받아서 쓴다 (process 를 읽지 않는다). 그래서 테스트는 이 컴퓨터의 터미널, CI 변수, 플랫폼과 상관없이 같은 답을 얻는다.
 
 /** The page fragment that puts the page in demo mode (public/js/main.js reads `#demo`). */
 export const DEMO_HASH = '#demo';
@@ -40,6 +40,14 @@ export function shouldOpen({ open, auth = false, isTTY = false, env = {}, platfo
 /** The URL to open: the printed URL, plus `#demo` with `--demo`. The printed line itself never carries the fragment. */
 export function pageUrl(url, demo) {
   return demo ? `${url}${DEMO_HASH}` : url;
+}
+
+/**
+ * The one stdout line of a `--demo` run that opens no browser (D19): the URL `--demo` would have opened, so the demo
+ * can be opened by hand. `url` is the printed URL (with `--auth`, the token URL the first line already shows).
+ */
+export function demoLine(url) {
+  return `office-sim: demo ${pageUrl(url, true)}\n`;
 }
 
 /** The one stdout line for a first rescan that attached no session. `activeMinutes` is the `--active` window. */

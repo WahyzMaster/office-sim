@@ -12,15 +12,16 @@ Rules:
 - Never read, print or open session log content (`~/.claude/projects`, `~/.codex`, `~/.grok`, `~/.gemini`). Read only `/healthz` answers and the server's own `office-sim:` lines.
 - Open only the URL the server printed (`http://127.0.0.1:<port>/`, with `?t=<token>` under `--auth`), plus `#demo` for demo. Never put a file path in a URL. Never pass `--host`.
 
-## 1. Repo root
+## 1. Repo root (how the skill was installed)
 
-The installed skill is a symlink into the office-sim repo. With `<base>` = this skill's base directory (given above as "Base directory for this skill"; normally `~/.claude/skills/office`), run:
+The skill is either a symlink into an office-sim checkout or a copy, and that decides how the server is run. With `<base>` = this skill's base directory (given above as "Base directory for this skill"; normally `~/.claude/skills/office`), run:
 
 ```bash
 node -p 'const p=require("path"),f=require("fs");const r=p.resolve(f.realpathSync(process.argv[1]),"..","..");f.existsSync(p.join(r,"bin","office-sim.mjs"))?r:"MISSING"' "<base>"
 ```
 
-If it prints `MISSING` or fails, stop and tell the user to run `npm run skill:install` in an office-sim checkout. Otherwise call the printed path `<root>`.
+- It prints a path: the skill is a symlink into an office-sim checkout (made by `npm run skill:install`). Call the path `<root>`; the server is run as `node "<root>/bin/office-sim.mjs"`.
+- It prints `MISSING` or fails: the skill is a copy with no checkout behind it, either the office-sim plugin (the command is then `/office-sim:office`; read `/office` below as that) or the copy made by `office-sim init`. There is no `<root>`: the server is run from npm as `npx -y office-sim@latest` (it needs `npx`, and the network when the package is not cached yet). The steps below say what changes "without a checkout".
 
 ## 2. Action
 
@@ -46,7 +47,7 @@ When running, also check the counters `badLines`, `skippedLines`, `applyErrors`,
 ## start, demo, auth
 
 1. Probe.
-   - office-sim, open mode, action is not `auth`: reuse it. `<url>` = `http://127.0.0.1:4747/`, agents = the `agents` array. Check who started it: run the stop command (below) with ` 4747` added after its last argument; it then kills nothing and prints `ours pid <n>` (started from this repo, so `/office stop` stops it) or `not ours`. On Windows run only the first two PowerShell lines: a non-empty `$m` means ours. Go to step 4.
+   - office-sim, open mode, action is not `auth`: reuse it. `<url>` = `http://127.0.0.1:4747/`, agents = the `agents` array. Check who started it: run the stop command (below) with ` 4747` added after its last argument; it then kills nothing and prints `ours pid <n>` (started from this repo, so `/office stop` stops it) or `not ours`. On Windows run only the first two PowerShell lines: a non-empty `$m` means ours. Without a checkout skip this check: it is ours only if you started it earlier in this conversation, else `not ours`. Go to step 4.
    - office-sim, open mode, action is `auth`: say an open server is already running; offer `/office stop` then `/office auth`. Stop.
    - office-sim with `--auth`: reuse it only if you started it earlier in this conversation and still have its printed URL (go to step 4). Otherwise say its token URL is in the output of whoever started it and offer `/office stop` then `/office auth`. Stop.
    - nothing there: `<port>` = 4747. Port held by another program: `<port>` = 0 (any free port).
@@ -58,6 +59,7 @@ When running, also check the counters `badLines`, `skippedLines`, `applyErrors`,
    ```bash
    node "<root>/bin/office-sim.mjs" --port <port> <flags> --no-open > "<out>" 2>&1
    ```
+   Without a checkout, start `npx -y office-sim@latest --no-open <flags> --port <port> > "<out>" 2>&1` the same way instead.
 3. Wait for it in one foreground command (at most 10 s, less when the server prints its agents line or an error; do not wait across turns):
    ```bash
    node --input-type=module -e '
@@ -71,7 +73,7 @@ When running, also check the counters `badLines`, `skippedLines`, `applyErrors`,
    clearTimeout(keep);
    ' "<out>"
    ```
-   `<url>` is the `office-sim: http://...` line (it carries `?t=<token>` under `--auth`); the agents are the `office-sim: agents ...` line. `healthz 200` (or `401` with `--auth`) means ready. If an `office-sim:` line contains `EADDRINUSE` (another start took 4747 first), probe once more and act as in step 1 on the result (reuse, or start again with `<port>` = 0). Otherwise, if there is no URL line or healthz is down, show the printed `office-sim:` lines and stop.
+   `<url>` is the `office-sim: http://...` line (it carries `?t=<token>` under `--auth`); the agents are the `office-sim: agents ...` line. `healthz 200` (or `401` with `--auth`) means ready. If an `office-sim:` line contains `EADDRINUSE` (another start took 4747 first), probe once more and act as in step 1 on the result (reuse, or start again with `<port>` = 0). Otherwise, if there is no URL line or healthz is down, show the printed `office-sim:` lines and stop. Without a checkout, npx may first download the package: when the command prints only `office-sim: no output after 10 s`, run it once or twice more; if that line is still all it prints, say that npx could not start the server (npm's own message is in `<out>`) and stop.
 4. Open `<page>` = `<url>`, or `<url>#demo` for demo:
    - If `mcp__Claude_Browser__preview_start` is available, call it with `{"url": "<page>"}`; that counts as opened.
    - Linux with `auth`: do not run an opener (a browser it starts keeps the token URL in its process arguments, readable by other local users); give the URL to paste instead.
@@ -95,7 +97,7 @@ When running, also check the counters `badLines`, `skippedLines`, `applyErrors`,
 
 ## stop
 
-Stop only office-sim servers started from this repo: processes whose command is `node <root>/bin/office-sim.mjs ...`. Never kill anything else.
+Stop only office-sim servers started from this repo: processes whose command is `node <root>/bin/office-sim.mjs ...`. Never kill anything else. Without a checkout there is no such path, so run neither command below: stop the background task you started the server with in this conversation (with the tool that stops a background Bash command), and if you started none, stop nothing.
 
 macOS and Linux:
 ```bash
@@ -120,4 +122,4 @@ foreach ($p in $m.ProcessId) { try { Stop-Process -Id $p -ErrorAction Stop; "sto
 if (-not $m) { "no office-sim from this repo is running" }
 ```
 
-The server exits within 3 s of SIGTERM. Probe again (once more if it still answers) and report what was stopped, and any `could not stop pid` line (another user's process, or one that already exited). If port 4747 still answers as office-sim, say it was started another way (for example `npm start` in a terminal) and leave it running.
+The server exits within 3 s of SIGTERM. Probe again (once more if it still answers) and report what was stopped, and any `could not stop pid` line (another user's process, or one that already exited). If port 4747 still answers as office-sim, say it was started another way (for example `npm start` in a terminal, or `npx` in another Claude Code session) and leave it running.

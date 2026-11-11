@@ -54,6 +54,17 @@ test('public/vendor holds exactly the pinned three@0.160.0 files, byte for byte'
   assert.match(fs.readFileSync(path.join(VENDOR, 'three.module.min.js'), 'utf8').slice(0, 200), /SPDX-License-Identifier: MIT/);
 });
 
+test('.gitattributes: no line-ending conversion ever touches the pinned vendor bytes', () => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const rules = fs.readFileSync(path.join(root, '.gitattributes'), 'utf8').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  assert.ok(rules.includes('public/vendor/* -text'), `.gitattributes has "public/vendor/* -text": ${rules.join(' | ')}`);
+  // no later rule turns conversion back on for those files (the last matching line wins in .gitattributes)
+  const after = rules.slice(rules.lastIndexOf('public/vendor/* -text') + 1);
+  assert.deepEqual(after.filter((l) => /(^|\s)(text|eol)\b/.test(l.replace(/^\S+\s+/, ''))), [], 'no text or eol rule after it');
+  // the pinned files are flat in public/vendor (the pattern has no /**), and none holds a CR today
+  for (const name of Object.keys(PINS)) assert.equal(fs.readFileSync(path.join(VENDOR, name)).includes(13), false, `${name} has no CR byte`);
+});
+
 test('the vendored files load nothing but each other: the addons import only "three", the build imports nothing', () => {
   for (const name of ['OrbitControls.js', 'CSS2DRenderer.js']) {
     const { fixed, dynamic } = specifiers(fs.readFileSync(path.join(VENDOR, name), 'utf8'));

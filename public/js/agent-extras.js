@@ -24,7 +24,7 @@ export const EXTRAS_TEXT = Object.freeze({
     tokenValue: (inTok, outTok, tools, turns) => `~입력 ${inTok} / 출력 ${outTok} (도구 ${tools} · 턴 ${turns})`,
     estimateTitle: '이벤트 수로 어림한 추정치입니다. 모델이 보고한 실제 사용량이 아닙니다.',
     doneBadge: '✓ 완료',
-    compactToast: '기억 압축 완료 (컨텍스트 65% 확보)',
+    compactToast: '기억 압축 완료',
   }),
   en: Object.freeze({
     focusBtn: 'Focus TTY (T)',
@@ -40,7 +40,7 @@ export const EXTRAS_TEXT = Object.freeze({
     tokenValue: (inTok, outTok, tools, turns) => `~${inTok} in / ${outTok} out (${tools} tools · ${turns} turns)`,
     estimateTitle: 'An estimate from event counts, not the usage the model reports.',
     doneBadge: '✓ Done',
-    compactToast: 'Context compacted (65% freed)',
+    compactToast: 'Context compacted',
   }),
 });
 
@@ -249,12 +249,17 @@ export function installAgentExtras({
   doc = globalThis.document,
   win = globalThis.window,
   fetchFn = globalThis.fetch,
+  isLive = () => true,
 } = {}) {
   if (!office || !hud || !doc) return null;
   injectExtrasStyles(doc);
 
   const metricsBySid = new Map();
   let recapVisible = false;
+  // /api/recap/review 와 /api/focus-terminal 은 서버가 아는 세션만 묻는다: 데모 모드(isLive 가 false)와, 라이브 위에 겹친
+  // 첫 실행 데모의 세션(이벤트에 demo 표시, empty-state.js)은 서버에 없다.
+  const demoSids = new Set();
+  const serverKnows = (sid) => isLive() && !demoSids.has(sid) && typeof fetchFn === 'function';
 
   const ensureMetrics = (sid) => {
     if (!metricsBySid.has(sid)) metricsBySid.set(sid, createAgentMetricsState());
@@ -291,6 +296,8 @@ export function installAgentExtras({
   office.onEvent = (ev) => {
     origOnEvent(ev);
     if (!ev?.sessionId) return;
+    if (ev.demo) demoSids.add(ev.sessionId);
+    else if (ev.type === 'session') demoSids.delete(ev.sessionId);
     const m = ensureMetrics(ev.sessionId);
     applyEventToMetrics(m, ev);
     const a = office.agents.get(ev.sessionId);
@@ -331,7 +338,7 @@ export function installAgentExtras({
         m.unreviewedDone = false;
         syncAgentVisuals(a);
         try {
-          fetchFn?.('/api/recap/review', {
+          if (serverKnows(a.id)) fetchFn('/api/recap/review', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ sessionId: a.id }),
@@ -347,7 +354,7 @@ export function installAgentExtras({
     if (!agent) return { ok: false };
     const t = extrasText(hud.lang);
     try {
-      const res = await fetchFn?.('/api/focus-terminal', {
+      const res = !serverKnows(agent.id) ? null : await fetchFn('/api/focus-terminal', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ sessionId: agent.id }),

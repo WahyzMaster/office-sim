@@ -1,27 +1,26 @@
-// P1: Opt-in Claude Code HTTP hook receiver (POST /api/hooks/claude) and merge-safe settings.json hook installer.
+// Claude Code hooks: the settings.json installer (merge-safe) and the parser for hook-only sessions.
+// Launch readiness D13: the installer registers exactly two events, PermissionRequest and Notification, as http hooks
+// that POST to /api/hooks/claude. The route itself lives in hooks-bridge.mjs (contract 7.2).
 import fs from 'node:fs';
 import path from 'node:path';
 import { cleanText, summarize } from './summarize.mjs';
 import { cleanLabel, publicSessionId, CLAUDE_CODE_AGENT } from './session-identity.mjs';
-import { basename, projectKey, worktreeFromPath, iso } from './session-util.mjs';
+import { basename, projectKey, worktreeFromPath, publicToolName, iso } from './session-util.mjs';
 
-export const HOOK_EVENTS = Object.freeze([
-  'SessionStart',
-  'SessionEnd',
-  'PreToolUse',
-  'PostToolUse',
-  'PostToolUseFailure',
-  'Notification',
-  'PreCompact',
-  'SubagentStart',
-  'SubagentStop',
-  'Stop',
-  'StopFailure',
-  'TeammateIdle',
-  'TaskCompleted',
-]);
+/** The events the installer registers (D13). The transcript is the source for everything else. */
+export const HOOK_EVENTS = Object.freeze(['PermissionRequest', 'Notification']);
+// Notification fires for several reasons; only the permission prompt is wanted
+const HOOK_MATCHERS = Object.freeze({ Notification: 'permission_prompt' });
+const HOOK_TIMEOUT_S = 2; // an http hook waits 600 s by default; a missing office must not hold a prompt up
 
 export const HOOK_MARKER = 'office-sim-claude-hook';
+// A hook-only session's tool name goes on the wire and into its synthetic tool id: the charset of D20, up to 128
+// characters (an mcp name runs past 64). Any other name sends no event.
+const HOOK_TOOL_RE = /^[A-Za-z0-9_.:-]{1,128}$/;
+const TOOL_FAILED = 'Tool failed'; // the whole error line of a failed hook-only tool: no text of the body is sent
+const API_ERROR = 'API error / rate limit'; // the whole line of a StopFailure: `stop_reason` is not read
+// A subagent type goes on the wire as the Agent tool's summary only when it has the shape of a name (D20's charset).
+const HOOK_LABEL_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
 
 function isRecord(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -51,11 +50,10 @@ export function parseClaudeHookPayload(payload, { now = Date.now, activeHookTool
   const project = rawCwd ? projectKey(rawCwd, null) : '';
   const projectLabel = project ? basename(project) : '';
   const worktree = rawCwd ? cleanLabel(worktreeFromPath(rawCwd)) : null;
-  const toolName = typeof payload.tool_name === 'string' ? cleanLabel(payload.tool_name) : null;
+  const toolName = typeof payload.tool_name === 'string' && HOOK_TOOL_RE.test(payload.tool_name) ? publicToolName(payload.tool_name) : null;
   const toolInput = isRecord(payload.tool_input) ? payload.tool_input : {};
   const toolUseIdRaw = typeof payload.tool_use_id === 'string' ? publicSessionId(payload.tool_use_id) : null;
-  const agentType = typeof payload.agent_type === 'string' ? cleanLabel(payload.agent_type) : null;
-  const stopReason = typeof payload.stop_reason === 'string' ? cleanText(payload.stop_reason, 80) : null;
+  const agentType = typeof payload.agent_type === 'string' && HOOK_LABEL_RE.test(payload.agent_type) ? payload.agent_type : null;
 
   const events = [];
   let waitingApproval = false;
@@ -109,7 +107,7 @@ export function parseClaudeHookPayload(payload, { now = Date.now, activeHookTool
           ts,
           toolUseId: matchedId,
           ok: !isFailure,
-          ...(isFailure ? { errorKind: 'failed', error: cleanText(String(payload.error || payload.tool_output || 'Tool failed'), 100) } : {}),
+          ...(isFailure ? { errorKind: 'failed', error: TOOL_FAILED } : {}), // payload.error and tool_output are not read
         });
       }
       break;
@@ -120,13 +118,14 @@ export function parseClaudeHookPayload(payload, { now = Date.now, activeHookTool
       if (isPerm) {
         waitingApproval = true;
         const waitId = toolUseIdRaw || `perm_${sessionId.slice(0, 8)}`;
+        // D25: exactly toolUseId and waiting, like every tool_wait. Reached only for a session only hooks report
+        // (D14); for a session the Store follows, hooks-bridge.mjs matches the prompt to an open tool instead.
         events.push({
           type: 'tool_wait',
           sessionId,
           ts,
           toolUseId: waitId,
           waiting: true,
-          question: msg || 'Awaiting permission approval',
         });
       }
       break;
@@ -141,7 +140,7 @@ export function parseClaudeHookPayload(payload, { now = Date.now, activeHookTool
         ts,
         toolUseId,
         tool: 'Agent',
-        summary: cleanText(subName, 60),
+        summary: subName,
       });
       break;
     }
@@ -182,7 +181,7 @@ export function parseClaudeHookPayload(payload, { now = Date.now, activeHookTool
         sessionId,
         ts,
         kind: 'api_error',
-        text: stopReason || 'API error / rate limit',
+        text: API_ERROR,
       });
       events.push({
         type: 'turn_end',
@@ -209,32 +208,74 @@ export function parseClaudeHookPayload(payload, { now = Date.now, activeHookTool
     sessionId,
     hookEvent,
     waitingApproval,
-    stopReason,
     events,
   };
 }
 
+const isOurs = (h) => isRecord(h) && [h.command, h.url].some((v) => typeof v === 'string' && v.includes(HOOK_MARKER));
+
 /**
- * Build the non-blocking curl/node one-liner command that Claude Code executes on hook events.
+ * One event's list without the office-sim handlers: the http hooks of this version and the curl command hooks older
+ * versions wrote (both carry HOOK_MARKER). Only our handlers leave a matcher group; a group left empty is dropped.
  */
-export function buildHookCommand({ port = 4747, host = '127.0.0.1' } = {}) {
-  const safeHost = host === '::1' ? '[::1]' : '127.0.0.1';
-  const safePort = Number.isInteger(port) && port > 0 && port <= 65535 ? port : 4747;
-  return `curl -sS -m 1 -X POST -H "Content-Type: application/json" --data-binary @- "http://${safeHost}:${safePort}/api/hooks/claude" >/dev/null 2>&1 || true # ${HOOK_MARKER}`;
+function withoutOurs(list) {
+  const kept = [];
+  let removed = 0;
+  for (const entry of list) {
+    const own = isRecord(entry) && Array.isArray(entry.hooks) ? entry.hooks.filter(isOurs).length : 0;
+    removed += own;
+    if (own === 0) kept.push(entry);
+    else if (own < entry.hooks.length) kept.push({ ...entry, hooks: entry.hooks.filter((h) => !isOurs(h)) });
+  }
+  return { kept, removed };
+}
+
+// Every event, not only HOOK_EVENTS: an older install registered thirteen. An event list we emptied is removed.
+// `byEvent`, when given, gets the number removed per event name (what `office-sim hooks uninstall` prints).
+function stripOurs(hooks, byEvent = null) {
+  let removed = 0;
+  for (const [evName, list] of Object.entries(hooks)) {
+    if (!Array.isArray(list)) continue;
+    const r = withoutOurs(list);
+    if (r.removed === 0) continue;
+    removed += r.removed;
+    if (byEvent) byEvent[evName] = r.removed;
+    if (r.kept.length > 0) hooks[evName] = r.kept;
+    else delete hooks[evName];
+  }
+  return removed;
 }
 
 /**
- * Merge-safe installer for ~/.claude/settings.json (inspired by pixel-agents PR #378).
- * Never overwrites malformed JSON; creates a one-time .office-sim.bak backup before first modification.
+ * The URL the http hooks POST to: loopback only (127.0.0.1, or [::1] for host '::1'), the default port for anything
+ * that is not a port number. The marker rides in the query so the uninstaller can tell our hooks from the user's;
+ * the route matches on the path alone.
  */
-export function installClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.1' } = {}) {
+export function buildHookUrl({ port = 4747, host = '127.0.0.1' } = {}) {
+  const safeHost = host === '::1' || host === '[::1]' ? '[::1]' : '127.0.0.1';
+  const safePort = Number.isInteger(port) && port > 0 && port <= 65535 ? port : 4747;
+  return `http://${safeHost}:${safePort}/api/hooks/claude?source=${HOOK_MARKER}`;
+}
+
+/**
+ * What installClaudeHooks would write, without writing anything (the CLI prints it first, contract 6.3). Reads the
+ * settings file and throws the installer's refusals: a file that is not a JSON object, a `hooks` that is not an
+ * object, and a `hooks.<Event>` of HOOK_EVENTS that is there and is not an array (our entry would replace it).
+ * @returns {{ settingsPath: string, exists: boolean, raw: string|null, text: string, changed: boolean,
+ *   backupPath: string, backupNeeded: boolean, replaced: number,
+ *   entries: { event: string, matcher: string|null, handler: { type: string, url: string, timeout: number } }[] }}
+ *   `text`: the whole file after the install. `changed`: false when the file already holds exactly these hooks.
+ *   `replaced`: the office-sim hooks already in the file (they are removed before ours are added).
+ */
+export function planClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.1' } = {}) {
   if (typeof settingsPath !== 'string' || !settingsPath.trim()) {
     throw new TypeError('settingsPath must be a non-empty string');
   }
   let root = {};
+  let raw = null;
   const exists = fs.existsSync(settingsPath);
   if (exists) {
-    const raw = fs.readFileSync(settingsPath, 'utf8');
+    raw = fs.readFileSync(settingsPath, 'utf8');
     if (raw.trim() !== '') {
       let parsed;
       try {
@@ -247,66 +288,115 @@ export function installClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.
       }
       root = parsed;
     }
-    const backupPath = `${settingsPath}.office-sim.bak`;
-    if (!fs.existsSync(backupPath)) {
-      fs.writeFileSync(backupPath, raw, { encoding: 'utf8', mode: 0o600 });
+    if (root.hooks !== undefined && !isRecord(root.hooks)) {
+      throw new Error('Refusing to modify settings.json: hooks field is not an object');
     }
-  } else {
-    fs.mkdirSync(path.dirname(settingsPath), { recursive: true, mode: 0o700 });
   }
 
-  if (root.hooks !== undefined && !isRecord(root.hooks)) {
-    throw new Error('Refusing to modify settings.json: hooks field is not an object');
-  }
   const hooks = isRecord(root.hooks) ? { ...root.hooks } : {};
-  const command = buildHookCommand({ port, host });
-
+  // Our entries are added to these two lists. A value there that is no list (a string, an object, null) could only be
+  // replaced, so the file is refused like the shapes above. Under any other event such a value is left as it is.
   for (const evName of HOOK_EVENTS) {
-    const existingList = Array.isArray(hooks[evName]) ? [...hooks[evName]] : [];
-    const filtered = existingList.filter((entry) => {
-      if (!isRecord(entry) || !Array.isArray(entry.hooks)) return true;
-      return !entry.hooks.some((h) => isRecord(h) && typeof h.command === 'string' && h.command.includes(HOOK_MARKER));
-    });
-    filtered.push({
-      hooks: [{ type: 'command', command }],
-    });
-    hooks[evName] = filtered;
+    if (Object.hasOwn(hooks, evName) && !Array.isArray(hooks[evName])) {
+      throw new Error(`Refusing to modify settings.json: hooks.${evName} is not an array`);
+    }
+  }
+  const replaced = stripOurs(hooks);
+  const handler = { type: 'http', url: buildHookUrl({ port, host }), timeout: HOOK_TIMEOUT_S };
+  const entries = [];
+  for (const evName of HOOK_EVENTS) {
+    const list = [...(hooks[evName] ?? [])];
+    const matcher = HOOK_MATCHERS[evName];
+    list.push({ ...(matcher ? { matcher } : {}), hooks: [{ ...handler }] });
+    hooks[evName] = list;
+    entries.push({ event: evName, matcher: matcher ?? null, handler: { ...handler } });
   }
 
   const nextRoot = { ...root, hooks };
-  fs.writeFileSync(settingsPath, `${JSON.stringify(nextRoot, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+  const backupPath = `${settingsPath}.office-sim.bak`;
+  return {
+    settingsPath, exists, raw, text: `${JSON.stringify(nextRoot, null, 2)}\n`,
+    changed: JSON.stringify(nextRoot) !== JSON.stringify(root),
+    backupPath, backupNeeded: exists && !fs.existsSync(backupPath), replaced, entries,
+  };
+}
+
+/**
+ * Merge-safe installer for ~/.claude/settings.json (inspired by pixel-agents PR #378).
+ * Never overwrites malformed JSON or a value it cannot merge into (the refusals of planClaudeHooks); creates a
+ * one-time .office-sim.bak backup before first modification.
+ * Writes { type: 'http', url, timeout: 2 } for each of HOOK_EVENTS (Notification with matcher "permission_prompt")
+ * and removes every older office-sim hook, whatever its event. It writes what planClaudeHooks computes.
+ */
+export function installClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.1' } = {}) {
+  const plan = planClaudeHooks({ settingsPath, port, host });
+  if (plan.exists) {
+    if (plan.backupNeeded) fs.writeFileSync(plan.backupPath, plan.raw, { encoding: 'utf8', mode: 0o600 });
+  } else {
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true, mode: 0o700 });
+  }
+  fs.writeFileSync(settingsPath, plan.text, { encoding: 'utf8', mode: 0o600 });
   return { installed: true, settingsPath, events: HOOK_EVENTS.length };
 }
 
-export function uninstallClaudeHooks({ settingsPath } = {}) {
-  if (typeof settingsPath !== 'string' || !fs.existsSync(settingsPath)) {
-    return { removed: false, settingsPath };
-  }
+/**
+ * What uninstallClaudeHooks would remove, without writing. `text` is the whole file afterwards, or null when there is
+ * nothing of ours to remove (a missing file, no `hooks` object, none of our handlers). Throws on unparseable JSON.
+ * @returns {{ settingsPath: string, removedCount: number, byEvent: Record<string, number>, text: string|null }}
+ */
+export function planClaudeUnhook({ settingsPath } = {}) {
+  const none = { settingsPath, removedCount: 0, byEvent: {}, text: null };
+  if (typeof settingsPath !== 'string' || !fs.existsSync(settingsPath)) return none;
   const raw = fs.readFileSync(settingsPath, 'utf8');
+  if (raw.trim() === '') return none; // an empty file holds no hooks (install treats it as `{}` too)
   let root;
   try {
     root = JSON.parse(raw);
   } catch {
     throw new Error('Refusing to modify unparseable settings.json');
   }
-  if (!isRecord(root) || !isRecord(root.hooks)) {
-    return { removed: false, settingsPath };
-  }
+  if (!isRecord(root) || !isRecord(root.hooks)) return none;
   const hooks = { ...root.hooks };
-  let removedCount = 0;
-  for (const [evName, list] of Object.entries(hooks)) {
-    if (!Array.isArray(list)) continue;
-    const kept = list.filter((entry) => {
-      if (!isRecord(entry) || !Array.isArray(entry.hooks)) return true;
-      const isOurs = entry.hooks.some((h) => isRecord(h) && typeof h.command === 'string' && h.command.includes(HOOK_MARKER));
-      if (isOurs) removedCount += 1;
-      return !isOurs;
-    });
-    if (kept.length > 0) hooks[evName] = kept;
-    else delete hooks[evName];
-  }
+  const byEvent = {};
+  const removedCount = stripOurs(hooks, byEvent);
+  if (removedCount === 0) return none;
   const nextRoot = { ...root, hooks };
   if (Object.keys(hooks).length === 0) delete nextRoot.hooks;
-  fs.writeFileSync(settingsPath, `${JSON.stringify(nextRoot, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
-  return { removed: removedCount > 0, removedCount, settingsPath };
+  return { settingsPath, removedCount, byEvent, text: `${JSON.stringify(nextRoot, null, 2)}\n` };
+}
+
+/** Removes the office-sim hooks (this version's http hooks and the older curl hooks). Writes only when it removed one. */
+export function uninstallClaudeHooks({ settingsPath } = {}) {
+  const plan = planClaudeUnhook({ settingsPath });
+  if (plan.text === null) return { removed: false, removedCount: 0, settingsPath };
+  fs.writeFileSync(settingsPath, plan.text, { encoding: 'utf8', mode: 0o600 });
+  return { removed: true, removedCount: plan.removedCount, settingsPath };
+}
+
+/**
+ * The office-sim hooks a settings file holds now, for `office-sim hooks status`. Never writes and never throws.
+ * `state`: 'missing' (no file), 'unreadable' (not JSON) or 'ok'. Each hook: its event, 'http' (this version) or
+ * 'command' (the curl hooks of versions before 0.12.0), and for an http hook the URL we wrote.
+ * @returns {{ state: 'missing'|'unreadable'|'ok', hooks: { event: string, type: 'http'|'command', url: string|null }[] }}
+ */
+export function findClaudeHooks({ settingsPath } = {}) {
+  if (typeof settingsPath !== 'string' || !fs.existsSync(settingsPath)) return { state: 'missing', hooks: [] };
+  let root = null;
+  try {
+    const raw = fs.readFileSync(settingsPath, 'utf8');
+    if (raw.trim() !== '') root = JSON.parse(raw);
+  } catch {
+    return { state: 'unreadable', hooks: [] };
+  }
+  const found = [];
+  for (const [event, list] of Object.entries(isRecord(root) && isRecord(root.hooks) ? root.hooks : {})) {
+    for (const entry of Array.isArray(list) ? list : []) {
+      for (const h of isRecord(entry) && Array.isArray(entry.hooks) ? entry.hooks : []) {
+        if (!isOurs(h)) continue;
+        const http = h.type === 'http' && typeof h.url === 'string';
+        found.push({ event, type: http ? 'http' : 'command', url: http ? h.url : null });
+      }
+    }
+  }
+  return { state: 'ok', hooks: found };
 }

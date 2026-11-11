@@ -13,15 +13,15 @@
 | **Baseline Version** | `v0.11.0` (Git tag `v0.11.0`, published to npm as `office-sim@0.11.0`) |
 | **Repository** | `https://github.com/WahyzMaster/office-sim` |
 | **License** | MIT (`LICENSE`) |
-| **Runtime Environment** | Server: `Node.js >= 22` (`node:*` built-in ESM only); Client: Browser ES Modules + WebGL2 / progressive WebGPU (`Three.js` via `importmap`) |
+| **Runtime Environment** | Server: `Node.js >= 22` (`node:*` built-in ESM only); Client: Browser ES Modules + WebGL2 / progressive WebGPU (`Three.js` through the `importmap`; since `v0.12.0` it resolves to the copy vendored under `public/vendor/`, and only the opt-in WebGPU renderer still loads from a CDN, with `--cdn`) |
 | **Runtime Dependencies** | `0` (`package.json` `dependencies` field absent by invariant) |
 | **Governing Specifications** | `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `docs/CONTRACT.md`, `docs/ADAPTERS.md`, `docs/HISTORY.md` |
 
 ### 1.2 Executive Summary
 
-`office-sim` is a zero-dependency local 3D multi-agent office visualizer that discovers and tails local AI coding agent session transcripts every `250ms` (alongside sub-`10ms` Claude Code HTTP hooks via `POST /api/hooks/claude` in `src/hooks-receiver.mjs`) and renders **Claude Code** (CLI & Claude Desktop), **OpenAI Codex** (CLI, IDE & ChatGPT Desktop), **xAI Grok Build** (CLI & Desktop Bot), and **Google Antigravity** (`agy` CLI & Desktop App) — plus optional plug-in CLI agents such as **Gemini CLI** (`--plugins gemini-cli` via `src/adapters/plugins.mjs`) — collaborating across project floors in real time.
+`office-sim` is a local 3D multi-agent office visualizer (no npm dependencies on the server; the page ships a vendored three.js) that discovers and tails local AI coding agent session transcripts every `250ms` (since `v0.12.0` two optional Claude Code `http` hooks, `PermissionRequest` and `Notification`, add the one signal the transcript lacks, an open permission prompt, via `POST /api/hooks/claude` in `src/hooks-bridge.mjs`) and renders **Claude Code** (CLI & Claude Desktop), **OpenAI Codex** (CLI, IDE & ChatGPT Desktop), **xAI Grok Build** (CLI & Desktop Bot), and **Google Antigravity** (`agy` CLI & Desktop App) — plus optional plug-in CLI agents such as **Gemini CLI** (`--plugins gemini-cli` via `src/adapters/plugins.mjs`) — collaborating across project floors in real time.
 
-Built under a strict **Zero-Dependency** and **Privacy-by-Default** engineering charter, the server uses exclusively Node.js built-in modules (`node:http`, `node:fs`, `node:path`, `node:crypto`, `node:child_process`) bound to loopback (`127.0.0.1`), opens transcript files with `O_RDONLY | O_NOFOLLOW | O_NONBLOCK`, and scrubs all sensitive payloads so that only tool categories, file basenames, URL hostnames, and short status summaries cross the Server-Sent Events (`/events`) wire boundary.
+Built under a strict **Zero-Dependency** and **Privacy-by-Default** engineering charter, the server uses exclusively Node.js built-in modules (`node:http`, `node:fs`, `node:path`, `node:crypto`, `node:child_process`) bound to loopback (`127.0.0.1`), opens transcript files with `O_RDONLY | O_NOFOLLOW | O_NONBLOCK`, and reduces what crosses the Server-Sent Events (`/events`) wire boundary to tool names, file basenames, URL hostnames, and short scrubbed text: excerpts of prompts, replies and errors, and short pieces of a tool call such as a search pattern, a query or the agent's one-line description (`docs/CONTRACT.md` sections 3.1, 4 and 5).
 
 ### 1.3 Quantitative Engineering Baseline (`v0.11.0`)
 
@@ -45,7 +45,7 @@ Built under a strict **Zero-Dependency** and **Privacy-by-Default** engineering 
 
 | Req ID | Requirement Summary | Primary Implementation Modules | Verification Test Suites | Status |
 |---|---|---|---|---|
-| **FR-01** | **Multi-Agent Log Discovery & Incremental Tailing**: Discover active sessions and tail byte offsets (`250ms` default) plus sub-`10ms` Claude HTTP hooks (`POST /api/hooks/claude`). | `src/discover.mjs`, `src/tailer.mjs`, `src/hooks-receiver.mjs`, `src/adapters/index.mjs`, `src/adapters/claude-code.mjs`, `src/adapters/codex/index.mjs`, `src/adapters/grok/index.mjs`, `src/adapters/antigravity/index.mjs` | `test/tailer.test.mjs`, `test/discover.test.mjs`, `test/p1-p4-roadmap.test.mjs`, `test/adapter-conformance.test.mjs` | Verified |
+| **FR-01** | **Multi-Agent Log Discovery & Incremental Tailing**: Discover active sessions and tail byte offsets (`250ms` default). Claude Code hooks (`POST /api/hooks/claude`) deliver no session events since `v0.12.0`: for a session the tailer follows they only mark an open tool as waiting on a permission prompt (`tool_wait`, `docs/CONTRACT.md` section 7.2). | `src/discover.mjs`, `src/tailer.mjs`, `src/hooks-receiver.mjs`, `src/hooks-bridge.mjs`, `src/adapters/index.mjs`, `src/adapters/claude-code.mjs`, `src/adapters/codex/index.mjs`, `src/adapters/grok/index.mjs`, `src/adapters/antigravity/index.mjs` | `test/tailer.test.mjs`, `test/discover.test.mjs`, `test/p1-p4-roadmap.test.mjs`, `test/adapter-conformance.test.mjs` | Verified |
 | **FR-02** | **Subagent Hierarchy & Worktree Floor Routing**: Link parent/child subagents and group git worktrees onto their parent repository floor (`1F`, `2F`, ...). | `src/store.mjs`, `src/store-claude.mjs`, `src/store-link.mjs`, `src/session-identity.mjs` | `test/store.test.mjs`, `test/codex-floor.test.mjs`, `test/grok-floor.test.mjs` | Verified |
 | **FR-03** | **Real-Time SSE Streaming & Snapshot Recovery**: Maintain a 500-event ring buffer, stream `/events` with `Last-Event-ID` resume, and serve `/state` snapshots and `/healthz` diagnostics. | `src/server.mjs`, `src/server-runner.mjs`, `src/server-http.mjs`, `src/server-health.mjs`, `public/js/sources.js` | `test/server.test.mjs`, `test/healthz.test.mjs`, `test/e2e.test.mjs` | Verified |
 | **FR-04** | **3D Architectural Diorama & Collision Navigation**: Render 7 functional rooms across 7 architectural themes and 29 3D characters with 2D AABB obstacle avoidance and acrobatic stunts. | `public/js/office.js`, `public/js/floor.js`, `public/js/agent.js`, `public/js/rooms.js`, `public/js/theme-kit.js`, `public/js/placement.js` | `test/theme-build.test.mjs`, `test/theme-geometry.test.mjs`, `test/theme-layout-invariants.test.mjs`, `test/agent-flow.test.mjs` | Verified |
@@ -63,7 +63,7 @@ Built under a strict **Zero-Dependency** and **Privacy-by-Default** engineering 
 | **NFR-01** | **Zero Runtime Dependencies** | `0` external npm packages in production runtime (`node:*` built-ins only). | `scripts/verify-dom-invariants.mjs` (`package.json` `dependencies` check) | Verified |
 | **NFR-02** | **Network & Cross-Site Boundary** | Loopback-only binding (`127.0.0.1`, `localhost`, `::1`), strict `Host`/`Origin`/`Sec-Fetch-Site`/CSP headers, optional `--auth` cookie. | `src/server-guard.mjs`, `test/http-hardening.test.mjs`, `test/http-auth.test.mjs` | Verified |
 | **NFR-03** | **Filesystem & Payload Privacy** | `O_RDONLY \| O_NOFOLLOW \| O_NONBLOCK` + `lstat` inode check; strict filename allowlists; basename/hostname scrubbing; zero credential/content leaks. | `docs/CONTRACT.md` §5, `test/privacy.test.mjs`, `test/ref-guard.test.mjs`, `test/adapter-conformance.test.mjs` | Verified |
-| **NFR-04** | **Source Modularity & Hygiene** | Every `.mjs`/`.js`/`.html` file `<= 500 lines`; zero `console.log` in `src/`; zero emoticons in markdown governance/report docs. | `scripts/verify-dom-invariants.mjs`, `test/software-development-report.test.mjs` | Verified |
+| **NFR-04** | **Source Modularity & Hygiene** | Every `.mjs`/`.js`/`.html` file `<= 500 lines` (the third-party files vendored under `public/vendor/` since `v0.12.0` are exempt); zero `console.log` in `src/`; zero emoticons in markdown governance/report docs. | `scripts/verify-dom-invariants.mjs`, `test/software-development-report.test.mjs` | Verified |
 | **NFR-05** | **Bilingual (`ko`/`en`) Parity** | Complete Korean and English localization across all 7 rooms, 7 themes, HUD controls, inspector, and `#demo` scenarios without reload. | `public/js/rooms.js`, `test/browser-names.test.mjs`, `test/board-detail.test.mjs` | Verified |
 | **NFR-06** | **Rendering & Tailing Performance** | Hidden-floor culling (`0.6ms` CPU p50 focused floor), shared geometry/material ratchets, and chunked `64 KB` non-starving tailer (`20 MB` in `~316ms`). | `public/js/detail.js`, `test/detail.test.mjs`, `test/theme-geometry.test.mjs`, `test/tailer.test.mjs` | Verified |
 
@@ -125,7 +125,7 @@ sequenceDiagram
   participant OF as Browser Office / Floor
   participant UI as 3D Agent / PlanBoard / HUD
 
-  FS->>TL: Append JSONL line (or POST /api/hooks/claude)
+  FS->>TL: Append JSONL line
   TL->>TL: Read [offset, size) in 64KB chunks with O_NOFOLLOW
   TL->>AD: Parse record -> normalized item (prompt, tool_start, plan, ...)
   AD->>AD: Scrub paths to basename, URLs to hostname, cap length (cleanText)
@@ -140,11 +140,11 @@ sequenceDiagram
 
 | Subsystem | Key Modules | Architectural Responsibility |
 |---|---|---|
-| **CLI & Lifecycle** | `bin/office-sim.mjs`, `src/cli-main.mjs`, `src/cli-args.mjs`, `src/open-url.mjs`, `src/open-policy.mjs`, `src/port-reuse.mjs` | Entry stub (Node 22 floor warning, then `src/cli-main.mjs`), pure CLI flag parsing (`--port`, `--host`, `--agents`, `--notify`, `--replay`, `--auth`, `--open`, `--no-open`, `--demo`), process lifecycle, reuse of an office-sim already listening on the default port `4747`, the pure decision to open the browser (by default only in a terminal without `CI`), and platform browser launcher. |
+| **CLI & Lifecycle** | `bin/office-sim.mjs`, `src/cli-main.mjs`, `src/cli-args.mjs`, `src/cli-init.mjs`, `src/open-url.mjs`, `src/open-policy.mjs`, `src/port-reuse.mjs` | Entry stub (Node 22 floor warning, then `src/cli-main.mjs`), pure CLI flag parsing (`--port`, `--host`, `--agents`, `--notify`, `--replay`, `--auth`, `--open`, `--no-open`, `--demo`), process lifecycle, reuse of an office-sim already listening on the default port `4747`, the pure decision to open the browser (by default only in a terminal without `CI`), platform browser launcher, and the setup commands `office-sim init` and `office-sim hooks` (`install`, `uninstall`, `status`); they start no server. |
 | **Discovery & Tailing** | `src/discover.mjs`, `src/tailer.mjs`, `src/core/sidecar.mjs`, `src/desktop-claude.mjs` | Allowlist-only directory scanning, inode/truncation-aware byte-offset tailing, desktop cloud-chat detection, and mtime/size-guarded sidecar metadata watching (`<= 1 MB`). |
 | **Canonical Core & Store** | `src/session.mjs`, `src/core/session-core.mjs`, `src/core/tool-summary.mjs`, `src/store.mjs`, `src/store-claude.mjs`, `src/store-link.mjs` | Stateful turn/tool pairing (`R6..R36`), `cleanText` privacy scrubbing, subagent parent linking, git worktree floor coalescing, and snapshot synthesis. |
 | **Multi-Agent Adapters** | `src/adapters/index.mjs`, `src/adapters/claude-code.mjs`, `src/adapters/codex/index.mjs`, `src/adapters/grok/index.mjs`, `src/adapters/antigravity/index.mjs` | Translates provider-specific transcript records into canonical `docs/CONTRACT.md` §2 events without leaking raw payloads. |
-| **HTTP, Replay & OS Bridge** | `src/server-http.mjs`, `src/server-guard.mjs`, `src/server-health.mjs`, `src/replay.mjs`, `src/system-notify.mjs`, `src/terminal-focus.mjs`, `src/hooks-receiver.mjs` | Serves static assets, `/events` SSE, `/state`, `/healthz`, `/api/notify`, `/api/focus`, `/api/hooks/claude`, and deterministic `--replay` playback. |
+| **HTTP, Replay & OS Bridge** | `src/server-http.mjs`, `src/server-guard.mjs`, `src/server-health.mjs`, `src/replay.mjs`, `src/system-notify.mjs`, `src/terminal-focus.mjs`, `src/hooks-receiver.mjs`, `src/hooks-bridge.mjs` | Serves static assets, `/events` SSE, `/state`, `/healthz`, `/api/notify`, `/api/focus`, `/api/hooks/claude`, and deterministic `--replay` playback. |
 | **Observation & Flywheel** | `src/observe/observer.mjs`, `src/observe/control.mjs`, `src/flywheel/collectors.mjs`, `src/flywheel/router.mjs`, `scripts/flywheel/seed-loop-contract.mjs` | Captures categorical telemetry (`P1..P8`), deduplicates anomalies via 24-hex SHA-256 keys, and seeds `Harness²` `L3 -> L1 -> L2` improvement contracts. |
 | **3D Scene & Simulation HUD** | `public/js/main.js`, `public/js/office.js`, `public/js/floor.js`, `public/js/agent.js`, `public/js/board.js`, `public/js/board-detail.js`, `public/js/sim-cute-anim.js`, `public/js/sim-overlays.js`, `public/js/sim-motives.js`, `public/js/sim-advisor.js` | Renders multi-floor Three.js scenes, 29 character rigs, 3D handheld micro-props, clickable Plan Board Detail Drawer (`#board-detail`), SimCity RCI lenses, and Sims motives. |
 
@@ -164,11 +164,11 @@ sequenceDiagram
    - All session log readers (`src/tailer.mjs`), metadata watchers (`src/core/sidecar.mjs`, `src/adapters/antigravity/meta.mjs`), desktop watchers (`src/desktop-claude.mjs`, `src/adapters/codex/desktop-cloud.mjs`, `src/adapters/grok/desktop-bot.mjs`), and observation sidecars (`src/observe/observer.mjs`) open files with `O_RDONLY | O_NOFOLLOW | O_NONBLOCK` and verify `st.isFile()` and matching device/inode numbers via `fs.lstatSync` / `fs.fstatSync`.
    - Symlinked directories or files inside `~/.claude`, `~/.codex`, `~/.grok`, or `~/.gemini` are rejected before any byte is read.
 3. **Allowlist-Only Discovery & Bait Rejection**:
-   - Each adapter scans only explicit filename patterns (`*.jsonl`, `summary.json`, `events.jsonl`, `session_index.jsonl`, `task.md`, `implementation_plan.md`).
+   - Each adapter scans only explicit filename patterns (`*.jsonl`, `summary.json`, `events.jsonl`, `session_index.jsonl`, `task.md`, the Antigravity summaries file `*_summaries_proto.pb` and `annotations/<uuid>.pbtxt`, and Claude Code's `agent-<id>.meta.json`).
    - Non-allowlisted files (`oauth_creds.json`, `.env`, `config.toml`, SQLite databases, `.jsonl.zst` archives, `history.jsonl`, and encrypted `conversations/*.pb` files) are never opened.
 4. **Payload Scrubbing (`src/summarize.mjs`, `src/core/tool-summary.mjs`)**:
    - File paths are reduced to `basename(path)`; URLs are reduced to `new URL(u).host`; shell commands are reduced to allowlisted program names via `src/summarize-shell.mjs`.
-   - `cleanText` strips embedded absolute paths, `file://` URIs, query strings, bearer tokens, UUID connector segments (`ZERO_UUID`), and email addresses, and truncates strings to strict code-point caps (`80..120` code points).
+   - `cleanText` reduces embedded absolute paths and `file://` URIs to basenames and URLs to hostnames (their query strings go with them), masks UUID connector segments (`ZERO_UUID`), replaces email addresses with `(email)`, and truncates each string to a fixed code-point cap (at most `160`, by field). It has no secret detector: a token inside a prompt excerpt, a search query or the first line of a tool error is sent as written, so command lines and file contents are kept out by not reading them into an event, not by scrubbing.
 
 ### 4.2 Performance Efficiency & Resource Management
 
@@ -182,7 +182,7 @@ sequenceDiagram
 ### 4.3 Usability, Accessibility & Internationalization
 
 - **Bilingual (`ko`/`en`) Live Switching**: Toggling `#lang-toggle` (`KO` / `EN`) re-renders all HUD labels, 3D room signs, elevator floor badges (`P:done/total`), `#board-detail` checklist drawers, and `#demo` scenarios (`public/js/sources.js`, `public/js/board.js`) in place without page reload.
-- **Progressive Disclosure & Keyboard Navigation**: Top bar consolidates primary simulation controls (`#sim-hud-pill` RCI meter + `<select id="sim-lens-select">`) and secondary utilities behind `#sim-more-toggle`, with full keyboard shortcuts (`1-9`, `0`, `B`, `F`, `T`, `M`, `N`, `O`, `R`, `Esc`) and `prefers-reduced-motion` support.
+- **Progressive Disclosure & Keyboard Navigation**: Top bar consolidates primary simulation controls (`#sim-hud-pill` RCI meter + `<select id="sim-lens-select">`, shown only with `?labs=1` since `v0.12.0`) and secondary utilities behind `#sim-more-toggle`, with full keyboard shortcuts (`1-9`, `0`, `B`, `F`, `T`, `M`, `N`, `O`, `R`, `Esc`) and `prefers-reduced-motion` support.
 
 ---
 
@@ -208,7 +208,7 @@ sequenceDiagram
 ### 5.3 Continuous Integration & Governance Gates
 
 1. **GitHub Actions CI (`.github/workflows/test.yml`, `.github/workflows/publish.yml`, `.github/workflows/pages.yml`)**: Runs syntax checks (`node --check`), full test suite (`npm test`), package dry-runs across **Node.js 22 and Node.js 24**, manually dispatched OIDC npm publishing (`workflow_dispatch` only since `v0.12.0`), and GitHub Pages deployment.
-2. **Domain & Harness² Surface Verifiers (`scripts/verify-dom-invariants.mjs`)**: Enforces 0 dependencies, `<= 500 lines` per file, `O_NOFOLLOW` presence on watchers, and `c1..c8` `Harness²` surface budgets.
+2. **Domain & Harness² Surface Verifiers (`scripts/verify-dom-invariants.mjs`)**: Enforces 0 dependencies, `<= 500 lines` per file (third-party files under `public/vendor/` exempt), `O_NOFOLLOW` presence on watchers, and `c1..c8` `Harness²` surface budgets.
 
 ---
 
@@ -236,7 +236,7 @@ sequenceDiagram
 Development is governed by the `Harness²` cost hierarchy (`skill -> script -> subagent -> hook -> gate -> memory -> always-on`), separating task-invariant rules (`INV`) from repository-specific domain contracts (`DOM` in `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`). Every change executes the 6-phase `/standard-workflow`:
 - **P0 Intake & P1 Worktree Isolation**: Linear issue tracking (`GLO-*`) and isolated Git worktree creation (`.worktrees/<slug>` from `origin/master`).
 - **P2 Architecture Fit & P3 4-Pillar Build**: Simultaneous delivery of production code + unit/conformance tests, usage documentation, visual cues, and invariant gates.
-- **P4 Independent Multi-Agent Verification & P5 Ship & Land**: Read-only subagent code review verifying zero `HIGH`/`MEDIUM` findings prior to PR squash-merge. npm/GitHub release publishing is post-merge and manually dispatched: `.github/workflows/publish.yml` runs on `workflow_dispatch` only since `v0.12.0` (through `v0.11.0` it ran on every merge to `master`).
+- **P4 Independent Multi-Agent Verification & P5 Ship & Land**: Read-only subagent code review verifying zero `HIGH`/`MEDIUM` findings prior to PR squash-merge. npm/GitHub release publishing is post-merge and manually dispatched: `.github/workflows/publish.yml` runs on `workflow_dispatch` only since `v0.12.0` (through `v0.11.0` it ran on every merge to `master`), and a real release (`dry_run` false) runs only when it is started on `master`; a dry run may be started on any ref.
 
 ### 6.3 Future Engineering Roadmap (Post-`v0.11.0`)
 

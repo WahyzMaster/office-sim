@@ -28,6 +28,35 @@
 | D16 | The hook route accepts bodies up to 1 MiB, answers `200` with `{}`, and keeps nothing from `tool_input` after scrubbing. |
 | D17 | Releases are manual: `publish.yml` runs on `workflow_dispatch` only. `package.json` is set to `0.12.0` in this branch. |
 
+### Decisions added after the review of W1 to W5
+
+| ID | Decision |
+|---|---|
+| D18 | Refines D2. An already running office-sim is reused only when this run passes no option other than `--open`, `--no-open` and `--demo`. With any other option (for example `--replay`, `--auth`, `--agents`, a root, `--notify`, `--cdn`) the port conflict stays an error, and the message names the running URL and `--port`. |
+| D19 | With `--demo`, when the browser is not opened, the CLI prints one line `office-sim: demo <url>#demo`. |
+| D20 | The desktop app log readers pass nothing from tool arguments to the page. An MCP tool name is taken only from a JSON-parsed client `tools/call` request (`params.name`) and must match `[A-Za-z0-9_.:-]{1,64}`; server names follow the same rule; anything else becomes a generic label. |
+| D21 | The first-run banner names no time window: "No agent session is running right now. Start Claude Code, Codex, Grok or Antigravity and it appears here. This is a demo." |
+| D22 | Refines D8. Korean is chosen only for the language subtag `ko` (`ko`, `ko-KR`), not for other subtags that start with those letters. |
+| D23 | A real release (`dry_run` false) runs only on `refs/heads/master`. |
+| D24 | The compaction toast states no percentage. |
+| D25 | A hook-derived `tool_wait` carries exactly `toolUseId` and `waiting`, like the Grok one, and is present in snapshots so a reconnecting page still shows the wait. |
+
+### Decisions taken while reviewing W6 to W8
+
+| ID | Decision |
+|---|---|
+| D26 | A session only hooks report sends no free text of a hook body: `stop_reason` and a tool's `error` are replaced by fixed lines, and `agent_type` shows only when it has the shape of a name. |
+| D27 | The specification follows the code on the Antigravity desktop app folder: `<root>/antigravity/` is read (since 0.2.0), and the documents say so. Reverting to the older scope stays an owner decision. |
+| D28 | An explicit `--port` is never probed for a running office-sim (D18 covers the default port only); its conflict message keeps the plain hint. |
+
+### Left for a follow-up issue (existing behaviour, not changed here)
+
+- Free text has no secret detector: `cleanText` masks paths, URLs and email addresses, not token-shaped strings. The guardrail line in `CLAUDE.md` 4.2 says more than the code does; which side moves is an owner decision.
+- The Grok Bot title is cut to 48 characters before the title scrub, so an address or path that straddles the cut is not recognised.
+- A tool that an older thirteen-event hook install opened stays in the bridge's open list after the Store starts to follow that session.
+- The settings write of the hook installer is not atomic (backup, then write).
+- The WebGPU timeout reason is English only; the English README keeps one Korean phrase in the Grok row because `test/grok-docs.test.mjs` pins it.
+
 ## Work items, in dependency order
 
 Each item is one commit. Tests are written first and run with `node --test test/<file>.test.mjs`. New code goes in new modules because ten files sit within six lines of the 500-line cap (`office.js`, `hud.js`, `agent.js`, `session.mjs`, `rooms.js`, `office.html`, `flywheel/control.mjs`, `placement.js`, `store.mjs`, `server-runner.mjs`).
@@ -112,6 +141,12 @@ A reviewer should treat only these as intended updates. Any other weakened or de
 | `test/p1-p4-roadmap.test.mjs`, `test/records.test.mjs` | `HOOK_EVENTS` set, `http` hook shape, hook route response `{}`; no cost fields. |
 | `test/server.test.mjs`, `test/runner-group.test.mjs` | `lang="en"` in the served head, if asserted. |
 | `test/share-overlay.test.mjs` | `publish.yml` trigger: the `push` on `master` assertion becomes `workflow_dispatch` only, no `push` (D17). Added in the W1 repair round: the old assertion cannot hold once D17 removes the push trigger. |
+| `test/first-run-cli.test.mjs` | `--demo` without an opened browser now prints the demo line (D19); the old pin that `#demo` is absent goes. |
+| `test/first-run-page.test.mjs` | The banner names no time window (D21): the pins on `30분`, `last 45 minutes`, the fallback to 30 and the `DEFAULT_ACTIVE_MINUTES` export go, and a changed `activeMinutes` no longer refreshes the chip tooltip. |
+| `test/desktop-disclosure.test.mjs` | The pins on the `"name"` pattern wording become pins on `params.name`, `params.arguments`, the name shape and the generic labels (D20). |
+| `test/release-workflow.test.mjs` | `no job-level condition` and `exactly 3 ifs` become the master-only job condition (D23). |
+| `test/cdn-flag.test.mjs` | A WebGPU import that does not answer in time is a timeout, not a refused load: it leaves the list that expects the `--cdn` hint and gets its own test (no `fallbackCode`, no hint). Follow-up item 11 of the W1 to W5 review. |
+| `test/adapter-antigravity-conformance.test.mjs` | Message text of one assertion only (what it checks is unchanged): the bait conversation sits in a folder next to the app roots; the desktop app folder itself is read since 0.2.0. |
 
 ## Constraints for every change
 

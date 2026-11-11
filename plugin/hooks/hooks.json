@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:4747/api/hooks/claude",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:4747/api/hooks/claude",
+            "timeout": 2
+          }
+        ]
+      }
+    ]
+  }
+}
