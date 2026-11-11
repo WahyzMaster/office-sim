@@ -111,6 +111,7 @@ npm start
 | Codex (데스크톱 앱, CLI, IDE 확장 및 ChatGPT 데스크톱 앱) | `codex` | 지원 (P5d, `~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl` 및 ChatGPT 데스크톱 / Dot 감시) |
 | Antigravity CLI (`agy`)와 예전 Antigravity IDE | `antigravity` (`surface: 'cli'`) | 지원 (P5e). 화면에는 `Antigravity (CLI)` · 배지 `AGY·CLI` 로 표시 |
 | Antigravity 데스크톱 앱 (Antigravity.app 2.x) | `antigravity` (`surface: 'app'`) | 지원. `~/.gemini/antigravity/brain/<대화>/.system_generated/logs/` 의 단계 기록과 아티팩트(`task.md`, `implementation_plan.md`)를 읽고, 암호화된 `conversations/*.pb` 는 열지 않습니다. 화면에는 `Antigravity (App)` · 배지 `AGY·App` 로 표시 |
+| Gemini CLI (선택형 플러그인) | `gemini-cli` (`--plugins gemini-cli`) | 선택형 지원 (`~/.gemini/tmp/<프로젝트>/chats/session-*.json[l]`, `SessionCore` 기반 + `O_NOFOLLOW` 허용 목록 탐색) |
 
 ## 카메라 조작 프리셋
 
@@ -139,8 +140,10 @@ npm start
 | `--codex-root` | `~/.codex` | Codex 기록 위치 |
 | `--grok-root` | `~/.grok` | Grok 기록 위치 |
 | `--antigravity-root` | `~/.gemini` | Antigravity 데스크톱 앱·CLI·IDE 기록 위치 |
+| `--plugins <list>` | 꺼짐 | 선택형 플러그인 어댑터 켜기 (`gemini-cli`) |
+| `--gemini-cli-root` | `~/.gemini/tmp` | Gemini CLI 채팅 기록 위치 (`--plugins gemini-cli` 사용 시) |
 | `--notify [cats]` | 꺼짐 | macOS/Windows 네이티브 알림 켜기 (기본 `ask,error,done`; `tool_error`, `all`, `off` 지원) |
-| `--replay <file.jsonl>` | 없음 | 지난 Claude Code 세션 하나를 기록된 시간 간격대로 재생 |
+| `--replay <file.jsonl>` | 없음 | 지난 Claude Code 세션을 타임라인 스크러버·마커·북마크 핀과 함께 재생 |
 | `--speed <n>` | `1` | 재생 배속 (`0.1`~`1000`) |
 | `--loop` | 꺼짐 | 재생이 끝나면 처음부터 반복 |
 | `--auth` | 꺼짐 | 일회용 토큰(`http://127.0.0.1:<port>/?t=<token>`)으로 쿠키 인증 강제 |

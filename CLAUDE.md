@@ -1,31 +1,31 @@
 # CLAUDE.md — office-sim
 
 ## 1. Profile & Scope (`INV` vs `DOM`)
-- **User-Scope (`INV` Baseline)**: `WahyzDAD/wahyz_agent_profile#v1.4.0` (`~/.claude/CLAUDE.md`). Global MCP routing (`serena`, `codegraph`, `morph-mcp`, `context7`, `tavily`), 60+ portable skills, and worktree isolation hooks (`using-git-worktrees`) come from the global profile — do not duplicate them here.
+- **User-Scope (`INV` Baseline)**: `WahyzDAD/wahyz_agent_profile#v1.4.3` (`~/.claude/CLAUDE.md`). Global MCP routing (`serena`, `codegraph`, `morph-mcp`, `context7`, `tavily`), 60+ portable skills, and worktree isolation hooks (`using-git-worktrees`) come from the global profile — do not duplicate them here.
 - **Project-Scope (`DOM` Contract)**: This file defines domain-specific architecture, build/test commands, and privacy/runtime invariants for `office-sim` (Node.js 22+ ESM + Three.js browser visualizer).
 - **Harness² Cost Hierarchy**: `skill -> script -> subagent -> hook -> gate -> memory -> always-on`. Keep this file under `16,000 bytes` / `220 lines`; load heavy specifications (`docs/CONTRACT.md`, `docs/ADAPTERS.md`, `docs/SOFTWARE_DEVELOPMENT_REPORT.md`) on demand only when modifying adapters, wire schemas, or system documentation.
 
 ## 2. Architecture & Module Map
 - **CLI Entrypoint**: `bin/office-sim.mjs` parses CLI flags via `src/cli-args.mjs` and launches the loopback server.
 - **Loopback HTTP/SSE Server (`src/`)**:
-  - `src/server.mjs`, `src/server-runner.mjs`, `src/server-http.mjs`, `src/server-health.mjs`, `src/server-guard.mjs`: serves static assets, `/events` SSE stream, `/state` snapshot, and `/healthz` diagnostics with strict `Host`/`Origin`/`Sec-Fetch-Site`/CSP guards.
-  - `src/discover.mjs`, `src/tailer.mjs`, `src/store.mjs`, `src/store-claude.mjs`, `src/store-link.mjs`: discovers active agent log files, tails byte offsets every 250ms, and links subagent sessions and project worktree floors.
+  - `src/server.mjs`, `src/server-runner.mjs`, `src/server-http.mjs`, `src/replay-control.mjs`, `src/server-health.mjs`, `src/server-guard.mjs`: serves static assets, `/events` SSE stream, `/state` snapshot, `/api/replay` interactive timeline controls, and `/healthz` diagnostics with strict `Host`/`Origin`/`Sec-Fetch-Site`/CSP guards.
+  - `src/discover.mjs`, `src/tailer.mjs`, `src/store.mjs`, `src/store-claude.mjs`, `src/store-link.mjs`, `src/replay.mjs`, `src/replay-timeline.mjs`: discovers active agent log files, tails byte offsets every 250ms, links subagent sessions and project worktree floors, and runs deterministic multi-session replay scrubbing.
   - `src/session.mjs`, `src/session-identity.mjs`, `src/session-plan.mjs`, `src/session-util.mjs`, `src/core/`: normalizes tool invocations, checklists (`task.md`, `implementation_plan.md`), and speech summaries.
 - **Multi-Agent Adapters (`src/adapters/`)**:
-  - `src/adapters/index.mjs` registers `claude-code` (`src/adapters/claude-code.mjs`), `codex` (`src/adapters/codex/`), `grok` (`src/adapters/grok/`), and `antigravity` (`src/adapters/antigravity/`).
+  - `src/adapters/index.mjs` registers the 4 default built-in adapters (`claude-code`, `codex`, `grok`, `antigravity`), while `src/adapters/plugins.mjs` exposes optional opt-in plug-in descriptors (`--plugins gemini-cli` -> `src/adapters/gemini-cli/`).
 - **Observation Sidecar (`src/observe/`)**:
   - `src/observe/observer.mjs`, `src/observe/control.mjs`, `src/observe/records.mjs`, `src/observe/summary.mjs`, `src/observe/retention.mjs`: non-invasive file watcher (`O_RDONLY | O_NOFOLLOW | O_NONBLOCK`) emitting category/shape metrics without sensitive payloads.
 - **Improvement & Revision Flywheel (`src/flywheel/` & `scripts/flywheel/`)**:
   - `src/flywheel/types.mjs`, `src/flywheel/router.mjs`, `src/flywheel/collectors.mjs`, `src/flywheel/control.mjs`: 8-source (`P1..P8`) runtime anomaly collector, 24-hex SHA-256 3-layer deduplication, 2-tick warn debounce, 72h regression detection, and Tier A/B/C dry-run router exposed via `/api/flywheel` and `public/js/flywheel-panel.js`.
   - `scripts/flywheel/seed-loop-contract.mjs`, `scripts/flywheel/loop-attempt-ledger.mjs`, `scripts/flywheel/promote-lesson.mjs`, `scripts/flywheel/evidence-notes.mjs`: `L3 -> L1 -> L2` `Harness²` CLI tools paired with `.claude/skills/office-flywheel/SKILL.md`.
 - **3D Browser Client (`public/`)**:
-  - `public/office.html` + `public/js/` (native ES modules + Three.js via `importmap`), including simulation sidecars `public/js/sim-motives.js`, `public/js/sim-overlays.js`, `public/js/sim-flywheel-viz.js`, `public/js/sim-advisor.js`, `public/js/sim-cute-anim.js`, and `public/js/board-detail.js`.
+  - `public/office.html` + `public/js/` (native ES modules + Three.js via `importmap`), including progressive WebGPU renderer & high-concurrency LOD (`public/js/webgpu-stage.js`, `public/js/detail.js`), interactive `--replay` timeline scrubber (`public/js/replay-scrubber.js`), and simulation sidecars (`public/js/sim-motives.js`, `public/js/sim-overlays.js`, `public/js/sim-flywheel-viz.js`, `public/js/sim-advisor.js`, `public/js/sim-cute-anim.js`, `public/js/board-detail.js`).
   - `public/js/rooms.js` defines the 7 functional rooms (`archive`, `dev`, `server`, `research`, `meeting`, `desk`, `lounge`), 7 architectural themes (`studio`, `office`, `palace`, `hanok`, `starship`, `dogs`, `cats`), and bilingual (`ko`/`en`) strings.
 - **Bundled Skills, Subagents & Scripts (`c5..c7`)**:
   - Runtime skill: `skills/office/SKILL.md` installed via `scripts/install-skill.mjs`.
   - On-demand `DOM` adapter/theme skill (`c6`): `.claude/skills/office-adapter/SKILL.md`.
   - Privacy & conformance subagent (`c5`): `.apm/agents/adapter-privacy-auditor.md`.
-  - Synthetic stream generators, root guard & invariant gate (`c7`): `scripts/fake-root-guard.mjs`, `scripts/fake-codex-append.mjs`, `scripts/fake-grok-append.mjs`, `scripts/fake-antigravity-append.mjs`, `scripts/verify-dom-invariants.mjs`.
+  - Synthetic stream generators, root guard & invariant gate (`c7`): `scripts/fake-root-guard.mjs`, `scripts/fake-codex-append.mjs`, `scripts/fake-grok-append.mjs`, `scripts/fake-antigravity-append.mjs`, `scripts/fake-gemini-cli-append.mjs`, `scripts/verify-dom-invariants.mjs`.
 
 ## 3. Build, Run & Verification Commands
 - **Start local server**: `npm start` (or `node bin/office-sim.mjs`)

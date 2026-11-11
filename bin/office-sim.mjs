@@ -8,6 +8,7 @@ import { parseArgs, USAGE } from '../src/cli-args.mjs';
 import { start } from '../src/server.mjs';
 import { COMMIT_RE } from '../src/server-health.mjs';
 import { defaultRoots } from '../src/adapters/index.mjs';
+import { pluginDefaultRoots } from '../src/adapters/plugins.mjs';
 import { openUrl } from '../src/open-url.mjs';
 
 // 기록 관찰 결과 폴더 (<repo>/.observe, .gitignore 에 있다). 관찰을 시작할 때 처음 만든다 (0700).
@@ -104,7 +105,11 @@ let app;
 try {
   // 다른 어댑터의 기본 루트(~/.codex, ~/.grok, ~/.gemini)는 여기서 채운다: start() 는 받은 루트만 쓴다. --<id>-root 가 이긴다
   app = await start({
-    ...args, roots: { ...defaultRoots(), ...args.roots }, observeDir: args.replay ? null : OBSERVE_DIR, build: { commit: gitCommit() }, log,
+    ...args,
+    roots: { ...defaultRoots(), ...pluginDefaultRoots(args.plugins), ...args.roots },
+    observeDir: args.replay ? null : OBSERVE_DIR,
+    build: { commit: gitCommit() },
+    log,
   });
 } catch (err) {
   const hint = err?.code === 'EADDRINUSE' ? ' (port in use: try --port 0 or another port)' : '';

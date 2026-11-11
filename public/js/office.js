@@ -5,7 +5,7 @@ import { Agent } from './agent.js';
 import { ROOMS, activeThemeOf, classify, toolLabel, tr } from './rooms.js';
 import { separateAgents } from './placement.js';
 import { Inbox } from './office-inbox.js';
-import { floorDetail, labelRootIndex } from './detail.js';
+import { floorDetail, crowdStride, labelRootIndex, lodTier } from './detail.js';
 import { waitStart, waitEnd, reconcileWaits, snapshotWaits, liveAskStays, textKey, rememberText, forgetText, forgetTexts } from './approval.js';
 
 export const GLOBAL_FLOOR_KEY = '_global';
@@ -117,7 +117,7 @@ export class Office {
         line = `“${ev.text}”`;
         break;
       case 'plan':
-        line = this.plan(a, ev.items || [], !!ev.langSync);
+        line = this.plan(a, ev.items || [], !!ev.langSync || !!ev.replay);
         kind = 'plan';
         break;
       case 'turn_end':
@@ -198,8 +198,8 @@ export class Office {
     if (!floor) return null;
     const spawn = parent ? { x: parent.group.position.x + 0.6, z: parent.group.position.z + 0.4, jitter: true } : null;
     const a = new Agent(this, { ...info, project: floor.key }, floor, spawn);
-    this.agents.set(a.id, a);
-    this.dress(a);
+    const prevTier = lodTier(this.agents.size); this.agents.set(a.id, a);
+    if (lodTier(this.agents.size) !== prevTier) this.layout(); else this.dress(a);
     this.hud.renderFloors(this);
     return a;
   }
@@ -237,8 +237,8 @@ export class Office {
     a.pending = old.pending;
     a.history = old.history;
     a.childSeq = old.childSeq; // 이미 있는 형제와 색이 겹치지 않게 순번을 이어 간다
-    this.agents.set(a.id, a);
-    this.dress(a);
+    const prevTier = lodTier(this.agents.size); this.agents.set(a.id, a);
+    if (lodTier(this.agents.size) !== prevTier) this.layout(); else this.dress(a);
     if (this.selected === old) this.select(a, { silent: true });
     if (floor !== from) {
       for (const kid of [...this.agents.values()]) if (kid.parentId === a.id && kid.floor === from) this.rehome(kid, {}, floor);
@@ -293,6 +293,11 @@ export class Office {
   // - 스냅샷에 없는 직원: 열린 것을 모두 닫고 퇴근. 단 서버가 아직 파일을 붙이는 중(partial)이면 그대로 둔다.
   // - 라이브 승인 대기: 도구는 열려 있는데 tool_wait 가 없으면 끊긴 사이에 허용된 것이라 도구 방으로 돌려보낸다.
   applySnapshot(events, meta = {}) {
+    if (meta.reset) {
+      for (const a of [...this.agents.values()]) this.removeAgent(a);
+      for (const f of this.floors) f.board?.clear?.();
+      this.inbox.boxes?.clear?.(); this.toolTexts.clear();
+    }
     const live = new Set();
     const open = new Map();
     for (const e of events) {
@@ -316,6 +321,7 @@ export class Office {
         a.leave();
       }
     }
+    if (meta.reset) this.catchUp();
   }
 
   // 탭이 다시 보이면: 숨어 있는 동안 쌓인 일을 건너뛰고 지금 상태로 따라잡는다.
@@ -329,9 +335,9 @@ export class Office {
 
   removeAgent(a) {
     a.dispose();
-    this.agents.delete(a.id);
-    if (this.selected === a) this.select(null);
-    this.pruneEmptyFloors();
+    const prevTier = lodTier(this.agents.size); this.agents.delete(a.id); if (this.selected === a) this.select(null);
+    const prevFloors = this.floors.length; this.pruneEmptyFloors();
+    if (this.floors.length === prevFloors && lodTier(this.agents.size) !== prevTier) this.layout();
     this.hud.renderFloors(this);
   }
 
@@ -388,7 +394,7 @@ export class Office {
     this.hud.renderFloors(this);
   }
 
-  labelsVisible(floor) { return this.overview || floor.index === this.focusIndex; }
+  labelsVisible(floor) { return floorDetail(floor.index, this.focusIndex, this.overview, { agentCount: this.agents.size, floorCount: this.floors.length }).labels; }
 
   // 새 직원도 자기 층의 자세히 그리기 수준(라벨, 그림자)을 따른다.
   dress(a) {
@@ -419,9 +425,10 @@ export class Office {
   layout(opts = {}) {
     document.body.classList.toggle('overview', this.overview);
     this.stage.setOverview?.(this.overview);
+    const load = { agentCount: this.agents.size, floorCount: this.floors.length };
     for (const f of this.floors) {
       f.goalY = f.index * (this.overview ? EXPLODE_GAP : FLOOR_GAP);
-      const d = floorDetail(f.index, this.focusIndex, this.overview);
+      const d = floorDetail(f.index, this.focusIndex, this.overview, load);
       f.group.visible = d.visible;
       f.group.matrixWorldAutoUpdate = d.visible; // 숨은 층은 행렬 갱신도 건너뛴다
       f.animate = d.animate;
@@ -467,13 +474,20 @@ export class Office {
   }
 
   update(dt, realDt) {
-    for (const f of this.floors) {
+    this.tickSeq = ((this.tickSeq || 0) + 1) | 0;
+    const total = this.agents.size;
+    const theme = activeThemeOf();
+    for (const f of [...this.floors]) {
       f.busy = {};
       for (const a of f.agents) if (a.mode === 'work' && !a.path.length) f.busy[a.room] = true;
+      const stride = crowdStride(total, !this.overview && f.index === this.focusIndex);
+      const prevAnim = f.animate;
+      if (prevAnim && stride > 1 && (this.tickSeq % stride) !== 0) f.animate = false;
       f.update(dt, realDt);
+      for (const a of [...f.agents]) a.update(dt);
+      f.animate = prevAnim;
+      if (f.group.visible && f.agents.size > 1) separateAgents([...f.agents], dt, 0.56, theme);
     }
-    for (const a of [...this.agents.values()]) a.update(dt);
-    separateAgents([...this.agents.values()], dt, 0.56, activeThemeOf());
     if (this.follow && this.selected) {
       this.selected.group.getWorldPosition(this.tmp);
       this.tmp.y += 0.6;

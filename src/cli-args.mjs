@@ -2,6 +2,7 @@
 import { expandHome, DEFAULTS, LOOPBACK_HOSTS } from './server.mjs';
 import { MIN_INTERVAL, MAX_INTERVAL } from './server-http.mjs';
 import { KNOWN_AGENTS, checkAgents } from './adapters/index.mjs';
+import { KNOWN_PLUGINS, checkPlugins } from './adapters/plugins.mjs';
 import { parseNotifyArg } from './system-notify.mjs';
 
 export const USAGE = `Usage: office-sim [options]
@@ -19,6 +20,8 @@ export const USAGE = `Usage: office-sim [options]
   --grok-root <dir>    Grok (xAI Grok Build) root (default ~/.grok)
   --antigravity-root <dir>  Antigravity CLI and legacy IDE root (default ~/.gemini; only its antigravity-cli/ and
                        antigravity-ide/ folders are read, never the desktop app's antigravity/)
+  --plugins <id,id>    enable optional plug-in adapters (${KNOWN_PLUGINS.join(', ')})
+  --gemini-cli-root <dir>  Gemini CLI session root when --plugins gemini-cli is enabled (default ~/.gemini/tmp)
   --auth               require a per-run token: open the printed URL once, the browser then keeps a cookie
   --open               open the printed URL (with --auth, the token URL) in the default browser once listening
   --notify [cats]      enable native OS notifications (default: ask,error,done; optional: tool_error, all)
@@ -40,9 +43,11 @@ const SPEC = {
   // 어댑터 (contract 4.0.1): --agents 로 좁히고, 다른 도구의 루트는 roots.<agent id> 에 받는다 (grok 은 P5c, codex 는 P5d,
   // antigravity 는 P5e 부터 쓴다. 주지 않은 루트의 기본값은 bin 이 defaultRoots() 로 채운다)
   agents: { key: 'agents', kind: 'agents' },
+  plugins: { key: 'plugins', kind: 'plugins' },
   'codex-root': { key: 'roots', agent: 'codex', kind: 'path' },
   'grok-root': { key: 'roots', agent: 'grok', kind: 'path' },
   'antigravity-root': { key: 'roots', agent: 'antigravity', kind: 'path' },
+  'gemini-cli-root': { key: 'roots', agent: 'gemini-cli', kind: 'path' },
   auth: { key: 'auth', kind: 'flag' },
   open: { key: 'open', kind: 'flag' }, // bin 만 쓴다 (start() 로 넘기지 않는다)
   notify: { key: 'notify', kind: 'notify' },
@@ -59,8 +64,13 @@ function convert(name, spec, raw) {
   if (spec.kind === 'agents') {
     const ids = raw.split(',').map((x) => x.trim());
     if (ids.some((x) => x === '')) throw new Error(`--${name} needs agent ids, comma-separated (${KNOWN_AGENTS.join(', ')})`);
+    return ids;
+  }
+  if (spec.kind === 'plugins') {
+    const ids = raw.split(',').map((x) => x.trim());
+    if (ids.some((x) => x === '')) throw new Error(`--${name} needs plugin ids, comma-separated (${KNOWN_PLUGINS.join(', ')})`);
     try {
-      return checkAgents(ids);
+      return checkPlugins(ids);
     } catch (err) {
       throw new Error(`--${name}: ${err.message}`);
     }
@@ -119,6 +129,17 @@ export function parseArgs(argv) {
     const value = convert(name, spec, raw);
     if (spec.agent) out[spec.key] = { ...out[spec.key], [spec.agent]: value };
     else out[spec.key] = value;
+  }
+  if (out.agents !== undefined) {
+    const allowed = out.plugins?.length ? [...KNOWN_AGENTS, ...out.plugins] : KNOWN_AGENTS;
+    try {
+      out.agents = checkAgents(out.agents, allowed);
+    } catch (err) {
+      throw new Error(`--agents: ${err.message}`);
+    }
+  }
+  if (out.roots?.['gemini-cli'] && !out.plugins?.includes('gemini-cli')) {
+    out.plugins = [...(out.plugins ?? []), 'gemini-cli'];
   }
   if ((out.speed !== undefined || out.loop) && !out.replay) throw new Error('--speed and --loop need --replay <file>');
   return out;

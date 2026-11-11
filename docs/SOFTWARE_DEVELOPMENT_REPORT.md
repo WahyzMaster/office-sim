@@ -1,4 +1,4 @@
-# Software Development Report — Office Sim (`v0.10.1`)
+# Software Development Report — Office Sim (`v0.11.0`)
 
 ## 1. Document Control, Identification & Executive Summary
 
@@ -10,30 +10,30 @@
 |---|---|
 | **Document ID** | `SDR-OFFICE-SIM-2026-01` |
 | **Product Name** | `office-sim` (Real-Time 3D Multi-Agent Office Visualizer) |
-| **Baseline Version** | `v0.10.1` (Git tag `v0.10.1`, published to npm as `office-sim@0.10.1`) |
+| **Baseline Version** | `v0.11.0` (Git tag `v0.11.0`, published to npm as `office-sim@0.11.0`) |
 | **Repository** | `https://github.com/WahyzMaster/office-sim` |
 | **License** | MIT (`LICENSE`) |
-| **Runtime Environment** | Server: `Node.js >= 22` (`node:*` built-in ESM only); Client: Browser ES Modules + WebGL2 (`Three.js` via `importmap`) |
+| **Runtime Environment** | Server: `Node.js >= 22` (`node:*` built-in ESM only); Client: Browser ES Modules + WebGL2 / progressive WebGPU (`Three.js` via `importmap`) |
 | **Runtime Dependencies** | `0` (`package.json` `dependencies` field absent by invariant) |
 | **Governing Specifications** | `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `docs/CONTRACT.md`, `docs/ADAPTERS.md`, `docs/HISTORY.md` |
 
 ### 1.2 Executive Summary
 
-`office-sim` is a zero-dependency local 3D multi-agent office visualizer that discovers and tails local AI coding agent session transcripts every `250ms` (alongside sub-`10ms` Claude Code HTTP hooks via `POST /api/hooks/claude` in `src/hooks-receiver.mjs`) and renders **Claude Code** (CLI & Claude Desktop), **OpenAI Codex** (CLI, IDE & ChatGPT Desktop), **xAI Grok Build** (CLI & Desktop Bot), and **Google Antigravity** (`agy` CLI & Desktop App) collaborating across project floors in real time.
+`office-sim` is a zero-dependency local 3D multi-agent office visualizer that discovers and tails local AI coding agent session transcripts every `250ms` (alongside sub-`10ms` Claude Code HTTP hooks via `POST /api/hooks/claude` in `src/hooks-receiver.mjs`) and renders **Claude Code** (CLI & Claude Desktop), **OpenAI Codex** (CLI, IDE & ChatGPT Desktop), **xAI Grok Build** (CLI & Desktop Bot), and **Google Antigravity** (`agy` CLI & Desktop App) — plus optional plug-in CLI agents such as **Gemini CLI** (`--plugins gemini-cli` via `src/adapters/plugins.mjs`) — collaborating across project floors in real time.
 
 Built under a strict **Zero-Dependency** and **Privacy-by-Default** engineering charter, the server uses exclusively Node.js built-in modules (`node:http`, `node:fs`, `node:path`, `node:crypto`, `node:child_process`) bound to loopback (`127.0.0.1`), opens transcript files with `O_RDONLY | O_NOFOLLOW | O_NONBLOCK`, and scrubs all sensitive payloads so that only tool categories, file basenames, URL hostnames, and short status summaries cross the Server-Sent Events (`/events`) wire boundary.
 
-### 1.3 Quantitative Engineering Baseline (`v0.10.1`)
+### 1.3 Quantitative Engineering Baseline (`v0.11.0`)
 
 | Metric Category | Metric | Verified Value | Primary Evidence |
 |---|---|---|---|
-| **Release Velocity** | Semantic Releases & Commits | `18` releases (`v0.2.0` -> `v0.10.1`), `132+` commits | Git tags, `.github/workflows/publish.yml` |
+| **Release Velocity** | Semantic Releases & Commits | `20` releases (`v0.2.0` -> `v0.11.0`), `135+` commits | Git tags, `.github/workflows/publish.yml` |
 | **Dependency Footprint** | Production `npm` Dependencies | `0` runtime dependencies | `package.json`, `scripts/verify-dom-invariants.mjs` |
 | **Modularity** | Source File Line Cap | `<= 500 lines` per file across `bin/`, `src/`, `public/js/`, `scripts/` | `scripts/verify-dom-invariants.mjs` |
-| **Codebase Volume** | Production & Test Source | `~25.2K` lines production (`src/`, `bin/`, `public/`, `scripts/`) + `28.2K` lines tests (`test/`) | `268+` repository `.mjs`/`.js`/`.html` files |
-| **Multi-Agent Coverage** | Supported Agent Families | `4` families (`claude-code`, `codex`, `grok`, `antigravity`) across CLI, IDE & Desktop surfaces | `src/adapters/index.mjs`, `docs/ADAPTERS.md` |
-| **3D Visual Matrix** | Rooms × Themes × Characters | `7` rooms × `7` architectural themes × `29` 3D character models (`8` LLM cast slots) | `public/js/rooms.js`, `public/js/theme-kit.js`, `public/js/legend-data.js` |
-| **Verification Suite** | Automated Test Execution | `1,380` passing tests across `40` suites (`122` test files, `0` failures) | `npm test` (`node --test`) |
+| **Codebase Volume** | Production & Test Source | `~26.8K` lines production (`src/`, `bin/`, `public/`, `scripts/`) + `28.8K` lines tests (`test/`) | `278+` repository `.mjs`/`.js`/`.html` files |
+| **Multi-Agent Coverage** | Supported Agent Families | `4` built-in families (`claude-code`, `codex`, `grok`, `antigravity`) + opt-in plug-in registry (`gemini-cli`) | `src/adapters/index.mjs`, `src/adapters/plugins.mjs`, `docs/ADAPTERS.md` |
+| **3D Visual Matrix** | Rooms × Themes × Characters | `7` rooms × `7` architectural themes × `29` 3D character models (`8` LLM cast slots) + WebGL2/WebGPU progressive stage | `public/js/rooms.js`, `public/js/webgpu-stage.js`, `public/js/legend-data.js` |
+| **Verification Suite** | Automated Test Execution | `1,390+` passing tests across `125` test files (`0` failures) | `npm test` (`node --test`) |
 
 ---
 
@@ -195,14 +195,14 @@ sequenceDiagram
 | Verification Layer | Representative Test Files | Coverage Scope |
 |---|---|---|
 | **Core Parsing, State & Privacy** | `test/records.test.mjs`, `test/session.test.mjs`, `test/summarize.test.mjs`, `test/privacy.test.mjs`, `test/http-hardening.test.mjs` | `R6..R36` state machine transitions, `cleanText` scrubbing, CSP/Origin/Auth guards, and symlink rejection. |
-| **Multi-Agent Conformance & Bait Guards** | `test/adapter-conformance.test.mjs`, `test/adapter-grok-conformance.test.mjs`, `test/adapter-codex-conformance.test.mjs`, `test/adapter-antigravity-conformance.test.mjs` | Shared conformance harness (`test/fixtures/conformance.mjs`) verifying schema compliance, deduplication, and zero bait-file reads across all 4 adapters. |
-| **3D Geometry, Collision & Animation** | `test/theme-build.test.mjs`, `test/theme-geometry.test.mjs`, `test/theme-layout-invariants.test.mjs`, `test/sim-cute-anim.test.mjs`, `test/agent-flow.test.mjs` | Headless Three.js scene graph instantiation across all 7 themes and 29 character models, 12 geometric invariants, AABB pathfinding, and cute animation profiles. |
-| **Interactive HUD & Plan Board Drawer** | `test/board-detail.test.mjs`, `test/sim-studio-flywheel.test.mjs`, `test/browser-names.test.mjs`, `test/share-overlay.test.mjs` | 3D Plan Board raycast, `#board-detail` drawer lifecycle, bilingual live re-localization, RCI/lens HUD persistence, and room sign cues. |
+| **Multi-Agent Conformance & Bait Guards** | `test/adapter-conformance.test.mjs`, `test/adapter-grok-conformance.test.mjs`, `test/adapter-codex-conformance.test.mjs`, `test/adapter-antigravity-conformance.test.mjs`, `test/adapter-gemini-cli-conformance.test.mjs` | Shared conformance harness (`test/fixtures/conformance.mjs`) verifying schema compliance, deduplication, and zero bait-file reads across all built-in and plug-in adapters. |
+| **3D Geometry, WebGPU & High-Concurrency LOD** | `test/theme-build.test.mjs`, `test/theme-geometry.test.mjs`, `test/webgpu-renderer.test.mjs`, `test/sim-cute-anim.test.mjs`, `test/agent-flow.test.mjs` | Headless Three.js scene graph instantiation across all 7 themes and 29 character models, 12 geometric invariants, progressive WebGPU fallback, and `100+`-agent LOD stride. |
+| **Interactive HUD, Replay Scrubber & Board** | `test/board-detail.test.mjs`, `test/replay-scrubber.test.mjs`, `test/sim-studio-flywheel.test.mjs`, `test/browser-names.test.mjs`, `test/share-overlay.test.mjs` | 3D Plan Board raycast, `#board-detail` drawer, deterministic `--replay` forward/backward scrubbing (`GET/POST /api/replay`), bilingual live re-localization, and room sign cues. |
 | **Observation, Flywheel & Governance** | `test/observe-core.test.mjs`, `test/flywheel-router.test.mjs`, `test/flywheel-control-http.test.mjs`, `test/flywheel-loop-cli.test.mjs`, `test/software-development-report.test.mjs` | `P1..P8` anomaly collection, SHA-256 deduplication, `L3 -> L1 -> L2` promotion, and living-documentation verification. |
 
 ### 5.2 Synthetic Root Isolation & 12 3D Geometric Invariants
 
-- **Synthetic Root Guard (`scripts/fake-root-guard.mjs`)**: Every test (`test/fake-root-guards.test.mjs`) and synthetic stream generator (`scripts/fake-codex-append.mjs`, `scripts/fake-grok-append.mjs`, `scripts/fake-antigravity-append.mjs`) validates that target directories reside strictly inside `os.tmpdir()`, preventing accidental reads or writes to real `~/.claude`, `~/.codex`, `~/.grok`, or `~/.gemini`.
+- **Synthetic Root Guard (`scripts/fake-root-guard.mjs`)**: Every test (`test/fake-root-guards.test.mjs`) and synthetic stream generator (`scripts/fake-codex-append.mjs`, `scripts/fake-grok-append.mjs`, `scripts/fake-antigravity-append.mjs`, `scripts/fake-gemini-cli-append.mjs`) validates that target directories reside strictly inside `os.tmpdir()`, preventing accidental reads or writes to real `~/.claude`, `~/.codex`, `~/.grok`, or `~/.gemini`.
 - **12 Automated 3D Spatial Invariants (`test/theme-geometry.test.mjs`)**: Verifies every architectural theme and character rig against `shear` (no non-uniform rotation shearing), `hidden` (no buried meshes), `support` (furniture grounded), `floorTop` (no z-fighting with floor slabs), `ringClear` (context rings unobstructed), `coverage` (all 7 rooms populated), `globe`, `routeClear` (doorways passable), `screenBack`, `coplanar`, `alloc` (zero per-tick leaks), and `random` (seeded determinism).
 
 ### 5.3 Continuous Integration & Governance Gates
@@ -216,7 +216,7 @@ sequenceDiagram
 
 > **Standard Alignment**: **IEEE 1061** (Software Quality Metrics Methodology) and **Harness² (`INV` / `DOM`)** Autonomous Agentic Engineering Governance.
 
-### 6.1 Chronological Release Ledger (`v0.2.0` -> `v0.10.1`)
+### 6.1 Chronological Release Ledger (`v0.2.0` -> `v0.11.0`)
 
 | Version | Date | Milestone Summary |
 |---|---|---|
@@ -228,17 +228,18 @@ sequenceDiagram
 | `v0.8.0` - `v0.8.2` | `2026-10-30` | Sims agent motives/moodlets (`public/js/sim-motives.js`), SimCity `R/C/I` demand meter & 5-mode 3D lenses (`public/js/sim-overlays.js`), inline `#sim-hud-pill` top-bar integration (`GLO-1160`), and Dark Mode / progressive disclosure polish (`GLO-1161`). |
 | `v0.9.0` | `2026-10-30` | Location-contextual cute animations, 3D handheld micro-props, volume-preserving Squash & Stretch, joy-burst hops, and tetrapod species behaviors (`public/js/sim-cute-anim.js`, `GLO-1162`). |
 | `v0.10.0` | `2026-10-30` | Clickable 3D Plan Board raycast, Plan Board Detail Drawer (`#board-detail`), and interactive `.bubble`, `.floortag`, and `.sign` targets (`public/js/board-detail.js`, `GLO-1163`). |
-| `v0.10.1` | `2026-10-31` | 3-Loop Plan Board & HUD polish: bilingual live 3D whiteboard/drawer re-localization (`Board.syncOwnerTitle`), 7-step OAuth `#demo` checklist, `P:done/total` floor/sign badges, and room sign occupancy/approval cues (`GLO-1164`). |
+| `v0.10.1` - `v0.10.2` | `2026-10-31..11-01` | 3-Loop Plan Board & HUD polish (`GLO-1164`), industry-standard Software Development Report (`GLO-1165`), and `P5` post-merge deployment governance (`docs/workflows/README.md`). |
+| `v0.11.0` | `2026-11-11` | Post-`v0.10.1` roadmap delivery (`GLO-1243`): progressive WebGPU renderer (`?renderer=webgpu` / `#webgpu`, `public/js/webgpu-stage.js`) + `100+`-agent LOD stride (`public/js/detail.js`), interactive `--replay` timeline scrubber (`GET/POST /api/replay`, `src/replay-control.mjs`, `public/js/replay-scrubber.js`), and optional plug-in registry (`src/adapters/plugins.mjs`) with `gemini-cli` (`src/adapters/gemini-cli/`). |
 
 ### 6.2 SDLC Governance (`Harness²` & 6-Phase Standard Workflow)
 
 Development is governed by the `Harness²` cost hierarchy (`skill -> script -> subagent -> hook -> gate -> memory -> always-on`), separating task-invariant rules (`INV`) from repository-specific domain contracts (`DOM` in `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`). Every change executes the 6-phase `/standard-workflow`:
 - **P0 Intake & P1 Worktree Isolation**: Linear issue tracking (`GLO-*`) and isolated Git worktree creation (`.worktrees/<slug>` from `origin/master`).
 - **P2 Architecture Fit & P3 4-Pillar Build**: Simultaneous delivery of production code + unit/conformance tests, usage documentation, visual cues, and invariant gates.
-- **P4 Independent Multi-Agent Verification & P5 Ship & Land**: Read-only subagent code review verifying zero `HIGH`/`MEDIUM` findings prior to PR squash-merge and automated npm/GitHub release publishing (`.github/workflows/publish.yml`).
+- **P4 Independent Multi-Agent Verification & P5 Ship & Land**: Read-only subagent code review verifying zero `HIGH`/`MEDIUM` findings prior to PR squash-merge and post-merge automated npm/GitHub release publishing (`.github/workflows/publish.yml`).
 
-### 6.3 Future Engineering Roadmap (Post-`v0.10.1`)
+### 6.3 Future Engineering Roadmap (Post-`v0.11.0`)
 
-1. **WebGPU Optional Renderer Path**: Progressive enhancement alongside WebGL2 using `Three.js` WebGPU backend and instanced skeletal batching for `100+` concurrent subagents across `20+` floors.
-2. **Multi-Session Replay Timeline Scrubber**: Interactive seek/scrub bar in `--replay` mode with bookmarkable turn/error markers and synchronized `#board-detail` state snapshots.
-3. **Extended Adapter Ecosystem**: Optional plug-in descriptors for additional local CLI coding agents using the shared `SessionCore` (`src/core/session-core.mjs`) and `test/fixtures/conformance.mjs` verification harness.
+1. **Cross-Adapter Multi-Format `--replay`**: Extend `src/replay.mjs` and `src/replay-timeline.mjs` beyond Claude Code JSONL so recorded Codex, Grok, Antigravity, and `gemini-cli` transcripts can be scrubbed side-by-side in `--replay` mode.
+2. **TSL / Instanced Crowd Shaders on WebGPU**: Layer optional `InstancedMesh` limb batching onto `public/js/webgpu-stage.js` when `?renderer=webgpu` is active for `500+` synthetic swarm agents.
+3. **Additional Community CLI Plug-In Descriptors**: Expand `src/adapters/plugins.mjs` with opt-in descriptors for emerging local coding CLIs verified through `test/fixtures/conformance.mjs`.

@@ -10,7 +10,9 @@ import { createHttp, validInterval, MIN_INTERVAL, MAX_INTERVAL } from './server-
 import { Runner } from './server-runner.mjs';
 import { COMMIT_RE, createHealth, packageVersion } from './server-health.mjs';
 import { newToken } from './server-guard.mjs';
-import { ADAPTERS, KNOWN_AGENTS, checkAgents, isKnownAgent, probeRoot, probeWithin, selectAdapters } from './adapters/index.mjs';
+import { ADAPTERS, KNOWN_AGENTS, checkAgents, probeRoot, probeWithin, selectAdapters } from './adapters/index.mjs';
+import { resolvePluginAdapters } from './adapters/plugins.mjs';
+import { publicSessionId } from './session-identity.mjs';
 import { ObserveControl } from './observe/control.mjs';
 import { parseNotifyArg } from './system-notify.mjs';
 
@@ -24,7 +26,7 @@ export const DEFAULTS = Object.freeze({
   idleMs: 1000, pingMs: 15000, ringSize: 1000, auth: false, replay: null, speed: 1, loop: false,
   notify: false, notifyCategories: null, notifyOpts: null,
   root: path.join(os.homedir(), '.claude', 'projects'),
-  agents: null, roots: null, observeDir: null, build: null,
+  agents: null, plugins: null, roots: null, observeDir: null, build: null,
   publicDir: fileURLToPath(new URL('../public/', import.meta.url)),
 });
 export const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -59,7 +61,13 @@ function validate(o) {
   if (!(Number.isFinite(o.speed) && o.speed >= 0.1 && o.speed <= 1000)) throw new RangeError('speed must be 0.1..1000');
   if (typeof o.loop !== 'boolean') throw new RangeError('loop must be a boolean');
   if (o.observeDir !== null && (typeof o.observeDir !== 'string' || o.observeDir === '')) throw new RangeError('observeDir must be a folder path');
-  if (o.agents !== null) checkAgents(o.agents); // 모르는 id 는 RangeError
+  const pluginMap = o.plugins !== null ? resolvePluginAdapters(o.plugins, {}) : {};
+  const extraIds = [
+    ...Object.keys(pluginMap),
+    ...Object.keys(o.adapters ?? {}).filter((k) => !KNOWN_AGENTS.includes(k) && publicSessionId(k) !== null),
+  ];
+  const allowed = extraIds.length ? [...new Set([...KNOWN_AGENTS, ...extraIds])] : KNOWN_AGENTS;
+  if (o.agents !== null) checkAgents(o.agents, allowed); // 모르는 id 는 RangeError
   // /healthz 의 commit: bin 이 구한 짧은 sha 이거나 없음. 경로나 다른 글이 본문에 들어가지 않게 모양을 확인한다
   if (o.build !== null && (typeof o.build !== 'object' || Array.isArray(o.build))) throw new RangeError('build must be an object { commit }');
   const commit = o.build?.commit;
@@ -68,7 +76,7 @@ function validate(o) {
     if (typeof o.roots !== 'object' || Array.isArray(o.roots)) throw new RangeError('roots must be an object { <agent id>: <dir> }');
     for (const [id, dir] of Object.entries(o.roots)) {
       // Claude Code 루트는 root 옵션 하나뿐이다 (--claude-root / --root)
-      if (!isKnownAgent(id) || id === CLAUDE) throw new RangeError(`roots: no root option for "${String(id).slice(0, 40)}"`);
+      if (!allowed.includes(id) || id === CLAUDE) throw new RangeError(`roots: no root option for "${String(id).slice(0, 40)}"`);
       if (typeof dir !== 'string' || dir === '') throw new RangeError(`roots.${id} must be a directory path`);
     }
   }
@@ -230,16 +238,17 @@ function rootsFor(opts, adapters) {
 }
 
 // 켤 어댑터를 고르고 (D3) Runner 를 만든다. 각 Runner 는 자기 루트와 자기 opts 복사본을 가진다.
-async function createRunners({ opts, store, log, onStatus, onEnabled }) {
-  const adapters = opts.adapters ?? ADAPTERS; // 테스트 훅: 등록표를 바꿔 끼운다
+async function createRunners({ opts, store, log, onStatus, onSeek, onEnabled }) {
+  const adapters = opts.adapters ?? resolvePluginAdapters(opts.plugins, ADAPTERS); // 테스트 훅 또는 --plugins 확장
   if (opts.replay) {
     // 재생(6.1)은 Claude Code 만 (D12): 루트를 확인하지 않고 (--claude-root 는 재생에 쓰지 않는다) --agents 와 무관하다
     const claude = adapters[CLAUDE];
     const ReplayRunner = await claude.replayRunner();
-    const runner = new ReplayRunner({ opts: { ...opts }, deps: await claude.deps(opts.deps), store, log, onStatus });
-    // 라이브 모드(selectAdapters)와 같이 KNOWN_AGENTS 순서, 중복 없이
-    const wanted = opts.agents == null ? [] : checkAgents(opts.agents);
-    const notImplemented = KNOWN_AGENTS.filter((id) => wanted.includes(id) && !Object.hasOwn(adapters, id));
+    const runner = new ReplayRunner({ opts: { ...opts }, deps: await claude.deps(opts.deps), store, log, onStatus, onSeek });
+    const extra = Object.keys(adapters).filter((k) => !KNOWN_AGENTS.includes(k) && publicSessionId(k) !== null);
+    const order = extra.length ? [...KNOWN_AGENTS, ...extra] : KNOWN_AGENTS;
+    const wanted = opts.agents == null ? [] : checkAgents(opts.agents, order);
+    const notImplemented = order.filter((id) => wanted.includes(id) && !Object.hasOwn(adapters, id));
     return { group: new RunnerGroup([{ id: CLAUDE, runner }]), notImplemented };
   }
   // 테스트 훅: claude-code 에 가짜 scan 을 넣으면 탐색 자체가 가짜라 실제 폴더를 확인하지 않는다. probe 는 루트 확인 자체를 바꾼다.
@@ -321,7 +330,9 @@ export async function start(options = {}) {
   let httpLayer = null;
   let observe = null;
   const { group, notImplemented } = await createRunners({
-    opts, store, log, onStatus: () => httpLayer?.broadcastConfig(),
+    opts, store, log,
+    onStatus: () => httpLayer?.broadcastConfig(),
+    onSeek: () => httpLayer?.broadcastSnapshot({ reset: true }),
     // 늦게 켜진 grok / codex 루트는 관찰 상태(available, agents)를 바꾼다: 열린 페이지에 바로 알린다
     onEnabled: (id) => { if (observe && OBSERVED.includes(id)) httpLayer?.broadcastObserve(observe.status()); },
   });
@@ -353,6 +364,7 @@ export async function start(options = {}) {
     health: createHealth({ group, store, build: { version: packageVersion(), commit: opts.build?.commit ?? null }, startedAt }),
     authToken: token,
     observe,
+    replayRunner,
     focusOpts: opts.focusOpts ?? null,
     notifyOpts: {
       enabled: opts.replay ? false : parsedNotify.enabled,

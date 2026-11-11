@@ -14,7 +14,7 @@ export const AGENT_RADIUS = 0.24;
 export const BRAND_HUES = Object.freeze({
   'claude-code': 18, 'claude-code:cli': 16, 'claude-code:app': 28,
   codex: 162, 'codex:cli': 156, 'codex:app': 174, grok: 268,
-  antigravity: 222, 'antigravity:cli': 195, 'antigravity:ide': 208, 'antigravity:app': 224,
+  antigravity: 222, 'antigravity:cli': 195, 'antigravity:ide': 208, 'antigravity:app': 224, 'gemini-cli': 202, 'gemini-cli:cli': 202,
 });
 
 export function hueOf(id) {
