@@ -34,11 +34,11 @@ test('parseArgs: --claude-root and --root set the same option (root)', () => {
 });
 
 test('--auth cookie is named osim_<port>', () => {
-  const auth = createAuth('tok', () => 4317);
-  assert.equal(auth.setCookie(), 'osim_4317=tok; HttpOnly; SameSite=Strict; Path=/');
-  assert.equal(auth.allowed({ headers: { cookie: 'osim_4317=tok' } }), true);
-  assert.equal(auth.allowed({ headers: { cookie: 'co_4317=tok' } }), false, 'the old cookie name no longer opens the API');
-  assert.equal(auth.allowed({ headers: { cookie: 'osim_4318=tok' } }), false, 'another port');
+  const auth = createAuth('tok', () => 4747);
+  assert.equal(auth.setCookie(), 'osim_4747=tok; HttpOnly; SameSite=Strict; Path=/');
+  assert.equal(auth.allowed({ headers: { cookie: 'osim_4747=tok' } }), true);
+  assert.equal(auth.allowed({ headers: { cookie: 'co_4747=tok' } }), false, 'the old cookie name no longer opens the API');
+  assert.equal(auth.allowed({ headers: { cookie: 'osim_4748=tok' } }), false, 'another port');
 });
 
 test('bin/office-sim.mjs: --help prints the usage, a bad option is reported with the office-sim: prefix', () => {

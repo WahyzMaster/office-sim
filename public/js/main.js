@@ -16,8 +16,12 @@ import { installSimAdvisor } from './sim-advisor.js';
 import { installBoardDetail } from './board-detail.js';
 import { initOptionalWebGPU, parseBenchConfig, rendererBadgeLabel } from './webgpu-stage.js';
 import { installReplayScrubber } from './replay-scrubber.js';
+import { initLabs } from './labs.js';
+import { createFirstRun } from './empty-state.js';
+import { installStaticText } from './static-text.js';
 
 const cfg = { speed: 1, intervalMs: 250 };
+const labs = initLabs(); // 관리자용 도구(D10). Hud 가 설정을 읽기 전에: ?labs=1 을 같은 설정에 저장한다
 const stage = createStage(document.getElementById('stage'));
 const rendererInfo = await initOptionalWebGPU(stage);
 const hud = new Hud();
@@ -28,10 +32,12 @@ stage.applyTheme();
 const emit = (ev) => office.onEvent(ev);
 let source = null;
 let scrubber = null;
+let firstRun = null; // 라이브 모드의 첫 실행 조종기 (empty-state.js): 세션이 없으면 라이브 연결 위에 데모를 겹쳐 보여 준다
 
 function startDemo(state = 'demo') {
   if (source instanceof MockSource) return;
   source?.stop?.();
+  firstRun = null;
   source = new MockSource(emit);
   source.onBatch = (n) => hud.flashTail(n);
   hud.setLive(false);
@@ -50,13 +56,21 @@ if (benchMode) {
   hud.setSource('demo');
   source.start();
 } else if (local && window.location.hash !== '#demo') {
-  source = new LiveSource(emit, (state) => (state === 'down' ? startDemo('down') : hud.setSource(state)));
-  // partial: 서버가 아직 파일을 붙이는 중이라 빠진 세션이 있을 수 있다는 표시(있으면 퇴근시키지 않는다).
-  source.onSnapshot = (events, msg) => {
-    office.applySnapshot(events, { partial: !!msg?.partial, reset: !!msg?.reset });
-    if (msg?.reset) scrubber?.onReset?.();
+  // 겹쳐 보여 주는 데모(D6): source 는 끝까지 LiveSource 이고, 데모 공급원은 조종기가 만들고 돌리고 버린다.
+  // 데모 이벤트에는 demo 표시를 단다: 알림(system-notify.js)이 진짜 질문으로 알리지 않게.
+  const makeDemo = () => {
+    const demo = new MockSource((ev) => emit({ ...ev, demo: true }));
+    demo.onBatch = (n) => hud.flashTail(n);
+    return demo;
   };
-  source.onConfig = (msg) => { hud.applyConfig(cfg, msg); scrubber?.applyConfig?.(msg); };
+  firstRun = createFirstRun({ office, hud, makeDemo });
+  source = new LiveSource((ev) => firstRun.onEvent(ev), (state) => (state === 'down' ? startDemo('down') : firstRun.onStatus(state)));
+  // partial: 서버가 아직 파일을 붙이는 중이라 빠진 세션이 있을 수 있다는 표시(있으면 퇴근시키지 않는다).
+  // 데모가 도는 동안의 빈 스냅샷은 조종기가 사무실에 넘기지 않는다 (false).
+  source.onSnapshot = (events, msg) => {
+    if (firstRun.onSnapshot(events, msg) && msg?.reset) scrubber?.onReset?.();
+  };
+  source.onConfig = (msg) => { hud.applyConfig(cfg, msg); firstRun.onConfig(msg); scrubber?.applyConfig?.(msg); };
   source.onReplay = (msg) => { hud.setReplay(msg); scrubber?.applyReplay?.(msg); };
   const wantObserve = new URLSearchParams(window.location.search).has('observe') || window.location.hash === '#observe';
   source.onObserve = (msg) => { if (wantObserve || msg?.running) hud.observe.apply(msg); }; // 기록 관찰 상태(?observe=1 또는 실행 중일 때만 표시)
@@ -67,14 +81,22 @@ if (benchMode) {
 } else {
   startDemo();
 }
-hud.bind(office, cfg, () => source);
+// hud 가 부르는 공급원 조작: tail 간격은 라이브 서버로, 언어는 데모 공급원(단독 데모든 겹친 데모든)으로 간다
+const sourceControls = {
+  setInterval: (ms) => source?.setInterval?.(ms),
+  setLang: (lang) => { source?.setLang?.(lang); firstRun?.setLang(lang); },
+};
+hud.bind(office, cfg, () => sourceControls);
+installStaticText({ hud });
+// 데모 모드(호스팅 페이지, #demo, 서버 없음)에서는 /api/notify 와 /api/flywheel 을 부르지 않는다: 부를 서버가 없다
+const isLive = () => source instanceof LiveSource;
 installShareControls({ stage, hud });
 const extras = installAgentExtras({ stage, office, hud, THREE });
-installSystemNotifications({ office, hud });
-installFlywheelPanel({ hud, source });
+installSystemNotifications({ office, hud, isLive });
+installFlywheelPanel({ hud, source, isLive, labs });
 installSimMotives({ office, hud, extras, THREE });
-const overlays = installSimOverlays({ office, hud, extras, THREE });
-const flywheelViz = installSimFlywheelViz({ office, hud, source, overlays, THREE });
+const overlays = installSimOverlays({ office, hud, extras, THREE, labs });
+const flywheelViz = installSimFlywheelViz({ office, hud, source, overlays, THREE, isLive, labs });
 installSimAdvisor({ office, hud, extras, overlays, flywheelViz });
 
 let down = null;
@@ -147,6 +169,7 @@ document.fonts?.ready.then(redrawBoards);
 function step(realDt) {
   const dt = realDt * (source instanceof MockSource ? cfg.speed : 1);
   source?.tick?.(dt, realDt, cfg.intervalMs);
+  firstRun?.tick(dt, realDt, cfg.intervalMs);
   office.update(dt, realDt);
   scrollScreens(dt);
   stage.render(office.labelRoot());

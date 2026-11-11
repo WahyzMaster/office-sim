@@ -7,7 +7,7 @@ import {
   postureModeOf, setPostureMode, motionModeOf, setMotionMode,
 } from './rooms.js';
 import { ObservePanel } from './observe-panel.js';
-import { setSoundEnabled } from './sound.js';
+import { setSoundEnabled, soundPrefOn } from './sound.js';
 
 export { ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf };
 export const STORE = 'office-sim:v1';
@@ -87,7 +87,7 @@ export class Hud {
     this.voiceMode = setVoiceMode(p.voiceMode);
     this.colorTheme = setColorTheme(p.colorTheme);
     this.llmFilter = setLlmFilter(p.llmFilter);
-    this.soundOn = setSoundEnabled(p.soundOn !== false && this.voiceMode !== 'mute');
+    this.soundOn = setSoundEnabled(soundPrefOn(p.soundOn, this.voiceMode));
     const urlLang = new URLSearchParams(globalThis.location?.search || '').get('lang');
     this.lang = langOf(urlLang ?? p.lang ?? detectLang());
     this.controlPreset = controlPresetOf(p.controlPreset);
@@ -324,7 +324,7 @@ export class Hud {
     const t = uiText(this.lang);
     this.el.source.dataset.state = state;
     this.el.source.querySelector('span').textContent = state === 'replay' ? replayText(this.replay, this.lang) : t.source[state] || state;
-    const baseTitle = state === 'demo' || state === 'down' ? t.sourceTitle.demo : state === 'replay' ? t.sourceTitle.replay : t.sourceTitle.live;
+    const baseTitle = state === 'demo' || state === 'down' ? (this.demoNote?.(this.lang) ?? t.sourceTitle.demo) : state === 'replay' ? t.sourceTitle.replay : t.sourceTitle.live; // demoNote: empty-state.js
     this.el.source.title = this.rendererNote ? `${baseTitle} · ${this.rendererNote(this.lang)}` : baseTitle;
   }
 

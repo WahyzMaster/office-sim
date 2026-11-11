@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Deterministic DOM invariant checker for office-sim:
 // 1. Zero runtime dependencies in package.json.
-// 2. Source files in bin/, src/, public/js/, and scripts/ stay <= 500 lines.
+// 2. Source files in bin/, src/, public/js/, and scripts/ stay <= 500 lines. Third-party files vendored under
+//    public/vendor/ are not project source and are exempt (docs/CONTRACT.md section 0).
 // 3. Always-on DOM markdown files (CLAUDE.md, AGENTS.md, GEMINI.md) contain no emoticons.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,6 +11,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MAX_LINES = 500;
 const CODE_DIRS = ['bin', 'src', 'public/js', 'scripts'];
+// Vendored third-party files (three.js, byte-pinned by test/vendor-assets.test.mjs): never line-counted, also if a
+// folder above them is added to CODE_DIRS later.
+const THIRD_PARTY_DIRS = ['public/vendor'];
 const MD_FILES = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md', 'CONTRIBUTING.md'];
 const EMOTICON_RE = /\p{Extended_Pictographic}/u;
 
@@ -24,6 +28,7 @@ if (depKeys.length > 0) {
 
 // 2. <= 500 lines per code file & O_NOFOLLOW symlink guard in watchers
 function walkCode(dirRel) {
+  if (THIRD_PARTY_DIRS.some((d) => dirRel === d || dirRel.startsWith(`${d}/`))) return;
   const absDir = path.join(ROOT, dirRel);
   if (!fs.existsSync(absDir)) return;
   for (const entry of fs.readdirSync(absDir, { withFileTypes: true })) {

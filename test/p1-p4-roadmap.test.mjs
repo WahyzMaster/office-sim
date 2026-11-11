@@ -1,7 +1,7 @@
 // P1–P4 Roadmap tests:
 // - P1: Opt-in Claude Hook Receiver + merge-safe ~/.claude/settings.json installer
 // - P2: Click 3D Character -> Focus Native Terminal Tab (TTY resolution + JXA/AppleScript focus)
-// - P3: 3D Context Window Fuel Ring + Compaction Burst + Token/USD Spend Estimator
+// - P3: 3D Context Window Fuel Ring + Compaction Burst + estimated token figures (no cost figure, launch readiness D11)
 // - P4: Unreviewed "Done (✓)" Badge + 1-click Sprint Session Recap Card
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,6 +32,8 @@ import { start } from '../src/server.mjs';
 import { request } from './fixtures/sse.mjs';
 
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
+// D11: no cost figure anywhere. The key names a recap or a metrics object must not carry.
+const costKeys = (obj) => Object.keys(obj).filter((k) => /cost|usd|spend/i.test(k));
 class NullTailer {
   async readAll() { return { offset: 0 }; }
   async poll() { return { bytes: 0 }; }
@@ -192,10 +194,12 @@ test('P3 & P4: SessionRecapTracker and agent-extras compute context fuel ring co
   });
   assert.equal(m.contextTokens, 145_000);
   assert.ok(m.contextPct > 0.7);
-  assert.ok(m.estimatedCostUsd > 0);
+  assert.deepEqual(costKeys(m), []);
   const formatted = formatMetricsSummary(m, 'Claude', 'office-sim');
   assert.equal(formatted.pct, 73);
   assert.match(formatted.markdown, /Sprint Session Recap — Claude \(office-sim\)/);
+  assert.deepEqual(costKeys(formatted), []);
+  assert.equal(formatted.markdown.includes('$'), false);
 
   const afterCompact = applyEventToMetrics(m, { type: 'system', kind: 'compact' });
   assert.equal(afterCompact.compactions, 1);
@@ -231,6 +235,8 @@ test('P3 & P4: SessionRecapTracker and agent-extras compute context fuel ring co
   assert.deepEqual(sRecap.filesTouched, ['server-http.mjs']);
   assert.match(sRecap.markdown, /## Sprint Session Recap — Fix P4 \(office-sim\)/);
   assert.match(sRecap.markdown, /server-http\.mjs/);
+  assert.deepEqual(costKeys(sRecap), []);
+  assert.equal(sRecap.markdown.includes('$'), false);
 
   const list = tracker.summaryList();
   assert.equal(list.length, 1);
@@ -303,6 +309,11 @@ test('P1–P4 HTTP integration: /api/hooks/claude, /api/focus-terminal, /api/rec
     const recapBody = JSON.parse(recapRes.body);
     assert.equal(recapBody.unreviewedDone, true);
     assert.ok(recapBody.markdown.includes('index.mjs'));
+    assert.deepEqual(costKeys(recapBody), []);
+    assert.equal(recapBody.markdown.includes('$'), false);
+    const recapList = JSON.parse((await request(port, { method: 'GET', path: '/api/recap' })).body);
+    assert.equal(recapList.sessions.length, 1);
+    assert.deepEqual(costKeys(recapList.sessions[0]), []);
 
     // 3. P4: POST /api/recap/review clears unreviewedDone
     const revRes = await request(port, {

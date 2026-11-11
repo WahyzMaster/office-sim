@@ -3,7 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { start } from '../src/server.mjs';
 import { request, sse } from './fixtures/sse.mjs';
@@ -72,26 +75,123 @@ const directives = (csp) => new Map(csp.split(';').map((d) => d.trim()).filter(B
   return [name, vals];
 }));
 
-test('GET / sends a CSP that allows exactly its inline scripts, the CDN, fonts and same-origin connects; no framing', async () => {
+// The fixed part of the page CSP: everything but script-src, which also carries one hash per inline script.
+const FIXED_CSP = Object.freeze({
+  'default-src': ["'self'"],
+  'style-src': ["'self'", "'unsafe-inline'"],
+  'font-src': ["'none'"],
+  'img-src': ["'self'", 'data:', 'blob:'],
+  'connect-src': ["'self'"],
+  'frame-ancestors': ["'none'"],
+  'base-uri': ["'none'"],
+  'form-action': ["'none'"],
+});
+const CDN = 'https://cdn.jsdelivr.net';
+
+test('GET / sends a CSP that allows exactly its inline scripts and same-origin loads: no CDN, no font host; no framing', async () => {
+  await withApp(async ({ port }) => {
+    const r = await request(port);
+    assert.equal(r.status, 200);
+    const header = r.headers['content-security-policy'] ?? '';
+    const csp = directives(header);
+    const scripts = inlineScripts(r.body);
+    assert.ok(scripts.length >= 2, 'the importmap and the boot-timeout script are inline');
+    // exact: 'self' and the hashes, nothing else (no CDN host, no 'unsafe-inline')
+    assert.deepEqual(csp.get('script-src'), ["'self'", ...scripts.map(sha)]);
+    for (const [name, want] of Object.entries(FIXED_CSP)) assert.deepEqual(csp.get(name), want, name);
+    assert.deepEqual([...csp.keys()].sort(), ['script-src', ...Object.keys(FIXED_CSP)].sort(), 'no other directive');
+    // the default page may contact loopback only: no host of any kind is named
+    assert.doesNotMatch(header, /https?:|jsdelivr|googleapis|gstatic/);
+    assert.equal(r.headers['x-frame-options'], 'DENY');
+  });
+});
+
+test('cdn: true (--cdn) adds the pinned CDN to script-src and changes nothing else', async () => {
   await withApp(async ({ port }) => {
     const r = await request(port);
     assert.equal(r.status, 200);
     const csp = directives(r.headers['content-security-policy'] ?? '');
-    const scripts = inlineScripts(r.body);
-    assert.ok(scripts.length >= 2, 'the importmap and the boot-timeout script are inline');
-    assert.deepEqual(csp.get('default-src'), ["'self'"]);
-    const scriptSrc = csp.get('script-src') ?? [];
-    for (const v of ["'self'", 'https://cdn.jsdelivr.net', ...scripts.map(sha)]) assert.ok(scriptSrc.includes(v), `script-src has ${v}`);
-    assert.equal(scriptSrc.includes("'unsafe-inline'"), false);
-    assert.deepEqual(csp.get('style-src'), ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com']);
-    assert.deepEqual(csp.get('font-src'), ['https://fonts.gstatic.com']);
-    assert.deepEqual(csp.get('img-src'), ["'self'", 'data:', 'blob:']);
-    assert.deepEqual(csp.get('connect-src'), ["'self'"]);
-    assert.deepEqual(csp.get('frame-ancestors'), ["'none'"]);
-    assert.deepEqual(csp.get('base-uri'), ["'none'"]);
-    assert.deepEqual(csp.get('form-action'), ["'none'"]);
+    assert.deepEqual(csp.get('script-src'), ["'self'", CDN, ...inlineScripts(r.body).map(sha)]);
+    for (const [name, want] of Object.entries(FIXED_CSP)) assert.deepEqual(csp.get(name), want, name);
+    assert.deepEqual([...csp.keys()].sort(), ['script-src', ...Object.keys(FIXED_CSP)].sort(), 'no other directive');
+    // script-src only: styles, fonts and connects stay on loopback
+    assert.equal((r.headers['content-security-policy'].match(/https?:/g) ?? []).length, 1);
     assert.equal(r.headers['x-frame-options'], 'DENY');
+  }, { cdn: true });
+  await assert.rejects(start({ port: 0, root: '/nonexistent-office-sim-root', publicDir: PUBLIC, deps: DEPS, cdn: 'yes' }), /cdn must be a boolean/);
+});
+
+// ---- GET /vendor/<name>: the vendored three.js files (D4), flat names, .js and .txt only -------------------
+
+test('GET /vendor/<name> serves the vendored files with the /js/ policy (type, no-cache, base headers)', async () => {
+  await withApp(async ({ port }) => {
+    for (const [name, type] of [
+      ['three.module.min.js', 'text/javascript; charset=utf-8'], ['OrbitControls.js', 'text/javascript; charset=utf-8'],
+      ['CSS2DRenderer.js', 'text/javascript; charset=utf-8'], ['LICENSE-three.txt', 'text/plain; charset=utf-8'],
+    ]) {
+      const r = await request(port, { path: `/vendor/${name}` });
+      const file = fs.readFileSync(path.join(PUBLIC, 'vendor', name));
+      assert.equal(r.status, 200, name);
+      assert.equal(r.headers['content-type'], type, name);
+      assert.equal(r.headers['content-length'], String(file.length), name);
+      assert.ok(Buffer.from(r.body, 'utf8').equals(file), `${name}: the bytes on disk`);
+    }
+    const js = await request(port, { path: '/js/main.js' });
+    const vendored = await request(port, { path: '/vendor/OrbitControls.js', headers: { 'sec-fetch-site': 'same-origin' } });
+    for (const h of ['cache-control', 'x-content-type-options', 'referrer-policy', 'cross-origin-resource-policy', 'content-type']) {
+      assert.equal(vendored.headers[h], js.headers[h], `${h} as for /js/`);
+    }
+    assert.equal(vendored.headers['cache-control'], 'no-cache');
+    assert.equal(vendored.headers['content-security-policy'], undefined, 'the CSP belongs to the page');
+    const head = await request(port, { method: 'HEAD', path: '/vendor/OrbitControls.js' });
+    assert.equal(head.status, 200);
+    assert.equal(head.body, '');
+    assert.equal(head.headers['content-length'], vendored.headers['content-length']);
+    const post = await request(port, { method: 'POST', path: '/vendor/OrbitControls.js' });
+    assert.equal(post.status, 405);
+    assert.equal(post.headers.allow, 'GET, HEAD');
+    assert.equal((await request(port, { path: '/vendor/OrbitControls.js', headers: { host: 'evil.example' } })).status, 403);
   });
+  // --auth covers the route like every other one
+  await withApp(async ({ port, token }) => {
+    assert.equal((await request(port, { path: '/vendor/OrbitControls.js' })).status, 401);
+    const ok = await request(port, { path: '/vendor/OrbitControls.js', headers: { cookie: `osim_${port}=${token}` } });
+    assert.equal(ok.status, 200);
+  }, { auth: true });
+});
+
+test('GET /vendor/ is an allowlist: traversal is 400, other extensions, nested or hidden names and misses are 404', async () => {
+  // a synthetic public dir whose vendor/ holds files the route must not serve even though they exist
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'office-sim-vendor-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'vendor', 'sub'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'js'));
+    fs.writeFileSync(path.join(dir, 'office.html'), '<title>Fake</title>\n');
+    fs.writeFileSync(path.join(dir, 'secret.txt'), 'outside vendor\n');
+    fs.writeFileSync(path.join(dir, 'js', 'main.js'), 'export const x = 1;\n');
+    for (const rel of ['ok.module.min.js', 'Notes-1.txt', 'page.html', 'data.json', 'style.css', 'map.js.map', '.hidden.js',
+      'noext', 'two..dots.js', '-dash.js', 'under_score.js', 'sp ace.js', 'sub/inner.js']) {
+      fs.writeFileSync(path.join(dir, 'vendor', rel), `// ${rel}\n`);
+    }
+    await withApp(async ({ port }) => {
+      const status = async (p) => (await request(port, { path: p })).status;
+      assert.equal(await status('/vendor/ok.module.min.js'), 200);
+      assert.equal(await status('/vendor/Notes-1.txt'), 200);
+      assert.equal(await status('/vendor/ok.module.min.js?v=1'), 200, 'a query does not change the file');
+      for (const p of ['/vendor/../secret.txt', '/vendor/../office.html', '/vendor/..%2fsecret.txt', '/vendor/%2e%2e/secret.txt',
+        '/vendor/sub/../ok.module.min.js', '/vendor/sub%2finner.js', '/vendor/sub\\inner.js', '/vendor/two..dots.js']) {
+        assert.equal(await status(p), 400, `${p} is a bad path`);
+      }
+      for (const p of ['/vendor/page.html', '/vendor/data.json', '/vendor/style.css', '/vendor/map.js.map', '/vendor/.hidden.js',
+        '/vendor/noext', '/vendor/-dash.js', '/vendor/under_score.js', '/vendor/sp%20ace.js', '/vendor/sub/inner.js',
+        '/vendor/sub', '/vendor/', '/vendor', '/vendor/missing.js', '/vendor/ok.module.min.js/', '/vendor//ok.module.min.js',
+        '/vendor/ok.module.min.js%00', '/vendor/OK.MODULE.MIN.JS.TXT.exe', '/vendorx/ok.module.min.js', '/js/vendor/ok.module.min.js']) {
+        assert.equal(await status(p), 404, `${p} is not served`);
+      }
+    }, { publicDir: dir });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('every response carries nosniff, no-referrer and same-origin CORP (pages, data, errors, SSE)', async () => {

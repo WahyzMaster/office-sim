@@ -87,8 +87,8 @@ test('root snippet: the realpath of <base> two levels up, or MISSING when there 
 });
 
 test('probe snippet: 200 office-sim JSON, 401 with --auth, down ECONNREFUSED, and another program as is', unixOnly, async () => {
-  const code = block('127.0.0.1:4317/healthz');
-  const probe = (port) => shAsync(code.replace('127.0.0.1:4317', `127.0.0.1:${port}`));
+  const code = block('127.0.0.1:4747/healthz');
+  const probe = (port) => shAsync(code.replace('127.0.0.1:4747', `127.0.0.1:${port}`));
   const root = await tmp();
   const open = await start({ port: 0, root, rescanMs: 60_000 });
   const auth = await start({ port: 0, root, rescanMs: 60_000, auth: true });
@@ -115,6 +115,8 @@ test('mktemp, start and wait snippets: a private output file, the URL and agents
   const out = sh(block('mktemp'), { TMPDIR: home });
   assert.ok(out.startsWith(home), out);
   assert.equal(statSync(out).mode & 0o777, 0o600, 'only the user can read the token URL');
+  // launch readiness D7: the bin opens the browser by itself in a terminal, so the skill's start says --no-open
+  assert.match(block('--port <port> <flags>'), /^node "<root>\/bin\/office-sim\.mjs" --port <port> <flags> --no-open > "<out>" 2>&1$/);
   const startCmd = fill(block('--port <port> <flags>'), { '<root>': REPO, '<port>': '0', '<flags>': '--auth', '<out>': out });
   // HOME is a temp dir: the default roots (~/.claude/projects, ~/.codex, ~/.grok, ~/.gemini) do not exist there
   const child = spawn('/bin/sh', ['-c', startCmd], { detached: true, stdio: 'ignore', env: { ...process.env, HOME: home } });
@@ -194,12 +196,12 @@ async function fakeServers() {
 const pidSet = (line, prefix) => new Set(line.slice(prefix.length).split(', ').map(Number));
 
 test('probe snippet prints exactly one line even when the listener closes at once or fetch never settles (finding 3)', unixOnly, async () => {
-  const code = block('127.0.0.1:4317/healthz');
+  const code = block('127.0.0.1:4747/healthz');
   assert.ok(code.includes('setTimeout(()=>{console.log("down Timeout");process.exit(0)},1500)'), 'a ref-ed fallback timer');
   const closer = net.createServer((c) => c.destroy());
   await new Promise((r) => closer.listen(0, '127.0.0.1', r));
   try {
-    const out = await shAsync(code.replace('127.0.0.1:4317', `127.0.0.1:${closer.address().port}`));
+    const out = await shAsync(code.replace('127.0.0.1:4747', `127.0.0.1:${closer.address().port}`));
     assert.match(out, /^down \S+$/, out);
   } finally {
     await new Promise((r) => closer.close(r));
@@ -263,12 +265,12 @@ test('stop snippet with a port argument only reports: ours pid <n> for this repo
   const onZero = f.run('repo', ['--port', '0']);
   const other = f.run('other');
   await Promise.all([onZero.ready, other.ready]);
-  assert.equal(sh(`${f.stopCode} 4317`), 'not ours', 'another root on 4317 and ours on port 0 are not it');
+  assert.equal(sh(`${f.stopCode} 4747`), 'not ours', 'another root on 4747 and ours on port 0 are not it');
   assert.equal(sh(`${f.stopCode} 0`), `ours pid ${onZero.pid}`);
-  const plain = f.run('repo'); // no --port: the default 4317
-  const eq = f.run('repo', ['--port=4317', '--auth']);
+  const plain = f.run('repo'); // no --port: the default 4747
+  const eq = f.run('repo', ['--port=4747', '--auth']);
   await Promise.all([plain.ready, eq.ready]);
-  const line = sh(`${f.stopCode} 4317`);
+  const line = sh(`${f.stopCode} 4747`);
   assert.ok(line.startsWith('ours pid '), line);
   assert.deepEqual(pidSet(line, 'ours pid '), new Set([plain.pid, eq.pid]));
   for (const p of [onZero.pid, plain.pid, eq.pid]) assert.ok(alive(p), 'the check stops nothing');
@@ -304,7 +306,7 @@ test('open snippet: one classified line for success, a failing or missing opener
   // a sleeping opener leaves its pid (kept by exec) so the test can end it
   const script = '#!/bin/sh\nprintf \'%s\\n\' "$#" "$@" >> "$OPEN_LOG"\nif [ -n "$OPEN_SLEEP" ]; then echo "$$" > "$OPEN_LOG.pid"; exec /bin/sleep "$OPEN_SLEEP"; fi\nexit "${OPEN_EXIT:-0}"\n';
   for (const name of ['open', 'xdg-open']) await fs.writeFile(path.join(withOpener, name), script, { mode: 0o755 });
-  const page = 'http://127.0.0.1:4317/?t=AbC_-123xyz#demo';
+  const page = 'http://127.0.0.1:4747/?t=AbC_-123xyz#demo';
   const run = (PATH, extra = {}) => sh(fill(code, { '<page>': page }), { PATH, OPEN_LOG: log, ...extra });
   const cmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
   assert.equal(run(withOpener), 'opened');

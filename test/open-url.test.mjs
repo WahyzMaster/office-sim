@@ -1,6 +1,8 @@
 // P4 --open (contract 6): src/open-url.mjs picks the platform opener, passes the URL as one argv element, spawns it
 // detached with stdio ignored, and turns every failure into one log line. The bin tests never open a real browser:
 // PATH holds only a temp folder with fake `open` / `xdg-open` scripts (or nothing at all).
+// Since launch readiness D7 --open is no longer the only way to open: without a flag the bin opens when stdout is a
+// terminal (test/open-policy.test.mjs, test/first-run-cli.test.mjs). Here stdout is a pipe, so only --open opens.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
@@ -14,7 +16,7 @@ import { parseArgs, USAGE } from '../src/cli-args.mjs';
 import { request, until } from './fixtures/sse.mjs';
 
 const BIN = fileURLToPath(new URL('../bin/office-sim.mjs', import.meta.url));
-const URL1 = 'http://127.0.0.1:4317/';
+const URL1 = 'http://127.0.0.1:4747/';
 const TOKEN_URL = 'http://127.0.0.1:50123/?t=AbC_-123xyz';
 const tmpDirs = [];
 after(async () => {
@@ -103,8 +105,8 @@ test('openUrl: a synchronous spawn throw is one log line and returns false; a no
 });
 
 test('openUrl refuses anything but a loopback http URL (no spawn, one log line)', () => {
-  const bad = ['file:///etc/passwd', 'https://127.0.0.1:4317/', 'http://example.com/', 'http://127.0.0.1:4317/a&calc',
-    'http://127.0.0.1:4317/ x', 'http://127.0.0.1:4317/%2e%2e', 'http://127.0.0.1:4317', '', null, undefined, 42];
+  const bad = ['file:///etc/passwd', 'https://127.0.0.1:4747/', 'http://example.com/', 'http://127.0.0.1:4747/a&calc',
+    'http://127.0.0.1:4747/ x', 'http://127.0.0.1:4747/%2e%2e', 'http://127.0.0.1:4747', '', null, undefined, 42];
   for (const url of bad) {
     const s = fakeSpawn();
     const logs = [];
@@ -119,14 +121,16 @@ test('openUrl refuses anything but a loopback http URL (no spawn, one log line)'
 
 // ---- --open flag --------------------------------------------------------------------------------------------
 
-test('parseArgs --open is a switch: no value, no key without the flag; USAGE lists it after --auth', () => {
+test('parseArgs --open is a switch: no value, no key without the flag; USAGE lists it after --auth, then --no-open', () => {
   assert.deepEqual(parseArgs(['--open']), { open: true });
   assert.deepEqual(parseArgs(['--open', '--auth', '--port', '0']), { open: true, auth: true, port: 0 });
   assert.throws(() => parseArgs(['--open=1']), /--open takes no value/);
   assert.equal('open' in parseArgs(['--port', '0']), false);
+  assert.deepEqual(parseArgs(['--no-open']), { open: false }, '--no-open is the same key, false');
   const auth = USAGE.indexOf('  --auth ');
   const open = USAGE.indexOf('  --open ');
-  assert.ok(auth >= 0 && open > auth, 'USAGE: --open after --auth');
+  const noOpen = USAGE.indexOf('  --no-open ');
+  assert.ok(auth >= 0 && open > auth && noOpen > open, 'USAGE: --open after --auth, --no-open right after it');
   assert.match(USAGE, /--open {15}open the printed URL/);
 });
 
@@ -219,14 +223,16 @@ test('bin --open --auth opens the printed token URL', unixOnly, async () => {
   }
 });
 
-test('bin without --open never calls the opener (no behaviour change)', unixOnly, async () => {
-  const fake = await fakeOpeners();
-  const run = await runBin([], { PATH: fake.bin, OPEN_LOG: fake.logFile });
-  try {
-    await settle(500);
-    assert.equal(await readLog(fake.logFile), '');
-  } finally {
-    await run.stop();
+test('bin without --open on a pipe (stdout is not a terminal) never calls the opener, and neither does --no-open', unixOnly, async () => {
+  for (const args of [[], ['--no-open']]) {
+    const fake = await fakeOpeners();
+    const run = await runBin(args, { PATH: fake.bin, OPEN_LOG: fake.logFile });
+    try {
+      await settle(500);
+      assert.equal(await readLog(fake.logFile), '', args.join(' '));
+    } finally {
+      await run.stop();
+    }
   }
 });
 

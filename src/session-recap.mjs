@@ -1,5 +1,7 @@
-// P3 & P4: Context window fuel occupancy, token burn estimator, compaction counter,
+// P3 & P4: Context window fuel occupancy, token estimate, compaction counter,
 // unreviewed "Done" badge state, and 1-click Sprint Recap builder.
+// The token and context figures are estimates: fixed amounts added per wire event (no event carries the usage the
+// model reports) against DEFAULT_CONTEXT_WINDOW. There is no cost figure (launch readiness D11, contract 10).
 import { cleanText } from './summarize.mjs';
 import { publicSessionId } from './session-identity.mjs';
 import { basename } from './session-util.mjs';
@@ -7,11 +9,6 @@ import { basename } from './session-util.mjs';
 export const DEFAULT_CONTEXT_WINDOW = 200_000;
 const MAX_TRACKED_SESSIONS = 500;
 const MAX_FILES_PER_SESSION = 40;
-
-// Approximate per-million-token blended USD rate for lightweight developer cost awareness.
-const COST_PER_M_INPUT = 3.0;
-const COST_PER_M_OUTPUT = 15.0;
-const COST_PER_M_CACHE_READ = 0.3;
 
 export class SessionRecapTracker {
   constructor({ now = Date.now } = {}) {
@@ -46,7 +43,6 @@ export class SessionRecapTracker {
         filesTouched: [],
         estimatedInputTokens: 0,
         estimatedOutputTokens: 0,
-        cacheReadTokens: 0,
         contextTokens: 0,
         contextWindow: DEFAULT_CONTEXT_WINDOW,
         unreviewedDone: false,
@@ -157,11 +153,6 @@ export class SessionRecapTracker {
 
     const durationSec = Math.max(1, Math.round((rec.lastActivityAt - rec.startedAt) / 1000));
     const contextOccupancyPct = Math.min(100, Math.round((rec.contextTokens / rec.contextWindow) * 100));
-    const estimatedCostUsd = Number((
-      (rec.estimatedInputTokens / 1_000_000) * COST_PER_M_INPUT
-      + (rec.estimatedOutputTokens / 1_000_000) * COST_PER_M_OUTPUT
-      + (rec.cacheReadTokens / 1_000_000) * COST_PER_M_CACHE_READ
-    ).toFixed(4));
 
     const topTools = Object.entries(rec.toolCounts)
       .sort((a, b) => b[1] - a[1])
@@ -173,8 +164,8 @@ export class SessionRecapTracker {
       '',
       `- **Agent**: \`${rec.agent}\`${rec.branch ? ` · **Branch**: \`${rec.branch}\`` : ''}${rec.worktree ? ` (\`${rec.worktree}\`)` : ''}`,
       `- **Duration**: ${durationSec}s · **Turns**: ${rec.turns} · **Status**: ${rec.ended ? 'Completed' : (rec.unreviewedDone ? 'Turn Done (Needs Review)' : 'Active')}`,
-      `- **Context Fuel**: ${contextOccupancyPct}% (${rec.contextTokens.toLocaleString()} / ${rec.contextWindow.toLocaleString()} tokens) · **Compactions**: ${rec.compactions}`,
-      `- **Est. Token Spend**: ~$${estimatedCostUsd.toFixed(4)} (${rec.estimatedInputTokens.toLocaleString()} in / ${rec.estimatedOutputTokens.toLocaleString()} out)`,
+      `- **Context Fuel (est.)**: ${contextOccupancyPct}% (${rec.contextTokens.toLocaleString()} / ${rec.contextWindow.toLocaleString()} tokens) · **Compactions**: ${rec.compactions}`,
+      `- **Tokens (est.)**: ${rec.estimatedInputTokens.toLocaleString()} in / ${rec.estimatedOutputTokens.toLocaleString()} out`,
       `- **Tool Calls**: ${rec.toolCalls} (${rec.toolErrors} failed)${topTools.length ? ` — ${topTools.join(', ')}` : ''}`,
       rec.filesTouched.length ? `- **Files Touched**: ${rec.filesTouched.map((f) => `\`${f}\``).join(', ')}` : '- **Files Touched**: (none recorded)',
     ].join('\n');
@@ -199,7 +190,6 @@ export class SessionRecapTracker {
       contextOccupancyPct,
       estimatedInputTokens: rec.estimatedInputTokens,
       estimatedOutputTokens: rec.estimatedOutputTokens,
-      estimatedCostUsd,
       unreviewedDone: rec.unreviewedDone,
       ended: rec.ended,
       markdown,

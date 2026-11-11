@@ -23,7 +23,13 @@ export const USAGE = `Usage: office-sim [options]
   --plugins <id,id>    enable optional plug-in adapters (${KNOWN_PLUGINS.join(', ')})
   --gemini-cli-root <dir>  Gemini CLI session root when --plugins gemini-cli is enabled (default ~/.gemini/tmp)
   --auth               require a per-run token: open the printed URL once, the browser then keeps a cookie
-  --open               open the printed URL (with --auth, the token URL) in the default browser once listening
+  --cdn                let the page load scripts from https://cdn.jsdelivr.net (only ?renderer=webgpu needs it;
+                       by default the page loads everything from this server)
+  --open               open the printed URL (with --auth, the token URL) in the default browser once listening.
+                       Without --open or --no-open it opens only in a terminal: stdout is a TTY, CI is not set
+                       and an opener exists (and not with --auth on Linux, where the token would show in ps)
+  --no-open            never open the browser
+  --demo               when the browser is opened, open the page in demo mode (the printed URL plus #demo)
   --notify [cats]      enable native OS notifications (default: ask,error,done; optional: tool_error, all)
   --replay <file>      replay one past session (<uuid>.jsonl plus its subagents) instead of tailing --claude-root
   --speed <x>          replay speed factor, 0.1..1000 (default 1)
@@ -49,7 +55,12 @@ const SPEC = {
   'antigravity-root': { key: 'roots', agent: 'antigravity', kind: 'path' },
   'gemini-cli-root': { key: 'roots', agent: 'gemini-cli', kind: 'path' },
   auth: { key: 'auth', kind: 'flag' },
-  open: { key: 'open', kind: 'flag' }, // bin 만 쓴다 (start() 로 넘기지 않는다)
+  cdn: { key: 'cdn', kind: 'flag' }, // 페이지 CSP 의 script-src 에 CDN 을 더한다 (start() 의 cdn, contract 6)
+  // 아래 셋은 bin 만 쓴다 (start() 로 넘기지 않는다). --open 과 --no-open 은 같은 키 open 의 true / false 이고, 다른
+  // 옵션처럼 나중 것이 이긴다. 둘 다 없으면 키가 없다: 그때는 bin 이 터미널인지 보고 정한다 (src/open-policy.mjs, D7)
+  open: { key: 'open', kind: 'flag' },
+  'no-open': { key: 'open', kind: 'flag', value: false },
+  demo: { key: 'demo', kind: 'flag' },
   notify: { key: 'notify', kind: 'notify' },
   replay: { key: 'replay', kind: 'path' },
   speed: { key: 'speed', kind: 'num', min: 0.1, max: 1000 },
@@ -103,7 +114,7 @@ export function parseArgs(argv) {
     if (!spec) throw new Error(`unknown option: --${name}`);
     if (spec.kind === 'flag') { // 값 없는 스위치: 다음 인자를 먹지 않는다
       if (eq >= 0) throw new Error(`--${name} takes no value`);
-      out[spec.key] = true;
+      out[spec.key] = spec.value ?? true;
       continue;
     }
     if (spec.kind === 'notify') {

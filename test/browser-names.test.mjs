@@ -130,6 +130,9 @@ test('ROOM_THEMES and applyRoomTheme: supports dogs, cats, studio, office, palac
   assert.equal(langOf('fr'), 'ko');
   assert.equal(detectLang('en-US'), 'en');
   assert.equal(detectLang('ko-KR'), 'ko');
+  assert.equal(detectLang('fr-FR'), 'en'); // launch readiness D8: 한국어 로케일이 아니면 모두 영어
+  assert.equal(detectLang('ja'), 'en');
+  assert.equal(detectLang(undefined), 'en');
 
   assert.equal(roomLabel('archive', 'palace', 'ko'), '규장각');
   assert.equal(roomLabel('desk', 'palace', 'ko'), '승정원');

@@ -1,13 +1,16 @@
+# Releases are manual: this workflow never starts on a push or a merge. Start it from the Actions tab
+# (or `gh workflow run publish.yml`). dry_run=true (the default) tests, works out the version and previews the
+# tarball. dry_run=false also publishes to npm, pushes the release tag and creates the GitHub Release. When
+# package.json still has the version that is on npm, the job bumps it before publishing (a release commit) and
+# afterwards pushes that commit to master together with the tag.
+# The job releases the ref it is started on and does not check which ref that is: start a real release on master.
 name: Publish to npm
 
 on:
-  push:
-    branches:
-      - master
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Run npm publish --dry-run only'
+        description: 'Dry run: test, work out the version and preview the tarball; publish nothing'
         required: false
         default: true
         type: boolean
@@ -22,10 +25,6 @@ concurrency:
 
 jobs:
   publish:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (!startsWith(github.event.head_commit.message, 'chore(release):') &&
-       !contains(github.event.head_commit.message, '[skip release]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -68,7 +67,7 @@ jobs:
               BUMP="patch"
             fi
             echo "Auto-bumping $LOCAL_VER ($BUMP) based on git commits in $RANGE"
-            if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
               NEW_VER=$(npm version "$BUMP" --no-git-tag-version)
               git checkout -- package.json
             else
@@ -85,14 +84,14 @@ jobs:
           echo "version=$NEW_VER" >> "$GITHUB_OUTPUT"
       - run: npm pack --dry-run
       - name: Publish package to npm
-        if: github.event_name == 'push' || inputs.dry_run == false
+        if: inputs.dry_run == false
         run: |
           if ! env -u NODE_AUTH_TOKEN -u NPM_CONFIG_USERCONFIG npm publish --provenance --access public; then
             echo "OIDC Trusted Publishing unavailable or unconfigured; falling back to NPM_TOKEN..."
             npm publish --provenance --access public
           fi
       - name: Push release commit and tag to master
-        if: github.event_name == 'push' || inputs.dry_run == false
+        if: inputs.dry_run == false
         run: |
           NEW_VER="${{ steps.version.outputs.version }}"
           if [ "${{ steps.version.outputs.bump }}" != "manual" ]; then
@@ -102,7 +101,7 @@ jobs:
             git push origin "$NEW_VER"
           fi
       - name: Create GitHub Release
-        if: github.event_name == 'push' || inputs.dry_run == false
+        if: inputs.dry_run == false
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -14,14 +14,19 @@ export function inlineScriptHashes(html) {
   return out;
 }
 
-// three.js 는 jsDelivr, 글꼴은 Google Fonts. 인라인 스크립트(importmap, 부트 타임아웃)는 해시로만 허용한다.
+/** The one outside host the page can be allowed to load scripts from (--cdn): the opt-in WebGPU renderer of three.js. */
+export const CDN_ORIGIN = 'https://cdn.jsdelivr.net';
+
+// 기본 페이지는 루프백에만 닿는다: three.js 는 public/vendor 에 있고 (GET /vendor/<name>), 글꼴은 시스템 글꼴이라 font-src 는
+// 'none' 이다. cdn (--cdn) 이 켜졌을 때만 script-src 에 jsDelivr 를 더한다 (?renderer=webgpu 의 WebGPU 렌더러를 거기서 받는다).
+// 인라인 스크립트(importmap, 부트 타임아웃)는 해시로만 허용한다.
 // style-src 에 해시를 넣지 않는다: 해시가 있으면 'unsafe-inline' 이 꺼져 HEAD 의 <style> 과 style 속성이 막힌다.
-export function pageCsp(html) {
+export function pageCsp(html, { cdn = false } = {}) {
   return [
     "default-src 'self'",
-    ["script-src 'self' https://cdn.jsdelivr.net", ...inlineScriptHashes(html)].join(' '),
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    'font-src https://fonts.gstatic.com',
+    ["script-src 'self'", ...(cdn ? [CDN_ORIGIN] : []), ...inlineScriptHashes(html)].join(' '),
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'none'",
     "img-src 'self' data: blob:",
     "connect-src 'self'",
     "frame-ancestors 'none'",
@@ -30,14 +35,17 @@ export function pageCsp(html) {
   ].join('; ');
 }
 
-/** Page CSP cached by page text: hashed once per office.html content, and still right after the file changes. */
-export function cspCache() {
+/**
+ * Page CSP cached by page text: hashed once per office.html content, and still right after the file changes.
+ * `cdn` is fixed for the life of the cache (one server run).
+ */
+export function cspCache({ cdn = false } = {}) {
   let html = null;
   let value = null;
   return (page) => {
     if (page !== html) {
       html = page;
-      value = pageCsp(page);
+      value = pageCsp(page, { cdn });
     }
     return value;
   };

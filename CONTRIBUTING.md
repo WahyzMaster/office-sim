@@ -17,7 +17,7 @@ Thank you for contributing to **Office Sim**!
 Requires **Node.js 22+** (tested in CI on Node 22 and Node 24).
 
 ```bash
-# Run the local server (opens on http://127.0.0.1:4317)
+# Run the local server (opens on http://127.0.0.1:4747)
 npm start
 
 # Run the full test suite

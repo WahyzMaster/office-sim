@@ -4,6 +4,14 @@
 
 export const RENDERER_BACKENDS = Object.freeze(['webgl2', 'webgpu']);
 
+// The WebGPU renderer is the one part of three.js that is not vendored under public/vendor/: the importmap leaves it on
+// the CDN, and the local server's CSP allows that host only when it was started with --cdn. So "the files did not
+// load" is its own, expected outcome with its own text (ko/en) instead of the browser's raw import error.
+const LOAD_FAILED = Object.freeze({
+  en: 'WebGPU files did not load; the local page needs office-sim --cdn',
+  ko: 'WebGPU 파일을 불러오지 못했어요. 로컬 페이지는 office-sim --cdn 이 필요해요',
+});
+
 function clampInt(raw, fallback, min, max) {
   const n = Number.parseInt(String(raw ?? ''), 10);
   if (!Number.isFinite(n)) return fallback;
@@ -78,7 +86,8 @@ export function rendererBadgeLabel(info, lang = 'ko') {
   const active = info?.active === 'webgpu' ? 'WebGPU' : 'WebGL2';
   if (info?.requested !== 'webgpu') return active;
   if (info.active === 'webgpu') return lang === 'en' ? 'WebGPU active' : 'WebGPU 활성';
-  const why = info.fallbackReason ? ` (${info.fallbackReason})` : '';
+  const reason = info.fallbackCode === 'load' ? LOAD_FAILED[lang === 'en' ? 'en' : 'ko'] : info.fallbackReason;
+  const why = reason ? ` (${reason})` : '';
   return lang === 'en' ? `WebGL2 fallback${why}` : `WebGL2 대체${why}`;
 }
 
@@ -100,6 +109,8 @@ async function withTimeout(promise, ms) {
  * Progressive WebGPU upgrade for `stage`. When `?renderer=webgpu` or `#webgpu` is active and `navigator.gpu`
  * succeeds, dynamically loads Three.js `WebGPURenderer`, awaits `.init()`, and swaps the stage renderer.
  * Any missing capability, module error, or timeout leaves the existing `THREE.WebGLRenderer` (`webgl2`) running.
+ * When the renderer module itself cannot be loaded (refused by the CSP without --cdn, offline, or no answer in time)
+ * the info also carries `fallbackCode: 'load'`, which `rendererBadgeLabel` turns into the ko/en hint naming --cdn.
  */
 export async function initOptionalWebGPU(stage, opts = {}) {
   const search = opts.search ?? globalThis.location?.search ?? '';
@@ -123,9 +134,14 @@ export async function initOptionalWebGPU(stage, opts = {}) {
     return settle({ requested: 'webgpu', active: 'webgl2', fallbackReason: probe.reason });
   }
   const loadWebGPU = opts.loadWebGPU ?? (() => import('three/addons/renderers/webgpu/WebGPURenderer.js'));
+  let mod;
+  try {
+    mod = await withTimeout(Promise.resolve().then(loadWebGPU), timeoutMs);
+  } catch {
+    return settle({ requested: 'webgpu', active: 'webgl2', fallbackReason: LOAD_FAILED.en, fallbackCode: 'load' });
+  }
   let gpuRenderer = null;
   try {
-    const mod = await withTimeout(loadWebGPU(), timeoutMs);
     const Ctor = mod?.default ?? mod?.WebGPURenderer ?? mod;
     if (typeof Ctor !== 'function') throw new Error('WebGPURenderer constructor unavailable');
     gpuRenderer = new Ctor({ antialias: true, alpha: true });

@@ -217,9 +217,9 @@ export function parseClaudeHookPayload(payload, { now = Date.now, activeHookTool
 /**
  * Build the non-blocking curl/node one-liner command that Claude Code executes on hook events.
  */
-export function buildHookCommand({ port = 4317, host = '127.0.0.1' } = {}) {
+export function buildHookCommand({ port = 4747, host = '127.0.0.1' } = {}) {
   const safeHost = host === '::1' ? '[::1]' : '127.0.0.1';
-  const safePort = Number.isInteger(port) && port > 0 && port <= 65535 ? port : 4317;
+  const safePort = Number.isInteger(port) && port > 0 && port <= 65535 ? port : 4747;
   return `curl -sS -m 1 -X POST -H "Content-Type: application/json" --data-binary @- "http://${safeHost}:${safePort}/api/hooks/claude" >/dev/null 2>&1 || true # ${HOOK_MARKER}`;
 }
 
@@ -227,7 +227,7 @@ export function buildHookCommand({ port = 4317, host = '127.0.0.1' } = {}) {
  * Merge-safe installer for ~/.claude/settings.json (inspired by pixel-agents PR #378).
  * Never overwrites malformed JSON; creates a one-time .office-sim.bak backup before first modification.
  */
-export function installClaudeHooks({ settingsPath, port = 4317, host = '127.0.0.1' } = {}) {
+export function installClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.1' } = {}) {
   if (typeof settingsPath !== 'string' || !settingsPath.trim()) {
     throw new TypeError('settingsPath must be a non-empty string');
   }

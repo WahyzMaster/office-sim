@@ -51,7 +51,7 @@ test('body covers the steps: repo root by realpath, args, healthz probe, backgro
   for (const arg of ['start', 'stop', 'status', 'demo', 'auth']) assert.ok(body.includes(`\`${arg}\``), `argument ${arg}`);
   const must = [
     'realpathSync', '"..",".."', 'bin","office-sim.mjs', 'MISSING', 'npm run skill:install', // (a)
-    'http://127.0.0.1:4317/healthz', 'AbortSignal.timeout(1000)', '`agents`, `sessions`, `clients`', // (c)
+    'http://127.0.0.1:4747/healthz', 'AbortSignal.timeout(1000)', '`agents`, `sessions`, `clients`', // (c)
     'run_in_background: true', '--port <port>', '`<port>` = 0', 'mktemp', 'at most 10 s', 'do not wait across turns', // (d)
     'mcp__Claude_Browser__preview_start', '--open', '`<url>#demo`', 'open "<page>"', 'xdg-open "<page>"', 'cmd /c start "" "<page>"', // (e)
     '<root>/bin/office-sim.mjs', 'SIGTERM', 'Never kill anything else', 'Get-CimInstance Win32_Process', // (f)
@@ -73,7 +73,7 @@ test('names in the skill match the code: the 401 body, CLI flags, npm scripts', 
   const body401 = 'unauthorized: open the URL printed by office-sim';
   assert.ok(SKILL.includes(`\`401 ${body401}\``));
   assert.ok(read('src/server-http.mjs').includes(`'${body401}\\n'`));
-  for (const flag of ['--port <n>', '--auth ', '--open ']) assert.ok(USAGE.includes(flag), flag);
+  for (const flag of ['--port <n>', '--auth ', '--open ', '--no-open ']) assert.ok(USAGE.includes(flag), flag);
   const { scripts } = JSON.parse(read('package.json'));
   assert.equal(scripts['skill:install'], 'node scripts/install-skill.mjs');
   assert.equal(scripts['skill:uninstall'], 'node scripts/install-skill.mjs --uninstall');
@@ -84,10 +84,12 @@ test('names in the skill match the code: the 401 body, CLI flags, npm scripts', 
 
 const section = (start, end) => SKILL.slice(SKILL.indexOf(start), end ? SKILL.indexOf(end) : undefined);
 
-test('the skill never passes --open; it runs the opener itself and says "open by hand" when that failed (findings 1, 7)', () => {
+test('the skill starts the server with --no-open and never --open; it runs the opener itself and says "open by hand" when that failed (findings 1, 7)', () => {
   const startCmd = SKILL.split('\n').find((l) => l.includes('--port <port> <flags>'));
   assert.ok(startCmd && !startCmd.includes('--open'), startCmd);
-  assert.ok(SKILL.includes('`<flags>` is `--auth` for `auth`, else empty. Do not pass `--open`'));
+  // launch readiness D7: the bin opens by itself in a terminal, so the skill says no explicitly (it opens the page in step 4)
+  assert.ok(startCmd.trim().endsWith('--port <port> <flags> --no-open > "<out>" 2>&1'), startCmd);
+  assert.ok(SKILL.includes('`<flags>` is `--auth` for `auth`, else empty. Keep `--no-open` and never pass `--open`'));
   assert.doesNotMatch(SKILL, /unless `--open` already did it|skip step 4/);
   const step4 = section('4. Open `<page>`', '5. Tell the user');
   for (const s of ['opener still running', '`opened` and `opener still running`', '`open failed ...` means it did not', 'Windows `start` reports success']) {
@@ -98,7 +100,7 @@ test('the skill never passes --open; it runs the opener itself and says "open by
 
 test('a reused server gets an ownership check and a matching "how to stop" line (finding 2)', () => {
   const step1 = section('1. Probe.', '2. Make a private');
-  for (const s of ['with ` 4317` added after its last argument', '`ours pid <n>`', '`not ours`', 'a non-empty `$m` means ours']) {
+  for (const s of ['with ` 4747` added after its last argument', '`ours pid <n>`', '`not ours`', 'a non-empty `$m` means ours']) {
     assert.ok(step1.includes(s), s);
   }
   const step5 = section('5. Tell the user', '## stop');
@@ -110,13 +112,13 @@ test('a reused server gets an ownership check and a matching "how to stop" line 
 test('probe: a fallback timer guarantees one line, and no output at all counts as another program (finding 3)', () => {
   assert.ok(SKILL.includes('const t=setTimeout(()=>{console.log("down Timeout");process.exit(0)},1500)'));
   assert.ok(SKILL.includes('.finally(()=>clearTimeout(t))'));
-  assert.ok(SKILL.includes('or no output at all: port 4317 is held by another program'));
+  assert.ok(SKILL.includes('or no output at all: port 4747 is held by another program'));
 });
 
 test('wait: complete lines only, ends on any non-URL line, and EADDRINUSE leads to one more probe (finding 4)', () => {
   assert.ok(SKILL.includes('t.slice(0, t.lastIndexOf("\\n") + 1)'));
   assert.ok(SKILL.includes('!lines().some((l) => !l.startsWith("office-sim: http://"))'));
-  assert.ok(SKILL.includes('contains `EADDRINUSE` (another start took 4317 first), probe once more and act as in step 1'));
+  assert.ok(SKILL.includes('contains `EADDRINUSE` (another start took 4747 first), probe once more and act as in step 1'));
 });
 
 test('stop: each pid is tried on its own and failures are reported (finding 6)', () => {
@@ -140,7 +142,7 @@ test('Windows stop matches the bin path as the first argument after node.exe, no
   const root = 'D:\\src\\office-sim [v2]';
   const m = windowsMatcher(root);
   const bin = `${root}\\bin\\office-sim.mjs`;
-  for (const cmd of [`node "${bin}" --port 4317`, `"C:\\Program Files\\nodejs\\node.exe" "${bin}" --port 0 --auth`,
+  for (const cmd of [`node "${bin}" --port 4747`, `"C:\\Program Files\\nodejs\\node.exe" "${bin}" --port 0 --auth`,
     `C:\\nodejs\\node.exe "${root}/bin/office-sim.mjs"`, `NODE.EXE "${bin.toLowerCase()}"`, `node "${bin}"`]) {
     assert.ok(m.test(cmd), `match: ${cmd}`);
   }
@@ -149,7 +151,7 @@ test('Windows stop matches the bin path as the first argument after node.exe, no
     assert.ok(!m.test(cmd), `no match: ${cmd}`);
   }
   const plain = windowsMatcher('C:\\r');
-  assert.ok(plain.test('node C:\\r\\bin\\office-sim.mjs --port 4317'));
+  assert.ok(plain.test('node C:\\r\\bin\\office-sim.mjs --port 4747'));
   assert.ok(!plain.test('node C:\\r\\bin\\office-sim.mjs.bak'));
   assert.ok(SKILL.includes("(double any `'` in it)"));
 });

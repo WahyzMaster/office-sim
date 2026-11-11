@@ -26,10 +26,10 @@
 
 ## 빠른 시작
 
-**Node.js 22 이상**이 필요하며, 설치할 외부 런타임 패키지가 전혀 없습니다(Zero dependencies).
+**Node.js 22 이상**이 필요하며(Node 22와 24에서 테스트), 설치할 외부 런타임 패키지가 전혀 없습니다(Zero dependencies).
 
 ```bash
-# 바로 실행 (기본 포트 4317)
+# 바로 실행 (기본 포트 4747)
 npx office-sim --open
 
 # macOS / Windows 네이티브 시스템 알림(질문·승인 대기, 완료, 오류)과 함께 실행
@@ -41,8 +41,8 @@ cd office-sim
 npm start
 ```
 
-- **실시간 로컬 세션 감시**: 브라우저에서 `http://127.0.0.1:4317`을 열면 현재 실행 중인 로컬 에이전트 세션이 실시간으로 표시됩니다.
-- **무설치 데모 모드**: `http://127.0.0.1:4317/?lang=ko#demo` 또는 [GitHub Pages 라이브 데모](https://wahyzmaster.github.io/office-sim/?lang=ko#demo)를 열면 로컬 세션 없이도 네 종류 에이전트가 여러 층에서 협업하는 데모 시나리오를 체험할 수 있습니다.
+- **실시간 로컬 세션 감시**: 브라우저에서 `http://127.0.0.1:4747`을 열면 현재 실행 중인 로컬 에이전트 세션이 실시간으로 표시됩니다.
+- **무설치 데모 모드**: `http://127.0.0.1:4747/?lang=ko#demo` 또는 [GitHub Pages 라이브 데모](https://wahyzmaster.github.io/office-sim/?lang=ko#demo)를 열면 로컬 세션 없이도 네 종류 에이전트가 여러 층에서 협업하는 데모 시나리오를 체험할 수 있습니다.
 
 ## 테마 및 화면 갤러리
 
@@ -69,9 +69,9 @@ npm start
   - 외부 패키지 없이 macOS Notification Center(`/usr/bin/osascript`)와 Windows 10/11 WinRT `ToastNotificationManager`(구형 환경 `NotifyIcon` 폴백)를 구동하며, 5가지 소음 방지 규칙(3.5초 질문 대기 확인, 4.0초 턴 완료 안정화, 에이전트별 4.0초 쿨다운, 서브에이전트 중간 완료 억제, 리플레이 모드 차단)과 브라우저 Web `Notification` 폴백을 내장하고 있습니다.
 - **3D 캐릭터 클릭 시 네이티브 터미널·IDE 탭 즉시 전환 (단축키 `T`)**:
   - 3D 캐릭터를 클릭하거나 상세 창의 **터미널 열기 (T)** 버튼을 누르면 **macOS**(`iTerm2`, `Terminal.app`, `Cursor`, `VS Code`, `Antigravity`, `Ghostty`, `WezTerm`, `Warp`)와 **Windows**(`Windows Terminal`, `VS Code`, `Cursor`, `PowerShell`)에서 해당 에이전트가 실행 중인 터미널 탭·IDE 창으로 즉시 포커스를 이동합니다.
-- **3D 컨텍스트 연료 링 & 실시간 토큰·비용(USD) 추정기**:
-  - 각 캐릭터 발밑의 **3D 컨텍스트 연료 링**이 컨텍스트 사용률에 따라 초록(`<60%`) -> 호박색(`60~85%`) -> 적색 점멸(`>85%`)로 변하며, 컨텍스트 압축(Compaction) 발생 시 입자 버스트 이펙트를 터뜨립니다.
-  - 에이전트 상세 창에서 실시간 컨텍스트 연료 비율과 입·출력·캐시 토큰 수, 추정 비용(USD)을 바로 확인할 수 있습니다.
+- **3D 컨텍스트 연료 링 & 토큰 수치 (추정치)**:
+  - 각 캐릭터 발밑의 **3D 컨텍스트 연료 링**이 초록(60% 미만) -> 호박색(60~79%) -> 적색(80% 이상)으로 변하며, 세션의 컨텍스트가 압축(Compaction)되면 짧은 입자 버스트 이펙트가 재생됩니다.
+  - 이 링은 모델이 보고한 값이 아니라 추정치입니다. 페이지가 받는 이벤트에는 사용량 숫자가 없어서, 이벤트(프롬프트·생각·응답·도구 호출)마다 정해진 토큰 수를 더하고 컨텍스트 창을 20만 토큰으로 가정해 계산합니다. 에이전트 상세 창은 같은 추정치를 `컨텍스트 연료 (추정)`과 `토큰 (추정)` 두 줄의 글자로 보여 줍니다. Office Sim은 비용이나 요금을 표시하지 않습니다.
 - **미확인 `완료(Done)` 배지 & 원클릭 스프린트 요약 마크다운 복사 (단축키 `M`)**:
   - 에이전트가 턴을 마치면 머리 위 이름표에 호박색 **`완료(Done)` 배지**가 켜지며, `M` 키 또는 **스프린트 요약 (M)** 버튼을 눌러 수정한 파일·실행 명령·검증 내역을 정리한 마크다운 요약 카드를 열고 원클릭으로 복사할 수 있습니다.
 - **공간 (`7`가지 3D 건축 테마)**: `AI 스튜디오`, `테크 오피스`, `조선 궁궐`, `전통 한옥`, `SF 스타십`, `퍼피 파크`, `캣 타워 살롱` 중 원하는 3D 건물 구조와 방 가구를 즉시 전환합니다.
@@ -130,7 +130,7 @@ npm start
 
 | 옵션 | 기본값 | 설명 |
 |---|---|---|
-| `--port` | `4317` | HTTP 포트(`0`이면 빈 포트 자동 할당) |
+| `--port` | `4747` | HTTP 포트(`0`이면 빈 포트 자동 할당) |
 | `--host` | `127.0.0.1` | 루프백 주소만 허용 (`127.0.0.1`, `localhost`, `::1`) |
 | `--interval` | `250` | tail 간격(ms, 50~5000) |
 | `--active` | `30` | 최근 N분 안에 수정된 세션만 따라감 |
@@ -147,7 +147,10 @@ npm start
 | `--speed <n>` | `1` | 재생 배속 (`0.1`~`1000`) |
 | `--loop` | 꺼짐 | 재생이 끝나면 처음부터 반복 |
 | `--auth` | 꺼짐 | 일회용 토큰(`http://127.0.0.1:<port>/?t=<token>`)으로 쿠키 인증 강제 |
-| `--open` | 꺼짐 | 서버 시작 시 기본 브라우저로 화면 열기 |
+| `--cdn` | 꺼짐 | 페이지가 `https://cdn.jsdelivr.net` 에서 스크립트를 받도록 허용 (`?renderer=webgpu` 에만 필요, 기본은 모든 파일을 로컬 서버에서 받음) |
+| `--open` | 터미널에서는 켜짐 | 서버 시작 시 기본 브라우저로 화면 열기. `--open` 도 `--no-open` 도 없으면 표준 출력이 터미널이고 `CI` 가 설정되지 않았으며 여는 프로그램이 있을 때만 엽니다 (Linux 의 `--auth` 에서는 기본으로 열지 않음) |
+| `--no-open` | 꺼짐 | 브라우저를 열지 않음 |
+| `--demo` | 꺼짐 | 브라우저를 열 때 데모 모드로 열기 (주소 뒤에 `#demo`) |
 
 ## `/office` 스킬 설치
 
@@ -159,9 +162,13 @@ npm run skill:uninstall
 
 ## 개인정보 보호 및 아키텍처 상세
 
-- 서버는 루프백(`127.0.0.1`)에만 열리며, 파일 내용·명령 원문·전체 경로·전체 URL·이메일·인증 파일은 절대 읽거나 브라우저로 보내지 않습니다.
+- 서버는 루프백(`127.0.0.1`)에만 열리며, 파일 내용·명령 원문·전체 경로·전체 URL·이메일은 브라우저로 보내지 않고, 인증 파일은 열지 않습니다.
+- **데스크톱 앱 (에이전트 폴더 밖의 파일)**: Claude·ChatGPT·Grok 데스크톱 앱의 대화도 캐릭터로 보이도록, 서버는 macOS에서 이 앱들의 파일 몇 개를 추가로 살펴봅니다. 세 가지 확인 모두 기본으로 켜져 있고 따로 끄는 옵션은 없습니다. 각 확인은 해당 에이전트의 루트가 기본값일 때만 실행되므로, `--claude-root`·`--codex-root`·`--grok-root`를 다른 폴더로 지정하거나 `--agents`에서 그 에이전트를 빼면 꺼지고, `--replay`에서는 하나도 실행되지 않습니다. 모든 경로와 필드는 [`docs/CONTRACT.md`](docs/CONTRACT.md) 5.1절에 있습니다.
+  - **Claude 데스크톱 앱**: `~/Library/Application Support/Claude/IndexedDB/` 아래 `https_claude.ai_0.indexeddb.leveldb`와 `https_claude.ai_0.indexeddb.blob` 폴더의 목록을 보고, 그 안 파일들의 크기와 수정 시각만 읽습니다. IndexedDB 파일은 어떤 것도 열지 않습니다. `~/Library/Logs/Claude/`에서는 `main.log`와 `mcp.log`의 크기와 수정 시각을 읽고, Claude 데스크톱 캐릭터가 사무실에 있는 동안에는 앱이 `mcp.log`에 덧붙이는 줄을 읽습니다(한 번에 최대 128 KiB). `<시각> [info] [<서버>] Message from client: ...` 형식의 줄에서 시각, MCP 서버 이름, 요청 id, `tools/call` 요청의 첫 `"name"` 값(보통 도구 이름), 그리고 서버의 답이 결과인지 오류인지만 남깁니다. 이 줄에는 도구 인자와 결과도 들어 있는데, 방금 말한 항목을 빼고는 메모리를 거쳐 버려질 뿐 저장·기록·전송되지 않습니다. 줄을 JSON으로 해석하지 않고 패턴으로만 맞추기 때문에, 요청이 도구 이름보다 인자를 먼저 적는 경우에는 `name`이라는 인자의 값이 도구 이름으로 잡힐 수 있습니다. 페이지에는 `Claude Desktop Chat`이라는 제목의 캐릭터 하나, `mcp__<서버>__<도구>` 이름의 도구 이벤트, `Completed <서버>` 한 줄이 전달됩니다.
+  - **ChatGPT 데스크톱 앱**: 최근 `~/Library/Logs/com.openai.codex/<YYYY>/<MM>/<DD>/codex-desktop-*.log` 파일의 마지막 512 KiB를 읽어 대화 id(UUID), 줄의 시각, 시작·중지·완료 표시만 남깁니다. `~/Library/Application Support/com.openai.chat/conversations-v3-*/`의 목록을 보고 `<uuid>.data` 파일의 이름·크기·수정 시각만 쓰며, 파일은 열지 않습니다. 페이지에는 대화마다 id가 `codex-<uuid>`이고 제목이 고정된 캐릭터 하나가 전달됩니다.
+  - **Grok Bot**: `~/.grokbot/`과 `~/Library/Application Support/Grok Bot/`의 상태 파일들의 수정 시각을 읽습니다(`Cookies`, `Preferences`, `settings.json`도 여기에 들어가며, 이 파일들은 열지 않습니다). `~/.grokbot/local-exec-daemon.log`의 끝부분은 데몬이 종료 중인지 보려고만 읽고, 작은 JSON 파일 `sand-client-persistence/*.blob`에서는 봇마다 id, 이름 또는 제목, 활동 시각, 답을 기다리는 중인지만 남깁니다. 페이지에는 `Grok Bot · <이름 또는 제목>`이라는 제목의 캐릭터가 전달됩니다. `~/.grok` 안에서는 세션 id와 시각을 보려고 `logs/unified.jsonl`의 끝부분도 읽습니다.
 - 상세 계약과 어댑터 명세 및 소프트웨어 개발 보고서는 [`docs/SOFTWARE_DEVELOPMENT_REPORT.md`](docs/SOFTWARE_DEVELOPMENT_REPORT.md), [`docs/CONTRACT.md`](docs/CONTRACT.md), [`docs/ADAPTERS.md`](docs/ADAPTERS.md), [`docs/HISTORY.md`](docs/HISTORY.md)를 참고하세요.
-- 어댑터 개발용 실시간 기록 관찰 패널은 `http://127.0.0.1:4317/?observe=1` (또는 `#observe`)로 열었을 때만 상단 바에 나타납니다.
+- 어댑터 개발용 실시간 기록 관찰 패널은 `http://127.0.0.1:4747/?observe=1` (또는 `#observe`)로 열었을 때만 상단 바에 나타납니다.
 
 ## 후원하기 (Support & Sponsorship)
 

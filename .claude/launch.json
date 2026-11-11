@@ -4,14 +4,14 @@
     {
       "name": "office-sim",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["bin/office-sim.mjs", "--port", "4317"],
-      "port": 4317
+      "runtimeArgs": ["bin/office-sim.mjs", "--port", "4747"],
+      "port": 4747
     },
     {
       "name": "office-sim-replay",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["bin/office-sim.mjs", "--port", "4318", "--replay", "test/fixtures/replay/7e7e7e7e-1111-4222-8333-444455556666.jsonl", "--speed", "4", "--loop"],
-      "port": 4318
+      "runtimeArgs": ["bin/office-sim.mjs", "--port", "4748", "--replay", "test/fixtures/replay/7e7e7e7e-1111-4222-8333-444455556666.jsonl", "--speed", "4", "--loop"],
+      "port": 4748
     }
   ]
 }

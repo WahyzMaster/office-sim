@@ -8,12 +8,14 @@ import { SessionRecapTracker } from './session-recap.mjs';
 import { SystemNotifier } from './system-notify.mjs';
 import { FlywheelControl } from './flywheel/control.mjs';
 import { handleReplayRoute } from './replay-control.mjs';
+import { pageHead, PAGE_TAIL } from './page-shell.mjs';
 
-const HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
-  + '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
-  + '<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style></head><body>';
-const TAIL = '</body></html>';
+const HEAD = pageHead({ lang: 'en' }); // public/office.html 앞뒤를 감싸는 문서 껍데기 (호스팅 데모 빌드와 같이 쓴다). 페이지가 고른 언어로 lang 을 바꾼다 (D8)
 const JS_RE = /^\/js\/([a-z0-9_-]+)\.js$/;
+// public/vendor (벤더링한 three.js, contract 6): 폴더 없는 이름, 글자·숫자로 시작하고 . 과 - 는 하나씩만, 확장자는 .js 와 .txt 뿐
+const VENDOR_RE = /^\/vendor\/([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*\.(js|txt))$/;
+const JS_TYPE = 'text/javascript; charset=utf-8';
+const VENDOR_TYPES = Object.freeze({ js: JS_TYPE, txt: 'text/plain; charset=utf-8' });
 const FAVICON_TYPES = Object.freeze({
   '/favicon.svg': 'image/svg+xml; charset=utf-8',
   '/favicon.png': 'image/png',
@@ -90,10 +92,10 @@ function readBody(req, limit) {
  *           observe?: { status(): object, start(): Promise<object>, stop(): Promise<object> } | null }} o
  *   observe: the live log observation control (ObserveControl). null = feature off: no /observe route, no observe frame.
  */
-export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, replayRunner = null, focusOpts = null, notifyOpts = null, flywheelOpts = null, log = () => {} }) {
+export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, cdn = false, observe = null, replayRunner = null, focusOpts = null, notifyOpts = null, flywheelOpts = null, log = () => {} }) {
   const clients = new Set();
   const auth = createAuth(authToken, getPort);
-  const csp = cspCache();
+  const csp = cspCache({ cdn }); // cdn (--cdn): 페이지 CSP 의 script-src 에 CDN 을 더한다. 기본은 루프백만
   const dataRoutes = observe ? OBSERVE_ROUTES : DATA_ROUTES;
   const activeHookTools = new Map();
   const recapTracker = new SessionRecapTracker();
@@ -134,20 +136,21 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     } catch {
       return send(res, 500, 'office.html missing');
     }
-    const page = HEAD + html + TAIL;
+    const page = HEAD + html + PAGE_TAIL;
     send(res, 200, page, 'text/html; charset=utf-8', {
       'cache-control': 'no-cache', 'content-security-policy': csp(page), 'x-frame-options': 'DENY',
     });
   }
 
-  async function serveJs(res, name) {
+  // public/js 와 public/vendor 의 파일 하나. 이름은 route() 의 정규식(JS_RE, VENDOR_RE)이 이미 걸렀다
+  async function serveAsset(res, dir, file, type) {
     let buf;
     try {
-      buf = await fsp.readFile(path.join(publicDir, 'js', `${name}.js`));
+      buf = await fsp.readFile(path.join(publicDir, dir, file));
     } catch {
       return send(res, 404, 'not found');
     }
-    send(res, 200, buf, 'text/javascript; charset=utf-8', { 'cache-control': 'no-cache' });
+    send(res, 200, buf, type, { 'cache-control': 'no-cache' });
   }
 
   async function serveFavicon(res, rawPath) {
@@ -449,7 +452,9 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     if (rawPath === '/healthz') return sendJson(res, 200, health(clients.size)); // 본문은 server-health.mjs (처음 다섯 키는 예전 그대로)
     if (FAVICON_TYPES[rawPath]) return serveFavicon(res, rawPath);
     const js = JS_RE.exec(rawPath);
-    if (js) return serveJs(res, js[1]);
+    if (js) return serveAsset(res, 'js', `${js[1]}.js`, JS_TYPE);
+    const vendor = VENDOR_RE.exec(rawPath);
+    if (vendor) return serveAsset(res, 'vendor', vendor[1], VENDOR_TYPES[vendor[2]]);
     return send(res, 404, 'not found');
   }
 

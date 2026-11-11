@@ -49,12 +49,12 @@ Built under a strict **Zero-Dependency** and **Privacy-by-Default** engineering 
 | **FR-02** | **Subagent Hierarchy & Worktree Floor Routing**: Link parent/child subagents and group git worktrees onto their parent repository floor (`1F`, `2F`, ...). | `src/store.mjs`, `src/store-claude.mjs`, `src/store-link.mjs`, `src/session-identity.mjs` | `test/store.test.mjs`, `test/codex-floor.test.mjs`, `test/grok-floor.test.mjs` | Verified |
 | **FR-03** | **Real-Time SSE Streaming & Snapshot Recovery**: Maintain a 500-event ring buffer, stream `/events` with `Last-Event-ID` resume, and serve `/state` snapshots and `/healthz` diagnostics. | `src/server.mjs`, `src/server-runner.mjs`, `src/server-http.mjs`, `src/server-health.mjs`, `public/js/sources.js` | `test/server.test.mjs`, `test/healthz.test.mjs`, `test/e2e.test.mjs` | Verified |
 | **FR-04** | **3D Architectural Diorama & Collision Navigation**: Render 7 functional rooms across 7 architectural themes and 29 3D characters with 2D AABB obstacle avoidance and acrobatic stunts. | `public/js/office.js`, `public/js/floor.js`, `public/js/agent.js`, `public/js/rooms.js`, `public/js/theme-kit.js`, `public/js/placement.js` | `test/theme-build.test.mjs`, `test/theme-geometry.test.mjs`, `test/theme-layout-invariants.test.mjs`, `test/agent-flow.test.mjs` | Verified |
-| **FR-05** | **SimCity RCI Demand Meter & 5-Mode 3D Lenses**: Compute real-time `R/C/I` demand (`Research / Coding / Infra`) and switch 3D spatial heatmaps (`normal`, `context`, `latency`, `error`, `traffic`) from `#sim-hud-pill`. | `public/js/sim-overlays.js`, `public/js/sim-advisor.js`, `public/js/hud.js`, `public/office.html` | `test/sim-studio-flywheel.test.mjs` | Verified |
+| **FR-05** | **SimCity RCI Demand Meter & 5-Mode 3D Lenses**: Compute real-time `R/C/I` demand (`Research / Coding / Infra`) and switch 3D spatial heatmaps (`normal`, `context`, `latency`, `error`, `traffic`) from `#sim-hud-pill`. Since `v0.12.0` the pill is a maintainer tool: it shows only with `?labs=1` or a saved labs preference (`public/js/labs.js`, `docs/CONTRACT.md` section 9.4). | `public/js/sim-overlays.js`, `public/js/sim-advisor.js`, `public/js/hud.js`, `public/office.html` | `test/sim-studio-flywheel.test.mjs` | Verified |
 | **FR-06** | **Sims-Style Agent Motives, Moodlets & Autonomy**: Derive 4 agent motives (`Context Freshness`, `Tool Momentum`, `Approval Freedom`, `Error Resilience`), moodlets, and autonomous lounge interactions. | `public/js/sim-motives.js`, `public/js/hud.js` | `test/sim-studio-flywheel.test.mjs` | Verified |
 | **FR-07** | **Location-Contextual Cute Animations & 3D Micro-Props**: Drive room-specific keyframe profiles, 3D handheld props (`magnifyingGlass`, `keycapWand`, `wrench`), volume-preserving Squash & Stretch, joy-burst hops, and species-specific tetrapod behaviors. | `public/js/sim-cute-anim.js`, `public/js/agent.js`, `public/js/agent-extras.js`, `public/js/pet-mesh.js`, `public/js/bot-mesh.js` | `test/sim-cute-anim.test.mjs` | Verified |
 | **FR-08** | **Interactive 3D Plan Board & Detail Drawer**: Raycast clicks on the 3D `meeting` whiteboard, `.sign[data-room="meeting"]`, `li[data-kind="plan"]`, `#inspector` `Plan (B)`, and shortcut `B` to open `#board-detail` with full unclipped checklist items and `P:done/total` floor/sign badges. | `public/js/board-detail.js`, `public/js/board.js`, `public/js/main.js`, `public/js/office.js`, `public/js/sources.js` | `test/board-detail.test.mjs`, `test/plan.test.mjs` | Verified |
 | **FR-09** | **Native OS System Notifications & Terminal Focus**: Deliver opt-in macOS/Windows desktop alerts (`--notify`, shortcut `N`) with 5 anti-noise guards and focus the active terminal/IDE tab (`POST /api/focus`, shortcut `T`). | `src/system-notify.mjs`, `public/js/system-notify.js`, `src/terminal-focus.mjs`, `src/session-recap.mjs` | `test/system-notify.test.mjs`, `test/p1-p4-roadmap.test.mjs` | Verified |
-| **FR-10** | **Observation Sidecar & Autonomous Improvement Flywheel**: Collect non-invasive shape telemetry (`src/observe/`) and 8-source (`P1..P8`) runtime anomalies (`src/flywheel/`), deduplicate via 24-hex SHA-256 fingerprints, and route Tier A/B/C actions into `Harness²` loop contracts. | `src/observe/observer.mjs`, `src/flywheel/collectors.mjs`, `src/flywheel/router.mjs`, `src/flywheel/control.mjs`, `public/js/flywheel-panel.js`, `public/js/sim-flywheel-viz.js` | `test/observe-core.test.mjs`, `test/flywheel-router.test.mjs`, `test/flywheel-control-http.test.mjs`, `test/flywheel-panel.test.mjs` | Verified |
+| **FR-10** | **Observation Sidecar & Autonomous Improvement Flywheel**: Collect non-invasive shape telemetry (`src/observe/`) and 8-source (`P1..P8`) runtime anomalies (`src/flywheel/`), deduplicate via 24-hex SHA-256 fingerprints, and route Tier A/B/C actions into `Harness²` loop contracts. Since `v0.12.0` the page's Flywheel button and its `/api/flywheel` requests need `?labs=1` or a saved labs preference (`docs/CONTRACT.md` section 9.4). | `src/observe/observer.mjs`, `src/flywheel/collectors.mjs`, `src/flywheel/router.mjs`, `src/flywheel/control.mjs`, `public/js/flywheel-panel.js`, `public/js/sim-flywheel-viz.js` | `test/observe-core.test.mjs`, `test/flywheel-router.test.mjs`, `test/flywheel-control-http.test.mjs`, `test/flywheel-panel.test.mjs` | Verified |
 
 ### 2.2 Non-Functional Requirements Traceability (`NFR-01` .. `NFR-06`)
 
@@ -85,7 +85,7 @@ flowchart TB
       AG["~/.gemini/antigravity*/brain/*<br/>transcript_full.jsonl + task.md"]
     end
 
-    subgraph Server["office-sim Loopback Server (Node.js >= 22, 127.0.0.1:4317)"]
+    subgraph Server["office-sim Loopback Server (Node.js >= 22, 127.0.0.1:4747)"]
       RG["RunnerGroup & Discover/Tailer<br/>(src/server-runner.mjs, src/tailer.mjs)"]
       AD["4 Agent Adapters & SessionCore<br/>(src/adapters/index.mjs, src/core/session-core.mjs)"]
       SC["Privacy Scrubber & Plan Reconstructor<br/>(src/summarize.mjs, src/plan.mjs)"]
@@ -140,7 +140,7 @@ sequenceDiagram
 
 | Subsystem | Key Modules | Architectural Responsibility |
 |---|---|---|
-| **CLI & Lifecycle** | `bin/office-sim.mjs`, `src/cli-args.mjs`, `src/open-url.mjs` | Pure CLI flag parsing (`--port`, `--host`, `--agents`, `--notify`, `--replay`, `--auth`, `--open`), process lifecycle, and platform browser launcher. |
+| **CLI & Lifecycle** | `bin/office-sim.mjs`, `src/cli-main.mjs`, `src/cli-args.mjs`, `src/open-url.mjs`, `src/open-policy.mjs`, `src/port-reuse.mjs` | Entry stub (Node 22 floor warning, then `src/cli-main.mjs`), pure CLI flag parsing (`--port`, `--host`, `--agents`, `--notify`, `--replay`, `--auth`, `--open`, `--no-open`, `--demo`), process lifecycle, reuse of an office-sim already listening on the default port `4747`, the pure decision to open the browser (by default only in a terminal without `CI`), and platform browser launcher. |
 | **Discovery & Tailing** | `src/discover.mjs`, `src/tailer.mjs`, `src/core/sidecar.mjs`, `src/desktop-claude.mjs` | Allowlist-only directory scanning, inode/truncation-aware byte-offset tailing, desktop cloud-chat detection, and mtime/size-guarded sidecar metadata watching (`<= 1 MB`). |
 | **Canonical Core & Store** | `src/session.mjs`, `src/core/session-core.mjs`, `src/core/tool-summary.mjs`, `src/store.mjs`, `src/store-claude.mjs`, `src/store-link.mjs` | Stateful turn/tool pairing (`R6..R36`), `cleanText` privacy scrubbing, subagent parent linking, git worktree floor coalescing, and snapshot synthesis. |
 | **Multi-Agent Adapters** | `src/adapters/index.mjs`, `src/adapters/claude-code.mjs`, `src/adapters/codex/index.mjs`, `src/adapters/grok/index.mjs`, `src/adapters/antigravity/index.mjs` | Translates provider-specific transcript records into canonical `docs/CONTRACT.md` §2 events without leaking raw payloads. |
@@ -207,7 +207,7 @@ sequenceDiagram
 
 ### 5.3 Continuous Integration & Governance Gates
 
-1. **GitHub Actions CI (`.github/workflows/test.yml`, `.github/workflows/publish.yml`, `.github/workflows/pages.yml`)**: Runs syntax checks (`node --check`), full test suite (`npm test`), package dry-runs across **Node.js 22 and Node.js 24**, OIDC npm publishing, and GitHub Pages deployment.
+1. **GitHub Actions CI (`.github/workflows/test.yml`, `.github/workflows/publish.yml`, `.github/workflows/pages.yml`)**: Runs syntax checks (`node --check`), full test suite (`npm test`), package dry-runs across **Node.js 22 and Node.js 24**, manually dispatched OIDC npm publishing (`workflow_dispatch` only since `v0.12.0`), and GitHub Pages deployment.
 2. **Domain & Harness² Surface Verifiers (`scripts/verify-dom-invariants.mjs`)**: Enforces 0 dependencies, `<= 500 lines` per file, `O_NOFOLLOW` presence on watchers, and `c1..c8` `Harness²` surface budgets.
 
 ---
@@ -236,7 +236,7 @@ sequenceDiagram
 Development is governed by the `Harness²` cost hierarchy (`skill -> script -> subagent -> hook -> gate -> memory -> always-on`), separating task-invariant rules (`INV`) from repository-specific domain contracts (`DOM` in `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`). Every change executes the 6-phase `/standard-workflow`:
 - **P0 Intake & P1 Worktree Isolation**: Linear issue tracking (`GLO-*`) and isolated Git worktree creation (`.worktrees/<slug>` from `origin/master`).
 - **P2 Architecture Fit & P3 4-Pillar Build**: Simultaneous delivery of production code + unit/conformance tests, usage documentation, visual cues, and invariant gates.
-- **P4 Independent Multi-Agent Verification & P5 Ship & Land**: Read-only subagent code review verifying zero `HIGH`/`MEDIUM` findings prior to PR squash-merge and post-merge automated npm/GitHub release publishing (`.github/workflows/publish.yml`).
+- **P4 Independent Multi-Agent Verification & P5 Ship & Land**: Read-only subagent code review verifying zero `HIGH`/`MEDIUM` findings prior to PR squash-merge. npm/GitHub release publishing is post-merge and manually dispatched: `.github/workflows/publish.yml` runs on `workflow_dispatch` only since `v0.12.0` (through `v0.11.0` it ran on every merge to `master`).
 
 ### 6.3 Future Engineering Roadmap (Post-`v0.11.0`)
 

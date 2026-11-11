@@ -26,7 +26,7 @@
 
 ## Quick Start
 
-Requires **Node.js 22+** and has **zero runtime dependencies**.
+Requires **Node.js 22+** (tested on Node 22 and 24) and has **zero runtime dependencies**.
 
 ```bash
 # Run directly with npx
@@ -41,8 +41,8 @@ cd office-sim
 npm start
 ```
 
-- **Live Local Sessions**: Open `http://127.0.0.1:4317` in your browser to watch your active local agent sessions.
-- **Self-Contained Demo Mode**: Open `http://127.0.0.1:4317/?lang=en#demo` (or try the hosted [GitHub Pages Demo](https://wahyzmaster.github.io/office-sim/?lang=en#demo)) to watch a multi-agent simulation across multiple floors with zero setup.
+- **Live Local Sessions**: Open `http://127.0.0.1:4747` in your browser to watch your active local agent sessions.
+- **Self-Contained Demo Mode**: Open `http://127.0.0.1:4747/?lang=en#demo` (or try the hosted [GitHub Pages Demo](https://wahyzmaster.github.io/office-sim/?lang=en#demo)) to watch a multi-agent simulation across multiple floors with zero setup.
 
 ## Visual Showcase
 
@@ -68,9 +68,9 @@ npm start
   - Uses native macOS Notification Center (`/usr/bin/osascript`) and Windows 10/11 WinRT `ToastNotificationManager` (`NotifyIcon` fallback) with zero external dependencies and 5 corpus-backed anti-noise guards (`3.5s` Ask wait-confirm, `4.0s` Turn Done settle, `4.0s` per-agent cooldown, subagent intermediate suppression, and `replay` hard-mute), plus Web `Notification` API fallback.
 - **Click-to-Focus Native Terminal / IDE Tab (`T`)**:
   - Click any 3D agent character or press `T` (`Focus TTY (T)` in the Inspector) to bring the agent's native terminal tab or IDE window to the foreground on **macOS** (`iTerm2`, `Terminal.app`, `Cursor`, `VS Code`, `Antigravity`, `Ghostty`, `WezTerm`, `Warp`) and **Windows** (`Windows Terminal`, `VS Code`, `Cursor`, `PowerShell`).
-- **3D Context Window Fuel Ring & Token / Cost Estimator**:
-  - Each 3D character stands on a live **Context Window Fuel Ring** that shifts from Green (`<60%`) to Amber (`60-85%`) to pulsing Red (`>85%`) and triggers a compaction particle burst when context is compacted.
-  - The Agent Inspector displays a live context utilization bar, token breakdown, and estimated session spend in USD.
+- **3D Context Ring & Token Figures (estimates)**:
+  - Each 3D character stands on a **context ring** that turns from green (below 60%) to amber (60-79%) to red (80% and above), and a short particle burst plays when the session's context is compacted.
+  - The ring is an estimate, not a reading from the model. The events the page receives carry no usage numbers, so it adds a fixed number of tokens per event (prompt, thinking, reply, tool call) against an assumed 200,000-token window. The Agent Inspector shows the same estimates as two text rows, `Context Fuel (est.)` and `Tokens (est.)`. Office Sim shows no cost or price figure.
 - **Unreviewed `Done` Badge & 1-Click Sprint Recap (`M`)**:
   - Completed agent turns display an amber **`Done` badge** on the floating character tag until reviewed.
   - Press `M` or click **Sprint Recap (M)** in the Inspector to view and copy a structured Markdown summary of edited files, commands, and verification steps.
@@ -137,7 +137,7 @@ node bin/office-sim.mjs [options]
 
 | Option | Default | Description |
 |---|---|---|
-| `--port <n>` | `4317` | HTTP port (`0` for a random free port) |
+| `--port <n>` | `4747` | HTTP port (`0` for a random free port) |
 | `--host <addr>` | `127.0.0.1` | Loopback address (`127.0.0.1`, `localhost`, `::1` only) |
 | `--interval <ms>` | `250` | Tail poll interval in ms (`50`..`5000`) |
 | `--active <min>` | `30` | Only attach sessions modified within the last N minutes |
@@ -154,7 +154,10 @@ node bin/office-sim.mjs [options]
 | `--speed <n>` | `1` | Replay speed multiplier (`0.1`..`1000`) |
 | `--loop` | off | Loop replay continuously |
 | `--auth` | off | Require a per-run token (`http://127.0.0.1:<port>/?t=<token>`) and set an `HttpOnly` cookie |
-| `--open` | off | Open the URL in your default browser on startup |
+| `--cdn` | off | Let the page load scripts from `https://cdn.jsdelivr.net`; only `?renderer=webgpu` needs it (by default the page loads everything from the local server) |
+| `--open` | on in a terminal | Open the URL in your default browser on startup. Without `--open` or `--no-open` it opens only when stdout is a terminal, `CI` is not set and an opener exists (never by default with `--auth` on Linux) |
+| `--no-open` | off | Never open the browser |
+| `--demo` | off | When the browser is opened, open the page in demo mode (the URL plus `#demo`) |
 
 ## `/office` Skill Integration
 
@@ -172,6 +175,10 @@ Once installed, invoke `/office`, `/office demo`, `/office auth`, `/office statu
 
 - **Loopback-Only & Cross-Site Guards**: Rejects non-loopback `Host` headers, foreign `Origin` headers, and `Sec-Fetch-Site: cross-site` requests.
 - **Strict Scrubbing**: Only tool names, file basenames (never directory paths), URL hostnames (never query strings or paths), and short status summaries reach the browser. Credentials (`oauth_creds.json`, `.env`, SQLite DBs, raw prompt history files, encrypted `.pb` files) are never opened.
+- **Desktop Apps (files outside the agent folders)**: so that a chat in the Claude, ChatGPT or Grok desktop app can appear as a character, the server also looks at a few of those apps' files on macOS. All three checks are on by default and have no switch of their own: each runs only while that agent's root is the default one, so pointing `--claude-root`, `--codex-root` or `--grok-root` elsewhere, or leaving the agent out of `--agents`, turns it off, and `--replay` runs none of them. Every path and field is listed in [`docs/CONTRACT.md`](docs/CONTRACT.md) section 5.1.
+  - **Claude Desktop**: under `~/Library/Application Support/Claude/IndexedDB/` it lists the `https_claude.ai_0.indexeddb.leveldb` and `https_claude.ai_0.indexeddb.blob` folders and reads the size and modification time of files in them, nothing else: no IndexedDB file is ever opened. In `~/Library/Logs/Claude/` it reads the size and modification time of `main.log` and `mcp.log`, and while the Claude Desktop character is in the office it reads the lines the app appends to `mcp.log` (at most 128 KiB per read). From a line of the form `<time> [info] [<server>] Message from client: ...` it keeps the time, the MCP server name, the request id, the first `"name"` value of a `tools/call` request (normally the tool name), and whether the server answered with a result or an error. Those lines also hold tool arguments and results: they pass through memory and, apart from the items just listed, are dropped, never stored, logged or sent. The line is matched with patterns, not parsed as JSON, so if a request ever listed its arguments before the tool name, an argument called `name` would be taken for the tool name. The page gets one character titled `Claude Desktop Chat`, tool events named `mcp__<server>__<tool>`, and the line `Completed <server>`.
+  - **ChatGPT desktop**: it reads the last 512 KiB of recent `~/Library/Logs/com.openai.codex/<YYYY>/<MM>/<DD>/codex-desktop-*.log` files and keeps conversation ids (UUIDs), line times and start, stop and done markers; it lists `~/Library/Application Support/com.openai.chat/conversations-v3-*/` and uses the name, size and modification time of the `<uuid>.data` files without opening them. The page gets one character per conversation, with the id `codex-<uuid>` and a fixed title.
+  - **Grok Bot**: it reads the modification time of state files in `~/.grokbot/` and `~/Library/Application Support/Grok Bot/` (`Cookies`, `Preferences` and `settings.json` are among them and are never opened), the end of `~/.grokbot/local-exec-daemon.log` (only to see whether the daemon is shutting down), and the small JSON files `sand-client-persistence/*.blob`, from which it keeps each bot's id, name or title, activity times and whether it is waiting for a reply. The page gets a character titled `Grok Bot · <name or title>`. Inside `~/.grok` it also reads the end of `logs/unified.jsonl` for session ids and times.
 - **Architecture & Specifications**:
   - [`docs/SOFTWARE_DEVELOPMENT_REPORT.md`](docs/SOFTWARE_DEVELOPMENT_REPORT.md) — Industry-standard Software Development Report (requirements traceability, C4 architecture, security/privacy, verification report, and release history).
   - [`docs/CONTRACT.md`](docs/CONTRACT.md) — Event schema, adapter rules, privacy scrubbing contract, and `/healthz` specification.

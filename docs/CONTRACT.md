@@ -12,11 +12,17 @@ adapter (P5e) in 4.8.
 
 ## 0. Ground rules
 
-- Node 24 or later (`package.json` engines, `.nvmrc`; CI also runs Node 22), ESM (`.mjs`), **zero npm dependencies**.
+- Node 22 or later is the supported floor (`package.json` engines `>=22`). CI runs Node 22 and 24, and both are
+  tested; `.nvmrc` (24) is the development default, not the floor. A Node below 22 is not refused: the bin prints one
+  warning line and continues (section 6). ESM (`.mjs`), **zero npm dependencies**.
   Tests use `node:test` + `node:assert/strict` and run as `node --test test/*.test.mjs` (fixture modules under
   `test/fixtures/` are not test files).
   Run all tests with `node --test test/`.
-- Every source file stays under 500 lines. No `console.log` in `src/` (use the injected `log` callback); `bin/` may print.
+- Every source file stays under 500 lines. No `console.log` in `src/` (use the injected `log` callback); `bin/` and
+  the CLI body it runs (`src/cli-main.mjs`, section 6) may print to stdout and stderr.
+- Third-party files vendored under `public/vendor/` (section 6) are not project source and are exempt from the
+  500-line cap (`scripts/verify-dom-invariants.mjs` skips that folder); they are never edited, only replaced
+  together with their sha256 pins in `test/vendor-assets.test.mjs`.
 - Comments may be Korean or English; identifiers are English.
 - **Never read from or write to the real `~/.claude` in tests.** Tests build synthetic fixtures in a temp dir
   (`fs.mkdtemp(os.tmpdir() + '/office-sim-')`). Fixture text must be invented, never copied from real transcripts.
@@ -29,9 +35,12 @@ adapter (P5e) in 4.8.
 ## 1. Layout
 
 ```
-bin/office-sim.mjs      CLI: parse args, start server, print URL, --open (P4)
+bin/office-sim.mjs      CLI stub: no static project import; the Node floor warning, then main() of src/cli-main.mjs
+src/cli-main.mjs        CLI body: parse args, start server, print URL, open the browser, the no-session line, reuse on a busy default port
+src/port-reuse.mjs      the busy default port: one bounded GET /healthz, is the listener an office-sim? (section 6)
 src/cli-args.mjs        argv -> start() options (pure), USAGE text
 src/open-url.mjs        --open: platform opener command and a detached, never-awaited spawn (injectable, P4)
+src/open-policy.mjs     first-run decisions (pure): open the browser or not (--open, --no-open, the terminal default), --demo URL, the no-session line
 skills/office/SKILL.md  the /office Claude Code skill (P4): start or reuse, open, status, stop
 scripts/install-skill.mjs links <home>/.claude/skills/office to skills/office (P4; npm run skill:install / skill:uninstall)
 src/summarize.mjs       tool_use -> { summary, room? } (pure); cleanText, the one section 5 text scrub
@@ -43,6 +52,8 @@ src/session-util.mjs    tool_result status + error line, ask fields, public tool
 src/session-identity.mjs titles, branch/worktree/agentType labels, the `session` event with its `agent` id (pure)
 src/session-plan.mjs    PlanBoard: plan/task whiteboard state for one SessionState
 src/discover.mjs        find transcript files + read subagent meta / workflow journal labels
+src/desktop-claude.mjs  the Claude Desktop activity scan and its mcp.log tail (5.1). The ChatGPT desktop and Grok Bot
+                        scans of 5.1 are `src/adapters/codex/desktop-cloud.mjs` and `src/adapters/grok/desktop-bot.mjs`
 src/tailer.mjs          per-file byte-offset tail with partial-line buffer; opt-in `noFollow` attach (Antigravity, 4.8)
 src/store.mjs           registry of sessions and projects, entry agent, event ring buffer, snapshot, announce, patch,
                         since, endCharacter (4.0.1); calls store-claude.mjs only for entries whose agent is claude-code
@@ -105,7 +116,11 @@ src/observe/            live log observation ("기록 관찰", 6.2), every file 
                         `control.mjs` (`ObserveControl`: start / stop, the poll and rescan timers, the output file,
                         the status object, change notices, the auto-stop limits) and `retention.mjs` (`pruneOutputs`:
                         keep the 20 newest observation files of the output folder after a start)
-src/server-guard.mjs    page CSP, Sec-Fetch-Site check, --auth token and cookie
+src/server-guard.mjs    page CSP (the CDN only with --cdn), Sec-Fetch-Site check, --auth token and cookie
+src/page-shell.mjs      the document wrapper around the public/office.html fragment: `pageHead({ lang, extraHead })` and
+                        `PAGE_TAIL` (pure); shared by `GET /` and the hosted demo build
+scripts/build-demo.mjs  builds the hosted demo site (GitHub Pages, `.github/workflows/pages.yml`) into `--out <dir>`
+                        (default `_site`); see the hosted demo rule in section 6
 src/replay.mjs          ReplayRunner (extends Runner): --replay playback of one session (section 6.1)
 src/replay-timeline.mjs replay timeline: line times, cross-file merge, speed + gap cap, approval look-ahead (pure)
 test/*.test.mjs         unit + integration tests, synthetic fixtures under test/fixtures/ or generated
@@ -120,6 +135,13 @@ public/                 the browser app; owned by the browser module (public/js/
                         times, status reading, the view model and POST /observe, then the `ObservePanel` DOM class)
                         and js/observe-format.js (its pure text helpers: clock, sizes, spans, the limits line, the
                         end reason, the auto-stop countdown)
+                        First run (section 9): js/empty-state.js (when live mode shows the demo and when it stops:
+                        the pure `firstRunStep`, the banner text, the `createFirstRun` controller), js/labs.js (the
+                        maintainer-tools switch, `?labs=1`), js/static-text.js (Korean and English for the
+                        `aria-label`s of office.html, and `<html lang>`)
+public/vendor/          third-party files, served as they are by `GET /vendor/<name>` (section 6): from the npm
+                        package three@0.160.0 `three.module.min.js`, `OrbitControls.js`, `CSS2DRenderer.js` and its
+                        licence as `LICENSE-three.txt`; byte-pinned by test/vendor-assets.test.mjs
 .observe/               the observation output folder of the bin (6.2); in .gitignore, created 0700 at the first start
 ```
 
@@ -305,6 +327,8 @@ Main = `<root>/<dir>/<uuid>.jsonl`. Sub = `<root>/<dir>/<sid>/subagents/agent-<i
 `*.prefix.json`, `workflows/<runId>.json`, `tool-results/`, `session-memory/`, `memory/` as transcripts.
 Tolerate ENOENT anywhere (files move live). If the same main stem exists in several dirs, prefer the one with a
 `<stem>/` subdir, then newest mtime, then largest size.
+Only while `root` is the default `~/.claude/projects`, `scan` also returns one made-up main ref for the Claude desktop
+app (`src/desktop-claude.mjs`). It is the one read of the Claude adapter outside the root; 5.1 has every path.
 
 ### 3.6 `src/tailer.mjs`
 ```js
@@ -802,7 +826,8 @@ Discovery (allowlist, ADAPTERS 7.1):
   `plan.md`, `subagents/<child>/meta.json` and `output.json`, a group's
   `.cwd` file, `*.lock`, `active_sessions.json`, `session_search.sqlite`, `worktrees.db`, auth, config and permission
   files, `AGENTS.md`, `logs/`, `memory-v2/`, `memtrace/` and the spill folders (`terminal/`, `mcp/`, `compaction*/`,
-  `web_fetch/`, `images/`, ...).
+  `web_fetch/`, `images/`, ...). One exception, only while the root is the default `~/.grok`: the Grok Bot scan (5.1)
+  reads the tail of `logs/unified.jsonl` and looks at the desktop app's own files outside the root.
 - Names: a group is any directory under `sessions/` whose name does not start with `.`; session and child folders must
   have UUID names (so `grok-<uuid>` fits the D2 id rule). Symlinks are never followed: directory entries are taken by
   type, a session folder's `subagents` entry is `lstat`ed and listed only when it is a real directory (a symlinked
@@ -1119,7 +1144,8 @@ Discovery (allowlist, ADAPTERS 7.1):
   `archived_sessions/`, `history.jsonl` (raw prompts), the auth and config files, the SQLite stores (`state_5.sqlite`,
   `thread_history_1.sqlite`, `logs_2.sqlite`, `sqlite/`), `.codex-global-state.json`, `thread-writer-locks/`,
   `external_agent_session_imports.json`, log files, and everything under `worktrees/` (a worktree path is only compared
-  as a cwd string, Floors below).
+  as a cwd string, Floors below). That list is about the root. Only while the root is the default `~/.codex`, the
+  ChatGPT desktop scan (5.1) also reads the app's own log tails and lists its conversation folder, outside the root.
 - Symlinks are never followed: directory entries are taken by type (a symlinked folder or file is no entry), and a
   `sessions/` that is a symlink counts as missing. A date folder that a scan lists or re-`lstat`s without a full walk
   (the hot folders and the cold ones, below) is used only when every folder of its path (`sessions/`, year, month,
@@ -1790,29 +1816,182 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   SQLite or `summary.json`). `test/observe-privacy.test.mjs` and `test/observe-server.test.mjs` put BAIT strings in
   every free-text field and check the file, every status and every frame.
 
+### 5.1 Desktop apps: paths outside the agent roots (launch readiness D12)
+
+Three scans look at files of desktop apps so that a chat in the app can stand in the office as a character. The
+adapter sections (4.1 to 4.8) list what is read under an agent root; these scans are reads those lists do not name,
+and all but one of their paths are outside the roots. They are on by default. None has a switch of its own: each runs
+inside its adapter's scan and only while that adapter's root is the default one (compared as absolute paths, links
+not resolved), so it is off when the adapter is off (`--agents` without it, or its root does not exist), when the root
+option points anywhere else (`--claude-root`, `--codex-root`, `--grok-root`), and in `--replay` (no scan runs there).
+The paths are macOS paths and are tried on every platform; where they do not exist the scan finds nothing. A path that is
+missing or unreadable (`ENOENT`, `ENOTDIR`, `EACCES`, `EPERM`, `ELOOP`, `ENAMETOOLONG`) counts as absent. Every file
+that is opened is opened `O_RDONLY | O_NOFOLLOW | O_NONBLOCK`; nothing is written, and tests pass temp folders through
+the scan options (`appSupportDir`, `logsDir`, `logsRoot`, `classicRoot`, `grokBotRoot`, `appSupportRoot`,
+`unifiedLogPath`), never the real ones.
+
+**Claude Desktop** (`src/desktop-claude.mjs`, called by `scan` of `src/discover.mjs`; root `~/.claude/projects`).
+`<support>` is `~/Library/Application Support/Claude`, `<logs>` is `~/Library/Logs/Claude`.
+- Activity check (`computeClaudeCloudActivity`), at every rescan (`--rescan`) and, while the character is attached, at
+  every tail tick (`--interval`). It lists `<support>/IndexedDB/https_claude.ai_0.indexeddb.leveldb/` and `lstat`s the
+  entries named `*.log`, `*.ldb` or `MANIFEST*`; it lists `<support>/IndexedDB/https_claude.ai_0.indexeddb.blob/1/` and
+  `.../3/`, lists each folder in them and `lstat`s each file there (names starting with `.` are skipped); it `lstat`s
+  `<logs>/mcp.log` and `<logs>/main.log`. No IndexedDB file and not `main.log` is ever opened. From all of this it
+  keeps: how many regular files there are (`main.log` is not counted), the sum of their sizes, the newest modification
+  time, the size of `mcp.log`, and the path and inode of one anchor file (`main.log`, else `mcp.log`, else the newest
+  file), which is the Store key of the character. Linked entries are skipped: a linked file is not a regular file for
+  `lstat`, and a linked folder inside `blob/1/` or `blob/3/` is not entered. A link in the path of a listed folder
+  itself is followed by the listing.
+- The character: when the newest modification time is inside the active window (`--active`), one main ref with the
+  fixed id `claude-desktop-cloud` exists. Its records are made up by the scan, not read from a file: title `Claude
+  Desktop Chat`, cwd `/Claude Desktop` (so `session.project` is `/Claude Desktop` and `projectLabel` `Claude Desktop`),
+  entrypoint `claude-desktop` (`surface: 'app'`), and, at attach and whenever the count, size sum or newest time
+  changes (unless that tick already produced a tool event), a turn with the prompt `Claude Desktop Chat` and the reply
+  `Active in Claude Desktop`, timed at the newest modification time. The file names, sizes and count never leave the
+  server.
+- `mcp.log` (`ClaudeDesktopTailer`), at every tail tick while attached. Only bytes appended after the attach are read
+  (the offset starts at the size the file has then), at most the last 128 KiB per read (`MAX_MCP_READ_BYTES`; older
+  bytes of a larger burst are skipped; after the file shrinks, reading restarts at most 128 KiB before its end). The
+  open checks that the handle is a regular file with the inode `lstat` saw. The text is split into lines; the
+  unfinished last line waits in memory for the next read. A line is used only when it has the form
+  `<ISO time>Z [info] [<server>] Message from client: <rest>` or `... Message from server: <rest>`:
+  - a client line whose `<rest>` contains `tools/call` opens a call. Kept: the time, `<server>`, the request id (the
+    first `id=<n>` or `"id": <n>` in `<rest>`, a number or a quoted string, else `0`) and the first `"name": "<text>"`
+    in `<rest>` (else `call`);
+  - a server line with a request id whose `<rest>` contains `result` or `error` closes the open call of the same
+    server and id; it is an error when `error` is there and `result` is not;
+  - every other line, and everything else on these lines, is dropped. `<rest>` is where the app logs the JSON-RPC
+    message, tool arguments and results included, so those bytes are read into memory. Apart from the items kept
+    above they are discarded after the match: never stored, logged or sent (one caveat: Known limit, below). At most
+    1,024 open calls are remembered (server and request id).
+- What reaches the page from `mcp.log`: `tool_start` with `tool` `mcp__<server>__<name>` (in each of the two parts
+  every run of characters other than letters, digits and `_` becomes `_`), a `summary` made from that name by the
+  usual tool rule, and the line's time; its `tool_end`; and `say` `Completed <server>` with the server name through
+  the `cleanText` scrub.
+- Known limit: `<rest>` is matched with patterns, not parsed as JSON. The name is the first `"name"` string on the
+  line, which is the tool name when `params.name` comes before `params.arguments`. If a client ever wrote the
+  arguments first and they held a `name` key, that value would be taken as the tool name and reach the page. The name
+  has no length cap in this module.
+- `POST /api/focus-terminal` for this character (macOS) runs `lsof -t -- <anchor file>` and `ps -o tty= -p <pid>`,
+  as it does with the transcript path of any other character.
+
+**ChatGPT desktop** (`src/adapters/codex/desktop-cloud.mjs`, called by the Codex scan; root `~/.codex`).
+- At every rescan: `lstat` of `~/Library/Logs/com.openai.codex`, a listing of its `<YYYY>/<MM>/<DD>` folders for the
+  recent days (the active window plus one day, seven days at most; local and UTC dates), `lstat` of each
+  `codex-desktop-*-t0-*.log` there, and for one modified inside the active window a read of its last 512 KiB. While a
+  character of that log is attached, each tail tick reads the bytes appended to it (512 KiB at most). Kept from the
+  lines: the time at the line start, a conversation uuid after `conversationId=` or `threadId=` on the lifecycle lines
+  the module lists (`CLOUD_EVENT_PATTERNS`, `DEAD_CONV_RE`), and whether a line is a window, stop or turn-complete
+  marker. Nothing else of a line is kept.
+- At every rescan: a listing of `~/Library/Application Support/com.openai.chat/`, of each `conversations-v3-*` folder
+  in it, and `lstat` of each `<uuid>.data` file. The `.data` files are never opened: their name, size and modification
+  time are all that is used.
+- What reaches the page: one character per conversation with the id `codex-<uuid>` (the uuid from a log line, from a
+  `.data` file name, from the log file's own name for the companion window, or a fixed placeholder), the fixed titles
+  `ChatGPT Desktop Chat`, `ChatGPT Dot` and `ChatGPT Classic Chat`, the fixed floors `ChatGPT Desktop`, `ChatGPT Dot`
+  and `ChatGPT Classic`, and made-up turns `Active in <title>`.
+
+**Grok Bot** (`src/adapters/grok/desktop-bot.mjs`, called by the Grok scan; root `~/.grok`).
+- At every rescan, `lstat` only (modification time), never opened: in `~/.grokbot/` the files
+  `local-exec-supervisor.json`, `local-exec-daemon.json`, `local-exec-daemon-connection.json` and `settings.json`; in
+  `~/Library/Application Support/Grok Bot/` the files `window-state.json`, `gateway-descriptor.json`,
+  `sand-statsig-bootstrap.json`, `Cookies`, `Preferences`, `DIPS`, `DIPS-wal`, `Network Persistent State` and
+  `sentry/scope_v3.json`.
+- At every rescan, opened and read: the last 64 KiB of `~/.grokbot/local-exec-daemon.log`, of which only one fact is
+  kept (does the last non-empty line contain `shutting down`); and each `*.blob` file of
+  `~/Library/Application Support/Grok Bot/sand-client-persistence/` that is 256 KiB or smaller, whole, parsed as JSON.
+  From a blob the scan uses `value.rows[]` entries with a uuid `id`: the `id`, `name`, `title`, the numbers
+  `lastActivityAt`, `lastViewedAt`, `updatedAt` and `createdAt`, and `awaitingUserResponse`; or else `value.agentId`.
+- Inside the root, and so an exception to the `logs/` entry of the 4.6 never-opened list: at every rescan, when
+  `~/.grok/logs/unified.jsonl` was modified inside the active window, its last 256 KiB, each line parsed as JSON.
+  Used: `ts`, `sid` (a uuid), `msg` (compared with a fixed list of turn-end messages). `ctx.prompt_id` is parsed and
+  not used.
+- While a character is attached, a tail tick only `lstat`s its watch file (the blob, the newest state file, or
+  `unified.jsonl`).
+- What reaches the page: a character `grok-<uuid>` (a row `id`, `value.agentId`, a `sid`, or a fixed placeholder)
+  titled `Grok Bot`, or `Grok Bot · <text>` with the first 48 characters of the row's `title`, else `name`, through
+  the title scrub; the floor `Grok Bot`; and made-up turns `Active in <title>`.
+
+`test/desktop-cloud-chats.test.mjs` runs the three scans against temp folders; `test/desktop-disclosure.test.mjs`
+pins the Claude Desktop statements above (which calls touch which paths, and that BAIT text in `main.log`, in the
+IndexedDB files and in the arguments and results of `mcp.log` lines reaches neither the Store nor a live event).
+
 ## 6. Server behaviour (`src/server.mjs`, `bin/office-sim.mjs`)
-- CLI flags: `--port 4317 --host 127.0.0.1 --interval 250 --active 30 --rescan 3000 --claude-root ~/.claude/projects`,
+- The bin is two files. `bin/office-sim.mjs` is a stub with no static import of a project module: it reads
+  `process.versions.node`, and when the major version is below 22 it writes exactly one line to stderr, `office-sim:
+  Node <version> is older than the supported floor (22); continuing`, before any other project module is read. It
+  never refuses to run. It then imports `src/cli-main.mjs` and calls `main()` with its own module URL. Everything this
+  document says the bin does is in `main()`. The repo root (for `commit`) and `<repo>/.observe` are resolved from the
+  stub's location, not from `src/`, so a copied bin with a linked `src` keeps its own root. Tests fake an old Node in a
+  child process with a `--require` preload that redefines `process.versions.node`; there is no test hook in the code.
+- CLI flags: `--port 4747 --host 127.0.0.1 --interval 250 --active 30 --rescan 3000 --claude-root ~/.claude/projects`,
   and `--auth` (a switch without a value; `--auth=x` is an error). Replay (6.1): `--replay <file> --speed <x> --loop`;
   `--speed` (0.1..1000, default 1) and `--loop` (switch) are errors without `--replay`. `--interval` is the tail poll in ms (50..5000),
   `--active` the minutes of mtime window for attaching files, `--host` must be a loopback address.
   `--claude-root <dir>` is the Claude Code transcripts root (default `~/.claude/projects`); `--root <dir>` is an alias
   that sets the same option. Both set the `start()` option `root`.
-- `--open` (P4, a switch without a value; `--open=x` is an error): after the listen and the URL / agents lines (and the
+- `--cdn` (a switch without a value; `--cdn=x` is an error) sets the `start()` option `cdn` (default `false`; a
+  non-boolean is a RangeError). It adds `https://cdn.jsdelivr.net` to the page CSP's `script-src` and changes nothing
+  else. Without it the page loads everything from this server (assets below). The only thing that needs it is the
+  opt-in WebGPU renderer (`?renderer=webgpu`, 8.1), whose files are not vendored.
+- Opening the browser (P4 `--open`; the default, `--no-open` and `--demo` since launch readiness D6 / D7). `--open`,
+  `--no-open` and `--demo` are switches without a value (`--open=x` is an error). `--open` and `--no-open` set one parsed
+  key, `open` (`true` / `false`, the last one wins like any repeated option); without either the key is absent.
+  `src/open-policy.mjs` decides once, before the listen, with the pure `shouldOpen({ open, auth, isTTY, env, platform })`
+  (it reads nothing from `process`; the bin passes `process.stdout.isTTY === true`, `process.env`, `process.platform`):
+  - `--open`: open, always (as before D7: also on a pipe, with `CI` set, and with `--auth` on any platform).
+  - `--no-open`: never open.
+  - neither flag: open only when all of these hold: stdout is a terminal (`isTTY === true`); the `CI` environment
+    variable is unset or empty (any non-empty value counts as set, `false` included); the platform has an opener
+    (`hasOpener`: darwin and win32 always, anywhere else `DISPLAY` or `WAYLAND_DISPLAY` must be non-empty, because
+    `xdg-open` needs a graphical session); and, with `--auth`, the opener is not `xdg-open` (the trade-off below: on
+    Linux and the BSDs the user opens the printed token URL by hand).
+  So a bin whose stdout is a pipe or a file (a script, the `/office` skill, every test) opens nothing unless `--open`
+  is given. `--demo` only changes the URL that is opened: the printed URL plus `#demo` (`pageUrl`), the page's demo
+  mode. The printed `office-sim: <url>` line never carries the fragment, and `--demo` does nothing when the bin does
+  not open. `open` and `demo` are not `start()` options (the bin strips them).
+  When it opens: after the listen and the URL / agents lines (and the
   replay line), the bin opens the printed `url` in the default browser through `src/open-url.mjs`, so with `--auth` it
   opens the token URL. Opener: darwin `open <url>`, win32 `cmd /c start "" <url>` (verbatim arguments), anything else
   `xdg-open <url>`; the URL is always one argv element. It is spawned detached with stdio ignored, `unref()`-ed and never
   awaited. Only a loopback `http://` URL whose path, query and fragment use `[A-Za-z0-9/?=#_.-]` is opened (what the bin
   prints, plus `#demo`), so nothing reaches `cmd` that it could read as a command. Every failure (a refused URL, a
   spawn throw, an `error` event such as ENOENT, a non-zero exit) is exactly one log line, `open failed: <cmd>: <code>`
-  or `open failed: <cmd> exited <n>`, without the URL; the server keeps serving. `open` is not a `start()` option (the
-  bin strips it). Without the flag nothing is spawned. Trade-off: with `--auth --open` the token URL sits in the argv
+  or `open failed: <cmd> exited <n>`, without the URL; the server keeps serving. When the decision is no, nothing is
+  spawned. Trade-off: with `--auth --open` the token URL sits in the argv
   of the opener and of any browser it starts, whereas office-sim itself never has the token in its argv or env. On
   Linux, `xdg-open` in generic mode waits for the browser, and a browser launched fresh (none was running) keeps the URL
   in its main-process argv until it exits, so other local users can read the token from `ps` or `/proc` for the
   browser's lifetime, which can outlast the run. macOS `open` hands the URL to LaunchServices, not to the browser's
   argv. On a shared Linux host, `--auth --open` therefore weakens what `--auth` is for; open the token URL by hand in an
-  already running browser instead. The token is still per run, and `--auth` without `--open` is unchanged. Tests
-  replace the opener through `PATH` (fake `open` / `xdg-open` scripts); there is no test hook in the code.
+  already running browser instead. That is why the terminal default never opens with `--auth` where `xdg-open` is the
+  opener; on macOS and Windows it does. The token is still per run. Tests
+  replace the opener through `PATH` (fake `open` / `xdg-open` scripts) and fake the terminal in the child process with
+  a `--require` preload that defines `process.stdout.isTTY` (`test/first-run-cli.test.mjs`); there is no test hook in
+  the code. `test/open-policy.test.mjs` checks the decision with every input injected, and that no test hands its own
+  stdout to a child (no inherited stdio), so the suite never opens a browser.
+- The no-session line (D6, the command-line half): when the first rescan is over (`start().ready`) and the Store holds
+  no session (`store.sessionCount === 0`, the `sessions` number of `/healthz`: no transcript inside the `--active`
+  window was attached), the bin writes one line to stdout, `office-sim: no agent session in the last <N> minutes; the
+  page shows a demo until one starts`, with `<N>` the `--active` value (default 30). At most once per run, and only
+  when stdout is a terminal (`noSessionLineWanted`: `isTTY === true`): on a pipe or a file the stdout lines stay exactly
+  the ones listed below, which the skill, scripts and `test/healthz.test.mjs` read. Never in replay mode, never with
+  `--demo`, and not once stopping has begun. The bin does not wait for the first rescan (the signal handlers are in
+  place right after the agents line) and adds no timer or poll for it. A session that is attached but already ended
+  still counts as a session here, so the line can be missing while the page has nobody to show. The page half of D6
+  (the demo and its banner) is section 9.1.
+- The default port is 4747 and there is no fallback port: the port is written into hook URLs and into the `/office`
+  skill, so the bin never binds another port by itself. A busy default port (`src/port-reuse.mjs`): when the listen
+  fails with EADDRINUSE and the user did not pass `--port` (so the port is the default one), the bin sends one `GET
+  http://<host>:4747/healthz`, bounded to 1 s for the whole exchange and to 64 KiB of body. If the answer is what the
+  skill's probe accepts (status 200, JSON with `ok: true` and an `agents` array), it prints `office-sim: already
+  running at http://<host>:4747/` on stdout, opens that URL when opening is on (the decision above, made with this
+  run's flags: `--open`, or the terminal default; with `--demo` the opened URL ends in `#demo`), and exits 0; no second server is
+  started, and the flags of this run (`--auth`, `--replay`, roots) do not reach the running one. Anything else (another
+  program, an office-sim started with `--auth`, which answers 401, no answer in time, or any explicit `--port`, even
+  `--port 4747`) is the failed listen described below: one line with the `(port in use: try --port 0 or another port)`
+  hint, exit 1. In the reuse case the process ends right after it starts the opener, so only a refused URL or a
+  missing opener is logged, not the opener's exit code.
 - The `/office` skill (P4, `skills/office/SKILL.md`) depends on these server facts, so changing one means changing the
   skill and `test/skill-commands.test.mjs`: `GET /healthz` -> 200 JSON that starts `{"ok":true,` and has an `agents`
   array (the probe prints at most the first 2000 characters; the whole body is shorter, `test/skill-file.test.mjs`
@@ -1823,11 +2002,12 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   server (exit 0, forced after 3 s; a repeat SIGINT / SIGTERM within 500 ms of the first is the same keystroke and is
   ignored, because `npm start` delivers one Ctrl-C twice, from the terminal and from npm, 1-2 ms apart; a later one
   exits 130 at once); a failed listen prints one `office-sim: <message>` line (EADDRINUSE with a
-  `(port in use: ...)` hint) and exits 1. The skill starts `node <repo>/bin/office-sim.mjs --port <4317|0> [--auth]`
+  `(port in use: ...)` hint) and exits 1 (the skill always passes `--port`, so the reuse above never replaces this
+  line for it). The skill starts `node <repo>/bin/office-sim.mjs --port <4747|0> [--auth] --no-open`
   with the absolute bin path and stops only processes whose argv is exactly that (`node <repo>/bin/...`; on Windows the
-  same rule as a case-insensitive regex). It does not pass `--open`: it runs the platform opener itself, waits at most
+  same rule as a case-insensitive regex). It passes `--no-open` and never `--open`: it runs the platform opener itself, waits at most
   3 s and reports the result (on Linux it never runs `xdg-open` with an `--auth` token URL), so a failed open is seen
-  and the user gets the URL to open by hand. Before it says `/office stop` stops a server it reused on 4317, it checks
+  and the user gets the URL to open by hand. Before it says `/office stop` stops a server it reused on 4747, it checks
   that the server's argv is that command (`ours pid <n>`).
 - Adapters (P5a, 4.0.1): `--agents <id,id>` is a comma list of adapter ids, each validated against `KNOWN_AGENTS` (an
   unknown id is a usage error, exit 2). It narrows the enabled set (D3); without it every implemented adapter whose root
@@ -1890,10 +2070,19 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   (truncation, or a new inode at that path) is announced as before.
 - Attach = `Tailer.readAll` in replay mode, then emit `session` + `snapshotEvents()` live so open pages see the
   newcomer. Process attaches one at a time and yield, so a 60 MB file never blocks polling for long.
-- HTTP: `GET /` serves `public/office.html` wrapped in `<!doctype html><html lang="ko"><head><meta charset="utf-8">
+- HTTP: `GET /` serves `public/office.html` wrapped in `<!doctype html><html lang="en"><head><meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{color-scheme:light}
-  body{margin:0}[hidden]{display:none!important}</style></head><body>` ... `</body></html>`. `GET /js/<name>.js` serves
-  `public/js` (reject `..`, only `[a-z0-9_-]+\.js`, `text/javascript; charset=utf-8`). `GET /events` SSE: headers
+  body{margin:0}[hidden]{display:none!important}</style></head><body>` ... `</body></html>` (the wrapper is
+  `pageHead({ lang: 'en' })` and `PAGE_TAIL` from `src/page-shell.mjs`; `office.html` goes between them byte for byte).
+  The served `lang` is English because the fragment's own text is English; the page sets `<html lang>` to the language
+  it picks once scripts run (section 9.2).
+  `GET /js/<name>.js` serves
+  `public/js` (reject `..`, only `[a-z0-9_-]+\.js`, `text/javascript; charset=utf-8`).
+  `GET /vendor/<name>` serves `public/vendor` with the same policy as `/js/` (`cache-control: no-cache`, the base
+  headers, 404 for a missing file): only a flat name that matches `[A-Za-z0-9]+([.-][A-Za-z0-9]+)*\.(js|txt)`, so no
+  folder, no leading dot, no other extension; `.js` is `text/javascript; charset=utf-8` and `.txt` is `text/plain;
+  charset=utf-8`. Anything else under `/vendor/` is 404 (a `..` is already 400 by the path guard below).
+  `GET /events` SSE: headers
   `text/event-stream`, `cache-control: no-cache`, `connection: keep-alive`; write `retry: 2000`; if `Last-Event-ID`
   is in the ring send the missed events, else a `snapshot`; then live events with `id:` = seq; `: ping` every 15 s.
   `GET /state` -> snapshot JSON. `GET /config` / `POST /config {intervalMs}` (rules below, broadcast `config`).
@@ -1933,7 +2122,7 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   2. Path guard: `..` or encoded `.` / `/` / `\` in the raw path -> 400.
   3. `--auth` (when on): `GET /?t=<token>` with the right token -> 302 to `/` with
      `Set-Cookie: osim_<port>=<token>; HttpOnly; SameSite=Strict; Path=/` and `cache-control: no-store`. Every other
-     request, every route (`/`, `/index.html`, `/js/*`, `/events`, `/state`, `/config`, `/observe`, `/healthz`, 404s), needs that
+     request, every route (`/`, `/index.html`, `/js/*`, `/vendor/*`, `/events`, `/state`, `/config`, `/observe`, `/healthz`, 404s), needs that
      cookie, else 401 `unauthorized: open the URL printed by office-sim`. The token is 32 random bytes (base64url)
      made in-process per run (never argv or env), compared in constant time; the cookie name carries the port.
   4. `/events`, `/state`, `/config`, and `/observe` when the feature is on: a `Sec-Fetch-Site` header other than
@@ -1944,12 +2133,34 @@ counts only (events, unpaired tools, apply errors, privacy hits).
      413, beyond that the socket is closed); invalid JSON -> 400; `/config`: `intervalMs` must be an integer
      50..5000 (400); `/observe`: `action` must be `"start"` or `"stop"` (400 `{error}`), nothing starts on a refused
      request.
+- Hosted demo (GitHub Pages, `https://wahyzmaster.github.io/office-sim/`): `node scripts/build-demo.mjs --out <dir>`
+  (default `_site`; zero dependencies, no network) writes a static copy of `public/` plus `index.html`, `og.png` (a copy
+  of `docs/assets/theme-studio.png`) and an empty `.nojekyll`. `index.html` is the same wrapper with `lang="en"` and,
+  right after the viewport meta, the tags only a hosted page needs: `description`, `canonical`, `og:title`,
+  `og:description`, `og:type`, `og:url`, `og:image` (the absolute `og.png` URL) and `twitter:card`
+  (`summary_large_image`); the description text is the `package.json` `description`, attribute-escaped. Then
+  `public/office.html`, unchanged, and `</body></html>`. The local server never sends these tags. The script refuses an
+  out dir that is the repository root, a parent of it, or inside `public/`. The comparison uses real locations, not
+  spellings: symbolic links are resolved (`fs.realpathSync.native`, which also gives the on-disk spelling on a file
+  system that ignores case) up to the nearest existing ancestor of the out dir, the not yet existing rest is appended,
+  and a broken link on the way is refused. The site is written to that resolved location. The out dir check and the
+  input checks (a non-empty `package.json` `description`, `public/office.html`, the og source being a regular file)
+  all run before the first write, so a refused build creates nothing, not even the out dir; a failure during the copy
+  itself can leave a partial site. Existing files in the out dir are overwritten and nothing is ever deleted. No server
+  runs there, so the page plays the demo scenario (it is not opened from loopback).
 - Response headers: every response (pages, data, errors, SSE) carries `x-content-type-options: nosniff`,
   `referrer-policy: no-referrer`, `cross-origin-resource-policy: same-origin`. `GET /` and `/index.html` also send
-  `x-frame-options: DENY` and `Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net
-  'sha256-…' (one hash per inline <script> of the served page, recomputed when office.html changes); style-src 'self'
-  'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:;
-  connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`.
+  `x-frame-options: DENY` and `Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-…' (one hash
+  per inline <script> of the served page, recomputed when office.html changes); style-src 'self' 'unsafe-inline';
+  font-src 'none'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none';
+  form-action 'none'`. No host is named: the default page can load from loopback only. With `cdn` (`--cdn`),
+  `script-src` is `'self' https://cdn.jsdelivr.net 'sha256-…'` and every other directive is the same.
+- Page assets: `public/office.html` names no font host and no web font (text uses the system font stacks of its
+  `--font-*` variables), and its importmap sends `three`, `three/addons/controls/OrbitControls.js` and
+  `three/addons/renderers/CSS2DRenderer.js` to `./vendor/<file>` (three@0.160.0, `public/vendor/`). Every static
+  import of a bare specifier in `public/js` has such an exact entry (the others are relative, `./<name>.js`). The `three/addons/` prefix entry stays on
+  `https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/` for the one dynamic import of 8.1, which the default CSP
+  refuses. The hosted demo build copies `vendor/` with the rest of `public/`, and has no CSP of its own.
 - `start(options)` returns `{ url, token, port, store, ready, close(), stats(), agents, notImplemented }` so tests can
   run it on port 0 against a temp root (`agents`: the enabled adapter ids, read live so a late root (4.0.1 F1) shows
   up; `stats()` adds the Store's `rejectedRefs` to the Runner counters, keys unchanged by maintenance PR 2: the newer
@@ -1960,7 +2171,7 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   override), `adapters` (registry override), `probe` (replaces the root check) and `probeTimeoutMs`. `roots` gives the
   root of each non-Claude adapter (an adapter without one is not started, see above). With `auth: true`, `url` is
   `http://<host>:<port>/?t=<token>` (what the bin prints) and `token` is set; without it `token` is null and `url` has
-  no query. `observeDir` (a folder path, `~`-expanded and resolved; default null) turns on the live log observation
+  no query. `cdn` (boolean, default false): the page CSP rule above. `observeDir` (a folder path, `~`-expanded and resolved; default null) turns on the live log observation
   (6.2): `/observe` and the `observe` SSE message exist only then. The bin passes `<repo>/.observe` in live mode and
   nothing in replay mode. Test hooks `observeTiming` (`{ intervalMs, rescanMs, notifyMs }` of the observation loop,
   defaults 100, 2000, 1000) and `observeLimits` (`{ readyGraceMs, maxMs, maxBytes, keep }`, the auto-stop limits and
@@ -2250,6 +2461,7 @@ the decider may be Grok's automatic review rather than a person (no field names 
 
 ### 8.1 Progressive WebGPU Renderer & High-Concurrency LOD (`public/js/webgpu-stage.js`, `public/js/detail.js`)
 - Default rendering remains `THREE.WebGLRenderer` (`webgl2`). Appending `?renderer=webgpu` or `#webgpu` probes `navigator.gpu.requestAdapter()`, dynamically imports Three.js `WebGPURenderer`, awaits `.init()`, and swaps the stage renderer in place (`stage.swapRenderer`). Any missing capability, timeout, or runtime exception leaves `webgl2` running with zero crash and records `fallbackReason` on `stage.rendererInfo`.
+- The WebGPU renderer files are not vendored: the import resolves through the importmap's `three/addons/` prefix to `https://cdn.jsdelivr.net`, which the local page's CSP allows only when the server runs with `--cdn` (section 6). When that module cannot be loaded (refused by the CSP, offline, or no answer within the time limit) the page stays on `webgl2` and the info carries `fallbackCode: 'load'` with a short `fallbackReason` naming `--cdn`; `rendererBadgeLabel` shows that hint in Korean or English. Other outcomes have no `fallbackCode`.
 - High-concurrency benchmark URLs (`#bench-20x6` or `?bench=1&floors=20&mains=4&subs=2`) drive `100+` concurrent agents across `20+` floors (`public/js/bench.js`). `floorDetail(index, focusIndex, overview, { totalFloors, totalAgents })` and `crowdStride({ totalAgents, overview })` automatically shed overview cast shadows above `60` agents / `12` floors and stride distant non-focused animation ticks while keeping the focused floor at full `1x` fidelity.
 
 ### 8.2 Interactive `--replay` Timeline Scrubber (`GET/POST /api/replay`, `src/replay-control.mjs`, `public/js/replay-scrubber.js`)
@@ -2260,3 +2472,102 @@ the decider may be Grok's automatic review rather than a person (no field names 
 ### 8.3 Optional Plug-In Adapter Registry (`--plugins`, `src/adapters/plugins.mjs`)
 - Built-in `KNOWN_AGENTS` (`claude-code`, `codex`, `grok`, `antigravity`) remains unchanged by default. Passing `--plugins gemini-cli` (or `start({ plugins: ['gemini-cli'] })`) merges validated plug-in descriptors (`validatePluginDescriptor`) onto the adapter map and accepts `--gemini-cli-root <dir>` (default `~/.gemini/tmp`).
 
+## 9. First-run page (launch readiness `v0.12.0`, `GLO-1248`: D6, D8, D9, D10)
+
+What a first-time visitor's page does before any setting is saved. All of it is page behaviour (`public/`): the wire
+format, the Store and the routes are unchanged.
+
+### 9.1 Empty live office: the demo under a banner (D6, `public/js/empty-state.js`)
+- Scope: live mode only (the page is served from loopback and the URL has neither `#demo` nor a bench request).
+  `#demo`, a page that is not on loopback (the hosted demo, an artifact), and a loopback page whose first `/events`
+  connection never opens keep their behaviour: the demo source (`MockSource`) is the page's only source, there is no
+  banner, and the speed buttons show. `#bench` keeps its own synthetic source (`BenchSource`, 8.1) and has no banner
+  either.
+- In live mode the `LiveSource` stays connected for the whole life of the page. The demo is an overlay: a second,
+  short-lived `MockSource` that the first-run controller (`createFirstRun`) creates, ticks in the frame loop next to the
+  live source and drops. Its events carry `demo: true` (a page-only mark, never on the wire).
+- When it starts (`firstRunStep`, a pure function; phases `wait` -> `armed` -> `grace` -> `demo` -> `live`):
+  1. the first complete snapshot of the page's life carries no `session` event (a snapshot with `partial: true` does
+     not count; the server does not send `partial` today, the page only honours it);
+  2. a `config` message says the server is not in replay mode (no `replay` key). The handshake sends the snapshot
+     first and the config right after it, so the page decides at the config. Replay mode never shows the demo;
+  3. 1.5 s of frames pass (`GRACE_S`) with still no `session`, live or in a snapshot. The server answers `/events`
+     before its first rescan is over, so the first snapshot of a just-started server is empty for everybody; the grace
+     time keeps a visitor who has sessions from seeing the demo flash by. A hidden tab runs no frames: there the demo
+     starts when the tab is shown.
+  A first snapshot that has a session, a `session` inside the grace time, or replay mode end the decision: the page is
+  live for good and never shows the demo, also when the office empties later.
+- While the demo runs: a banner (`#empty-banner`, `role="status"`, inside `#hud` so overlay mode hides it; it lets
+  clicks through to the stage) reads `No agent session in the last <N> minutes. Start Claude Code, Codex, Grok or
+  Antigravity and it appears here. This is a demo.` or its Korean equivalent, with `<N>` the `activeMinutes` of the last
+  `config` (30 before one arrives). The source chip shows the demo state whatever the connection does (its tooltip is
+  the banner text; a lost connection still reaches the observe panel). An empty snapshot (a reconnect, a restarted
+  server) is not handed to the office, because it would send the demo staff home. Live events that are not `session`
+  pass to the office as usual (they belong to no character the page knows, so they wait in the inbox).
+- When it stops: at the first `session` event from the live source, or the first snapshot that carries one. In this
+  order: the demo source is dropped and the banner is hidden; the office is cleared through the reset path
+  (`applySnapshot([], { reset: true })`: characters, boards, held events, tool texts); the empty demo floors are
+  removed, all of them (`pruneEmptyFloors(0)`; everywhere else one empty floor is kept); the activity log is emptied;
+  the chip goes back to the connection state; then the event or snapshot that caused the switch is applied. From then
+  on the page is plain live mode.
+- The page calls `/api/notify` and `/api/flywheel` only when its source is the `LiveSource` (`isLive`): never on the
+  hosted page, with `#demo` or in `#bench`. The notification toggle there only saves the browser-side choice. The
+  first-run demo does count as live (the server is there), but its `demo: true` events are never announced by the
+  browser notification fallback.
+
+### 9.2 Language (D8)
+- The UI language is, in this order: `?lang=` (`en` is English; any other value is Korean, as before), the saved
+  choice (`lang` in the `office-sim:v1` preferences, written when the language button is used), the browser locale.
+  For the locale, `detectLang` returns `ko` when `navigator.language` starts with `ko` (any letter case: `ko`, `ko-KR`)
+  and `en` for everything else, a missing locale included.
+- `public/office.html` carries English text and English `aria-label`s, and the server wraps it in `lang="en"`
+  (section 6), so the page reads as English before scripts run and for every non-Korean visitor. The exception is the
+  observe panel (`#observe`, `#toggle-observe`, 6.2), which starts hidden and is Korean only.
+- Once scripts run: `hud.js` rewrites the visible text in the chosen language as before, and
+  `public/js/static-text.js` sets the `aria-label`s (`STATIC_TEXT`, Korean and English for each) and `<html lang>`, at
+  start and after every use of the language button.
+- The inline script of `office.html` (the boot line and the message shown when the 3D engine has not loaded after 9 s)
+  picks its language by the same order, since no module has run at that point.
+
+### 9.3 Sound (D9)
+- Sound starts off. It is on at page load only when the saved preference says so (`soundOn: true` in `office-sim:v1`,
+  written by the sound button or by choosing a voice) and the voice is not `mute` (`soundPrefOn` in
+  `public/js/sound.js`). The button in `office.html` starts unpressed and reads `Muted`.
+
+### 9.4 Maintainer tools behind labs (D10, `public/js/labs.js`)
+- Labs is on for a page load when the URL has `?labs=1` (also `true`, `on`) or the saved preference `labs: true` exists
+  in `office-sim:v1`. `?labs=1` saves it; `?labs=0` (also `false`, `off`) removes it; any other value is ignored. It is
+  resolved once, before the Hud reads the preferences, and sets the class `labs` on `<body>`.
+- With labs off: the Flywheel button is hidden and its `Y` shortcut does nothing; the RCI meter and Lens selector pill
+  is hidden and its `V` shortcut does nothing; the tail-interval input is hidden (`body:not(.labs)` in `office.html`);
+  and the page sends no request to `/api/flywheel` (not the scan at load, not from the flywheel conveyor). The features
+  are still in the page: labs only shows them. The `Tune` button (the secondary appearance and camera controls) is not
+  a maintainer tool and always shows.
+- With labs on, everything behaves as before, except that `/api/flywheel` also needs live mode (9.1).
+
+## 10. Estimated context and token figures (launch readiness `v0.12.0`, D11)
+
+- No cost. Office Sim shows and returns no cost, price or currency figure: not in the inspector, not in the recap
+  Markdown, not in `/api/recap` (no `estimatedCostUsd`, removed in `v0.12.0`). `src/session-recap.mjs` and
+  `public/js/agent-extras.js` hold no price constant.
+- The figures that stay are estimates, not readings. No wire event carries the usage a model reports (section 2), so
+  the server (`SessionRecapTracker`) and the page (`applyEventToMetrics`) each add a fixed amount per event they see:
+  `prompt` 650 tokens (input), `thinking` 450 (output), `say` 1.5 tokens per character of the event text with a floor of
+  80 (output), `tool_start` 900 (input). Every amount is also added to the context estimate, which stops at the window
+  and is multiplied by 0.35 at a `system` event of kind `compact`. The window is 200,000 tokens for every agent and
+  model (`DEFAULT_CONTEXT_WINDOW`, `DEFAULT_CONTEXT_LIMIT`). The two counts are independent (the page counts in the
+  browser, per page load; the server counts the events of its Store), so they need not agree.
+- `GET /api/recap?sessionId=<id>` answers `200` with `{ sessionId, agent, title, projectLabel, branch, worktree,
+  durationSec, turns, compactions, apiErrors, toolCalls, toolErrors, toolCounts, filesTouched, contextTokens,
+  contextWindow, contextOccupancyPct, estimatedInputTokens, estimatedOutputTokens, unreviewedDone, ended, markdown }`
+  (`404` `{ error: 'session not found' }` for an id it has not seen); without `sessionId` it answers
+  `{ sessions: [ ... ] }` with the same objects. `contextTokens`, `contextOccupancyPct`, `estimatedInputTokens` and
+  `estimatedOutputTokens` are the estimates above. `markdown` names them `Context Fuel (est.)` and `Tokens (est.)`.
+- The page says "estimate" wherever it puts a label on these figures, in Korean and English (`EXTRAS_TEXT`): the
+  inspector rows `Context Fuel (est.)` / `컨텍스트 연료 (추정)` and `Tokens (est.)` / `토큰 (추정)` (`data-row`
+  `contextFuel` and `estTokens`; their values start with `~`, and their tooltip says the number comes from event counts,
+  not from the model), the tooltip of the recap button, and the two Markdown lines of the recap card, which are English
+  like the rest of that card. The ring under a character has no text: its colour is green below 60% of the estimate,
+  amber from 60% and red from 80% (`computeContextFuelColor`).
+- `test/honest-numbers.test.mjs` checks the absent cost fields and constants, the labels in both languages, the
+  inspector rows and the README wording; `test/p1-p4-roadmap.test.mjs` checks `/api/recap` in both forms.
