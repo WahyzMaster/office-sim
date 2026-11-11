@@ -87,6 +87,16 @@ export class Board {
       && this.items.every((it, i) => it.content === items[i].content);
   }
 
+  clear() {
+    this.owner = null;
+    this.title = '';
+    this.items = [];
+    this.history = [];
+    this.updatedAt = 0;
+    this.draw();
+    for (const fn of this.listeners) fn(this);
+  }
+
   draw() {
     const g = this.canvas.getContext?.('2d');
     if (!g) return;

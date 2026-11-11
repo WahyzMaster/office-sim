@@ -13,18 +13,18 @@ export { ROOM_THEMES, DEFAULT_ROOM_THEME, roomThemeOf, langOf };
 export const STORE = 'office-sim:v1';
 export const LEGACY_STORE = 'claude-office:v1'; // 이름을 바꾸기 전(claude-office) 키. 한 번만 옮겨 오고 지우지 않는다.
 // session 이벤트의 agent(출처 id) -> 화면 이름. 모르는 id 는 그대로 보여 준다.
-const AGENT_LABEL = { 'claude-code': 'Claude Code', codex: 'Codex', grok: 'Grok', antigravity: 'Antigravity' };
-const AGENT_BADGE = { 'claude-code': 'Claude', codex: 'Codex', grok: 'Grok', antigravity: 'AGY' };
+const AGENT_LABEL = { 'claude-code': 'Claude Code', codex: 'Codex', grok: 'Grok', antigravity: 'Antigravity', 'gemini-cli': 'Gemini CLI' };
+const AGENT_BADGE = { 'claude-code': 'Claude', codex: 'Codex', grok: 'Grok', antigravity: 'AGY', 'gemini-cli': 'Gemini' };
 const SURFACE_LABEL = {
   'claude-code:app': 'Claude/Claude Code·App', 'claude-code:cli': 'Claude Code·CLI', 'claude-code:ide': 'Claude Code·IDE',
   'codex:app': 'ChatGPT/Codex·App', 'codex:cli': 'Codex·CLI', 'codex:ide': 'Codex·IDE',
-  'grok:app': 'Grok Bot·App', 'grok:cli': 'Grok Build·CLI',
+  'grok:app': 'Grok Bot·App', 'grok:cli': 'Grok Build·CLI', 'gemini-cli:cli': 'Gemini·CLI',
   'antigravity:cli': 'Antigravity·CLI', 'antigravity:app': 'Antigravity·App', 'antigravity:ide': 'Antigravity·IDE',
 };
 const SURFACE_BADGE = {
   'claude-code:app': 'Claude·App', 'claude-code:cli': 'Claude·CLI', 'claude-code:ide': 'Claude·IDE',
   'codex:app': 'ChatGPT·App', 'codex:cli': 'Codex·CLI', 'codex:ide': 'Codex·IDE',
-  'grok:app': 'Grok·App', 'grok:cli': 'Grok·CLI',
+  'grok:app': 'Grok·App', 'grok:cli': 'Grok·CLI', 'gemini-cli:cli': 'Gemini·CLI',
   'antigravity:cli': 'AGY·CLI', 'antigravity:app': 'AGY·App', 'antigravity:ide': 'AGY·IDE',
 };
 export const agentLabel = (id, surface = '') => (
@@ -38,15 +38,14 @@ export const DEFAULT_CONTROL_PRESET = 'map';
 export const CONTROL_PRESETS = uiText('ko').controls;
 export const controlPresetOf = (k) => (Object.hasOwn(CONTROL_PRESETS, k) ? k : DEFAULT_CONTROL_PRESET);
 
-function replayText(r) {
-  const x = `${r.speed}×`;
-  switch (r.state) {
-    case 'playing': return `재생 · ${x} · ${Math.floor((r.progress || 0) * 100)}%${r.loop && r.round > 1 ? ` · ${r.round}회째` : ''}`;
-    case 'done': return r.loop ? `재생 끝 · 곧 다시` : `재생 끝 · ${x}`;
-    case 'restart': return '재생 · 처음부터 다시';
-    case 'error': return '재생 · 기록을 읽지 못함';
-    default: return '재생 · 준비 중';
-  }
+function replayText(r, lang = 'ko') {
+  const x = `${r.speed}×`, pct = `${Math.floor((r.progress || 0) * 100)}%`, en = lang === 'en';
+  if (r.state === 'playing') return `${en ? 'Replay' : '재생'} · ${x} · ${pct}${r.loop && r.round > 1 ? ` · ${en ? `#${r.round}` : `${r.round}회째`}` : ''}`;
+  if (r.state === 'paused') return `${en ? 'Paused' : '일시정지'} · ${x} · ${pct}`;
+  if (r.state === 'done') return r.loop ? (en ? 'Done · restarting' : '재생 끝 · 곧 다시') : `${en ? 'Done' : '재생 끝'} · ${x}`;
+  if (r.state === 'restart') return en ? 'Replay · restarting' : '재생 · 처음부터 다시';
+  if (r.state === 'error') return en ? 'Replay · load failed' : '재생 · 기록을 읽지 못함';
+  return en ? 'Replay · loading' : '재생 · 준비 중';
 }
 
 const time = (d) => d.toLocaleTimeString('en-GB', { hour12: false });
@@ -324,8 +323,9 @@ export class Hud {
     this.observe.setConnected(state !== 'retry');
     const t = uiText(this.lang);
     this.el.source.dataset.state = state;
-    this.el.source.querySelector('span').textContent = state === 'replay' ? replayText(this.replay) : t.source[state] || state;
-    this.el.source.title = state === 'demo' || state === 'down' ? t.sourceTitle.demo : state === 'replay' ? t.sourceTitle.replay : t.sourceTitle.live;
+    this.el.source.querySelector('span').textContent = state === 'replay' ? replayText(this.replay, this.lang) : t.source[state] || state;
+    const baseTitle = state === 'demo' || state === 'down' ? t.sourceTitle.demo : state === 'replay' ? t.sourceTitle.replay : t.sourceTitle.live;
+    this.el.source.title = this.rendererNote ? `${baseTitle} · ${this.rendererNote(this.lang)}` : baseTitle;
   }
 
   flashTail(n) {

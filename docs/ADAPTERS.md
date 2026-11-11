@@ -921,3 +921,11 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 | D10 | Codex 특수 처리: (a) 자동 승인 검토(guardian) 스레드, (b) code-mode `exec`, (c) 스크립트 안의 `update_plan`, (d) `/review` 스레드 | (a) 숨긴다. (b) 6.3절의 짧은 방문. (c) 첫 판에서는 보여 주지 않는다. (d) 보통 서브에이전트로 보여 준다 | (a) 작은 직원으로 보여 준다. (b) `exec` 하나만 보여 준다 |
 | D11 | 구현 순서 | Grok -> Codex -> Antigravity CLI. Grok 은 기록이 이벤트와 거의 1:1 이라 `SessionCore` 설계를 가장 싸게 검증하고, Codex 는 그 위에 어려운 부분(code-mode, guardian)을 얹는다 | Codex 먼저(이 Mac 에서 가장 많이 쓰는 도구라 가치가 가장 빨리 난다) |
 | D12 | 재생 모드(`--replay`) | P5 에서는 Claude 만. 다른 도구는 나중에 | P5 에 함께 넣는다 |
+
+## 12. 선택형 플러그인 레지스트리 및 `gemini-cli` 어댑터 (`v0.11.0`, `GLO-1243`)
+
+- **설계 원칙 (`src/adapters/plugins.mjs`)**: 기본 `KNOWN_AGENTS` (`claude-code`, `codex`, `grok`, `antigravity`)는 그대로 유지하여 기존 설정·테스트·상태 표면을 바꾸지 않고, `--plugins <id,id>` (또는 `start({ plugins })`)가 지정된 경우에만 검증된 플러그인 디스크립터(`validatePluginDescriptor`)를 어댑터 레지스트리에 병합한다.
+- **`gemini-cli` 어댑터 (`src/adapters/gemini-cli/`)**:
+  - **탐색 허용 목록 (`discover.mjs`)**: `<root>/<projectDir>/chats/session-*.jsonl` 및 `session-*.json` (`ConversationRecord`)만 읽으며 프로젝트 작업 폴더 표시는 `<projectDir>/.project_root`(1KB 상한)에서만 확인한다. `oauth_creds.json`, `google_accounts.json`, `settings.json`, `logs.json`, `antigravity*` 하위 폴더, 심볼릭 링크(`lstat` + `O_NOFOLLOW`), FIFO는 절대 열지 않는다.
+  - **정규화 및 세션 코어 (`records.mjs`, `session.mjs`)**: `SessionCore` (`src/core/session-core.mjs`)를 그대로 감싸며 `session_metadata`, `user`, `gemini`(`thoughts`, `content`, `toolCalls`), `tool_result`, `turn_end` 레코드를 정규화한다. 캐릭터 ID는 `gemini-cli-<stem>` (`D2` 규칙 준수), 표면은 `surface: 'cli'`로 내보낸다.
+  - **적합성 검증 (`test/adapter-gemini-cli-conformance.test.mjs`, `scripts/fake-gemini-cli-append.mjs`)**: 수정하지 않은 `test/fixtures/conformance.mjs` 하네스와 미끼(`neverOpen`, `bait`) 검사를 통과하며, 합성 스트림 생성기는 `scripts/fake-root-guard.mjs`로 실제 `~/.gemini` 접근을 차단한다.

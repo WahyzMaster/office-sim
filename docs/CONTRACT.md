@@ -2246,3 +2246,17 @@ the decider may be Grok's automatic review rather than a person (no field names 
 - `awaitsApproval` stays replay-only (Claude). Claude, Codex and Antigravity never send `tool_wait`, and their wire
   output is unchanged.
 
+## 8. Post-`v0.10.1` Extensions (`v0.11.0`, `GLO-1243`)
+
+### 8.1 Progressive WebGPU Renderer & High-Concurrency LOD (`public/js/webgpu-stage.js`, `public/js/detail.js`)
+- Default rendering remains `THREE.WebGLRenderer` (`webgl2`). Appending `?renderer=webgpu` or `#webgpu` probes `navigator.gpu.requestAdapter()`, dynamically imports Three.js `WebGPURenderer`, awaits `.init()`, and swaps the stage renderer in place (`stage.swapRenderer`). Any missing capability, timeout, or runtime exception leaves `webgl2` running with zero crash and records `fallbackReason` on `stage.rendererInfo`.
+- High-concurrency benchmark URLs (`#bench-20x6` or `?bench=1&floors=20&mains=4&subs=2`) drive `100+` concurrent agents across `20+` floors (`public/js/bench.js`). `floorDetail(index, focusIndex, overview, { totalFloors, totalAgents })` and `crowdStride({ totalAgents, overview })` automatically shed overview cast shadows above `60` agents / `12` floors and stride distant non-focused animation ticks while keeping the focused floor at full `1x` fidelity.
+
+### 8.2 Interactive `--replay` Timeline Scrubber (`GET/POST /api/replay`, `src/replay-control.mjs`, `public/js/replay-scrubber.js`)
+- `/config` preserves its 5-key `replay` summary (`{ state, speed, loop, round, progress }`, where `state` adds `'paused'`).
+- When started with `--replay <file.jsonl>`, `GET /api/replay` returns `{ ok: true, active: true, type: 'replay', state, paused, speed, loop, round, progress, cursor, total, elapsedMs, durationMs, markers }` (and `404` when `--replay` is inactive). `markers` are scrubbed timeline milestones (`prompt`, `plan`, `subagent`, `error`, `turn_end`) extracted via `extractReplayMarkers` (`src/replay-timeline.mjs`) without paths or tool bodies.
+- `POST /api/replay` (loopback + same-origin + `Sec-Fetch-Site` guarded) accepts `{ action: 'pause' | 'resume' | 'toggle' | 'speed' | 'seek', speed?, cursor?, progress?, paused? }`. Forward or backward `seek` deterministically rebuilds `Store` state up to `target` across main and subagent transcripts and broadcasts `{ type: 'snapshot', reset: true, seq, events }` plus `{ type: 'replay', ...detail }` over `/events`.
+
+### 8.3 Optional Plug-In Adapter Registry (`--plugins`, `src/adapters/plugins.mjs`)
+- Built-in `KNOWN_AGENTS` (`claude-code`, `codex`, `grok`, `antigravity`) remains unchanged by default. Passing `--plugins gemini-cli` (or `start({ plugins: ['gemini-cli'] })`) merges validated plug-in descriptors (`validatePluginDescriptor`) onto the adapter map and accepts `--gemini-cli-root <dir>` (default `~/.gemini/tmp`).
+

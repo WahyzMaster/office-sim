@@ -7,6 +7,7 @@ import { focusTerminalForSession } from './terminal-focus.mjs';
 import { SessionRecapTracker } from './session-recap.mjs';
 import { SystemNotifier } from './system-notify.mjs';
 import { FlywheelControl } from './flywheel/control.mjs';
+import { handleReplayRoute } from './replay-control.mjs';
 
 const HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
   + '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
@@ -20,7 +21,7 @@ const FAVICON_TYPES = Object.freeze({
 });
 const MAX_BODY = 4096;
 const DRAIN_LIMIT = 1024 * 1024; // 413 뒤에 버리며 읽는 상한: 넘게 보내면 연결을 끊는다
-const DATA_ROUTES = new Set(['/events', '/state', '/config', '/api/hooks/claude', '/api/focus-terminal', '/api/recap', '/api/recap/review', '/api/notify', '/api/flywheel']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
+const DATA_ROUTES = new Set(['/events', '/state', '/config', '/api/replay', '/api/hooks/claude', '/api/focus-terminal', '/api/recap', '/api/recap/review', '/api/notify', '/api/flywheel']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
 const OBSERVE_ROUTES = new Set([...DATA_ROUTES, '/observe']); // 기록 관찰이 켜졌을 때만
 const OBSERVE_ACTIONS = new Set(['start', 'stop']);
 const ERROR_CODE_RE = /^E[A-Z0-9_]{1,31}$/;
@@ -89,7 +90,7 @@ function readBody(req, limit) {
  *           observe?: { status(): object, start(): Promise<object>, stop(): Promise<object> } | null }} o
  *   observe: the live log observation control (ObserveControl). null = feature off: no /observe route, no observe frame.
  */
-export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, focusOpts = null, notifyOpts = null, flywheelOpts = null, log = () => {} }) {
+export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, replayRunner = null, focusOpts = null, notifyOpts = null, flywheelOpts = null, log = () => {} }) {
   const clients = new Set();
   const auth = createAuth(authToken, getPort);
   const csp = cspCache();
@@ -223,6 +224,8 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
   }
 
   const broadcastConfig = () => broadcast({ type: 'config', ...currentConfig() });
+  const broadcastReplay = (detail = replayRunner?.replayDetail()) => { if (detail) broadcast({ type: 'replay', ...detail }); };
+  const broadcastSnapshot = (meta = {}) => { const snap = store.snapshot(); broadcast({ type: 'snapshot', ...meta, events: snap.events }); };
 
   function broadcastObserve(status = observe?.status()) {
     if (observe && status) broadcast({ type: 'observe', ...status });
@@ -385,6 +388,9 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
       if (isGet) return sendJson(res, 200, { type: 'config', ...currentConfig() });
       return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD, POST' });
     }
+    if (rawPath === '/api/replay') {
+      return handleReplayRoute(req, res, { replayRunner, jsonBody, sendJson, send, broadcastConfig, broadcastReplay });
+    }
     if (rawPath === '/api/notify') {
       if (m === 'POST') return postNotify(req, res);
       if (isGet) return sendJson(res, 200, { ok: true, ...notifier.status() });
@@ -468,5 +474,5 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     clients.clear();
   }
 
-  return { handler, clients, broadcastConfig, broadcastObserve, recapTracker, notifier, flywheel, closeAll };
+  return { handler, clients, broadcastConfig, broadcastReplay, broadcastSnapshot, broadcastObserve, recapTracker, notifier, flywheel, closeAll };
 }

@@ -5,6 +5,7 @@ import { claudeCode } from './claude-code.mjs';
 import { antigravity } from './antigravity/index.mjs';
 import { codex } from './codex/index.mjs';
 import { grok } from './grok/index.mjs';
+import { publicSessionId } from '../session-identity.mjs';
 
 /** Every adapter id the CLI accepts; the `agent` of a `session` event is one of these. */
 export const KNOWN_AGENTS = Object.freeze(['claude-code', 'codex', 'grok', 'antigravity']);
@@ -39,13 +40,13 @@ export function isKnownAgent(id) {
   return typeof id === 'string' && KNOWN_AGENTS.includes(id);
 }
 
-/** Validate a requested agent list: an id outside KNOWN_AGENTS is a RangeError. Returns the ids, deduped, in order. */
-export function checkAgents(ids) {
+/** Validate a requested agent list: an id outside `allowed` (`KNOWN_AGENTS` by default) is a RangeError. Returns the ids, deduped, in order. */
+export function checkAgents(ids, allowed = KNOWN_AGENTS) {
   if (!Array.isArray(ids)) throw new RangeError('agents must be an array of agent ids');
   const out = [];
   for (const id of ids) {
-    if (!isKnownAgent(id)) {
-      throw new RangeError(`unknown agent "${String(id).slice(0, 40)}" (known: ${KNOWN_AGENTS.join(', ')})`);
+    if (typeof id !== 'string' || !allowed.includes(id)) {
+      throw new RangeError(`unknown agent "${String(id).slice(0, 40)}" (known: ${allowed.join(', ')})`);
     }
     if (!out.includes(id)) out.push(id);
   }
@@ -106,9 +107,11 @@ export async function selectAdapters({
   agents = null, roots = {}, adapters = ADAPTERS, probe = probeRoot, probeTimeoutMs = PROBE_TIMEOUT_MS,
 } = {}) {
   const limit = probeLimit(probeTimeoutMs);
-  const wanted = agents == null ? null : checkAgents(agents);
+  const extra = Object.keys(adapters ?? {}).filter((k) => !KNOWN_AGENTS.includes(k) && publicSessionId(k) !== null);
+  const order = extra.length ? [...KNOWN_AGENTS, ...extra] : KNOWN_AGENTS;
+  const wanted = agents == null ? null : checkAgents(agents, order);
   const out = { enabled: [], off: [], notImplemented: [] };
-  for (const id of KNOWN_AGENTS) {
+  for (const id of order) {
     if (wanted && !wanted.includes(id)) continue;
     const adapter = Object.hasOwn(adapters, id) ? adapters[id] : null;
     if (!adapter) {

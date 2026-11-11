@@ -1,10 +1,16 @@
 // 재생 모드(P3) 시간표. 세션 파일들의 줄을 기록 시각 순서로 합치고, 배속과 긴 공백 상한으로 언제 낼지 정한다.
 // 순수 함수만 둔다 (IO 없음). 파일 안의 줄 순서는 그대로 둔다 (R12: 시각이 거꾸로 가도 파일 순서가 기준이다).
+import { cleanText } from './summarize.mjs';
+import { classifyRecord } from './records.mjs';
 
 export const MAX_LINE_CHARS = 8 * 1024 * 1024; // tailer 의 maxLineBytes 와 같은 상한: 넘는 줄은 건너뛴다
 export const ASK_TOOLS = new Set(['AskUserQuestion', 'ExitPlanMode']); // 원래 '내 자리' 질문이라 승인 표시를 붙이지 않는다
+export const MAX_REPLAY_MARKERS = 64;
 
 const REJECTED_PREFIX = "The user doesn't want to proceed";
+const PLAN_TOOLS = new Set(['TodoWrite', 'update_plan', 'ExitPlanMode', 'TaskCreate', 'TaskUpdate']);
+const SUBAGENT_TOOLS = new Set(['Agent', 'Task']);
+const isPlanTool = (name) => PLAN_TOOLS.has(name) || name.endsWith('__update_plan');
 
 function parse(line) {
   try {
@@ -106,4 +112,67 @@ export function schedule(merged, { speed = 1, maxGapMs = 5000 } = {}) {
     merged[i].due = acc;
   }
   return acc;
+}
+
+function markerOfEntry(entry, index, total, mainStem = null) {
+  const rec = parse(entry.line);
+  if (!rec) return null;
+  if (entry.fi === 0 && mainStem && typeof rec.sessionId === 'string' && rec.sessionId !== mainStem) return null;
+  const cursor = index + 1;
+  const base = {
+    cursor,
+    progress: total > 0 ? Math.round((cursor / total) * 1000) / 1000 : 0,
+    dueMs: Math.round(entry.due ?? 0),
+  };
+  const classified = classifyRecord(rec);
+  if (entry.fi === 0 && classified.kind === 'prompt') {
+    const prompt = cleanText(classified.text, 40);
+    if (prompt) return { ...base, kind: 'prompt', label: prompt };
+  }
+  if (classified.kind === 'tool_result') {
+    const rejected = classified.toolDenialKind === 'user-rejected' || String(classified.text || '').startsWith(REJECTED_PREFIX);
+    if (rejected) return { ...base, kind: 'error', label: 'Permission denied' };
+    if (classified.isError) return { ...base, kind: 'error', label: 'Tool error' };
+  }
+  if (rec.type === 'assistant' && Array.isArray(rec.message?.content)) {
+    for (const b of rec.message.content) {
+      if (b?.type !== 'tool_use' || typeof b.name !== 'string') continue;
+      if (isPlanTool(b.name)) {
+        const count = Array.isArray(b.input?.items) ? b.input.items.length
+          : Array.isArray(b.input?.todos) ? b.input.todos.length : null;
+        return { ...base, kind: 'plan', label: count ? `Plan (${count})` : 'Plan updated' };
+      }
+      if (SUBAGENT_TOOLS.has(b.name)) {
+        const desc = cleanText(b.input?.description || b.input?.subagent_type || 'Subagent', 40) || 'Subagent';
+        return { ...base, kind: 'subagent', label: desc };
+      }
+    }
+  }
+  if (entry.fi === 0 && rec.type === 'system' && rec.subtype === 'stop_hook_summary') {
+    return { ...base, kind: 'turn_end', label: 'Turn end' };
+  }
+  if (rec.type === 'system' && rec.subtype === 'api_error') {
+    return { ...base, kind: 'error', label: 'API error' };
+  }
+  return null;
+}
+
+/**
+ * Extract scrubbed timeline markers (`prompt`, `plan`, `subagent`, `error`, `turn_end`) from a merged replay
+ * timeline (`[{ fi, line, t, due }]`), capped at `maxMarkers` while preserving chronological order.
+ */
+export function extractReplayMarkers(merged, { maxMarkers = MAX_REPLAY_MARKERS, mainStem = null } = {}) {
+  if (!Array.isArray(merged) || !merged.length) return [];
+  const raw = [];
+  for (let i = 0; i < merged.length; i++) {
+    const m = markerOfEntry(merged[i], i, merged.length, mainStem);
+    if (m) raw.push(m);
+  }
+  if (raw.length <= maxMarkers) return raw;
+  const priority = { error: 0, prompt: 1, plan: 2, subagent: 3, turn_end: 4 };
+  const picked = [...raw]
+    .sort((a, b) => (priority[a.kind] ?? 9) - (priority[b.kind] ?? 9) || a.cursor - b.cursor)
+    .slice(0, maxMarkers)
+    .sort((a, b) => a.cursor - b.cursor);
+  return picked;
 }

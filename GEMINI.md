@@ -1,7 +1,7 @@
 # GEMINI.md — office-sim
 
 ## Scope & Global Profile
-- **User-Scope (`INV`)**: `WahyzDAD/wahyz_agent_profile#v1.4.0` (`~/.gemini/GEMINI.md` & `~/.gemini/config/hooks.json`).
+- **User-Scope (`INV`)**: `WahyzDAD/wahyz_agent_profile#v1.4.3` (`~/.gemini/GEMINI.md` & `~/.gemini/config/hooks.json`).
 - **Project-Scope (`DOM`)**: `office-sim` (Node.js 22+ ESM + Three.js). `CLAUDE.md` is the canonical project contract; this file adapts project rules for Gemini CLI and Antigravity (`<= 8,000 bytes` / `140 lines`).
 
 ## Worktree & Harness² Discipline

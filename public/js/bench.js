@@ -96,15 +96,16 @@ export function installBench({ office, stage, frame }) {
     if (f !== undefined) office.focus(f);
   };
   const snapshot = () => {
-    const info = stage.renderer.info;
+    const info = stage.renderer?.info;
     const labels = [...document.querySelectorAll('.labels > *')];
     return {
+      rendererBackend: stage.rendererBackend || 'webgl2',
       floors: office.floors.length,
       agents: office.agents.size,
-      drawCalls: info.render.calls,
-      triangles: info.render.triangles,
-      geometries: info.memory.geometries,
-      textures: info.memory.textures,
+      drawCalls: info?.render?.calls ?? 0,
+      triangles: info?.render?.triangles ?? 0,
+      geometries: info?.memory?.geometries ?? 0,
+      textures: info?.memory?.textures ?? 0,
       labelsShown: labels.filter((el) => el.style.display !== 'none').length,
       labelsTotal: labels.length,
       domNodes: document.getElementsByTagName('*').length,
@@ -142,11 +143,11 @@ export function installBench({ office, stage, frame }) {
     // 프레임 함수를 연달아 돌려 프레임당 CPU 시간을 잰다. gpu: true 면 GPU 가 그 프레임을 끝낼 때까지 기다린 시간도 넣는다.
     burn({ frames = 300, focus: f, gpu = false } = {}) {
       focus(f);
-      const gl = stage.renderer.getContext();
+      const gl = stage.rendererBackend === 'webgpu' ? null : stage.renderer?.getContext?.();
       const px = new Uint8Array(4);
       const run = () => {
         frame(1 / 60);
-        if (gpu) gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        if (gpu && gl?.readPixels) gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
       };
       for (let i = 0; i < 60; i++) run(); // 데우기 + 카메라 이동 가라앉히기
       take();

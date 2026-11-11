@@ -43,11 +43,12 @@ export function box(parent, m, w, h, d, x, y, z, shadow = true) {
 }
 
 export function createStage(host) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  let renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   host.appendChild(renderer.domElement);
+  const rendererInfo = { requested: 'webgl2', active: 'webgl2', fallbackReason: null };
 
   const labels = new CSS2DRenderer();
   labels.domElement.className = 'labels';
@@ -59,16 +60,19 @@ export function createStage(host) {
   camera.position.copy(ISO);
   camera.lookAt(0, 0, 0);
 
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
-  controls.minZoom = 0.4;
-  controls.maxZoom = 4;
-  controls.minPolarAngle = 0.35;
-  controls.maxPolarAngle = 1.25;
-  controls.screenSpacePanning = false;
-  controls.zoomToCursor = true;
-  controls.keyPanSpeed = 0;
+  function configureControls(c) {
+    c.enableDamping = true;
+    c.dampingFactor = 0.08;
+    c.minZoom = 0.4;
+    c.maxZoom = 4;
+    c.minPolarAngle = 0.35;
+    c.maxPolarAngle = 1.25;
+    c.screenSpacePanning = false;
+    c.zoomToCursor = true;
+    c.keyPanSpeed = 0;
+    return c;
+  }
+  let controls = configureControls(new OrbitControls(camera, renderer.domElement));
 
   const hemi = new THREE.HemisphereLight(0xffffff, 0x808080, 1);
   const sun = new THREE.DirectionalLight(0xffffff, 2);
@@ -134,25 +138,27 @@ export function createStage(host) {
   }
   syncMouseButtons();
 
-  renderer.domElement.addEventListener('pointerdown', (e) => syncMouseButtons(e), { capture: true });
-  renderer.domElement.addEventListener('wheel', (e) => {
-    if (preset !== 'figma' || e.ctrlKey || e.metaKey) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    const dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX;
-    const dy = e.shiftKey && !e.deltaX ? 0 : e.deltaY;
-    panBy(dx * 0.018, -dy * 0.018);
-  }, { capture: true, passive: false });
-
-  controls.addEventListener('change', () => {
-    const dx = controls.target.x - lastTarget.x;
-    const dz = controls.target.z - lastTarget.z;
-    if (dx * dx + dz * dz > 1e-4) {
-      snapPan = false;
-      onUserPan?.();
-    }
-    lastTarget.copy(controls.target);
-  });
+  function bindCanvasInput(dom, ctrl) {
+    dom.addEventListener('pointerdown', (e) => syncMouseButtons(e), { capture: true });
+    dom.addEventListener('wheel', (e) => {
+      if (preset !== 'figma' || e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX;
+      const dy = e.shiftKey && !e.deltaX ? 0 : e.deltaY;
+      panBy(dx * 0.018, -dy * 0.018);
+    }, { capture: true, passive: false });
+    ctrl.addEventListener('change', () => {
+      const dx = ctrl.target.x - lastTarget.x;
+      const dz = ctrl.target.z - lastTarget.z;
+      if (dx * dx + dz * dz > 1e-4) {
+        snapPan = false;
+        onUserPan?.();
+      }
+      lastTarget.copy(ctrl.target);
+    });
+  }
+  bindCanvasInput(renderer.domElement, controls);
 
   function resize() {
     const w = host.clientWidth || window.innerWidth;
@@ -267,7 +273,32 @@ export function createStage(host) {
   resize();
 
   return {
-    renderer, labels, scene, camera, controls, resize, applyTheme, update,
+    get renderer() { return renderer; },
+    get controls() { return controls; },
+    get rendererBackend() { return rendererInfo.active; },
+    get rendererInfo() { return { ...rendererInfo }; },
+    setRendererInfo(info = {}) { Object.assign(rendererInfo, info); },
+    swapRenderer(nextRenderer, info = {}) {
+      if (!nextRenderer || nextRenderer === renderer) return;
+      const prevRenderer = renderer;
+      const prevControls = controls;
+      const savedTarget = prevControls.target.clone();
+      const savedOverview = prevControls.screenSpacePanning;
+      host.insertBefore(nextRenderer.domElement, labels.domElement);
+      prevRenderer.domElement?.remove?.();
+      prevControls.dispose?.();
+      prevRenderer.dispose?.();
+      renderer = nextRenderer;
+      controls = configureControls(new OrbitControls(camera, renderer.domElement));
+      controls.target.copy(savedTarget);
+      controls.screenSpacePanning = savedOverview;
+      syncMouseButtons();
+      bindCanvasInput(renderer.domElement, controls);
+      Object.assign(rendererInfo, info);
+      resize();
+      applyTheme();
+    },
+    labels, scene, camera, resize, applyTheme, update,
     panBy, rotateBy, zoomBy, resetView,
     zoomTo(z) {
       camera.zoom = Math.min(controls.maxZoom, Math.max(controls.minZoom, z));

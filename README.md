@@ -116,6 +116,7 @@ npm start
 | OpenAI Codex (App, CLI, IDE & ChatGPT Desktop) | `codex` | Supported (P5d, `~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl`, `session_index.jsonl`, and ChatGPT Desktop / Dot watcher) |
 | Antigravity CLI (`agy`) & Legacy IDE | `antigravity` (`surface: 'cli'`) | Supported (P5e, `~/.gemini/{antigravity-cli,antigravity-ide}/brain/<id>/.system_generated/logs/`) |
 | Antigravity Desktop App (2.x) | `antigravity` (`surface: 'app'`) | Supported (`~/.gemini/antigravity/brain/<id>/.system_generated/logs/`, plus `task.md` / `implementation_plan.md` checklists; never opens encrypted `conversations/*.pb`) |
+| Gemini CLI (Optional Plug-In) | `gemini-cli` (`--plugins gemini-cli`) | Opt-in plug-in (`~/.gemini/tmp/<project>/chats/session-*.json[l]`, built on `SessionCore` with `O_NOFOLLOW` allowlist-only discovery) |
 
 ## Camera Control Presets
 
@@ -146,8 +147,10 @@ node bin/office-sim.mjs [options]
 | `--codex-root <dir>` | `~/.codex` | OpenAI Codex home directory |
 | `--grok-root <dir>` | `~/.grok` | xAI Grok Build home directory |
 | `--antigravity-root <dir>` | `~/.gemini` | Google Antigravity home directory |
+| `--plugins <list>` | off | Opt-in plug-in adapter IDs (`gemini-cli`) |
+| `--gemini-cli-root <dir>` | `~/.gemini/tmp` | Gemini CLI chats directory (when `--plugins gemini-cli` is enabled) |
 | `--notify [cats]` | off | Native OS notifications (`ask,error,done` default; accepts `tool_error`, `all`, `off`) |
-| `--replay <file.jsonl>` | off | Replay a recorded Claude Code session file with original timing |
+| `--replay <file.jsonl>` | off | Replay a recorded Claude Code session with interactive timeline scrubber, markers, and bookmark pins |
 | `--speed <n>` | `1` | Replay speed multiplier (`0.1`..`1000`) |
 | `--loop` | off | Loop replay continuously |
 | `--auth` | off | Require a per-run token (`http://127.0.0.1:<port>/?t=<token>`) and set an `HttpOnly` cookie |

@@ -1,7 +1,7 @@
 # AGENTS.md — office-sim
 
 ## Scope & Global Profile
-- **User-Scope (`INV`)**: `WahyzDAD/wahyz_agent_profile#v1.4.0` (`~/.codex/AGENTS.md`).
+- **User-Scope (`INV`)**: `WahyzDAD/wahyz_agent_profile#v1.4.3` (`~/.codex/AGENTS.md`).
 - **Project-Scope (`DOM`)**: `office-sim` (Node.js 22+ zero-dependency 3D multi-agent visualizer). Read `CLAUDE.md` for full module architecture and privacy invariants.
 - **Harness² Budget**: Keep this file under `8,000 bytes` / `120 lines` (`skill -> script -> subagent -> hook -> gate -> memory -> always-on`).
 
