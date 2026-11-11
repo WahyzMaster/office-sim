@@ -15,6 +15,37 @@ const HTML = read('public/office.html');
 const HANGUL = /[가-힣]/;
 const openTag = (id) => HTML.match(new RegExp(`<[a-z0-9]+\\b[^>]*\\bid="${id}"[^>]*>`))?.[0] ?? null;
 
+// Two scanners over public/office.html, a file of this repository (never text from outside, so nothing here is a
+// sanitizer). Letter case is ignored.
+// withoutBlocks: the document without every range from `open` to the next `close`.
+function withoutBlocks(html, open, close) {
+  const lower = html.toLowerCase();
+  let out = '';
+  let from = 0;
+  for (;;) {
+    const a = lower.indexOf(open, from);
+    if (a < 0) return out + html.slice(from);
+    out += html.slice(from, a);
+    const b = lower.indexOf(close, a + open.length);
+    if (b < 0) return out;
+    from = b + close.length;
+  }
+}
+// inlineScripts: the bodies of the script elements whose start tag has no attribute.
+function inlineScripts(html) {
+  const lower = html.toLowerCase();
+  const bodies = [];
+  let from = 0;
+  for (;;) {
+    const a = lower.indexOf('<script', from);
+    const gt = a < 0 ? -1 : lower.indexOf('>', a);
+    const b = gt < 0 ? -1 : lower.indexOf('</script', gt);
+    if (b < 0) return bodies;
+    if (lower.slice(a + '<script'.length, gt).trim() === '') bodies.push(html.slice(gt + 1, b));
+    from = b + '</script'.length;
+  }
+}
+
 // ---- D8: 언어 ----
 
 test('detectLang: Korean only for a Korean browser locale, English for every other', () => {
@@ -37,10 +68,8 @@ test('the served document says lang="en" (the page sets the chosen language once
 test('office.html: nothing a visitor sees or hears before scripts run is Korean', () => {
   // 한국어가 남아도 되는 곳: CSS 와 HTML 주석, 숨겨진 기록 관찰 패널과 그 버튼(page-observe.test 가 문구를 고정한다),
   // 그리고 언어를 스스로 고르는 인라인 스크립트.
-  const visible = HTML
-    .replace(/<style>[\s\S]*?<\/style>/g, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<script\b[\s\S]*?<\/script>/g, '')
+  const visible = [['<style', '</style>'], ['<!--', '-->'], ['<script', '</script>']]
+    .reduce((html, [open, close]) => withoutBlocks(html, open, close), HTML)
     .replace(/<section id="observe"[\s\S]*?<\/section>/, '')
     .replace(/<button[^>]*id="toggle-observe"[^>]*>[^<]*<\/button>/, '');
   const left = visible.split('\n').filter((line) => HANGUL.test(line)).map((line) => line.trim().slice(0, 90));
@@ -155,7 +184,7 @@ test('installStaticText: applies the Hud language at start and again after the l
 
 // ---- 인라인 스크립트: 시작 문구와 불러오기 실패 문구 ----
 
-const INLINE = [...HTML.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+const INLINE = inlineScripts(HTML);
 
 function runBoot({ navLang = 'en-US', search = '', saved, ready = false, storageThrows = false } = {}) {
   const boot = { textContent: HTML.match(/<div id="boot" class="boot">([^<]*)<\/div>/)[1], classes: [], classList: { add(c) { boot.classes.push(c); } } };
