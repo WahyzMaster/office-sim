@@ -51,6 +51,8 @@ let audioCtx = null;
 let soundOn = true;
 
 export const isSoundEnabled = () => soundOn;
+// 페이지를 열 때의 소리 (launch readiness D9): 꺼진 채 시작한다. 방문자가 켠 적이 있을 때만(저장된 true) 켜고, 음소거 음성은 늘 끈다.
+export const soundPrefOn = (saved, voiceMode) => saved === true && voiceMode !== 'mute';
 export function setSoundEnabled(v) {
   soundOn = !!v;
   if (soundOn) ensureAudio();

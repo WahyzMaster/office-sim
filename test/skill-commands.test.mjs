@@ -87,8 +87,8 @@ test('root snippet: the realpath of <base> two levels up, or MISSING when there 
 });
 
 test('probe snippet: 200 office-sim JSON, 401 with --auth, down ECONNREFUSED, and another program as is', unixOnly, async () => {
-  const code = block('127.0.0.1:4317/healthz');
-  const probe = (port) => shAsync(code.replace('127.0.0.1:4317', `127.0.0.1:${port}`));
+  const code = block('127.0.0.1:4747/healthz');
+  const probe = (port) => shAsync(code.replace('127.0.0.1:4747', `127.0.0.1:${port}`));
   const root = await tmp();
   const open = await start({ port: 0, root, rescanMs: 60_000 });
   const auth = await start({ port: 0, root, rescanMs: 60_000, auth: true });
@@ -115,6 +115,8 @@ test('mktemp, start and wait snippets: a private output file, the URL and agents
   const out = sh(block('mktemp'), { TMPDIR: home });
   assert.ok(out.startsWith(home), out);
   assert.equal(statSync(out).mode & 0o777, 0o600, 'only the user can read the token URL');
+  // launch readiness D7: the bin opens the browser by itself in a terminal, so the skill's start says --no-open
+  assert.match(block('--port <port> <flags>'), /^node "<root>\/bin\/office-sim\.mjs" --port <port> <flags> --no-open > "<out>" 2>&1$/);
   const startCmd = fill(block('--port <port> <flags>'), { '<root>': REPO, '<port>': '0', '<flags>': '--auth', '<out>': out });
   // HOME is a temp dir: the default roots (~/.claude/projects, ~/.codex, ~/.grok, ~/.gemini) do not exist there
   const child = spawn('/bin/sh', ['-c', startCmd], { detached: true, stdio: 'ignore', env: { ...process.env, HOME: home } });
@@ -194,12 +196,12 @@ async function fakeServers() {
 const pidSet = (line, prefix) => new Set(line.slice(prefix.length).split(', ').map(Number));
 
 test('probe snippet prints exactly one line even when the listener closes at once or fetch never settles (finding 3)', unixOnly, async () => {
-  const code = block('127.0.0.1:4317/healthz');
+  const code = block('127.0.0.1:4747/healthz');
   assert.ok(code.includes('setTimeout(()=>{console.log("down Timeout");process.exit(0)},1500)'), 'a ref-ed fallback timer');
   const closer = net.createServer((c) => c.destroy());
   await new Promise((r) => closer.listen(0, '127.0.0.1', r));
   try {
-    const out = await shAsync(code.replace('127.0.0.1:4317', `127.0.0.1:${closer.address().port}`));
+    const out = await shAsync(code.replace('127.0.0.1:4747', `127.0.0.1:${closer.address().port}`));
     assert.match(out, /^down \S+$/, out);
   } finally {
     await new Promise((r) => closer.close(r));
@@ -263,12 +265,12 @@ test('stop snippet with a port argument only reports: ours pid <n> for this repo
   const onZero = f.run('repo', ['--port', '0']);
   const other = f.run('other');
   await Promise.all([onZero.ready, other.ready]);
-  assert.equal(sh(`${f.stopCode} 4317`), 'not ours', 'another root on 4317 and ours on port 0 are not it');
+  assert.equal(sh(`${f.stopCode} 4747`), 'not ours', 'another root on 4747 and ours on port 0 are not it');
   assert.equal(sh(`${f.stopCode} 0`), `ours pid ${onZero.pid}`);
-  const plain = f.run('repo'); // no --port: the default 4317
-  const eq = f.run('repo', ['--port=4317', '--auth']);
+  const plain = f.run('repo'); // no --port: the default 4747
+  const eq = f.run('repo', ['--port=4747', '--auth']);
   await Promise.all([plain.ready, eq.ready]);
-  const line = sh(`${f.stopCode} 4317`);
+  const line = sh(`${f.stopCode} 4747`);
   assert.ok(line.startsWith('ours pid '), line);
   assert.deepEqual(pidSet(line, 'ours pid '), new Set([plain.pid, eq.pid]));
   for (const p of [onZero.pid, plain.pid, eq.pid]) assert.ok(alive(p), 'the check stops nothing');
@@ -304,7 +306,7 @@ test('open snippet: one classified line for success, a failing or missing opener
   // a sleeping opener leaves its pid (kept by exec) so the test can end it
   const script = '#!/bin/sh\nprintf \'%s\\n\' "$#" "$@" >> "$OPEN_LOG"\nif [ -n "$OPEN_SLEEP" ]; then echo "$$" > "$OPEN_LOG.pid"; exec /bin/sleep "$OPEN_SLEEP"; fi\nexit "${OPEN_EXIT:-0}"\n';
   for (const name of ['open', 'xdg-open']) await fs.writeFile(path.join(withOpener, name), script, { mode: 0o755 });
-  const page = 'http://127.0.0.1:4317/?t=AbC_-123xyz#demo';
+  const page = 'http://127.0.0.1:4747/?t=AbC_-123xyz#demo';
   const run = (PATH, extra = {}) => sh(fill(code, { '<page>': page }), { PATH, OPEN_LOG: log, ...extra });
   const cmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
   assert.equal(run(withOpener), 'opened');
@@ -325,5 +327,43 @@ test('open snippet: one classified line for success, a failing or missing opener
       const pid = Number.parseInt(readFileSync(`${log}.pid`, 'utf8'), 10);
       if (pid > 0) process.kill(pid, 'SIGKILL'); // never 0 or NaN: kill(0) would hit this test's own group
     } catch { /* never started, or already gone */ }
+  }
+});
+
+// ---- W7 (launch readiness): the start line of a skill copy (the plugin, office-sim init) --------------------------
+
+// Without a checkout the skill starts `npx -y office-sim@latest ...`. No test may use the network, so a fake `npx` in
+// a temp folder stands in: it records its arguments and runs this repository's bin with what follows the package
+// name, which is what npx does with a package's bin. Port 0 and a temp HOME, as for the checkout start above.
+test('npx start line (no checkout): the arguments reach the bin as written and the wait snippet reads its lines', unixOnly, async () => {
+  const cmd = /`(npx -y office-sim@latest [^`]+)`/.exec(SKILL)?.[1];
+  assert.equal(cmd, 'npx -y office-sim@latest --no-open <flags> --port <port> > "<out>" 2>&1');
+  assert.equal(BLOCKS.filter((b) => b.includes('npx ')).length, 0, 'the line is inline: the fenced blocks stay the checkout commands');
+  const home = await tmp();
+  const fake = path.join(home, 'fakebin');
+  await fs.mkdir(fake);
+  const log = path.join(home, 'npx.args');
+  await fs.writeFile(path.join(fake, 'npx'),
+    '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$NPX_LOG"\n[ "$1" = "-y" ] && [ "$2" = "office-sim@latest" ] || exit 64\nshift 2\nexec "$NPX_NODE" "$NPX_BIN" "$@"\n', { mode: 0o755 });
+  const env = { ...process.env, HOME: home, PATH: `${fake}:${process.env.PATH}`, NPX_LOG: log, NPX_NODE: process.execPath, NPX_BIN: path.join(REPO, 'bin', 'office-sim.mjs') };
+  for (const [flags, urlRe, health] of [
+    ['--auth', /^office-sim: http:\/\/127\.0\.0\.1:\d+\/\?t=[A-Za-z0-9_-]{43}$/, 'healthz 401'],
+    ['', /^office-sim: http:\/\/127\.0\.0\.1:\d+\/$/, 'healthz 200'],
+  ]) {
+    const out = sh(block('mktemp'), { TMPDIR: home });
+    const child = spawn('/bin/sh', ['-c', fill(cmd, { '<port>': '0', '<flags>': flags, '<out>': out })], { detached: true, stdio: 'ignore', env });
+    const stopGroup = () => { try { process.kill(-child.pid, 'SIGTERM'); } catch { /* already gone */ } };
+    cleanups.push(stopGroup);
+    try {
+      const lines = sh(fill(block('--input-type=module'), { '<out>': out })).split('\n');
+      assert.match(lines[0], urlRe);
+      assert.equal(lines[1], 'office-sim: agents none');
+      assert.equal(lines.at(-1), health);
+      assert.deepEqual(readFileSync(log, 'utf8').trim().split('\n'),
+        ['-y', 'office-sim@latest', '--no-open', ...(flags ? [flags] : []), '--port', '0'], 'what npx was given');
+    } finally {
+      stopGroup();
+    }
+    await until(() => !alive(child.pid), 5000);
   }
 });

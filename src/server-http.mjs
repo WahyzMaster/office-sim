@@ -2,18 +2,20 @@
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { cspCache, crossSiteFetch, createAuth } from './server-guard.mjs';
-import { parseClaudeHookPayload } from './hooks-receiver.mjs';
+import { HooksBridge, HOOK_MAX_BODY } from './hooks-bridge.mjs';
 import { focusTerminalForSession } from './terminal-focus.mjs';
 import { SessionRecapTracker } from './session-recap.mjs';
 import { SystemNotifier } from './system-notify.mjs';
 import { FlywheelControl } from './flywheel/control.mjs';
 import { handleReplayRoute } from './replay-control.mjs';
+import { pageHead, PAGE_TAIL } from './page-shell.mjs';
 
-const HEAD = '<!doctype html><html lang="ko"><head><meta charset="utf-8">'
-  + '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
-  + '<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style></head><body>';
-const TAIL = '</body></html>';
+const HEAD = pageHead({ lang: 'en' }); // public/office.html 앞뒤를 감싸는 문서 껍데기 (호스팅 데모 빌드와 같이 쓴다). 페이지가 고른 언어로 lang 을 바꾼다 (D8)
 const JS_RE = /^\/js\/([a-z0-9_-]+)\.js$/;
+// public/vendor (벤더링한 three.js, contract 6): 폴더 없는 이름, 글자·숫자로 시작하고 . 과 - 는 하나씩만, 확장자는 .js 와 .txt 뿐
+const VENDOR_RE = /^\/vendor\/([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*\.(js|txt))$/;
+const JS_TYPE = 'text/javascript; charset=utf-8';
+const VENDOR_TYPES = Object.freeze({ js: JS_TYPE, txt: 'text/plain; charset=utf-8' });
 const FAVICON_TYPES = Object.freeze({
   '/favicon.svg': 'image/svg+xml; charset=utf-8',
   '/favicon.png': 'image/png',
@@ -21,6 +23,7 @@ const FAVICON_TYPES = Object.freeze({
 });
 const MAX_BODY = 4096;
 const DRAIN_LIMIT = 1024 * 1024; // 413 뒤에 버리며 읽는 상한: 넘게 보내면 연결을 끊는다
+const drainMax = (limit) => Math.max(DRAIN_LIMIT, 2 * limit); // 훅 경로(1 MiB 본문)는 2 MiB 까지 버리며 읽는다
 const DATA_ROUTES = new Set(['/events', '/state', '/config', '/api/replay', '/api/hooks/claude', '/api/focus-terminal', '/api/recap', '/api/recap/review', '/api/notify', '/api/flywheel']); // Sec-Fetch-Site 로 교차 사이트 요청을 거른다
 const OBSERVE_ROUTES = new Set([...DATA_ROUTES, '/observe']); // 기록 관찰이 켜졌을 때만
 const OBSERVE_ACTIONS = new Set(['start', 'stop']);
@@ -52,12 +55,12 @@ export function validInterval(v) {
 }
 
 // 너무 큰 본문: 413 을 먼저 보내고 나머지는 버리며 읽는다. 바로 끊으면 읽지 않은 데이터 때문에 커널이 RST 를 보내
-// 클라이언트가 413 을 받지 못한다. 끝없이 보내는 클라이언트는 DRAIN_LIMIT 에서 끊는다.
-function discardRest(req, already = 0) {
+// 클라이언트가 413 을 받지 못한다. 끝없이 보내는 클라이언트는 max (drainMax) 에서 끊는다.
+function discardRest(req, already = 0, max = DRAIN_LIMIT) {
   let drained = already;
   req.on('data', (c) => {
     drained += c.length;
-    if (drained > DRAIN_LIMIT) req.destroy();
+    if (drained > max) req.destroy();
   });
   req.resume();
 }
@@ -72,7 +75,7 @@ function readBody(req, limit) {
       size += c.length;
       if (size > limit) {
         req.off('data', onData); // 더 모으지 않는다 (늦은 'end' 의 resolve 는 이미 끝난 promise 라 무해하다)
-        discardRest(req, size);
+        discardRest(req, size, drainMax(limit));
         reject(tooLarge());
         return;
       }
@@ -90,12 +93,12 @@ function readBody(req, limit) {
  *           observe?: { status(): object, start(): Promise<object>, stop(): Promise<object> } | null }} o
  *   observe: the live log observation control (ObserveControl). null = feature off: no /observe route, no observe frame.
  */
-export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, observe = null, replayRunner = null, focusOpts = null, notifyOpts = null, flywheelOpts = null, log = () => {} }) {
+export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setConfig, health, authToken = null, cdn = false, observe = null, replayRunner = null, focusOpts = null, notifyOpts = null, flywheelOpts = null, claudeRoot = null, log = () => {} }) {
   const clients = new Set();
   const auth = createAuth(authToken, getPort);
-  const csp = cspCache();
+  const csp = cspCache({ cdn }); // cdn (--cdn): 페이지 CSP 의 script-src 에 CDN 을 더한다. 기본은 루프백만
   const dataRoutes = observe ? OBSERVE_ROUTES : DATA_ROUTES;
-  const activeHookTools = new Map();
+  const hooks = new HooksBridge({ store, claudeRoot, log }); // Claude Code 훅 -> tool_wait (contract 7.2)
   const recapTracker = new SessionRecapTracker();
   const notifier = new SystemNotifier(notifyOpts ?? {});
   let crossSiteBlocks = 0;
@@ -103,12 +106,14 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
   for (const ev of store.snapshot().events) {
     recapTracker.observeEvent(ev);
     notifier.observeEvent(ev, { live: false });
+    hooks.observeEvent(ev);
   }
   const origPush = store.push.bind(store);
   store.push = (ev) => {
     const res = origPush(ev);
     recapTracker.observeEvent(ev);
     notifier.observeEvent(ev);
+    hooks.observeEvent(ev); // 마지막에: 들고 있던 승인 대기를 이 tool_start 바로 뒤에 push 한다
     return res;
   };
   const currentConfig = () => {
@@ -134,20 +139,21 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     } catch {
       return send(res, 500, 'office.html missing');
     }
-    const page = HEAD + html + TAIL;
+    const page = HEAD + html + PAGE_TAIL;
     send(res, 200, page, 'text/html; charset=utf-8', {
       'cache-control': 'no-cache', 'content-security-policy': csp(page), 'x-frame-options': 'DENY',
     });
   }
 
-  async function serveJs(res, name) {
+  // public/js 와 public/vendor 의 파일 하나. 이름은 route() 의 정규식(JS_RE, VENDOR_RE)이 이미 걸렀다
+  async function serveAsset(res, dir, file, type) {
     let buf;
     try {
-      buf = await fsp.readFile(path.join(publicDir, 'js', `${name}.js`));
+      buf = await fsp.readFile(path.join(publicDir, dir, file));
     } catch {
       return send(res, 404, 'not found');
     }
-    send(res, 200, buf, 'text/javascript; charset=utf-8', { 'cache-control': 'no-cache' });
+    send(res, 200, buf, type, { 'cache-control': 'no-cache' });
   }
 
   async function serveFavicon(res, rawPath) {
@@ -196,7 +202,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
       for (const item of missed) write(sseFrame(item.seq, item.event));
     } else {
       const snap = store.snapshot();
-      write(sseFrame(snap.seq, { type: 'snapshot', events: snap.events }));
+      write(sseFrame(snap.seq, { type: 'snapshot', events: hooks.decorate(snap.events) }));
     }
     write(sseFrame(store.seq, { type: 'config', ...currentConfig() }));
     if (observe) write(sseFrame(store.seq, { type: 'observe', ...observe.status() }));
@@ -225,7 +231,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
 
   const broadcastConfig = () => broadcast({ type: 'config', ...currentConfig() });
   const broadcastReplay = (detail = replayRunner?.replayDetail()) => { if (detail) broadcast({ type: 'replay', ...detail }); };
-  const broadcastSnapshot = (meta = {}) => { const snap = store.snapshot(); broadcast({ type: 'snapshot', ...meta, events: snap.events }); };
+  const broadcastSnapshot = (meta = {}) => { const snap = store.snapshot(); broadcast({ type: 'snapshot', ...meta, events: hooks.decorate(snap.events) }); };
 
   function broadcastObserve(status = observe?.status()) {
     if (observe && status) broadcast({ type: 'observe', ...status });
@@ -255,7 +261,7 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
   }
 
   // POST 본문의 공통 검사 (/config, /observe): 같은 출처, JSON 형식, 크기, 파싱. 통과하면 { body }, 아니면 답을 보내고 null.
-  async function jsonBody(req, res) {
+  async function jsonBody(req, res, limit = MAX_BODY) {
     const refuse = (status, error) => {
       sendJson(res, status, { error });
       return null;
@@ -266,12 +272,12 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     }
     const ctype = String(req.headers['content-type'] ?? '').toLowerCase();
     if (!ctype.startsWith('application/json')) return refuse(415, 'content-type must be application/json');
-    if (Number(req.headers['content-length']) > MAX_BODY) { // 읽기 전에 거절한다
-      discardRest(req);
+    if (Number(req.headers['content-length']) > limit) { // 읽기 전에 거절한다
+      discardRest(req, 0, drainMax(limit));
       return refuse(413, 'body too large');
     }
     try {
-      return { body: JSON.parse(await readBody(req, MAX_BODY)) };
+      return { body: JSON.parse(await readBody(req, limit)) };
     } catch (err) {
       return refuse(err?.status ?? 400, err?.status === 413 ? 'body too large' : 'invalid json');
     }
@@ -401,14 +407,12 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
       if (isGet) return sendJson(res, 200, { type: 'observe', ...observe.status() });
       return send(res, 405, 'method not allowed', undefined, { allow: 'GET, HEAD, POST' });
     }
-    if (rawPath === '/api/hooks/claude') {
+    if (rawPath === '/api/hooks/claude') { // contract 7.2: 본문은 1 MiB 까지, 답은 받은 것이든 무시한 것이든 200 {} (D16)
       if (m !== 'POST') return send(res, 405, 'method not allowed', undefined, { allow: 'POST' });
-      const got = await jsonBody(req, res);
+      const got = await jsonBody(req, res, HOOK_MAX_BODY);
       if (!got) return;
-      const parsed = parseClaudeHookPayload(got.body, { activeHookTools });
-      if (!parsed) return sendJson(res, 400, { error: 'invalid hook payload' });
-      for (const ev of parsed.events) store.push(ev);
-      return sendJson(res, 200, { ok: true, sessionId: parsed.sessionId, accepted: parsed.events.length });
+      const out = hooks.handle(got.body);
+      return sendJson(res, out.status, out.body);
     }
     if (rawPath === '/api/focus-terminal') {
       if (m !== 'POST') return send(res, 405, 'method not allowed', undefined, { allow: 'POST' });
@@ -444,12 +448,14 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     }
     if (rawPath === '/state') {
       const snap = store.snapshot();
-      return sendJson(res, 200, { type: 'snapshot', seq: snap.seq, events: snap.events });
+      return sendJson(res, 200, { type: 'snapshot', seq: snap.seq, events: hooks.decorate(snap.events) });
     }
     if (rawPath === '/healthz') return sendJson(res, 200, health(clients.size)); // 본문은 server-health.mjs (처음 다섯 키는 예전 그대로)
     if (FAVICON_TYPES[rawPath]) return serveFavicon(res, rawPath);
     const js = JS_RE.exec(rawPath);
-    if (js) return serveJs(res, js[1]);
+    if (js) return serveAsset(res, 'js', `${js[1]}.js`, JS_TYPE);
+    const vendor = VENDOR_RE.exec(rawPath);
+    if (vendor) return serveAsset(res, 'vendor', vendor[1], VENDOR_TYPES[vendor[2]]);
     return send(res, 404, 'not found');
   }
 
@@ -474,5 +480,5 @@ export function createHttp({ store, publicDir, pingMs, getPort, getConfig, setCo
     clients.clear();
   }
 
-  return { handler, clients, broadcastConfig, broadcastReplay, broadcastSnapshot, broadcastObserve, recapTracker, notifier, flywheel, closeAll };
+  return { handler, clients, broadcastConfig, broadcastReplay, broadcastSnapshot, broadcastObserve, recapTracker, notifier, flywheel, hooks, closeAll };
 }

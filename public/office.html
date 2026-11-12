@@ -1,8 +1,5 @@
 <title>Office Sim</title><meta name="claude:viewport-fit-sides" content="cover">
 <link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="icon" type="image/png" sizes="64x64" href="favicon.png"><link rel="shortcut icon" href="favicon.ico">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&family=Nanum+Pen+Script&display=swap">
 <style>
 /* Layout: 화면 전체가 3D 디오라마 사무실, 가장자리에 엘리베이터(층) · 활동 기록 · 범례 · 직원 상세 패널 */
 :root {
@@ -231,7 +228,7 @@ body.overview .sign, body.overview .tag span { display: none; }
   padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line);
   background: var(--panel-solid); color: var(--fg); font: inherit; font-variant-numeric: tabular-nums;
 }
-.interval input { width: 64px; }
+.interval input { width: 64px; } body:not(.labs) label[for="interval"] { display: none; }
 .interval select { font-family: var(--font-ui); cursor: pointer; }
 .ghost {
   border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 12px;
@@ -377,45 +374,45 @@ body.overview .sign, body.overview .tag span { display: none; }
 }
 </style>
 
-<div id="stage" role="img" aria-label="AI 코딩 에이전트 세션이 일하는 모습을 보여 주는 3D 사무실"></div>
+<div id="stage" role="img" aria-label="3D office showing AI coding agent sessions at work"></div>
 
 <div id="hud">
   <header class="bar panel">
     <div class="brand">
       <h1>Office Sim</h1>
-      <p id="sub">세션 기록을 250ms마다 따라 읽어요</p>
+      <p id="sub">Tailing session logs every 250ms</p>
     </div>
     <div class="controls">
-      <span id="source" class="chip" data-state="demo"><i></i><span>데모 데이터</span></span>
+      <span id="source" class="chip" data-state="demo"><i></i><span>Demo Data</span></span>
       <span id="tail" aria-hidden="true"></span>
-      <div class="seg" id="speed" role="group" aria-label="재생 속도">
+      <div class="seg" id="speed" role="group" aria-label="Playback speed">
         <button type="button" data-speed="0.5" aria-pressed="false">0.5×</button>
         <button type="button" data-speed="1" aria-pressed="true">1×</button>
         <button type="button" data-speed="2" aria-pressed="false">2×</button>
         <button type="button" data-speed="4" aria-pressed="false">4×</button>
       </div>
       <label class="interval" for="interval">tail <input id="interval" type="number" min="50" max="5000" step="50" value="250"> ms</label>
-      <label class="interval" for="room-theme"><span id="theme-label">공간</span> <select id="room-theme" aria-label="공간 테마 프리셋"><option value="dogs">퍼피 파크</option><option value="cats">캣 타워 살롱</option><option value="studio">AI 스튜디오</option><option value="office">테크 오피스</option><option value="palace">조선 궁궐</option><option value="hanok">전통 한옥</option><option value="starship">SF 스타십</option></select></label>
-      <label class="interval" for="char-theme"><span id="char-label">캐릭터</span> <select id="char-theme" aria-label="캐릭터 외형 프리셋"><option value="studio">AI 스튜디오</option><option value="office">테크 오피스</option><option value="palace">조선 궁궐</option><option value="hanok">전통 한옥</option><option value="starship">SF 스타십</option><option value="dogs">강아지 팩</option><option value="cats">고양이 팩</option><option value="bots">로봇 팩</option></select></label>
-      <label class="interval" for="posture-mode"><span id="posture-label">보행</span> <select id="posture-mode" aria-label="캐릭터 보행 자세"><option value="auto">자동 (캐릭터별)</option><option value="tetrapod">4족 보행 (네발)</option><option value="bipod">2족 보행 (두발)</option></select></label>
-      <label class="interval" for="motion-mode"><span id="motion-label">모션</span> <select id="motion-mode" aria-label="캐릭터 모션"><option value="auto">자동 (캐릭터별)</option><option value="jump">점프 (폴짝)</option><option value="roll">구르기 (데구르르)</option><option value="flip">공중제비 (캣플립)</option><option value="spin">회전 (빙글)</option><option value="prop-fly">프로펠러 비행 (붕붕)</option><option value="phase">무중력 활공 (페이즈)</option></select></label>
-      <label class="interval" for="voice-mode"><span id="voice-label">소리</span> <select id="voice-mode" aria-label="캐릭터 음성"><option value="auto">자동 (캐릭터별)</option><option value="dogs">강아지 (멍멍)</option><option value="cats">고양이 (야옹)</option><option value="bots">로봇 (삐리릭)</option><option value="chime">국악 (옥소리)</option><option value="chirp">스타십 (비프)</option><option value="blip">스튜디오 (블립)</option><option value="mute">음소거</option></select></label>
-      <div class="seg" id="llm-filter" role="group" aria-label="LLM 필터">
-        <button type="button" data-llm="all" aria-pressed="true">전체</button>
+      <label class="interval" for="room-theme"><span id="theme-label">Place</span> <select id="room-theme" aria-label="Place theme preset"><option value="dogs">Puppy Park</option><option value="cats">Luxury Cat Salon</option><option value="studio">AI Studio</option><option value="office">Tech Office</option><option value="palace">Joseon Palace</option><option value="hanok">Traditional Hanok</option><option value="starship">Sci-Fi Starship</option></select></label>
+      <label class="interval" for="char-theme"><span id="char-label">Character</span> <select id="char-theme" aria-label="Character look preset"><option value="studio">AI Studio Chibi</option><option value="office">Tech Office Staff</option><option value="palace">Joseon Royal Official</option><option value="hanok">Traditional Hanok Scholar</option><option value="starship">Sci-Fi Starship Crew</option><option value="dogs">Dog Pack (Default)</option><option value="cats">Cat Pack (Default)</option><option value="bots">Bot Squad (Default)</option></select></label>
+      <label class="interval" for="posture-mode"><span id="posture-label">Posture</span> <select id="posture-mode" aria-label="Character posture"><option value="auto">Auto (By Character)</option><option value="tetrapod">Tetrapod (4-Leg)</option><option value="bipod">Bipod (2-Leg)</option></select></label>
+      <label class="interval" for="motion-mode"><span id="motion-label">Motion</span> <select id="motion-mode" aria-label="Character motion"><option value="auto">Auto (By Character)</option><option value="jump">Jump (Vault)</option><option value="roll">Roll (Dodge Roll)</option><option value="flip">Flip (Somersault)</option><option value="spin">Spin (360° Pirouette)</option><option value="prop-fly">Propeller Fly (Hover)</option><option value="phase">Zero-G Phase (Glide)</option></select></label>
+      <label class="interval" for="voice-mode"><span id="voice-label">Voice</span> <select id="voice-mode" aria-label="Character voice"><option value="auto">Auto (By Character)</option><option value="dogs">Dog (Bark)</option><option value="cats">Cat (Meow)</option><option value="bots">Bot (Droid Bleep)</option><option value="chime">Royal (Chime)</option><option value="chirp">Starship (Chirp)</option><option value="blip">Studio (Blip)</option><option value="mute">Muted</option></select></label>
+      <div class="seg" id="llm-filter" role="group" aria-label="LLM filter">
+        <button type="button" data-llm="all" aria-pressed="true">All</button>
         <button type="button" data-llm="claude-code" aria-pressed="false">Claude·Claude Code</button>
         <button type="button" data-llm="codex" aria-pressed="false">ChatGPT·Codex</button>
         <button type="button" data-llm="grok" aria-pressed="false">Grok Build</button>
         <button type="button" data-llm="antigravity" aria-pressed="false">Antigravity</button>
       </div>
-      <label class="interval" for="control-preset"><span id="control-label">조작</span> <select id="control-preset" aria-label="카메라 조작 프리셋"><option value="map">구글 맵</option><option value="figma">피그마</option><option value="orbit">3D 오빗</option><option value="blender">블렌더</option></select></label>
-      <button type="button" id="color-theme" class="ghost" aria-label="조명 모드 전환">조명: 자동</button>
-      <button type="button" id="sound-toggle" class="ghost" aria-pressed="true" aria-label="캐릭터 소리 켜기/끄기">소리 켜짐</button>
-      <button type="button" id="lang-toggle" class="ghost" aria-label="언어 전환 (KO/EN)">KO</button>
-      <button type="button" id="capture-clip" class="ghost" aria-label="5초 WebM 클립 녹화">5초 클립</button>
-      <button type="button" id="toggle-overlay" class="ghost" aria-pressed="false" aria-label="오버레이 모드 전환">오버레이</button>
+      <label class="interval" for="control-preset"><span id="control-label">Controls</span> <select id="control-preset" aria-label="Camera control preset"><option value="map">Google Maps</option><option value="figma">Figma</option><option value="orbit">3D Orbit</option><option value="blender">Blender</option></select></label>
+      <button type="button" id="color-theme" class="ghost" aria-label="Switch lighting mode">Light: Auto</button>
+      <button type="button" id="sound-toggle" class="ghost" aria-pressed="false" aria-label="Turn character sound on or off">Muted</button>
+      <button type="button" id="lang-toggle" class="ghost" aria-label="Switch language (KO/EN)">EN</button>
+      <button type="button" id="capture-clip" class="ghost" aria-label="Record a 5-second WebM clip">5s Clip</button>
+      <button type="button" id="toggle-overlay" class="ghost" aria-pressed="false" aria-label="Toggle overlay mode">Overlay</button>
       <button type="button" id="toggle-observe" class="ghost" hidden aria-pressed="false" aria-controls="observe" aria-label="기록 관찰">기록 관찰</button>
-      <button type="button" id="toggle-legend" class="ghost" aria-pressed="false" aria-controls="legend">범례·배정</button>
-      <button type="button" id="toggle-log" class="ghost" aria-pressed="true" aria-controls="log">활동 기록</button>
+      <button type="button" id="toggle-legend" class="ghost" aria-pressed="false" aria-controls="legend">Legend & Cast</button>
+      <button type="button" id="toggle-log" class="ghost" aria-pressed="true" aria-controls="log">Activity Log</button>
     </div>
   </header>
 
@@ -437,35 +434,35 @@ body.overview .sign, body.overview .tag span { display: none; }
     </div>
   </section>
 
-  <nav id="floors" aria-label="층 선택"></nav>
+  <nav id="floors" aria-label="Floor selection"></nav>
 
-  <aside id="log" class="panel" aria-label="활동 기록">
-    <h2>활동 기록</h2>
+  <aside id="log" class="panel" aria-label="Activity log">
+    <h2>Activity Log</h2>
     <ol id="log-list"></ol>
   </aside>
 
-  <section id="legend" class="panel" hidden aria-label="범례 안내">
-    <header class="lg-head"><h2>범례 및 LLM 캐릭터 배정</h2><button type="button" id="close-legend" class="ghost">닫기</button></header>
-    <h3><span data-lg-head="agents">LLM별 캐릭터 배정</span><button type="button" id="reset-llm-map" class="ghost">기본 배정 복원</button></h3>
+  <section id="legend" class="panel" hidden aria-label="Legend">
+    <header class="lg-head"><h2>Visual Legend & LLM Cast</h2><button type="button" id="close-legend" class="ghost">Close</button></header>
+    <h3><span data-lg-head="agents">LLM Character Mapping</span><button type="button" id="reset-llm-map" class="ghost">Reset Cast</button></h3>
     <ul data-lg="agents"></ul>
-    <h3><span data-lg-head="catalog">캐릭터 · 품종 도감 (29종)</span><span class="seg" data-cat-tabs role="group"></span></h3>
+    <h3><span data-lg-head="catalog">Character & Breed Catalog (29)</span><span class="seg" data-cat-tabs role="group"></span></h3>
     <ul data-lg="catalog"></ul>
-    <h3 data-lg-head="rooms">공간 · 방 안내</h3>
+    <h3 data-lg-head="rooms">Rooms & Zones</h3>
     <ul data-lg="rooms"></ul>
-    <h3 data-lg-head="signals">상태 · 색깔 신호</h3>
+    <h3 data-lg-head="signals">Status & Color Signals</h3>
     <ul data-lg="signals"></ul>
-    <h3 data-lg-head="controls">카메라 · 단축키</h3>
-    <p id="legend-controls">구글 맵: 좌클릭 드래그 이동 · 우클릭/Ctrl+드래그 회전·기울기 · 휠 확대 · WASD/방향키 이동 · Shift+방향키 회전·기울기 · R 초기화 · F/더블클릭 따라가기 · 1-9/[/]/0 층 이동</p>
+    <h3 data-lg-head="controls">Camera & Shortcuts</h3>
+    <p id="legend-controls">Google Maps: Left-drag pan · Right/Ctrl+drag orbit & tilt · Wheel zoom · WASD/Arrows pan · Shift+Arrows orbit & tilt · R reset · F/Double-click follow · 1-9/[/]/0 floor</p>
   </section>
 
-  <section id="inspector" class="panel" hidden aria-label="직원 상세">
+  <section id="inspector" class="panel" hidden aria-label="Agent details">
     <header>
       <span class="dot"></span>
       <h2></h2>
-      <select class="ghost" data-act="motion" aria-label="모션 선택"><option value="auto">자동 (캐릭터별)</option><option value="jump">점프 (폴짝)</option><option value="roll">구르기 (데구르르)</option><option value="flip">공중제비 (캣플립)</option><option value="spin">회전 (빙글)</option><option value="prop-fly">프로펠러 비행 (붕붕)</option><option value="phase">무중력 활공 (페이즈)</option></select>
-      <button type="button" class="ghost" data-act="pet">쓰다듬기 · 소리</button>
-      <button type="button" class="ghost" data-act="follow" aria-pressed="false">따라가기</button>
-      <button type="button" class="ghost" data-act="close">닫기</button>
+      <select class="ghost" data-act="motion" aria-label="Choose a motion"><option value="auto">Auto (By Character)</option><option value="jump">Jump (Vault)</option><option value="roll">Roll (Dodge Roll)</option><option value="flip">Flip (Somersault)</option><option value="spin">Spin (360° Pirouette)</option><option value="prop-fly">Propeller Fly (Hover)</option><option value="phase">Zero-G Phase (Glide)</option></select>
+      <button type="button" class="ghost" data-act="pet">Pet · Voice</button>
+      <button type="button" class="ghost" data-act="follow" aria-pressed="false">Follow</button>
+      <button type="button" class="ghost" data-act="close">Close</button>
     </header>
     <dl></dl>
     <ol></ol>
@@ -473,24 +470,27 @@ body.overview .sign, body.overview .tag span { display: none; }
 </div>
 <!-- 기록 관찰의 시작, 다 모임, 끝을 패널이 닫혀 있어도 화면 읽기 프로그램에 알린다 (observe-panel.js) -->
 <p id="observe-announce" class="sr-only" aria-live="polite"></p>
-<button type="button" id="exit-overlay" class="ghost" hidden aria-label="오버레이 끄기">Office Sim · 오버레이 끄기 (O)</button>
+<button type="button" id="exit-overlay" class="ghost" hidden aria-label="Turn overlay off">Office Sim · Exit Overlay (O)</button>
 
-<div id="boot" class="boot">사무실을 짓는 중…</div>
+<div id="boot" class="boot">Building the office…</div>
 
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three": "./vendor/three.module.min.js",
+    "three/addons/controls/OrbitControls.js": "./vendor/OrbitControls.js",
+    "three/addons/renderers/CSS2DRenderer.js": "./vendor/CSS2DRenderer.js",
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
   }
 }
 </script>
 <script type="module" src="js/main.js"></script>
 <script>
+  (function () { var b = document.getElementById('boot'), q = new URLSearchParams(location.search).get('lang'), lang = /^ko(?:[-_]|$)/i.test(navigator.language || '') ? 'ko' : 'en';
+  try { var p = JSON.parse(localStorage.getItem('office-sim:v1')); if (p && p.lang != null) lang = p.lang; } catch (e) { /* storage blocked: keep the locale */ }
+  if (q != null) lang = q; if (lang !== 'en') b.textContent = '사무실을 짓는 중…'; // the Hud's order (hud.js): ?lang=, the saved language, the browser locale
   setTimeout(function () {
     if (window.__officeReady) return;
-    var b = document.getElementById('boot');
-    b.textContent = '3D 엔진(three.js)을 불러오지 못했어요. 네트워크를 확인한 뒤 새로고침해 주세요.';
-    b.classList.add('err');
-  }, 9000);
+    b.textContent = lang !== 'en' ? '3D 엔진(three.js)을 불러오지 못했어요. 페이지를 새로고침해 주세요.' : 'Could not load the 3D engine (three.js). Reload the page to try again.'; b.classList.add('err');
+  }, 9000); }());
 </script>

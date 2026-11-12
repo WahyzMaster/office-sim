@@ -1,6 +1,7 @@
 // tool_use -> { summary, room?, background?, ignore? } (pure). CONTRACT 3.1 + 5.
 // 요약만 만든다: 명령어 원문, 파일 내용, 전체 경로, 전체 URL 은 절대 내보내지 않는다.
 import { programOf } from './summarize-shell.mjs';
+import { maskSecrets, SECRET_MARKER } from './secret-mask.mjs';
 
 const ELLIPSIS = '\u2026';
 
@@ -103,27 +104,86 @@ function pathTail(p, offset, str) {
   return baseName(p);
 }
 
+/** Trailing sentence punctuation of a URL match. The closing bracket of a masked secret at its end is not punctuation. */
+function urlTail(m) {
+  const tail = URL_TAIL_RE.exec(m)?.[0] ?? '';
+  return tail.startsWith(')') && m.slice(0, m.length - tail.length + 1).endsWith(SECRET_MARKER) ? tail.slice(1) : tail;
+}
+
 /** URL match -> host + trailing sentence punctuation ('is it summarize.mjs?' keeps its '?'). */
 function urlToHost(m, host) {
-  const tail = URL_TAIL_RE.exec(m)?.[0] ?? '';
+  const tail = urlTail(m);
   const h = host ?? hostOf(m.slice(0, m.length - tail.length));
   return (h || '(url)') + tail;
 }
 
+// tidy() leaves one MARK where it took characters out, and one behind the space that was a line break. Behind the
+// mask a mark stays only where a rule needs the boundary: behind such a space (a path does not go on across a line
+// break), between a backslash and the space of a line break (that space is no escaped space of a path) and in front
+// of a path or a URL scheme ('ls<colour code>/Users/x' is 'ls' and a path).
+const MARK = '\u0000';
+const LINE = '\n';
+// An address whose local part the mask replaced: the domain goes too, as it did before the mask existed.
+const MASKED_EMAIL_RE = /\(secret\)@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu;
+const SPARE_MARK_RE = /(?<! )\u0000(?![ \\/]|~\/|\.{1,2}\/|\$|[A-Za-z]:[\\/]|[A-Za-z][A-Za-z0-9+.-]{0,15}:\/\/|localhost[:/?#]|\d{1,3}(?:\.\d{1,3}){3}[:/?#]|\[[0-9a-f.]*:)/gi;
+const isGap = (c) => c === 0 || c === 32 || c === 10; // MARK, space, LINE
+// Anything for tidy() to do: a character of \s other than the space, one of CONTROL_RE, a surrogate, two spaces, or a
+// space at an end. Most texts have none of these and are tidy as they come.
+const UNTIDY_RE = /[\u0000-\u001F\u007F-\u00A0\u1680\u2000-\u200B\u200E\u200F\u2028-\u202F\u205F-\u2064\u2066-\u2069\u3000\uFEFF\uD800-\uDFFF]| {2}|^ | $/;
+
 /**
- * Free text privacy scrub (section 5): connector uuid in `mcp__<uuid>` -> zero uuid, URL (with or without a
- * scheme, scp form) -> host, email (also 'me@corp.example/x') -> '(email)', file:// URL and absolute path (spaces
+ * The text as truncate() will leave it, made before the scrub so that every rule reads what the page will get: ANSI
+ * codes, control and zero-width characters and lone surrogates are out, and white space is one space. Where
+ * characters were taken out between two others, one MARK stays (secret-mask.mjs reads through it and takes it for a
+ * token start); beside a space or at an end of the text it marks nothing and goes too. A line break becomes a space
+ * with a MARK behind it. truncate() removes the marks that are left.
+ */
+function tidy(text) {
+  if (!UNTIDY_RE.test(text)) return text;
+  const s = text.replace(ANSI_RE, MARK)
+    .replace(/\s+/g, (run) => (/[\n\r\u2028\u2029]/.test(run) ? LINE : ' '))
+    .replace(CONTROL_RE, (c) => (c === LINE ? c : MARK))
+    .replace(LONE_SURROGATE_RE, MARK)
+    .replace(/[\u0000 \n]{2,}/g, (run) => (run.includes(LINE) ? LINE : run.includes(' ') ? ' ' : MARK));
+  let a = 0;
+  let b = s.length;
+  while (a < b && isGap(s.charCodeAt(a))) a++;
+  while (b > a && isGap(s.charCodeAt(b - 1))) b--;
+  return s.slice(a, b).replaceAll(`\\${LINE}`, `\\${MARK}${LINE}`).replaceAll(LINE, ` ${MARK}`);
+}
+
+/**
+ * The rules behind the secret mask (section 5): connector uuid in `mcp__<uuid>` -> zero uuid, URL (with or without
+ * a scheme, scp form) -> host, email (also 'me@corp.example/x') -> '(email)', file:// URL and absolute path (spaces
  * included, UNC, '//x') -> basename.
  */
-function scrub(s) {
+function rules(s) {
   return s
     .replace(MCP_SERVER_RE, (m, server) => (looksLikeUuid(server) ? `mcp__${ZERO_UUID}` : m))
     .replace(FILE_URL_RE, '')
     .replace(URL_IN_TEXT_RE, (m) => urlToHost(m))
     .replace(SCP_RE, (m, host) => urlToHost(m, host))
-    .replace(BARE_URL_RE, (m, user, host) => (user ? '(email)' + (URL_TAIL_RE.exec(m)?.[0] ?? '') : urlToHost(m, host)))
+    .replace(BARE_URL_RE, (m, user, host) => (user ? '(email)' + urlTail(m) : urlToHost(m, host)))
     .replace(EMAIL_RE, '(email)')
+    .replace(MASKED_EMAIL_RE, '(email)')
     .replace(ABS_PATH_RE, (_m, p, offset, str) => pathTail(p, offset, str));
+}
+
+/**
+ * Free text privacy scrub (section 5). The secret mask (a fixed list of shapes -> '(secret)', secret-mask.mjs; this
+ * function is its only caller) reads the text as the page will get it: tidy(). When it finds no listed shape, the
+ * other rules read the text exactly as they did before the mask existed (a colour code is one boundary character and
+ * every other character stays where it is until truncate()); when it finds one, they read the tidy text behind it.
+ * Last, the mask looks once more: a rule can put two pieces together into a listed shape.
+ */
+function scrub(s) {
+  const view = tidy(s);
+  const masked = maskSecrets(view);
+  if (masked !== view) return maskSecrets(rules(masked.replace(SPARE_MARK_RE, '')));
+  const out = rules(s.replace(ANSI_RE, MARK));
+  const seen = tidy(out); // the last look reads the result as the page will get it, too
+  const again = maskSecrets(seen);
+  return again === seen ? out : again;
 }
 
 const SCRUB_LIMIT = 1024; // 정규식 비용을 묶어 둔다 (입력 필드는 수십 KB 까지 온다)
@@ -139,9 +199,7 @@ function clean(value, max) {
     while (k >= 0 && !/\s/.test(s[k])) k--;
     s = k > 0 ? s.slice(0, k) : '';
   }
-  // ANSI 색 코드('\u001b[0m')는 글자로 끝나서 뒤의 경로/URL 을 단어에 붙은 것처럼 가린다: scrub 전에 제어 문자 하나로
-  // 바꿔 경계로 남기고(경로/URL 규칙은 제어 문자를 경계로 본다), 그 제어 문자는 truncate 가 지운다.
-  s = s.replace(ANSI_RE, '\u0000');
+  // 가림(mask)은 페이지가 받을 글을 읽고(tidy), 걸린 모양이 없으면 나머지 규칙은 예전 그대로 원문을 읽는다 (scrub).
   return truncate(scrub(s), max);
 }
 
@@ -183,10 +241,12 @@ function splitMcp(name) {
 export function toolLabel(name) {
   const mcp = splitMcp(name);
   if (mcp) {
-    const label = clean(mcp.suffix.replace(/_/g, ' '), 40);
+    // each segment is scrubbed on its own and before '_' becomes a space, so the mask sees it as it was written
+    const label = truncate(clean(mcp.suffix, Infinity).replace(/_/g, ' '), 40);
     if (label) return label;
     if (!mcp.server || looksLikeUuid(mcp.server)) return 'mcp tool';
-    return clean(name, 40) || 'mcp tool';
+    const server = clean(mcp.server, Infinity);
+    return server ? truncate(`mcp__${server}`, 40) : 'mcp tool';
   }
   return clean(name, 40) || 'tool';
 }

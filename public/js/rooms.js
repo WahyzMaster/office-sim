@@ -234,8 +234,8 @@ export function resolveAgentAppearance(agent = {}, opts = {}) {
   return { slot, charSpec: spec, family, style, breed, posture, voiceMode: vMode, voiceKind, voiceStyle };
 }
 
-export const detectLang = (navLang = globalThis.navigator?.language) => (
-  typeof navLang === 'string' && navLang.toLowerCase().startsWith('en') ? 'en' : 'ko'
+export const detectLang = (navLang = globalThis.navigator?.language) => ( // D8, D22: 언어 subtag 가 ko 일 때만 한국어 (kok, kor 는 아니다)
+  typeof navLang === 'string' && /^ko(?:[-_]|$)/i.test(navLang) ? 'ko' : 'en'
 );
 
 export function roomLabel(roomKey, themeKey = activeTheme, lang = activeLang) {

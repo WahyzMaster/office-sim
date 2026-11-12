@@ -546,7 +546,7 @@ Antigravity 칸의 "세션 끝"에 적은 요약 proto 의 상태는 P5e 에서 
 | `turn_end` | stop hook, end_turn + 20 s 등 | `task_complete` (`end_turn`), `error` 면 `api_error`, `turn_aborted` (`interrupt`) | `turn_completed`: `end_turn` / `cancelled` -> `interrupt` / `error` -> `api_error` | 도구 없는 `PLANNER_RESPONSE` + 조용한 시간 (`end_turn`), 다음 입력 (`next_turn`), 닫는 답 없이 요약 상태 idle + 60초 (`end_turn`) |
 | `system compact` | `compact_boundary` | `compacted` 레코드 | `auto_compact_started` | `CHECKPOINT` |
 | `system api_error` | `api_error` | `task_complete.error` | `retry_state` | `ERROR_MESSAGE` (턴은 안 끝남) |
-| 승인 대기 | 재생 모드만 (7절) | 없음 (저장 안 됨) | `events.jsonl` 의 `permission_requested` -> 라이브 `tool_wait` (D7, P5g 완료, CONTRACT 4.6, 7.1) | 없음 |
+| 승인 대기 | 재생 모드 (7절). 라이브는 Claude Code 훅을 설치했을 때만: `PermissionRequest` / `Notification` 훅 -> `tool_wait` (CONTRACT 7.2) | 없음 (저장 안 됨) | `events.jsonl` 의 `permission_requested` -> 라이브 `tool_wait` (D7, P5g 완료, CONTRACT 4.6, 7.1) | 없음 |
 | 세션 끝 | 무활동, 부모 결과 | 무활동, 부모의 `SubAgentActivity` | 무활동, 부모의 `subagent_finished`, `active_sessions.json` 에서 빠짐 | 무활동, 요약 proto 의 상태 |
 
 ### 6.2 도구 -> 방
@@ -914,7 +914,7 @@ CONTRACT 5절을 도구가 달라도 같은 뜻으로 적용한다. 새로 생�
 | D3 | 어댑터를 언제 켜는가 | 구현된 어댑터 중 기록 폴더가 있는 것은 모두 켠다. `--agents claude-code,codex` 로 좁히고, 시작할 때 켜진 어댑터 이름을 출력한다 | 기본은 Claude 만, `--agents` 로 켤 때만(더 보수적) |
 | D4 | 다른 도구의 도구 이름을 방으로 나누는 곳 | 서버가 모든 새 어댑터 `tool_start` 에 `room` 힌트를 붙이고, MCP 는 `tool` 을 `mcp__<server>__<tool>` 로 맞춘다. 화면은 그대로 | `public/js/rooms.js` 의 `ROOM_RULES` 에 도구별 이름을 더한다 |
 | D5 | `plan.source` 값 | 새 값을 만들지 않는다. 전체 목록(Codex `update_plan`, Grok `plan`)은 `update_plan`, 마크다운 계획 제안은 `exit_plan`, Antigravity `task.md` 는 `tasks`. 화면은 이 값을 쓰지 않는다(확인함) | `codex_plan` 같은 새 값을 더한다(CONTRACT 2절 변경) |
-| D6 | Antigravity 범위 | CLI(`agy`)와 예전 IDE 의 transcript 만. 데스크톱 앱은 이번 범위에서 뺀다 | (b) 앱 대화를 요약 proto 의 상태(일하는 중/쉬는 중)와 `task.md` 계획판만 있는 거친 직원으로 보여 준다. (c) Antigravity 전체를 보류한다 |
+| D6 | Antigravity 범위 | CLI(`agy`)와 예전 IDE 의 transcript 만. 데스크톱 앱은 이번 범위에서 뺀다. 이후 변경(2026-10-22, 커밋 `7199a02`): 데스크톱 앱 폴더 `antigravity/` 도 들어가서 `brain/<uuid>/.system_generated/logs/` 의 transcript 와 메타 파일(요약 proto, annotations, `task.md`)을 읽는다. 암호화된 `conversations/*.pb` 는 그대로 열지 않는다. 이 문서에서 "D6 대로 `antigravity/` 는 읽지 않는다"고 적은 곳은 그 변경 전의 기록이고, 지금 동작은 CONTRACT 4.8절이 기준이다 | (b) 앱 대화를 요약 proto 의 상태(일하는 중/쉬는 중)와 `task.md` 계획판만 있는 거친 직원으로 보여 준다. (c) Antigravity 전체를 보류한다 |
 | D7 | Grok 의 승인 대기를 라이브로 보여 줄 것인가 (`events.jsonl` 을 함께 읽음) | 기본 Grok 어댑터 다음의 별도 단계로 한다. 그때 CONTRACT 변경을 정한다(지금 `awaitsApproval` 은 `tool_start` 에만 붙고 재생 전용이다. 라이브는 시작 뒤에 오는 신호라, 같은 `toolUseId` 의 갱신을 허용하거나 새 필드가 필요하다) 결과(P5g, 2026-10-21, 네 가지 모두 추천안으로 승인): (1) 선 위의 모양: 새 이벤트 `tool_wait { toolUseId, waiting }`. `true` 의 시각은 권한 창이 열린 시각, `false` 는 허용일 때만 보내고 거절은 기존 `tool_end` `denied` 가 닫는다. 스냅숏에서는 그 `tool_start` 바로 뒤에 오고, `awaitsApproval` 은 재생 전용 그대로다. (2) 보이는 때: `GrokMeta` 가 붙은 뒤와 rescan(3초)마다 `events.jsonl` 을 바이트 위치로 이어 읽고, 1초 넘게 열린 요청만 보인다(창이 열린 뒤 1~4초 늦게 보이고, 허용 뒤 3초 안에 사라짐). (3) 허용되면: 도구 방으로 돌아간다. 줄에 선 질문이면 그 자리에서 도구 일로 바뀌고, 이미 내 자리로 갔으면 `승인됨` 을 1.2초 보인 뒤 돌아가 `tool_end` 까지 일한다. (4) 표시: 재생과 같은 내 자리 방문, `승인 대기 · <도구> <요약>` 과 `허용`/`거절` 칩, 중립 문구(권한 창이 열려 있다는 뜻이고 답하는 쪽은 Grok 의 자동 검토일 수도 있다). 서브에이전트 세션은 메인과 똑같이 다룬다 | 하지 않는다 / 첫 판에 넣는다 |
 | D8 | `src/` 파일을 어댑터별 폴더로 옮길 것인가 | 옮기지 않는다. Claude 모듈은 제자리, 새 것만 `src/adapters/`, `src/core/` | 모두 옮긴다(테스트 import 30여 곳 수정, 다른 작업과 충돌) |
 | D9 | Claude 의 `SessionState` 도 `SessionCore` 로 옮길 것인가 | P5 에서는 옮기지 않는다. 새 어댑터 셋이 안정된 뒤 따로 정한다 | P5a 에서 함께 옮긴다(위험 큼) |

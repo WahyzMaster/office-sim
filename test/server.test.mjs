@@ -174,10 +174,17 @@ test('GET / wraps office.html; /js serves modules and rejects traversal; Host an
     const index = await request(port);
     assert.equal(index.status, 200);
     assert.match(index.headers['content-type'], /^text\/html; charset=utf-8/);
-    assert.ok(index.body.startsWith('<!doctype html><html lang="ko"><head><meta charset="utf-8">'));
+    assert.ok(index.body.startsWith('<!doctype html><html lang="en"><head><meta charset="utf-8">'));
     assert.ok(index.body.includes('viewport-fit=cover'));
     assert.ok(index.body.includes('<script type="importmap">'));
     assert.ok(index.body.endsWith('</body></html>'));
+    // 문서 전체 = 머리 + public/office.html + 꼬리, 한 바이트도 다르지 않다 (머리와 꼬리는 src/page-shell.mjs 가 만든다)
+    const shell = ['<!doctype html><html lang="en"><head><meta charset="utf-8">'
+      + '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
+      + '<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style></head><body>', '</body></html>'];
+    const exact = shell[0] + await fs.readFile(path.join(PUBLIC, 'office.html'), 'utf8') + shell[1];
+    assert.ok(index.body === exact, 'GET / is exactly the shell head + public/office.html + the shell tail');
+    assert.equal(Number(index.headers['content-length']), Buffer.byteLength(exact), 'and the same number of bytes');
     assert.equal(index.headers['access-control-allow-origin'], undefined);
     const js = await request(port, { path: '/js/main.js' });
     assert.equal(js.status, 200);

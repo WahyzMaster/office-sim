@@ -1,5 +1,8 @@
 // HUD notification toggle (#notify-toggle, shortcut N), server /api/notify sync,
 // and Web Notification API fallback when native OS notifications are unavailable.
+// `isLive()` false (the hosted page, #demo) keeps /api/notify off: the toggle then only saves the browser-side choice.
+// It also keeps a clicked notification from posting to /api/focus-terminal.
+// Events marked `demo: true` (the first-run demo that plays while a live server has no session) are never announced.
 import { langOf } from './rooms.js';
 
 const STORAGE_KEY = 'office-sim:v1';
@@ -135,6 +138,7 @@ export function installSystemNotifications({
   doc = globalThis.document,
   win = globalThis.window,
   fetchFn = globalThis.fetch,
+  isLive = () => true,
 } = {}) {
   const storage = win?.localStorage ?? null;
   let enabled = readStoredNotify(storage);
@@ -167,7 +171,7 @@ export function installSystemNotifications({
   }
 
   async function syncToServer({ test = false } = {}) {
-    if (typeof fetchFn !== 'function') return;
+    if (!isLive() || typeof fetchFn !== 'function') return;
     try {
       const res = await fetchFn('/api/notify', {
         method: 'POST',
@@ -185,7 +189,7 @@ export function installSystemNotifications({
   }
 
   async function initFromServer() {
-    if (typeof fetchFn !== 'function') return;
+    if (!isLive() || typeof fetchFn !== 'function') return;
     try {
       const res = await fetchFn('/api/notify');
       if (!res?.ok) return;
@@ -237,7 +241,7 @@ export function installSystemNotifications({
     const origOnEvent = office.onEvent.bind(office);
     office.onEvent = (ev) => {
       origOnEvent(ev);
-      if (!ev || ev.replay) return;
+      if (!ev || ev.replay || ev.demo) return;
       const sid = ev.sessionId;
       if (ev.type === 'user' || ev.type === 'prompt' || ev.type === 'thinking' || ev.type === 'say' || ev.type === 'tool_start') {
         if (sid) turnNotifiedBySid.delete(sid);
@@ -275,7 +279,7 @@ export function installSystemNotifications({
             if (agent.floor?.index !== office.focusIndex || office.overview) office.focus?.(agent.floor.index);
             office.select?.(agent, { focusPan: true });
           }
-          if (sid && typeof fetchFn === 'function') {
+          if (sid && isLive() && typeof fetchFn === 'function') {
             fetchFn('/api/focus-terminal', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },

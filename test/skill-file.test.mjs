@@ -51,7 +51,7 @@ test('body covers the steps: repo root by realpath, args, healthz probe, backgro
   for (const arg of ['start', 'stop', 'status', 'demo', 'auth']) assert.ok(body.includes(`\`${arg}\``), `argument ${arg}`);
   const must = [
     'realpathSync', '"..",".."', 'bin","office-sim.mjs', 'MISSING', 'npm run skill:install', // (a)
-    'http://127.0.0.1:4317/healthz', 'AbortSignal.timeout(1000)', '`agents`, `sessions`, `clients`', // (c)
+    'http://127.0.0.1:4747/healthz', 'AbortSignal.timeout(1000)', '`agents`, `sessions`, `clients`', // (c)
     'run_in_background: true', '--port <port>', '`<port>` = 0', 'mktemp', 'at most 10 s', 'do not wait across turns', // (d)
     'mcp__Claude_Browser__preview_start', '--open', '`<url>#demo`', 'open "<page>"', 'xdg-open "<page>"', 'cmd /c start "" "<page>"', // (e)
     '<root>/bin/office-sim.mjs', 'SIGTERM', 'Never kill anything else', 'Get-CimInstance Win32_Process', // (f)
@@ -73,7 +73,7 @@ test('names in the skill match the code: the 401 body, CLI flags, npm scripts', 
   const body401 = 'unauthorized: open the URL printed by office-sim';
   assert.ok(SKILL.includes(`\`401 ${body401}\``));
   assert.ok(read('src/server-http.mjs').includes(`'${body401}\\n'`));
-  for (const flag of ['--port <n>', '--auth ', '--open ']) assert.ok(USAGE.includes(flag), flag);
+  for (const flag of ['--port <n>', '--auth ', '--open ', '--no-open ']) assert.ok(USAGE.includes(flag), flag);
   const { scripts } = JSON.parse(read('package.json'));
   assert.equal(scripts['skill:install'], 'node scripts/install-skill.mjs');
   assert.equal(scripts['skill:uninstall'], 'node scripts/install-skill.mjs --uninstall');
@@ -84,10 +84,12 @@ test('names in the skill match the code: the 401 body, CLI flags, npm scripts', 
 
 const section = (start, end) => SKILL.slice(SKILL.indexOf(start), end ? SKILL.indexOf(end) : undefined);
 
-test('the skill never passes --open; it runs the opener itself and says "open by hand" when that failed (findings 1, 7)', () => {
+test('the skill starts the server with --no-open and never --open; it runs the opener itself and says "open by hand" when that failed (findings 1, 7)', () => {
   const startCmd = SKILL.split('\n').find((l) => l.includes('--port <port> <flags>'));
   assert.ok(startCmd && !startCmd.includes('--open'), startCmd);
-  assert.ok(SKILL.includes('`<flags>` is `--auth` for `auth`, else empty. Do not pass `--open`'));
+  // launch readiness D7: the bin opens by itself in a terminal, so the skill says no explicitly (it opens the page in step 4)
+  assert.ok(startCmd.trim().endsWith('--port <port> <flags> --no-open > "<out>" 2>&1'), startCmd);
+  assert.ok(SKILL.includes('`<flags>` is `--auth` for `auth`, else empty. Keep `--no-open` and never pass `--open`'));
   assert.doesNotMatch(SKILL, /unless `--open` already did it|skip step 4/);
   const step4 = section('4. Open `<page>`', '5. Tell the user');
   for (const s of ['opener still running', '`opened` and `opener still running`', '`open failed ...` means it did not', 'Windows `start` reports success']) {
@@ -98,7 +100,7 @@ test('the skill never passes --open; it runs the opener itself and says "open by
 
 test('a reused server gets an ownership check and a matching "how to stop" line (finding 2)', () => {
   const step1 = section('1. Probe.', '2. Make a private');
-  for (const s of ['with ` 4317` added after its last argument', '`ours pid <n>`', '`not ours`', 'a non-empty `$m` means ours']) {
+  for (const s of ['with ` 4747` added after its last argument', '`ours pid <n>`', '`not ours`', 'a non-empty `$m` means ours']) {
     assert.ok(step1.includes(s), s);
   }
   const step5 = section('5. Tell the user', '## stop');
@@ -110,13 +112,13 @@ test('a reused server gets an ownership check and a matching "how to stop" line 
 test('probe: a fallback timer guarantees one line, and no output at all counts as another program (finding 3)', () => {
   assert.ok(SKILL.includes('const t=setTimeout(()=>{console.log("down Timeout");process.exit(0)},1500)'));
   assert.ok(SKILL.includes('.finally(()=>clearTimeout(t))'));
-  assert.ok(SKILL.includes('or no output at all: port 4317 is held by another program'));
+  assert.ok(SKILL.includes('or no output at all: port 4747 is held by another program'));
 });
 
 test('wait: complete lines only, ends on any non-URL line, and EADDRINUSE leads to one more probe (finding 4)', () => {
   assert.ok(SKILL.includes('t.slice(0, t.lastIndexOf("\\n") + 1)'));
   assert.ok(SKILL.includes('!lines().some((l) => !l.startsWith("office-sim: http://"))'));
-  assert.ok(SKILL.includes('contains `EADDRINUSE` (another start took 4317 first), probe once more and act as in step 1'));
+  assert.ok(SKILL.includes('contains `EADDRINUSE` (another start took 4747 first), probe once more and act as in step 1'));
 });
 
 test('stop: each pid is tried on its own and failures are reported (finding 6)', () => {
@@ -140,7 +142,7 @@ test('Windows stop matches the bin path as the first argument after node.exe, no
   const root = 'D:\\src\\office-sim [v2]';
   const m = windowsMatcher(root);
   const bin = `${root}\\bin\\office-sim.mjs`;
-  for (const cmd of [`node "${bin}" --port 4317`, `"C:\\Program Files\\nodejs\\node.exe" "${bin}" --port 0 --auth`,
+  for (const cmd of [`node "${bin}" --port 4747`, `"C:\\Program Files\\nodejs\\node.exe" "${bin}" --port 0 --auth`,
     `C:\\nodejs\\node.exe "${root}/bin/office-sim.mjs"`, `NODE.EXE "${bin.toLowerCase()}"`, `node "${bin}"`]) {
     assert.ok(m.test(cmd), `match: ${cmd}`);
   }
@@ -149,7 +151,7 @@ test('Windows stop matches the bin path as the first argument after node.exe, no
     assert.ok(!m.test(cmd), `no match: ${cmd}`);
   }
   const plain = windowsMatcher('C:\\r');
-  assert.ok(plain.test('node C:\\r\\bin\\office-sim.mjs --port 4317'));
+  assert.ok(plain.test('node C:\\r\\bin\\office-sim.mjs --port 4747'));
   assert.ok(!plain.test('node C:\\r\\bin\\office-sim.mjs.bak'));
   assert.ok(SKILL.includes("(double any `'` in it)"));
 });
@@ -192,4 +194,61 @@ test('the healthz keys the skill reads are on a real server, and a four-agent bo
   const store = { sessionCount: big, stats: () => ({ rejectedRefs: big }) };
   const worst = JSON.stringify(createHealth({ group, store, build: { version: '10.20.30', commit: 'f'.repeat(40) }, startedAt: 0 })(big));
   assert.ok(worst.length < n, `worst-case body ${worst.length} chars < probe slice ${n}`);
+});
+
+// ---- W7 (launch readiness): one text for three installs --------------------------------------------------------
+
+// The skill reaches a user three ways: the symlink into a clone (npm run skill:install), the Claude Code plugin
+// (plugin/skills/office, a byte-identical copy: test/plugin-files.test.mjs) and the copy `office-sim init` makes.
+// Step 1 decides which it is with the one root snippet; only the first has a checkout behind it.
+test('step 1 says how it decides: a path means a clone checkout, MISSING means a copy that runs the server with npx', () => {
+  const step1 = section('## 1. Repo root', '## 2. Action');
+  assert.match(step1.split('\n')[0], /^## 1\. Repo root \(/);
+  for (const s of [
+    'symlink into an office-sim checkout', '`npm run skill:install`', 'Call the path `<root>`', // the clone
+    'It prints `MISSING` or fails', 'a copy with no checkout behind it', // the two copies
+    'the office-sim plugin', '`/office-sim:office`', '`office-sim init`',
+    '`npx -y office-sim@latest`', 'without a checkout',
+  ]) assert.ok(step1.includes(s), s);
+  // MISSING is no longer a dead end
+  assert.doesNotMatch(SKILL, /stop and tell the user to run `npm run skill:install`/);
+  // the names are the code's: the npm package and its bin, the plugin and its skill folder, the init subcommand
+  const pkg = JSON.parse(read('package.json'));
+  assert.equal(pkg.name, 'office-sim');
+  assert.deepEqual(Object.keys(pkg.bin), ['office-sim']);
+  assert.equal(JSON.parse(read('plugin/.claude-plugin/plugin.json')).name, 'office-sim');
+  assert.ok(fs.existsSync(new URL('../plugin/skills/office/SKILL.md', import.meta.url)), 'the plugin skill is office-sim:office');
+  assert.match(USAGE, /\n {2}office-sim init\b/, 'the main usage names the init subcommand');
+});
+
+test('without a checkout: one npx start line with --no-open and never --open, the same wait, a longer first start', () => {
+  const lines = SKILL.split('\n').filter((l) => l.includes('npx -y office-sim@latest --no-open'));
+  assert.equal(lines.length, 1, 'one start line for the copies');
+  const cmd = /`(npx -y office-sim@latest [^`]+)`/.exec(lines[0])?.[1];
+  assert.equal(cmd, 'npx -y office-sim@latest --no-open <flags> --port <port> > "<out>" 2>&1');
+  assert.ok(!cmd.includes('--open') && !cmd.includes('--host'));
+  const step2 = section('2. Make a private', '3. Wait for it');
+  assert.ok(step2.includes(lines[0]), 'it sits in step 2, after the checkout start');
+  assert.ok(step2.indexOf('node "<root>/bin/office-sim.mjs"') < step2.indexOf(cmd));
+  const step3 = section('3. Wait for it', '4. Open `<page>`');
+  for (const s of ['Without a checkout', 'npx may first download the package', 'run it once or twice more', 'npx could not start the server']) {
+    assert.ok(step3.includes(s), s);
+  }
+});
+
+test('without a checkout nothing is stopped by a process pattern: only the background task this conversation started', () => {
+  const step1 = section('1. Probe.', '2. Make a private');
+  assert.ok(step1.includes('Without a checkout skip this check: it is ours only if you started it earlier in this conversation'));
+  const stop = section('## stop');
+  const rule = stop.split('\n').find((l) => l.startsWith('Stop only office-sim servers started from this repo'));
+  for (const s of ['Never kill anything else', 'Without a checkout there is no such path', 'run neither command below',
+    'stop the background task you started the server with in this conversation', 'if you started none, stop nothing']) {
+    assert.ok(rule.includes(s), s);
+  }
+  // the two stop commands still match by the checkout's bin path and nothing wider
+  const posix = /```bash\n([\s\S]*?)```/.exec(stop)[1];
+  assert.ok(posix.trimEnd().endsWith('\' "<root>/bin/office-sim.mjs"'));
+  assert.ok(posix.includes('(m[3] === bin || m[3].startsWith(bin + " "))'));
+  assert.doesNotMatch(stop, /node_modules|_npx|pkill|killall/);
+  assert.ok(stop.includes('or `npx` in another Claude Code session'));
 });

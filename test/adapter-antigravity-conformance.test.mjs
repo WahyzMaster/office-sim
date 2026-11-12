@@ -36,7 +36,7 @@ test('conformance: the real antigravity adapter passes the shared harness (both 
   // allowlist: the scan reported and the Tailer read only the chosen transcripts (A3's late full file and A1's
   // transcript.jsonl only had their lines counted); A4 moved from transcript.jsonl to transcript_full.jsonl
   assert.deepEqual([...res.opened].sort(), [f.files.a1, f.files.a2, f.files.a3, f.files.a4, f.files.a4full, f.files.b1].sort());
-  assert.ok(!s.some((e) => e.sessionId === C.desk), 'the desktop app root is never read (D6)');
+  assert.ok(!s.some((e) => e.sessionId === C.desk), 'the bait conversation in the folder next to the app roots is never read');
 
   // sessions: D2 ids, titles (annotation > summary > first prompt), floors from the summary workspace or the Cwd fallback
   const sessions = (id) => s.filter((e) => e.type === 'session' && e.sessionId === id);

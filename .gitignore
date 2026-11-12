@@ -54,6 +54,7 @@ coverage/
 .nyc_output/
 dist/
 build/
+_site/
 
 # OS & Editor files
 .DS_Store

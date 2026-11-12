@@ -140,7 +140,8 @@ test('package.json, FUNDING.yml, and source files stay under 500 lines and inclu
   assert.match(funding, /buy_me_a_coffee:\s*wahyzdad/);
 
   const publishWf = read('.github/workflows/publish.yml');
-  assert.match(publishWf, /branches:\s*\n\s*-\s*master/);
+  assert.match(publishWf, /^on:\n  workflow_dispatch:/m);
+  assert.doesNotMatch(publishWf, /^\s*push:/m);
   assert.match(publishWf, /contents:\s*write/);
   assert.match(publishWf, /chore\(release\):/);
   assert.match(publishWf, /npm version "\$BUMP"/);

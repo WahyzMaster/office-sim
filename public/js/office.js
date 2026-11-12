@@ -341,10 +341,10 @@ export class Office {
     this.hud.renderFloors(this);
   }
 
-  pruneEmptyFloors() {
-    if (this.floors.length <= 1) return;
+  pruneEmptyFloors(keep = 1) { // keep: 비어도 남길 층 수. 0 은 첫 실행의 데모를 치울 때만 쓴다 (empty-state.js)
+    if (this.floors.length <= keep) return;
     let removed = false;
-    for (let i = this.floors.length - 1; i >= 0 && this.floors.length > 1; i--) {
+    for (let i = this.floors.length - 1; i >= 0 && this.floors.length > keep; i--) {
       const f = this.floors[i];
       if (f.agents.size > 0) continue;
       this.floors.splice(i, 1);

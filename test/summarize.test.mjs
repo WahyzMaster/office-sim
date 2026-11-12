@@ -205,7 +205,7 @@ describe('WebFetch, *navigate, preview_start and hostOf', () => {
       ['example.test/a/b?c=d', 'example.test'],
       ['//cdn.example.test/lib.js', 'cdn.example.test'],
       ['http://[::1]:8080/x', '[::1]:8080'],
-      ['http://127.0.0.1:4317/events', '127.0.0.1:4317'],
+      ['http://127.0.0.1:4747/events', '127.0.0.1:4747'],
       ['https://user:pass@example.test/', 'example.test'],
       ['/Users/alice/secret', ''],
       ['file:///Users/alice/secret.txt', ''],

@@ -22,8 +22,8 @@ const OBSERVED = Object.freeze(['grok', 'codex']); // 기록 관찰이 보는 �
 export const FIRST_PASS_WAIT_MS = 10_000;
 
 export const DEFAULTS = Object.freeze({
-  port: 4317, host: '127.0.0.1', intervalMs: 250, activeMinutes: 30, rescanMs: 3000,
-  idleMs: 1000, pingMs: 15000, ringSize: 1000, auth: false, replay: null, speed: 1, loop: false,
+  port: 4747, host: '127.0.0.1', intervalMs: 250, activeMinutes: 30, rescanMs: 3000,
+  idleMs: 1000, pingMs: 15000, ringSize: 1000, auth: false, cdn: false, replay: null, speed: 1, loop: false,
   notify: false, notifyCategories: null, notifyOpts: null,
   root: path.join(os.homedir(), '.claude', 'projects'),
   agents: null, plugins: null, roots: null, observeDir: null, build: null,
@@ -54,6 +54,7 @@ function validate(o) {
   // 127.0.0.1 등 루프백에만 바인딩한다 (contract 0)
   if (!LOOPBACK_HOSTS.has(o.host)) throw new RangeError('host must be a loopback address (127.0.0.1, localhost, ::1)');
   if (typeof o.auth !== 'boolean') throw new RangeError('auth must be a boolean');
+  if (typeof o.cdn !== 'boolean') throw new RangeError('cdn must be a boolean');
   if (typeof o.notify !== 'boolean' && typeof o.notify !== 'string') throw new RangeError('notify must be a boolean or category string');
   if (o.notifyCategories !== null) parseNotifyArg(o.notifyCategories);
   if (typeof o.notify === 'string') parseNotifyArg(o.notify);
@@ -300,7 +301,9 @@ const observeLimits = (l) => positiveOf(l, ['readyGraceMs', 'maxMs', 'maxBytes',
  *   pingMs (SSE heartbeat, default 15000), idleMs (idle() loop, default 1000), ringSize, log,
  *   agents (adapter ids to enable, default: every implemented adapter whose root exists), roots ({ <agent id>: dir }
  *   for the non-Claude adapters; one without a root here is not started, the bin passes defaultRoots()), auth (opt-in
- *   per-run token: every route then needs the cookie that GET /?t=<token> sets), replay (a main transcript path: replay it instead of tailing --root), speed (replay factor), loop (replay
+ *   per-run token: every route then needs the cookie that GET /?t=<token> sets), cdn (default false: the page CSP names
+ *   no outside host; true adds https://cdn.jsdelivr.net to script-src, which the opt-in WebGPU renderer needs),
+ *   replay (a main transcript path: replay it instead of tailing --root), speed (replay factor), loop (replay
  *   again), observeDir (live log observation output folder: turns on GET/POST /observe and the `observe` SSE message;
  *   absent = feature off, nothing changes), build ({ commit }: the short git sha of the checkout, shown by GET /healthz;
  *   the bin passes it, absent = commit null). Test hooks: deps (claude-code deps override; a fake scan also skips the
@@ -363,9 +366,11 @@ export async function start(options = {}) {
     // version 은 여기서 한 번 읽는다 (요청마다 fs 를 부르지 않는다)
     health: createHealth({ group, store, build: { version: packageVersion(), commit: opts.build?.commit ?? null }, startedAt }),
     authToken: token,
+    cdn: opts.cdn,
     observe,
     replayRunner,
     focusOpts: opts.focusOpts ?? null,
+    claudeRoot: opts.root, // D15: 훅 본문의 transcript_path 는 이 루트 안이어야 한다
     notifyOpts: {
       enabled: opts.replay ? false : parsedNotify.enabled,
       categories: parsedNotify.categories,
@@ -424,6 +429,7 @@ export async function start(options = {}) {
     url, token, port, store, ready, close, notImplemented,
     notifier: httpLayer.notifier,
     flywheel: httpLayer.flywheel,
+    hooks: httpLayer.hooks,
     stats: () => ({ ...group.stats(), ...store.stats() }),
     get agents() { return group.ids; }, // 늦게 켜진 어댑터도 (F1)
   };

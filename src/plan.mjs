@@ -272,7 +272,8 @@ function cleanInline(raw) {
   s = s.replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1');
   s = s.replace(/<\/?[A-Za-z][^>]*>/g, '');
   s = s.replace(/`+/g, '');
-  s = cleanText(s, Infinity); // raw is capped at MD_RAW_MAX_CHARS, under the scrub limit
+  s = cleanText(s, Infinity); // raw is at most MD_RAW_MAX_CHARS long (a longer line was scrubbed before its cut)
+  const scrubbed = s;
   s = s.replace(/\*\*/g, '');
   s = s.replace(/(^|[^\w])__(?=\S)(.*?\S)__(?=$|[^\w])/g, '$1$2');
   s = s.replace(/~~/g, '');
@@ -280,7 +281,10 @@ function cleanInline(raw) {
   s = s.replace(/(^|[^\w])_(?=\S)([^_]*?\S)_(?=$|[^\w])/g, '$1$2');
   s = s.replace(/[\u0000-\u001f\u007f]/g, ' ');
   s = s.replace(/\s+/g, ' ').trim();
-  return s;
+  // When emphasis markers were dropped, what is left is the text that is sent: it goes through the scrub once more
+  // before the caller caps it, so a listed shape that had a marker inside it (or a bold name in front of its sign) is
+  // masked whole and the cap cannot leave a piece of it (launch readiness D39). A text without markers is done.
+  return s === scrubbed ? s : cleanText(s, Infinity);
 }
 
 const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/;
@@ -312,8 +316,10 @@ export function planFromMarkdown(md, max = 6) {
       if (li) raw = li[1].replace(CHECKBOX_RE, '');
     }
     if (raw === null) continue;
-    // Bound regex work on giant single-line items (plans reach ~122 KB); output is capped anyway.
-    if (raw.length > MD_RAW_MAX_CHARS) raw = Array.from(raw).slice(0, MD_RAW_MAX_CHARS).join('');
+    // Bound regex work on giant single-line items (plans reach ~122 KB); output is capped anyway. Such a line is
+    // scrubbed before it is cut (launch readiness D39): cleanText looks at its first 1,024 characters and drops the
+    // word the limit splits, so the cut below never leaves a piece of a listed secret shape, an address or a path behind.
+    if (raw.length > MD_RAW_MAX_CHARS) raw = Array.from(cleanText(raw, Infinity)).slice(0, MD_RAW_MAX_CHARS).join('');
     const text = cleanInline(raw);
     if (!text) continue;
     out.push({ content: capCodePoints(text, MD_ITEM_MAX_CODE_POINTS), status: 'pending' });

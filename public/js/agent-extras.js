@@ -1,7 +1,10 @@
 // P2, P3, P4 (Frontend):
 // - P2: Click 3D character -> Focus native terminal tab (POST /api/focus-terminal, shortcut T)
-// - P3: 3D Context Window Fuel Ring under each character + Context Compaction particle burst + Token/USD meter
+// - P3: 3D Context Window Fuel Ring under each character + Context Compaction particle burst + token estimate
 // - P4: Unreviewed "Done (✓)" badge on floating tag + 1-click Sprint Recap card & Markdown copy (shortcut M)
+// The context and token figures are estimates (launch readiness D11, contract 10): a fixed amount per event against
+// DEFAULT_CONTEXT_LIMIT, because no wire event carries the usage the model reports. Every label says so, in Korean
+// and English, and there is no cost figure.
 import { langOf } from './rooms.js';
 
 export const DEFAULT_CONTEXT_LIMIT = 200_000;
@@ -13,13 +16,15 @@ export const EXTRAS_TEXT = Object.freeze({
     focusedMsg: (target) => `${target || '터미널'} 포커스 완료`,
     focusFailMsg: '로컬 터미널을 찾지 못했어요',
     recapBtn: '스프린트 요약 (M)',
-    recapTitle: '턴·도구·컨텍스트·토큰 비용 요약 카드 보기 및 마크다운 복사 (단축키 M)',
+    recapTitle: '턴·도구와 컨텍스트·토큰 추정치 요약 카드 보기 및 마크다운 복사 (단축키 M)',
     copyBtn: '마크다운 복사',
     copiedBtn: '복사됨!',
-    contextRow: '컨텍스트 연료',
-    costRow: '추정 토큰·비용',
+    contextRow: '컨텍스트 연료 (추정)',
+    tokenRow: '토큰 (추정)',
+    tokenValue: (inTok, outTok, tools, turns) => `~입력 ${inTok} / 출력 ${outTok} (도구 ${tools} · 턴 ${turns})`,
+    estimateTitle: '이벤트 수로 어림한 추정치입니다. 모델이 보고한 실제 사용량이 아닙니다.',
     doneBadge: '✓ 완료',
-    compactToast: '기억 압축 완료 (컨텍스트 65% 확보)',
+    compactToast: '기억 압축 완료',
   }),
   en: Object.freeze({
     focusBtn: 'Focus TTY (T)',
@@ -27,13 +32,15 @@ export const EXTRAS_TEXT = Object.freeze({
     focusedMsg: (target) => `Focused ${target || 'Terminal'}`,
     focusFailMsg: 'Local terminal tab not found',
     recapBtn: 'Sprint Recap (M)',
-    recapTitle: 'View turn, tool, context & token cost recap and copy Markdown (Shortcut M)',
+    recapTitle: 'View the turn and tool recap with context and token estimates, and copy Markdown (Shortcut M)',
     copyBtn: 'Copy Markdown',
     copiedBtn: 'Copied!',
-    contextRow: 'Context Fuel',
-    costRow: 'Est. Spend',
+    contextRow: 'Context Fuel (est.)',
+    tokenRow: 'Tokens (est.)',
+    tokenValue: (inTok, outTok, tools, turns) => `~${inTok} in / ${outTok} out (${tools} tools · ${turns} turns)`,
+    estimateTitle: 'An estimate from event counts, not the usage the model reports.',
     doneBadge: '✓ Done',
-    compactToast: 'Context compacted (65% freed)',
+    compactToast: 'Context compacted',
   }),
 });
 
@@ -54,7 +61,6 @@ export function createAgentMetricsState() {
     contextTokens: 0,
     contextWindow: DEFAULT_CONTEXT_LIMIT,
     contextPct: 0,
-    estimatedCostUsd: 0,
     compactions: 0,
     turns: 0,
     toolCalls: 0,
@@ -145,13 +151,18 @@ export function applyEventToMetrics(state, ev) {
       break;
   }
   m.contextPct = Math.min(1, m.contextTokens / (m.contextWindow || DEFAULT_CONTEXT_LIMIT));
-  m.estimatedCostUsd = Number((((m.inputTokens || 0) / 1e6) * 3.0 + ((m.outputTokens || 0) / 1e6) * 15.0).toFixed(4));
   return m;
+}
+
+/** A token count for a narrow row: 950 -> '950', 1550 -> '1.6k', 145000 -> '145k'. */
+export function formatTokenCount(n) {
+  const v = Math.max(0, Math.round(Number(n) || 0));
+  if (v < 1000) return String(v);
+  return v < 10_000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v / 1000)}k`;
 }
 
 export function formatMetricsSummary(m, agentName = 'Agent', projectLabel = 'Project') {
   const pct = Math.min(100, Math.round(((m?.contextTokens || 0) / (m?.contextWindow || DEFAULT_CONTEXT_LIMIT)) * 100));
-  const costUsd = Number((((m?.inputTokens || 0) / 1e6) * 3.0 + ((m?.outputTokens || 0) / 1e6) * 15.0).toFixed(4));
   const durationSec = Math.max(1, Math.round((Date.now() - (m?.startedAt || Date.now())) / 1000));
   const topTools = Object.entries(m?.toolCounts || {})
     .sort((a, b) => b[1] - a[1])
@@ -161,18 +172,20 @@ export function formatMetricsSummary(m, agentName = 'Agent', projectLabel = 'Pro
   const markdown = [
     `## Sprint Session Recap — ${agentName} (${projectLabel})`,
     `- **Duration**: ${durationSec}s · **Turns**: ${m?.turns || 0} · **Compactions**: ${m?.compactions || 0}`,
-    `- **Context Fuel**: ${pct}% (${(m?.contextTokens || 0).toLocaleString()} / ${(m?.contextWindow || DEFAULT_CONTEXT_LIMIT).toLocaleString()} tokens)`,
-    `- **Est. Token Spend**: ~$${costUsd.toFixed(4)} (${(m?.inputTokens || 0).toLocaleString()} in / ${(m?.outputTokens || 0).toLocaleString()} out)`,
+    `- **Context Fuel (est.)**: ${pct}% (${(m?.contextTokens || 0).toLocaleString()} / ${(m?.contextWindow || DEFAULT_CONTEXT_LIMIT).toLocaleString()} tokens)`,
+    `- **Tokens (est.)**: ${(m?.inputTokens || 0).toLocaleString()} in / ${(m?.outputTokens || 0).toLocaleString()} out`,
     `- **Tool Calls**: ${m?.toolCalls || 0} (${m?.toolErrors || 0} failed)${topTools ? ` — ${topTools}` : ''}`,
     `- **Files Touched**: ${m?.filesTouched?.length ? m.filesTouched.map((f) => `\`${f}\``).join(', ') : '(none)'}`,
   ].join('\n');
 
   return {
     pct,
-    costUsd,
     durationSec,
-    contextLabel: `${pct}% (${Math.round((m?.contextTokens || 0) / 1000)}k / ${Math.round((m?.contextWindow || DEFAULT_CONTEXT_LIMIT) / 1000)}k · C:${m?.compactions || 0})`,
-    costLabel: `~$${costUsd.toFixed(4)} (${m?.toolCalls || 0} tools · ${m?.turns || 0} turns)`,
+    inputTokens: m?.inputTokens || 0,
+    outputTokens: m?.outputTokens || 0,
+    toolCalls: m?.toolCalls || 0,
+    turns: m?.turns || 0,
+    contextLabel: `~${pct}% (${Math.round((m?.contextTokens || 0) / 1000)}k / ${Math.round((m?.contextWindow || DEFAULT_CONTEXT_LIMIT) / 1000)}k · C:${m?.compactions || 0})`,
     markdown,
   };
 }
@@ -236,12 +249,17 @@ export function installAgentExtras({
   doc = globalThis.document,
   win = globalThis.window,
   fetchFn = globalThis.fetch,
+  isLive = () => true,
 } = {}) {
   if (!office || !hud || !doc) return null;
   injectExtrasStyles(doc);
 
   const metricsBySid = new Map();
   let recapVisible = false;
+  // /api/recap/review 와 /api/focus-terminal 은 서버가 아는 세션만 묻는다: 데모 모드(isLive 가 false)와, 라이브 위에 겹친
+  // 첫 실행 데모의 세션(이벤트에 demo 표시, empty-state.js)은 서버에 없다.
+  const demoSids = new Set();
+  const serverKnows = (sid) => isLive() && !demoSids.has(sid) && typeof fetchFn === 'function';
 
   const ensureMetrics = (sid) => {
     if (!metricsBySid.has(sid)) metricsBySid.set(sid, createAgentMetricsState());
@@ -278,6 +296,8 @@ export function installAgentExtras({
   office.onEvent = (ev) => {
     origOnEvent(ev);
     if (!ev?.sessionId) return;
+    if (ev.demo) demoSids.add(ev.sessionId);
+    else if (ev.type === 'session') demoSids.delete(ev.sessionId);
     const m = ensureMetrics(ev.sessionId);
     applyEventToMetrics(m, ev);
     const a = office.agents.get(ev.sessionId);
@@ -292,7 +312,7 @@ export function installAgentExtras({
     }
   };
 
-  // Wrap office.update to animate compaction bursts and pulsing context rings
+  // Wrap office.update to animate compaction bursts (the context ring itself only changes colour and opacity)
   const origUpdate = office.update.bind(office);
   office.update = (dt, realDt) => {
     origUpdate(dt, realDt);
@@ -318,7 +338,7 @@ export function installAgentExtras({
         m.unreviewedDone = false;
         syncAgentVisuals(a);
         try {
-          fetchFn?.('/api/recap/review', {
+          if (serverKnows(a.id)) fetchFn('/api/recap/review', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ sessionId: a.id }),
@@ -334,7 +354,7 @@ export function installAgentExtras({
     if (!agent) return { ok: false };
     const t = extrasText(hud.lang);
     try {
-      const res = await fetchFn?.('/api/focus-terminal', {
+      const res = !serverKnows(agent.id) ? null : await fetchFn('/api/focus-terminal', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ sessionId: agent.id }),
@@ -397,11 +417,15 @@ export function installAgentExtras({
           dd.dataset.row = key;
           dl.append(dt, dd);
         }
-        if (dt) dt.textContent = label;
+        if (dt) { dt.textContent = label; dt.title = t.estimateTitle; }
         dd.textContent = value;
+        dd.title = t.estimateTitle;
       };
+      // Both rows are estimates (D11): the label says so and the tooltip says what the number is made of.
       upsertRow('contextFuel', t.contextRow, summary.contextLabel);
-      upsertRow('estCost', t.costRow, summary.costLabel);
+      upsertRow('estTokens', t.tokenRow, t.tokenValue(
+        formatTokenCount(summary.inputTokens), formatTokenCount(summary.outputTokens), summary.toolCalls, summary.turns,
+      ));
     }
 
     let box = insp.querySelector('.recap-box');

@@ -3,6 +3,9 @@
 // - SimCity RCI Workload Balance Meter (R: Read/Explore, C: Code/Edit, I: Integrate/Verify)
 // - 5-Mode Viewport Overlay Selector (Shortcut V: 1 Normal, 2 Heatmap, 3 Desire, 4 Friction, 5 Flywheel)
 // - Progressive disclosure toggle (#sim-more-toggle) for secondary appearance/camera controls
+// - The RCI meter and the lens selector are maintainer tools (launch readiness D10): with `labs: false` the pill is
+//   hidden and V does nothing. The disclosure toggle is not one of them and always shows; its tooltip names the
+//   tail-interval control only with labs, the one control behind it that labs hides (D24).
 import { langOf, ROOMS } from './rooms.js';
 
 export const OVERLAY_MODES = Object.freeze(['normal', 'heatmap', 'desire', 'friction', 'flywheel']);
@@ -12,10 +15,11 @@ export const SIM_OVERLAYS_TEXT = Object.freeze({
     rciTitle: 'SimCity식 RCI 작업 수요 균형 (R: 탐색 · C: 구현 · I: 검증)',
     lensLabel: '렌즈 (V)',
     moreBtn: '세부 설정',
-    moreTitle: '캐릭터·보행·모션·소리·조작·주기 등 세부 설정 펼치기/접기',
+    moreTitle: '캐릭터·보행·모션·소리·조작 등 세부 설정 펼치기/접기',
+    moreTitleLabs: '캐릭터·보행·모션·소리·조작·주기 등 세부 설정 펼치기/접기',
     modes: Object.freeze({
       normal: '1: 기본',
-      heatmap: '2: 비용 열지도',
+      heatmap: '2: 열지도',
       desire: '3: 이동 동선',
       friction: '4: 병목·대기',
       flywheel: '5: 플라이휠',
@@ -25,7 +29,8 @@ export const SIM_OVERLAYS_TEXT = Object.freeze({
     rciTitle: 'SimCity RCI Workload Demand Balance (R: Read · C: Code · I: Verify)',
     lensLabel: 'Lens (V)',
     moreBtn: 'Tune',
-    moreTitle: 'Show or hide secondary character, motion, voice, camera & tail interval controls',
+    moreTitle: 'Show or hide secondary character, motion, voice & camera controls',
+    moreTitleLabs: 'Show or hide secondary character, motion, voice, camera & tail interval controls',
     modes: Object.freeze({
       normal: '1: Normal',
       heatmap: '2: Heatmap',
@@ -171,6 +176,7 @@ export function installSimOverlays({
   THREE = null,
   doc = globalThis.document,
   win = globalThis.window,
+  labs = true,
 } = {}) {
   let activeMode = 'normal';
   let moreOpen = false;
@@ -216,6 +222,7 @@ export function installSimOverlays({
       host.appendChild(pill);
     }
   }
+  if (pill && !labs) pill.hidden = true;
 
   let pillRefs = null;
   function ensurePillDom() {
@@ -285,7 +292,7 @@ export function installSimOverlays({
       }
       if (moreBtn) {
         moreBtn.textContent = t.moreBtn;
-        moreBtn.title = t.moreTitle;
+        moreBtn.title = labs ? t.moreTitleLabs : t.moreTitle; // tail 간격 입력은 labs 에서만 보인다 (D10, D24)
       }
     }
 
@@ -390,7 +397,7 @@ export function installSimOverlays({
   win?.addEventListener?.('keydown', (e) => {
     if (e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key.toLowerCase() === 'v') {
+    if (labs && e.key.toLowerCase() === 'v') {
       e.preventDefault();
       const idx = (OVERLAY_MODES.indexOf(activeMode) + 1) % OVERLAY_MODES.length;
       setMode(OVERLAY_MODES[idx]);

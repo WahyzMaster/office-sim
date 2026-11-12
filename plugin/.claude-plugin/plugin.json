@@ -1,0 +1,19 @@
+{
+  "name": "office-sim",
+  "version": "0.12.0",
+  "description": "Office Sim for Claude Code: two http hooks that report permission prompts to the local office-sim server on 127.0.0.1:4747, and the office skill that starts, opens, checks and stops that server.",
+  "author": {
+    "name": "WahyzMaster"
+  },
+  "homepage": "https://github.com/WahyzMaster/office-sim",
+  "repository": "https://github.com/WahyzMaster/office-sim",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "ai-agents",
+    "visualizer",
+    "hooks",
+    "permission-prompts",
+    "developer-tools"
+  ]
+}

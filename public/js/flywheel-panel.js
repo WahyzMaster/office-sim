@@ -1,5 +1,7 @@
 // 4-Zone Improvement & Revision Flywheel HUD Panel (#flywheel-toggle + #flywheel-panel, shortcut Y).
 // Dynamically mounted into #hud (matching system-notify.js & agent-extras.js) so office.html stays under 500 lines.
+// Maintainer tool (launch readiness D10): with `labs: false` the button stays hidden, Y does nothing and no request is
+// made. `isLive()` false (the hosted page, #demo) also keeps every /api/flywheel request off: there is no server to ask.
 
 import {
   flywheelText,
@@ -73,7 +75,10 @@ export function installFlywheelPanel({
   doc = globalThis.document,
   win = globalThis.window,
   fetchFn = globalThis.fetch,
+  isLive = () => true,
+  labs = true,
 } = {}) {
+  const canFetch = () => labs && isLive() && typeof fetchFn === 'function';
   let latestRaw = null;
   let selectedKind = null;
   let open = false;
@@ -97,6 +102,7 @@ export function installFlywheelPanel({
       controls.appendChild(toggleBtn);
     }
   }
+  if (toggleBtn && !labs) toggleBtn.hidden = true;
 
   let panel = doc?.getElementById?.('flywheel-panel') ?? null;
   if (!panel && doc) {
@@ -111,7 +117,7 @@ export function installFlywheelPanel({
   }
 
   async function postAction(payload) {
-    if (typeof fetchFn !== 'function') return null;
+    if (!canFetch()) return null;
     try {
       const res = await fetchFn('/api/flywheel', {
         method: 'POST',
@@ -345,7 +351,7 @@ export function installFlywheelPanel({
   win?.addEventListener?.('keydown', (e) => {
     if (e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key.toLowerCase() === 'y') {
+    if (labs && e.key.toLowerCase() === 'y') {
       e.preventDefault();
       setOpen(!open);
     } else if (e.key === 'Escape' && open) {
@@ -357,7 +363,7 @@ export function installFlywheelPanel({
     source.onFlywheel = (msg) => update(msg);
   }
 
-  if (typeof fetchFn === 'function') {
+  if (canFetch()) {
     fetchFn('/api/flywheel?scan=1')
       ?.then((r) => (r?.ok ? r.json() : null))
       ?.then((data) => { if (data) update(data); })

@@ -1,7 +1,7 @@
 {
   "name": "office-sim",
-  "version": "0.11.0",
-  "description": "Local 3D office visualizer for AI coding agents — tails Claude Code, Codex, Grok (xAI Grok Build), and Antigravity session logs in real time with zero dependencies.",
+  "version": "0.12.0",
+  "description": "Shows the AI coding agents running on your computer (Claude Code, Codex, Grok Build, Antigravity) as characters in a local 3D office, so one browser tab tells you what each of them is doing.",
   "license": "MIT",
   "type": "module",
   "homepage": "https://wahyzmaster.github.io/office-sim/?lang=en#demo",
@@ -32,6 +32,7 @@
     "scripts/install-skill.mjs",
     "README.md",
     "README.ko.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "repository": {

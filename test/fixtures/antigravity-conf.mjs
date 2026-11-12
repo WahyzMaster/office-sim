@@ -14,7 +14,7 @@
 //   A4  CLI, transcript.jsonl only at attach; transcript_full.jsonl appears live with every line -> the character moves
 //       to it (no session_end) and live lines follow from it
 //   B1  legacy IDE (antigravity-ide/), transcript.jsonl, agyhub_summaries_proto.pb, task.md checklist (rewritten live)
-// Bait files (desktop app root antigravity/, SQLite stores, history, credentials, messages, step outputs, chunks) must
+// Bait files (a folder next to the app roots, antigravity-bait/, SQLite stores, history, credentials, messages, step outputs, chunks) must
 // never be opened, and privacy bait sits in every field the adapter must never show (every token starts with BAIT_, or
 // is a fake home path, an email, a URL query, `rm -rf`, a uuid MCP server). Side-effect free at import.
 import fsp from 'node:fs/promises';

@@ -213,6 +213,8 @@ export function installSimFlywheelViz({
   THREE = null,
   doc = globalThis.document,
   fetchFn = globalThis.fetch,
+  isLive = () => true,
+  labs = true,
 } = {}) {
   let latestRaw = null;
   let activeStageIdx = 0;
@@ -236,8 +238,9 @@ export function installSimFlywheelViz({
     }
   }
 
+  // 관리자용 도구가 꺼져 있거나(D10) 서버가 없는 데모 모드면 /api/flywheel 을 부르지 않는다
   async function postFlywheel(payload) {
-    if (typeof fetchFn !== 'function') return null;
+    if (!labs || !isLive() || typeof fetchFn !== 'function') return null;
     try {
       const res = await fetchFn('/api/flywheel', {
         method: 'POST',
