@@ -20,6 +20,7 @@ import { initLabs } from './labs.js';
 import { createFirstRun } from './empty-state.js';
 import { installStaticText } from './static-text.js';
 import { installNeedsYou } from './needs-you.js';
+import { createFrameLoop, installPip } from './pip.js';
 
 const cfg = { speed: 1, intervalMs: 250 };
 const labs = initLabs(); // 관리자용 도구(D10). Hud 가 설정을 읽기 전에: ?labs=1 을 같은 설정에 저장한다
@@ -97,7 +98,7 @@ installShareControls({ stage, hud });
 const extras = installAgentExtras({ stage, office, hud, THREE, isLive });
 installSystemNotifications({ office, hud, isLive });
 // 사람의 답을 기다리는 캐릭터 수: 탭 제목과 위 막대의 칩 (contract 9.5). 겹친 데모의 캐릭터는 세지 않는다
-installNeedsYou({ office, hud });
+const needsYou = installNeedsYou({ office, hud });
 installFlywheelPanel({ hud, source, isLive, labs });
 installSimMotives({ office, hud, extras, THREE });
 const overlays = installSimOverlays({ office, hud, extras, THREE, labs });
@@ -181,13 +182,11 @@ function step(realDt) {
   hud.tick(realDt, office);
 }
 
-let last = performance.now();
-function frame(now) {
-  step(Math.min((now - last) / 1000, 0.1));
-  last = now;
-  requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
+// 프레임 루프와 미니 창 (pip.js, contract 9.6): 평소에는 탭의 프레임마다 step 이 돌고, 미니 창이 열려 있는 동안에는
+// 그 창의 프레임으로 초당 30번까지 돈다. 루프는 하나다. 미니 창을 열 수 없는 브라우저에서는 버튼도 생기지 않는다.
+const loop = createFrameLoop(step);
+installPip({ stage, office, hud, host: document.getElementById('stage'), loop, needsYou });
+loop.start();
 if (benchMode) (await import('./bench.js')).installBench({ office, stage, frame: step });
 
 window.__officeReady = true;

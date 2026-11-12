@@ -125,9 +125,18 @@ Facts below were read from the Claude Code plugin and hook reference on 2026-11-
 - First screen: one plain sentence, three behaviour bullets, the `npx` line, what a first run shows, and a detection coverage table per agent (question, plan approval, permission prompt, done) stating which signals need the plugin.
 - Internal phase codes and DOM ids leave the top; galleries and reference tables move below.
 
-### W9. Optional mini window (separate commit, only if the spike passes)
+### W9. Mini window (separate commit; the spike passed)
 
 - `public/js/pip.js` (new): Document Picture-in-Picture window with the stage, one floor, capped frame rate.
+- Spike result (headed Chrome 157): a WebGL canvas moved into the Picture-in-Picture document keeps its context and keeps drawing when the loop runs on that window's animation frames.
+- Decisions D29 to D31 below are binding for this item.
+
+| ID | Decision |
+|---|---|
+| D29 | The mini window is a Document Picture-in-Picture window. Its control is shown only where the browser has `documentPictureInPicture` (desktop Chromium); elsewhere no control is shown. It adds no origin, no server route and no stored state. |
+| D30 | While the mini window is open it holds the stage (the canvas and its labels) and the tab shows a placeholder with a control that brings the stage back. Closing the mini window, by its own control, by the placeholder's control or by the window's close button, puts the stage back and restores the earlier view. While it is open the frame loop runs on the mini window's animation frames, at no more than 30 frames per second. |
+| D31 | The mini window shows one floor: the focused floor, or the floor of a waiting character when no character waits on the shown floor. It carries one line of text, the waiting count, and one control that returns to the tab. |
+| D32 | In the mini window the room signs are hidden; name tags and bubbles stay. The waiting count there is plain text without the chip's tooltip. |
 
 ## Expected test changes
 

@@ -28,6 +28,7 @@ The first run now works from one command, the default page talks to your own mac
 - **Claude Code plugin**: `/plugin marketplace add WahyzMaster/office-sim`, then `/plugin install office-sim@office-sim`. It carries the two hooks and the `/office-sim:office` skill.
 - **`office-sim init`** and **`office-sim hooks install | uninstall | status`**: the same setup without the plugin system. They print every change first and write only after a yes (or `--yes`); `--dry-run` writes nothing.
 - The number of characters that wait for an answer in the browser tab title, and a chip that steps through them.
+- **Mini window**: a button in the top bar moves the office into a small window that stays on top of other applications (one floor, the number of characters that wait, the scene moving on at most 30 times a second), and `Back to tab` puts it back. It needs Chrome or Edge on a desktop; the button does not appear in Safari or Firefox.
 - `--no-open`, `--demo` and `--cdn`.
 - A list, in the README and in `docs/CONTRACT.md` section 5.1, of every file the Claude, ChatGPT and Grok desktop-app checks look at.
 - This changelog, and issue forms for bug reports, adapter requests and theme ideas.

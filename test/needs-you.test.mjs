@@ -345,6 +345,6 @@ test('without a document, or without an office, nothing is installed', () => {
 test('main.js installs it, and office.html stays without markup for it', () => {
   const main = readFileSync(new URL('../public/js/main.js', import.meta.url), 'utf8');
   assert.match(main, /import \{ installNeedsYou \} from '\.\/needs-you\.js';/);
-  assert.match(main, /\ninstallNeedsYou\(\{ office, hud \}\);/);
+  assert.match(main, /\nconst needsYou = installNeedsYou\(\{ office, hud \}\);/); // kept: the mini window reads it (pip.js, 9.6)
   assert.doesNotMatch(readFileSync(new URL('../public/office.html', import.meta.url), 'utf8'), /needs-you/);
 });

@@ -153,7 +153,8 @@ public/                 the browser app; owned by the browser module (public/js/
                         the pure `firstRunStep`, the banner text, the `createFirstRun` controller), js/labs.js (the
                         maintainer-tools switch, `?labs=1`), js/static-text.js (Korean and English for the
                         `aria-label`s of office.html, and `<html lang>`), js/needs-you.js (9.5: how many characters
-                        wait on the human, in the tab title and one top-bar chip)
+                        wait on the human, in the tab title and one top-bar chip), js/pip.js (9.6: the page's frame
+                        loop, and the mini window that holds the stage in a Document Picture-in-Picture window)
 public/vendor/          third-party files, served as they are by `GET /vendor/<name>` (section 6): from the npm
                         package three@0.160.0 `three.module.min.js`, `OrbitControls.js`, `CSS2DRenderer.js` and its
                         licence as `LICENSE-three.txt`; byte-pinned by test/vendor-assets.test.mjs
@@ -3000,6 +3001,98 @@ format, the Store and the routes are unchanged.
   (the LLM filter). Nothing is sent to the server and nothing is saved.
 - `test/needs-you.test.mjs` checks the pure functions and, with the real `Office` and `Agent` classes and a fake
   document, the count through questions, plan approvals, live waits, their ends, snapshots and demo events.
+
+### 9.6 The mini window (W9, D29 to D31, `public/js/pip.js`)
+A small window that stays on top of other applications and shows the office while the person works elsewhere. It is
+a Document Picture-in-Picture window. All of it is page behaviour: no route, no event and no stored value belongs to
+it.
+
+- Support check (D29): the page offers it only when its window has `documentPictureInPicture` with a
+  `requestWindow` function (`pipSupported`). That is desktop Chromium (Chrome, Edge). Elsewhere (Safari, Firefox,
+  mobile browsers) `installPip` returns `null` and adds nothing to the page: no control, no style, no listener.
+- The control: one `<button id="pip-open" class="chip">`, made by the module and placed after the needs-you chip
+  (after the source chip when that chip is missing); `office.html` has no markup for it. Its label is `Mini window` /
+  `미니 창`, and its tooltip and `aria-label` say in the same language what it does (`pipText`). A click on the
+  language button relabels it, the placeholder and the mini window.
+- Opening: the click handler calls `documentPictureInPicture.requestWindow({ width: 420, height: 300 })` at once
+  (the browser wants a user gesture; it may give another size, and it may remember the size the person chose
+  before). Nothing on the page changes before the window exists. When the request is refused or throws (Chrome
+  refuses one made without a user gesture with `NotAllowedError`), the page stays exactly as it was and no rejection
+  is left unhandled. A click while the request is pending, or while the mini window is open, does nothing.
+- What moves (D30): the stage's canvas and its labels element (`stage.renderer.domElement`,
+  `stage.labels.domElement`) are moved, as nodes, into the mini window's document, canvas first. The renderer, its
+  WebGL context and the listeners on the canvas are the same objects as before. They sit in a `<div id="stage">` of
+  that document, which takes the `role` and `aria-label` of the tab's stage.
+  - Styles: every `<style>` element and every `<link rel="stylesheet">` the page has at that moment is made again
+    in the mini window's document, in order (the rules this module added for the tab are left out), followed by the
+    mini window's own rules. Styles the page adds later are not copied.
+  - Root attributes: `lang` and `data-theme` of `<html>` are copied, and a `MutationObserver` on the tab's root
+    keeps them in step while the window is open; an attribute that is removed (lighting `Auto` removes
+    `data-theme`) is removed there too.
+  - The tab: a placeholder (`<div id="pip-placeholder">`) is put right after `#stage`, in the middle of the page,
+    with one sentence (`The office is in the mini window.` / `사무실은 지금 미니 창에 있어요.`) and one button
+    (`Bring it back here` / `여기로 가져오기`). It is outside `#stage` because that element has `role="img"`. It is
+    part of the stage layer: a panel of the HUD that is open over the middle of the page covers it, as it would
+    cover the stage.
+- The line of the mini window (D31): under the stage, one line of fixed height with the waiting count and one
+  button. The count is the text of the needs-you chip (`needsYouText`: `Needs you N` / `확인 필요 N`; the chip's
+  tooltip is not copied, because it promises a click and this text is no button) for the list `installNeedsYou`
+  keeps (9.5), and it is hidden at zero. The button is `Back to
+  tab` / `탭으로 돌아가기`. The window's title is the tab's title, count included.
+- Size: `stage.setSizeSource(fn)` (`public/js/scene.js`) makes `stage.resize()` take the size from `fn` instead of
+  from the stage's host element; a source that is missing or gives zero falls back to the host. While the window is
+  open the source is the box above the line, so every resize (the one at opening, the mini window's `resize`
+  event, and the one inside `Office.layout()`) fits the mini window. After a resize at opening, at a `resize` event
+  and at closing, the stage is drawn once at the new size, because a resize empties the canvas and the next frame
+  that runs `step` may be several frames away. Closing clears the source: the stage has the size of the tab again.
+- Frames (D30): `main.js` runs its one frame loop through `createFrameLoop(step)`. The loop asks one window at a
+  time for an animation frame: the tab's, and the mini window's while that window is open, so that the stage does
+  not depend on the tab's frames (a browser gives a hidden tab none). `loop.use(window, minMs, each)` cancels the
+  pending frame of the old window and asks the new one; a callback of an earlier request does nothing and asks for
+  nothing, so there is one chain of frames at any time, also after open, close and open again.
+  - Rate: in the tab every frame runs `step`. In the mini window `step` runs at most 30 times a second
+    (`FRAME_CAP_MS` = 1000 / 30, `frameStep`): a frame runs when it comes no more than `FRAME_SLACK_MS` (2 ms)
+    before the time the next one is due; that time then moves on by 1000 / 30 ms from itself or from the frame,
+    whichever is later. So over time there is at most one step per 1/30 s: every second frame on a 60 Hz display,
+    every fourth at 120 Hz, every frame at 30 Hz or below. The first frame after a change of window runs at once.
+  - Time step: `dt` is the real time since the frame that last ran `step` (skipped frames are not lost), never
+    negative and at most `MAX_DT_S` (0.1 s), as before. A window's frame times count from the start of its own
+    document, so the loop moves them onto the tab's clock with the offset it sees at the first frame of that
+    window; `dt` is never a difference of two clocks.
+  - After every frame of the mini window that ran `step`, the title, the line and the floor rule below are checked.
+- One floor (D31): at opening the module remembers whether the office was in overview, and which floor was focused
+  (the floor itself, so a floor whose number changes meanwhile is found again; when it is gone, its old number is
+  used). If the office was in overview, the focused floor is shown instead. At opening, and after that whenever
+  the list of waiting characters changes: when characters wait and none of them is on the shown floor, the floor of
+  the first one in the list is focused (`floorToShow`; the list is ordered by floor, then arrival). A floor the
+  person picks by hand stays until the list changes again; the module does not hold the view between changes.
+- Closing (D30), three ways with one result (`restore`): the mini window's `Back to tab` button (it also asks the
+  browser to bring the tab forward), the placeholder's button, and the window's own close button or the browser's
+  return control (the `pagehide` event of the mini window). Each puts the labels element and the canvas back into
+  `#stage`, canvas first and before whatever followed them there, removes the placeholder, removes the listeners
+  and the observer, takes the `dragging` class off the canvas, clears the size source, moves the loop back to the
+  tab at full rate, and restores the remembered view (`Office.focus` is called only for what differs). A second
+  close does nothing.
+- Input: the module adds no input handling. Orbit, zoom, selection and the plan board keep working through the
+  listeners that are on the canvas already, and their events come from the mini window's document; what they open
+  (the inspector, the plan drawer) opens in the tab. One listener is the module's own: `main.js` ends the drag
+  cursor (the canvas's `dragging` class) at a `pointerup` on the tab's window, which a `pointerup` inside the mini
+  window does not reach, so the module removes the class at a `pointerup` on the mini window, and again at closing.
+  Known limit: when the mini window closes while a pointer is still held down on the canvas (a second input device,
+  or the keyboard on `Back to tab` during a drag), no `pointerup` reaches the orbit controls; back in the tab the
+  view then follows the mouse until the next click on the stage.
+- Labels: the room signs (`.sign`) are hidden in the mini window, where they would cover most of a small floor;
+  name tags and bubbles stay (D32).
+- What it never does: it sends nothing to the server, stores nothing (no preference is saved, the next page load
+  starts without a mini window), contacts no origin, and changes nothing under `src/`, `bin/` or `scripts/`.
+- Not covered: the opt-in WebGPU renderer (8.1) was not tried in a mini window. A tab that the browser reports as
+  hidden while its mini window is open was not observed either: with another tab in front and with the browser
+  window minimised, Chrome 157 under automation kept reporting the tab as visible (`step` went on at 30 a second in
+  both cases).
+- `test/pip.test.mjs` (the control, opening, the refusals, the three ways to close, the floor rule, language,
+  theme, size) and `test/pip-frames.test.mjs` (the cap as a pure function, the loop on stub windows, the size
+  source of `scene.js`, the wiring in `main.js`) use stub documents and a stub `documentPictureInPicture`
+  (`test/fixtures/pip-dom.mjs`); no browser runs in the suite.
 
 ## 10. Estimated context and token figures (launch readiness `v0.12.0`, D11)
 

@@ -160,9 +160,12 @@ export function createStage(host) {
   }
   bindCanvasInput(renderer.domElement, controls);
 
+  // sizeOf: 캔버스가 다른 문서(미니 창, pip.js)에 가 있는 동안의 크기. 없거나 0 이면 host 의 크기를 쓴다.
+  let sizeOf = null;
   function resize() {
-    const w = host.clientWidth || window.innerWidth;
-    const h = host.clientHeight || window.innerHeight;
+    const box = sizeOf?.();
+    const w = box?.width || host.clientWidth || window.innerWidth;
+    const h = box?.height || host.clientHeight || window.innerHeight;
     renderer.setSize(w, h);
     labels.setSize(w, h);
     const aspect = w / h;
@@ -322,6 +325,8 @@ export function createStage(host) {
     setLampY(y) { lampGoal = y; },
     setOverlayBg(bg) { overlayBg = bg || null; applyTheme(); },
     setViewFn(fn) { viewFn = fn; resize(); },
+    // fn: () => ({ width, height }) 또는 null (다시 host 의 크기). 바꾼 뒤의 resize() 는 부르는 쪽이 한다.
+    setSizeSource(fn) { sizeOf = typeof fn === 'function' ? fn : null; },
     // labelRoot: CSS 라벨을 계산할 묶음 (기본은 장면 전체). 숨은 층의 라벨까지 매 프레임 돌지 않게 한다.
     render(labelRoot = scene) {
       renderer.render(scene, camera);
