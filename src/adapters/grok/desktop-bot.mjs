@@ -5,6 +5,7 @@ import { constants as FS } from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { cleanText } from '../../summarize.mjs';
 
 export const GROK_AGENT = 'grok';
 export const GROK_BOT_CWD = '/Grok Bot';
@@ -93,12 +94,17 @@ export function defaultGrokDesktopDirs(homedir = os.homedir()) {
   };
 }
 
+const BOT_TITLE_MAX = 48;
+
+// The row's title (else its name) is scrubbed first and shortened after (CONTRACT 5, launch readiness D39): a secret,
+// an address or a path that reaches past the cap is recognised whole, so no piece of it is left in front of the cut.
 function cleanBotTitle(rawName, rawTitle) {
   const t = typeof rawTitle === 'string' && rawTitle.trim() ? rawTitle.trim() : '';
   const n = typeof rawName === 'string' && rawName.trim() ? rawName.trim() : '';
   const pick = t || n;
   if (!pick || pick.toLowerCase() === 'grok bot') return GROK_BOT_TITLE;
-  return `${GROK_BOT_TITLE} · ${pick.slice(0, 48)}`;
+  const shown = cleanText(pick, BOT_TITLE_MAX);
+  return shown ? `${GROK_BOT_TITLE} · ${shown}` : GROK_BOT_TITLE;
 }
 
 function maxTimestampOfRow(row) {

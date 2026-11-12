@@ -53,6 +53,8 @@ scripts/install-skill.mjs links <home>/.claude/skills/office to skills/office (P
 plugin/                 the Claude Code plugin (6.3): .claude-plugin/plugin.json, hooks/hooks.json (the two http hooks of
                         7.2) and skills/office/SKILL.md (a byte-identical copy of skills/office/SKILL.md)
 src/summarize.mjs       tool_use -> { summary, room? } (pure); cleanText, the one section 5 text scrub
+src/secret-mask.mjs     the secret mask of section 5 (pure, no imports): a fixed list of shapes -> `(secret)`; called
+                        only by the scrub of summarize.mjs, on text that scrub has already cut
 src/summarize-shell.mjs Bash/Monitor command -> program name (+ allow-listed subcommand) (pure)
 src/plan.mjs            update_plan / task list / ExitPlanMode plan reconstruction (pure)
 src/records.mjs         one parsed jsonl record -> normalized items (pure)
@@ -164,7 +166,7 @@ public/vendor/          third-party files, served as they are by `GET /vendor/<n
 ## 2. Event schema (server -> browser)
 
 Every event is one JSON object `{ type, sessionId, ts, ...fields }`. `ts` is the record timestamp (ISO) when known,
-else the server time. `sessionId` is the character id: the main session uuid, or the subagent `agentId`
+else the server time; a record timestamp that does not parse as a time is not sent (section 5). `sessionId` is the character id: the main session uuid, or the subagent `agentId`
 (`a` + 16 hex) for subagent files.
 
 | type | fields |
@@ -177,7 +179,7 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 | `tool_wait` | `toolUseId`, `waiting` (bool), exactly these two. Live Grok only (P5g, 4.6 Approval wait, section 7): `waiting: true` when a read finds a permission prompt for that open, visible, non-ask tool open 1 s or more (`ts` = the time the prompt opened), `waiting: false` when that prompt was allowed (`ts` = the answer's time), or when a caught-up read no longer lists a prompt that was shown and its answer was not seen (the events tail was rebuilt, 4.6; `ts` = that read's time). A deny sends no `false`: the tool's `tool_end` with `errorKind: 'denied'` closes the wait (only a deny whose answer was lost with a rebuilt tail gets the settle `false` first, before its `tool_end` `denied`). At most one `true` per `toolUseId` per announce (a re-announce of the character, after a same-path re-attach or a move to a new inode, repeats the open `tool_start` and its `tool_wait` copy), `false` only after it, both only between the tool's `tool_start` and its `tool_end`. Second source, Claude Code with its hooks installed (launch readiness D13, D25, section 7.2): `waiting: true` when a `PermissionRequest` hook (or the later `Notification` of type `permission_prompt`) is matched to an open, non-ask tool of that session (`ts` = the time the hook arrived); never a `false`, because no hook reports an allow, so the wait ends with that tool's `tool_end`; at most one `true` per `toolUseId`, only between the tool's `tool_start` and its `tool_end`. A re-announce of the character on the live stream repeats the open `tool_start` without a `tool_wait` copy (the tool keeps its one `true`; a page ignores a repeated `tool_start` of an id it already shows); only snapshots carry the copy (7.2 Snapshots). One exception, a session only hooks report (7.2, D14; never in a snapshot): its `Notification` about a permission sends `waiting: true` under the synthetic id `perm_<first 8 characters of the session id>`, which names no `tool_start` and may repeat (the office scene does nothing with it; the notifiers announce it) |
 | `thinking` | `text` (first sentence <= 100 code points, or `null` when the block is signature-only), `durationMs` (number or null) |
 | `say` | `text` (<= 100 code points) |
-| `plan` | `items`: `[{ content, status }]` with status `pending` \| `in_progress` \| `completed`, `source`: `update_plan` \| `tasks` \| `exit_plan`. Every `content` is scrubbed (section 5) and capped at 80 code points. `exit_plan` carries at most 6 items (`planFromMarkdown`, each raw line cut at 1000 chars before parsing); `update_plan` and `tasks` carry the whole list (no count cap) |
+| `plan` | `items`: `[{ content, status }]` with status `pending` \| `in_progress` \| `completed`, `source`: `update_plan` \| `tasks` \| `exit_plan`. Every `content` is scrubbed (section 5) and capped at 80 code points. `exit_plan` carries at most 6 items (`planFromMarkdown`; a raw line longer than 1000 chars is scrubbed first, section 5, and then cut at 1000 before parsing; an item is scrubbed again after its emphasis markers are dropped and before its cap); `update_plan` and `tasks` carry the whole list (no count cap) |
 | `turn_end` | `reason`: `stop_hook` \| `api_error` \| `interrupt` \| `wrap_up` \| `next_turn` \| `end_turn` |
 | `system` | `kind`: `api_error` \| `compact` \| `refusal`, `text` |
 
@@ -222,7 +224,7 @@ Wire messages on `/events` (each SSE `data:` line is one JSON object, every mess
 export function summarize(tool, input) // -> { summary: string, room?: string, background?: boolean, ignore?: boolean }
 export function truncate(text, maxCodePoints) // code-point safe, strips control chars, collapses whitespace
 export function hostOf(url) // host only, '' on failure
-export function cleanText(value, max) // section 5 scrub, then truncate; non-strings -> ''
+export function cleanText(value, max) // section 5 scrub (secret mask first), then truncate; non-strings -> ''
 export function looksLikeUuid(s)      // loose connector-uuid test (8-4-4-4-12 with one-char typos, or 24+ hex)
 export const ZERO_UUID                // '00000000-0000-0000-0000-000000000000', the mask for connector uuids
 ```
@@ -243,6 +245,13 @@ export const ZERO_UUID                // '00000000-0000-0000-0000-000000000000',
   uuid; use the most descriptive short key (`query`, `libraryName`/`libraryId`, `collection_path`/`collectionId`,
   `element`, `action_summary`/`action`, `title`), skipping a value that looks like a uuid, else the tool suffix with
   `_` -> space. Every summary piece goes through `cleanText` (section 5).
+- `cleanText`, in this order: the input is cut to 1,024 characters and the word that cut splits is dropped; the text
+  is made what the page will get (ANSI colour codes, control and zero-width characters and lone surrogates are taken
+  out and white space becomes one space, as `truncate` would do at the end; section 5 says what stays as a boundary);
+  the secret mask (`src/secret-mask.mjs`, section 5: a fixed list of shapes becomes `(secret)`, every other text
+  stays as written); the rules 1 to 7 of section 5 (connector uuid, URLs, emails, paths); the truncation to `max`
+  code points. The mask is called from this one place only. Every rule therefore reads the text as it is sent: a
+  token, an address or a path with a colour code or a zero-width character inside it is still recognised.
 - Bash/Monitor program name (`summarize-shell.mjs`), when there is no `description`: wrappers (`env sudo time nohup
   command exec nice timeout caffeinate builtin`) are skipped together with their options and option values
   (`sudo -u USER`, `env -C DIR`, `timeout -s SIG`, `--opt value`, `--` ends them); `$( ... )` and backtick
@@ -308,7 +317,8 @@ Kinds (classify by top-level `type`, then `subtype` / content):
 - `task_reminder`: attachment `task_reminder` -> `{ kind:'task_reminder', uuid, content }`.
 - `queued_prompt`: attachment `queued_command` with `commandMode:'prompt'`, not isMeta -> `{ kind:'prompt', ... }`.
 - everything else -> `{ kind:'ignore', uuid }`.
-Every non-meta kind also carries `ts` (record timestamp), `cwd`, `gitBranch`, `sessionId`, `agentId` when present.
+Every non-meta kind also carries `ts` (the record `timestamp` in ISO form, only when it is a string of at most 64
+characters that parses as a time), `cwd`, `gitBranch`, `sessionId`, `agentId` when present.
 
 ### 3.4 `src/session.mjs`
 ```js
@@ -1629,8 +1639,11 @@ Plan (`task.md`, D5):
 - A checklist line, at any indent and with a `-`, `*`, `+` or numbered (`1.`, `1)`) bullet, gives an item
   `{ content, status }`: `[ ]` pending, `[/]` in_progress, `[x]` / `[X]` completed. Headings, plain bullets, other markers
   and fenced code blocks give nothing; HTML comments, link targets and backticks are dropped from the content (the core
-  scrubs and caps the rest, 80 code points). Each raw line is cut at 1,000 chars, and at most 1,000 items are kept. A
-  file without a checklist item gives no list (the board stays as it was).
+  scrubs and caps the rest, 80 code points). A raw line longer than 1,000 chars is scrubbed first (`cleanText`,
+  section 5: it reads the first 1,024 characters and drops the word that limit splits) and then cut at 1,000, so the
+  cut leaves no piece of a listed secret shape, an address or a path for the dropped comments and link targets to bring to the
+  front of the item; one unbroken word of that length gives no item. At most 1,000 items are kept. A file without a
+  checklist item gives no list (the board stays as it was).
 - The list reaches the session as `setInfo({ tasks })`, and `AntigravitySession` turns it into a
   `plan { items, source: 'tasks' }` item through the core (`SessionCore.setInfo` takes no plan), so the board shows the
   whole list with source `tasks` and an identical snapshot emits nothing (4.0.2). An empty list only clears a board that
@@ -1824,7 +1837,153 @@ counts only (events, unpaired tools, apply errors, privacy hits).
      next word runs straight into another separator (`Application Support/x`), across `\ ` and balanced `(...)`, never
      across a newline, and ends at whitespace or `" ' \` < > ) ] } , ; * |` and control characters. A path cut by a
      glued `* < > |` keeps no directory name (`/a/CLIENT/*.pdf` -> `*.pdf`, `**/foo/*.mjs` -> `**/*.mjs`).
-  ANSI colour codes count as a boundary for these rules and are removed with the other control characters.
+  The order inside the scrub (`scrub()` in `src/summarize.mjs`). The secret mask below runs first, on a view of
+  the text as the page will get it: what the truncation deletes (ANSI colour codes, C0 and C1 control characters,
+  DEL, zero-width and bidi characters, lone surrogates) is out and every white space is one space, so a token with
+  such a character inside it is the same token. When the mask finds none of its shapes, rules 1 to 7 read the text
+  exactly as they did before the mask existed (a colour code is one boundary character; every other character
+  stays in place until the truncation), so a text without a listed shape is sent as it always was. When the mask
+  replaces something, rules 1 to 7 read that view with the marker in it, in which three things stay as a boundary:
+  a line break (a path does not go on across it, rule 7), the place between a backslash and a line break (the space
+  the break becomes is no escaped space of a path), and the place of removed characters directly in front of a path
+  or a URL scheme (`ls`, a colour code, `/Users/x/f.txt` is the word `ls` and a path); in such a text a deleted
+  character directly in front of a separator inside a path can split the path, so more than its last name is
+  sent. Last, the mask looks at the result once more, again on the view of it as the page will get it, because a
+  rule can put two pieces together into a listed shape (the word `Bearer` and a path whose last name is a token).
+  A text that itself holds the marker word in brackets can come out a little shorter than before the mask (the
+  marker in front of an at-sign and a domain is an address).
+- The secret mask (launch readiness W10, D33 to D39; `src/secret-mask.mjs`). It is a net, not a detector: a fixed
+  list of shapes is replaced by the marker `(secret)`, and every other text is shown as written. A secret of any
+  other shape is not recognised and is shown like any other text. It runs first inside the scrub above, in front of
+  rule 1, and once more behind rule 7: behind the 1,024-character cut of `cleanText` (the word that cut splits is
+  dropped) and before the length cap, so a cap never leaves a piece of a masked token. It reads the text as it will be sent (the paragraph above):
+  a shape with a colour code, a control character or a zero-width character inside it, or with a line break or a
+  no-break space where it has a space, is the same shape (`test/secret-mask-wire.test.mjs`; the limits are named
+  under "What the mask does not see" below). The scrub is its only caller; no other code calls it, and a
+  text that has to be masked goes through `cleanText`. It never throws. The rules are applied in passes until the
+  text no longer changes (a text with a shape in it takes two passes, the second of which changes nothing; a text
+  that still changed in a ninth would be replaced by the marker alone), so masking a masked text again changes
+  nothing. The shapes:
+  - Known prefixes, each only at a token start: the start of the text, or a character before it that is not an ASCII
+    letter, an ASCII digit, `_` or `-` (white space, punctuation and a letter of another script, such as Hangul,
+    all count as a start, and so does the place where a control character, a colour code or a zero-width character
+    was taken out, also behind a letter, and the place behind a line break or tab written out as two characters,
+    `\n`, `\r` or `\t`, as a JSON-escaped dump has them). The whole run of the named characters behind the prefix is replaced.
+    `sk-ant-` and `sk-proj-`: 20 or more of `A-Za-z0-9_-`. Any other `sk-`: 20 or more of `A-Za-z0-9_-` with at
+    least one digit (`sk-ant-` and `sk-proj-` have only their own rule: with fewer than 20 behind them they are not
+    that other shape either). `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`: 30 or more letters and digits. `github_pat_`:
+    30 or more of `A-Za-z0-9_`. `xoxa-`, `xoxb-`, `xoxe-`, `xoxo-`, `xoxp-`, `xoxr-`, `xoxs-`: 10 or more of
+    `A-Za-z0-9-` with at least one digit. `AKIA` and `ASIA`: exactly 16 of `A-Z0-9`. `AIza`: exactly 35 of
+    `A-Za-z0-9_-`. `glpat-`: 20 or more of `A-Za-z0-9_-`. `npm_`: exactly 36 letters and digits. `hf_`: 30 or more
+    letters and digits. `sk_live_`, `sk_test_`, `rk_live_`, `rk_test_`: 16 or more letters and digits. "Exactly"
+    means the run has that length: a longer run is not that shape and is not masked.
+  - A JSON Web Token, at a token start: three runs of `A-Za-z0-9_-` joined by dots, the first two starting with
+    `eyJ`, each 10 or more characters.
+  - The word `Bearer` (any letter case, not glued to a word in front of it), spaces or tabs, then 16 or more
+    characters of `A-Za-z0-9` and `-._~+/=` with at least one digit: those characters are replaced, the word stays.
+  - The value of an `Authorization` header behind its scheme, and the value of an `x-api-key` header: the header
+    name (any letter case; also behind a hyphen or an underscore, as in `Proxy-Authorization` or
+    `HTTP_AUTHORIZATION`, and as a JSON key in quotes; not as the end of a longer word, so no letter or digit stands
+    directly in front of it, unless that letter is the `n`, `r` or `t` of a written-out line break or tab), a colon,
+    then the value. Up to four quote marks, backslashes or markdown emphasis marks (`*`, `_`) may stand between the
+    name and the colon, and behind the colon up to four of those, blanks, and up to four of those or of `[ { ( <`
+    in front of the value (five or more hide the header); emphasis marks closed directly behind a scheme word do
+    not make it another word. A word of the value ends in front of a written-out line break or tab (what stands
+    behind that inside the same word is not looked at) and in front of the name of a next header where that name
+    starts a word (two headers on following lines or joined by a comma); a second word that ends with a colon and
+    stands at the start of a line is the name of another header, not a value. A blank in these
+    rules is a space or a tab, and also the backslash of a wrapped line (a backslash with a blank behind it). A value runs to white space, or to a quote mark (`"`, `'` or
+    a backtick) that closes something: one that stands at the end of the text or in front of white space or one of
+    `) ] } > < , ; : . ! ? & |`, with any more quote marks and backslashes between. A quote mark in front of a
+    letter, a digit or any other character is part of the value, so no tail of a value stays in view. For
+    `x-api-key` that value is replaced, unless it is a plain word (below). For `Authorization`, when the first word is a known scheme (`Basic`,
+    `Bearer`, `Digest`, `Token`, `ApiKey`, `Negotiate`, `NTLM`, `OAuth`, `DPoP`, `HOBA`, `Mutual`, `vapid`,
+    `AWS4-HMAC-SHA256`, `SCRAM-SHA-1`, `SCRAM-SHA-256`; letter case ignored), the scheme stays and the word behind
+    it is replaced, whatever it looks like (a known scheme with nothing behind it has no value, and nothing is
+    replaced); otherwise the first word is replaced unless it is a plain word, and the word behind it too when the
+    first one has the shape of a scheme (a letter, then at most 19 letters, digits or hyphens), unless both are
+    plain words. A plain word is at most 15 letters and hyphens with no capital behind its first letter, with up to
+    three of `. , ; : ! ? )` behind it: it reads as prose, not as a credential, so `Authorization: required for
+    all endpoints` keeps its words. The price: a credential without a known scheme that is nothing but such a word
+    is shown.
+  - A PEM private key: from its `-----BEGIN ... PRIVATE KEY-----` line (a label of at most 40 capitals, digits and
+    spaces) through the next `-----END ... PRIVATE KEY-----` line; when no such END line follows in the text (a key
+    longer than the 1,024 characters that are read), to the end of the text, whatever stands between its lines
+    (header lines of the older encrypted layout, quoting, joined strings). A sentence that only names the BEGIN
+    line therefore loses what follows it.
+  - Name and value. `name=value` with nothing but `=` between them, when the name ends with `password`, `passwd`,
+    `pwd`, `secret`, `token`, `apikey`, `api_key`, `api-key`, `access_key`, `access-key`, `private_key` or
+    `private-key` (letter case ignored; whatever stands in front of that ending, such as `OPENAI_` or `--`, does not
+    matter). The name and the sign stay, the value becomes the marker. A value in quotes (`"` or `'`, also written
+    with a backslash in front) is replaced inside its quotes, up to the closing quote or, when that is not in the
+    text, to the end of the text (the text the mask reads has no line breaks any more); when more of the value is
+    glued to the closing quote, the whole of it is replaced, quotes included. A name and its sign that are only
+    named inside quotes have no value and nothing is replaced: the quote behind the sign closes something (the end
+    of the text, white space or one of the closing characters above follows) and directly in front of the name, or
+    in front of a `?` or `&` before it, stands the same quote, escaped or not as the one behind the sign (`the
+    "password=" parameter`, `grep 'token=' src`), or a quote mark that comes again in the quote marks right behind
+    the sign (`'password="'`). A value in quotes that
+    stands inside quotes of another kind (`'NAME="value"'`), or in escaped quotes inside quotes of the same kind,
+    is a value and is replaced. The value may also begin on
+    the next line of a wrapped command (the sign, a backslash, a line break).
+    A bare value runs as a header value does (to white space, or to a quote mark that closes). In a
+    URL query (the name stands right behind `?` or `&`) the characters `. , ; : ! ? ) ] }` at the end of the value
+    stay outside it, because rule 3 gives them back to the sentence. `==` and `=>` are code, not a value. The JSON
+    form `"name": "value"` (at most 8 spaces or tabs around the colon, also with escaped quotes) is treated the
+    same way for a string value; a value that is not a string is left alone.
+  - Not masked by the name rule: `name: value` in prose (`Token: expired, retrying`), spaces around the sign, and a
+    name that only contains such a word (`total_tokens=1532`, `max_tokens=4096`, `tokenizer=x`).
+  Never masked, unless the text is the value of one of the shapes above (the word behind a known scheme, the value
+  behind a listed name and its sign): git hashes, UUIDs, base64 or hex text, file names, version strings, kebab-case
+  names that do not have one of the prefixed shapes, Korean text, and every string of the built-in demo
+  (`public/js/sources.js`). A kebab-case name that has a prefixed shape is masked like any other text of that
+  shape: 20 or more characters behind `sk-` with a digit among them, 20 or more behind `sk-ant-`, `sk-proj-` or
+  `glpat-`, 10 or more behind one of the `xox` prefixes with a digit.
+  The ellipsis that the length cap writes as the last character is not part of a value, and a scheme word that the
+  cap cut is not a value, so a text that was capped and is cleaned again (a title is, on its way to the recap) comes
+  out the same. Two exceptions. When the cap cuts directly behind the backslash of an escaped quote, that backslash
+  is read as a value or as part of one the second time. And for the three shapes of an exact length (`AKIA` and `ASIA`, `AIza`, `npm_`), a
+  longer run, which is not that shape and is shown as written, can be cut by the cap to exactly that length and is
+  then masked when the capped text is cleaned again, so such a title can read differently in `/state` and in
+  `/api/recap`.
+  Ranges that overlap become one marker; when two shapes run into each other and leave text glued to the marker,
+  the next pass takes that text into the value it belongs to. The marker survives the rules behind it: a path whose
+  last segment became the marker is reduced to the marker, and the closing bracket of a marker at the end of a URL
+  is not taken for sentence punctuation (the URL becomes its host as usual).
+  Cost: a text with none of the prefixes or fixed words pays for one search for the mark of removed characters and
+  one test of one regular expression (an alternation of fixed words); with a candidate, each rule walks forward
+  once per pass, rejects a candidate that is not at a
+  token start in constant time and continues behind what it masked. No sample of a shape is written into this
+  repository: tests build theirs when they run (`test/fixtures/secret-samples.mjs`).
+  Text is masked before it is shortened. `cleanText` itself drops the word its 1,024-character cut splits. Three
+  places shortened a text to fewer than 1,024 characters in front of the scrub and now scrub first: the Grok Bot
+  title (5.1), a markdown plan line longer than 1,000 characters (`planFromMarkdown`, section 2) and a `task.md`
+  line longer than 1,000 characters (4.8). The cuts at 4,096 characters in the Codex and Antigravity adapters stay:
+  behind them `cleanText` cuts at 1,024 and drops the split word. An ExitPlanMode item loses its markdown emphasis
+  markers (`**`, `__`, `~~`, `*`, `_`) after the scrub, so when any were dropped, what is left is sent through
+  `cleanText` once more before the item is capped at 80 code points (`planFromMarkdown`; an item without such
+  markers is scrubbed once, as before): a listed shape with such a marker inside it,
+  or a bold name in front of its sign, is masked whole.
+  What the mask does not see. A character that the truncation does not delete stays inside a token and the token is
+  then not that shape (a soft hyphen, a zero-width joiner or a variation selector, for example). Two tokens with
+  only a deleted character between them are read as one run, and the second is shown. A URL given as the whole
+  value of a tool's `url` field is reduced to its host before the scrub, in lower case, so a case-sensitive shape
+  given as that URL is not recognised. A line of key text in the place of a program name of a shell command is a
+  name. A plan or task line longer than 1,000 characters can be cut inside a token whose markup the reader drops
+  later. A written-out escape other than `\n`, `\r` and `\t` in front of a shape (`\u000a`, a written-out
+  colour code, `%0A`) is no token start. A line wrapped the PowerShell or cmd way (a backtick or a caret in front of
+  the line break) is not read as wrapped, and a JSON name and value whose quotes are escaped twice are not read.
+  Other markup around a header name (a closing bracket, an HTML tag, a link) hides its colon. These are outside
+  the fixed list, like every other shape D33 leaves alone.
+  Names are not free text and have their own rules. `tool_start.tool` is a name: the raw tool name of a
+  Claude Code transcript or hook (with the uuid rule below), and in the core of the other adapters a plain tool name
+  through `cleanText` and an MCP name `mcp__<server>__<tool>` with both segments reduced to `[A-Za-z0-9_-]` and the
+  uuid rule, not through the scrub (4.0.2). The label a summary makes from an MCP name is scrubbed one segment at a
+  time, before `_` becomes a space. Also not sent through the scrub: `session.project` and `projectLabel` (the
+  floor key and its last segment, see below), ids (`sessionId`, `toolUseId`), and the fixed words of `agent`,
+  `surface`, `reason`, `kind` and `status`. `ts` is a time: the timestamp of a Claude Code record is sent in ISO
+  form when it parses as a time and is left out otherwise (the event then carries the last known time or the server
+  time), and the core of the other adapters does the same (4.0.2).
 - `tool_start.tool` is the raw tool name except that an mcp server segment that looks like a uuid (strict, one-char
   typos, 24+ hex, bare `mcp__<uuid>` too) becomes `ZERO_UUID`; human server names are never masked.
 - `session.project` is the one field that carries a full path: it is the floor key (4.4), the first cwd. The browser
@@ -1865,12 +2024,13 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   through `summarize` (3.1), every text through `cleanText`, `project`, `projectLabel` and `worktree` from `cwd` like
   a transcript's, and nothing else of `tool_input`. Stricter than a transcript in three places: the error line of a
   failed tool is the fixed text `Tool failed` (the hook's `error` and `tool_output` fields are not read, because a
-  line of them can carry a secret that `cleanText` does not know); the line of a `StopFailure` is the fixed text
+  line of them can carry a secret of a shape the mask does not list); the line of a `StopFailure` is the fixed text
   `API error / rate limit` (`stop_reason` is not read, for the same reason); and a `tool_name` goes on the wire only
   when it matches `[A-Za-z0-9_.:-]{1,128}` (the charset of D20; a connector uuid in an mcp name is masked as in
   3.1), else the event is not sent. Different from a transcript in one place: the `agent_type` of a `SubagentStart`
   is the `Agent` tool's summary when it matches `[A-Za-z0-9_.:-]{1,64}` (any name of that shape, where a
-  transcript's `Agent` summary names only the built-in types of 3.1), else the summary is `subagent`. The session
+  transcript's `Agent` summary names only the built-in types of 3.1; it goes through `cleanText`, so a name with
+  the shape of a listed secret shows as the marker), else the summary is `subagent`. The session
   title of a `SessionStart` is the last segment of `cwd` through `cleanText`, at most 80 characters. A body `tool_use_id` is used as the `toolUseId`
   only when it passes the id rule of a session id (`publicSessionId`), else a synthetic id is made. A `Notification`
   of such a session sends no text of its `message`.
@@ -1995,8 +2155,10 @@ the scan options (`appSupportDir`, `logsDir`, `logsRoot`, `classicRoot`, `grokBo
 - While a character is attached, a tail tick only `lstat`s its watch file (the blob, the newest state file, or
   `unified.jsonl`).
 - What reaches the page: a character `grok-<uuid>` (a row `id`, `value.agentId`, a `sid`, or a fixed placeholder)
-  titled `Grok Bot`, or `Grok Bot · <text>` with the first 48 characters of the row's `title`, else `name`, through
-  the title scrub; the floor `Grok Bot`; and made-up turns `Active in <title>`.
+  titled `Grok Bot`, or `Grok Bot · <text>`, where `<text>` is the row's `title`, else `name`, through `cleanText`
+  with a cap of 48 code points (scrubbed first and shortened after, so no piece of a listed secret shape, an address or a path
+  that reaches past the cap is left; when nothing is left of it the title is `Grok Bot`); the floor `Grok Bot`; and
+  made-up turns `Active in <title>`.
 
 `test/desktop-cloud-chats.test.mjs` runs the three scans against temp folders; `test/desktop-disclosure.test.mjs`
 pins the Claude Desktop statements above (which calls touch which paths, and that BAIT text in `main.log`, in the

@@ -131,7 +131,8 @@ export function parseClaudeHookPayload(payload, { now = Date.now, activeHookTool
       break;
     }
     case 'SubagentStart': {
-      const subName = agentType || 'subagent';
+      // a name of the allowed shape can still have the shape of a token: it goes through the one scrub like any text
+      const subName = cleanText(agentType, 64) || 'subagent';
       const toolUseId = toolUseIdRaw || nextHookToolId(sessionId, 'Agent');
       if (activeHookTools instanceof Map) activeHookTools.set(`${sessionId}:Subagent`, toolUseId);
       events.push({

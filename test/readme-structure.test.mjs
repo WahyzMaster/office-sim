@@ -201,9 +201,22 @@ test('always-on and contributor documents name the 0.12.0 layout', () => {
   for (const needle of ['public/vendor/', 'node --test test/', 'public/js/rooms.js', 'src/adapters/']) {
     assert.ok(contributing.includes(needle), `CONTRIBUTING.md names ${needle}`);
   }
-  // the scrub has no secret detector (src/summarize.mjs cleanText), so no document may say that tokens are stripped
+  // the scrub masks a fixed list of secret shapes and nothing more (launch readiness D33, src/secret-mask.mjs): every
+  // document that describes it says both halves (the list is replaced by the marker, everything else goes out as
+  // written), and none says that tokens in general are stripped or that nothing is masked
+  const report = read('docs/SOFTWARE_DEVELOPMENT_REPORT.md');
+  for (const [rel, text] of [['README.md', read('README.md')], ['CONTRIBUTING.md', contributing], ['docs/SOFTWARE_DEVELOPMENT_REPORT.md', report], ['docs/CONTRACT.md', read('docs/CONTRACT.md')]]) {
+    assert.match(text, /fixed\s+list of (secret )?shapes/, `${rel}: a fixed list of shapes`);
+    assert.ok(text.includes('`(secret)`'), `${rel}: the marker`);
+    assert.match(text, /(shown|sent) as written/, `${rel}: everything else as written`);
+    assert.match(text, /a net, not a detector|secret of any\s+other shape/, `${rel}: another shape is not masked`);
+    assert.doesNotMatch(text, /nothing detects other secrets|does not detect secrets|has no secret detector/, `${rel}: the old sentence`);
+  }
+  const ko = read('README.ko.md');
+  for (const needle of ['정해 둔 목록의 비밀 값 모양', '`(secret)`', '쓴 그대로', '목록에 없는 모양의 비밀 값']) assert.ok(ko.includes(needle), `README.ko.md: ${needle}`);
+  assert.doesNotMatch(ko, /그 밖의 비밀 값을 찾아내 지우지는 않습니다|그 밖에는 걸러 내지 않습니다/, 'README.ko.md: the old sentence');
   assert.doesNotMatch(contributing, /emails, tokens/);
-  assert.doesNotMatch(read('docs/SOFTWARE_DEVELOPMENT_REPORT.md'), /bearer tokens|`implementation_plan\.md`/);
+  assert.doesNotMatch(report, /bearer tokens|`implementation_plan\.md`/);
   // the npm listing: no "zero dependencies" claim (the page ships a vendored three.js), and the changelog is packed
   const pkg = JSON.parse(read('package.json'));
   assert.doesNotMatch(pkg.description, /zero[- ]dependenc/i);

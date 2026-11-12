@@ -85,8 +85,13 @@ test('parseTaskMd: [ ] pending, [/] in_progress, [x] completed at any indent; he
   assert.equal(parseTaskMd(Buffer.from([0xc3, 0x28])), null);
   const many = Array.from({ length: TASKS_MAX_ITEMS + 5 }, (_, i) => `- [ ] item ${i}`).join('\n');
   assert.equal(parseTaskMd(many).length, TASKS_MAX_ITEMS);
-  const long = parseTaskMd(`- [ ] ${'x'.repeat(5000)}`);
-  assert.ok(long[0].content.length < 1000, 'the raw line is cut before parsing');
+  // a line over 1,000 characters is scrubbed before it is cut (launch readiness D39): the scrub drops the word its
+  // 1,024-character limit splits, so one unbroken 5,000-character word gives no item, and a long line of words is cut
+  assert.equal(parseTaskMd(`- [ ] ${'x'.repeat(5000)}`), null, 'no piece of an unbroken over-long word is shown');
+  const long = parseTaskMd(`- [x] ${'word '.repeat(1000)}`);
+  assert.equal(long.length, 1);
+  assert.equal(long[0].status, 'completed');
+  assert.ok(long[0].content.length < 1000 && long[0].content.startsWith('word word'), 'a long line is cut before parsing');
 });
 
 test('locate / metaPaths: only <root>/antigravity{-cli,-ide,}/brain/<uuid>/.system_generated/logs/<transcript>', () => {

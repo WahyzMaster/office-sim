@@ -21,6 +21,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SidecarWatcher } from '../../core/sidecar.mjs';
+import { cleanText } from '../../summarize.mjs';
 import { readFields, firstField, allFields, textOf, smallIntOf, WIRE } from './proto.mjs';
 
 /** The summaries file of each sub-root (CLI, legacy IDE, and 2.x desktop app). */
@@ -250,7 +251,10 @@ const RAW_LINE_MAX = 1000;
  * brain/<uuid>/task.md -> [{ content, status }] or null when it has no checklist item. `- [ ]` pending, `- [/]`
  * in_progress, `- [x]` / `- [X]` completed, at any indent (also `*`, `+`, `1.`); headings, plain bullets, other markers
  * and fenced code are skipped. HTML comments (`<!-- id: 3 -->`), link targets and backticks are dropped; the core scrubs
- * and caps the rest (section 5, 80 code points). Each raw line is cut at 1000 chars; at most 1000 items.
+ * and caps the rest (section 5, 80 code points). A raw line longer than 1000 chars is scrubbed first and then cut at
+ * 1000 (launch readiness D39): cleanText reads its first 1,024 characters and drops the word that limit splits, so
+ * the cut never leaves a piece of a listed secret shape, an address or a path for the parser to pull to the front of the item (one
+ * unbroken word of that length gives no item). At most 1000 items.
  */
 export function parseTaskMd(buf) {
   let s;
@@ -268,7 +272,7 @@ export function parseTaskMd(buf) {
       continue;
     }
     if (f) { fence = f[1]; continue; }
-    if (line.length > RAW_LINE_MAX) line = line.slice(0, RAW_LINE_MAX);
+    if (line.length > RAW_LINE_MAX) line = cleanText(line, Infinity).slice(0, RAW_LINE_MAX);
     const m = TASK_RE.exec(line);
     if (!m) continue;
     const content = m[2]

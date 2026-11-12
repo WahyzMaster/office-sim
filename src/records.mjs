@@ -24,10 +24,17 @@ function str(v) {
   return typeof v === 'string' ? v : undefined;
 }
 
+/** A record's `timestamp` -> the `ts` of its events: a time in ISO form, or nothing (it is not free text: section 5). */
+function tsOf(v) {
+  const ms = typeof v === 'string' && v.length <= 64 ? Date.parse(v) : NaN;
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : undefined;
+}
+
 // ts / cwd / gitBranch / sessionId / agentId, only when present.
 function base(rec) {
   const out = {};
-  if (typeof rec.timestamp === 'string') out.ts = rec.timestamp;
+  const ts = tsOf(rec.timestamp);
+  if (ts) out.ts = ts;
   if (typeof rec.cwd === 'string') out.cwd = rec.cwd;
   if (typeof rec.gitBranch === 'string') out.gitBranch = rec.gitBranch;
   if (typeof rec.sessionId === 'string') out.sessionId = rec.sessionId;
