@@ -67,7 +67,7 @@ export function parseClaudeHookPayload(payload, { now = Date.now, activeHookTool
         agent: CLAUDE_CODE_AGENT,
         project,
         projectLabel,
-        title: projectLabel || `Session ${sessionId.slice(0, 8)}`,
+        title: cleanText(projectLabel, 80) || `Session ${sessionId.slice(0, 8)}`,
         branch: null,
         worktree,
         isSubagent: false,
@@ -330,12 +330,22 @@ export function planClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.1' 
  */
 export function installClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.1' } = {}) {
   const plan = planClaudeHooks({ settingsPath, port, host });
-  if (plan.exists) {
-    if (plan.backupNeeded) fs.writeFileSync(plan.backupPath, plan.raw, { encoding: 'utf8', mode: 0o600 });
-  } else {
-    fs.mkdirSync(path.dirname(settingsPath), { recursive: true, mode: 0o700 });
+  // A failure says which write it was and whether this call had written the backup before it (for the caller's
+  // report): err.step is 'backup' or 'settings', err.backupWritten a boolean.
+  let step = plan.exists && plan.backupNeeded ? 'backup' : 'settings';
+  let backupWritten = false;
+  try {
+    if (plan.exists) {
+      if (plan.backupNeeded) fs.writeFileSync(plan.backupPath, plan.raw, { encoding: 'utf8', mode: 0o600 });
+      backupWritten = plan.backupNeeded;
+    } else {
+      fs.mkdirSync(path.dirname(settingsPath), { recursive: true, mode: 0o700 });
+    }
+    step = 'settings';
+    fs.writeFileSync(settingsPath, plan.text, { encoding: 'utf8', mode: 0o600 });
+  } catch (err) {
+    throw Object.assign(err, { step, backupWritten });
   }
-  fs.writeFileSync(settingsPath, plan.text, { encoding: 'utf8', mode: 0o600 });
   return { installed: true, settingsPath, events: HOOK_EVENTS.length };
 }
 

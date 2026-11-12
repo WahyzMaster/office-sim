@@ -1,4 +1,4 @@
-// Antigravity (CLI `agy` 와 예전 IDE) 기록 탐색 (ADAPTERS 3.1, 5.3, 7.1, 결정 D6). 허용 목록 방식이다:
+// Antigravity (CLI `agy`, 예전 IDE, 데스크톱 앱) 기록 탐색 (ADAPTERS 3.1, 5.3, 7.1, 결정 D6). 허용 목록 방식이다:
 //   <root>/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript_full.jsonl   (값이 잘리지 않은 기록, 먼저 고른다)
 //   <root>/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript.jsonl        (없거나 더 짧으면 이것)
 //   <root>/antigravity-ide/brain/... 와 <root>/antigravity/brain/... 도 같은 모양 (예전 IDE, 데스크톱 앱: BASES)
@@ -73,7 +73,7 @@ async function brainEntries(baseDir) {
   return entries.filter((d) => d.isDirectory() && isConversationId(d.name)).map((d) => d.name).sort();
 }
 
-// 같은 uuid 가 두 하위 루트에 있으면: 기록이 있는 쪽, 더 새 mtime, 더 큰 크기, 그다음 BASES 순서 (cli)
+// 같은 uuid 가 둘 이상의 하위 루트에 있으면: 기록이 있는 쪽, 더 새 mtime, 더 큰 크기, 그다음 BASES 순서 (cli)
 function newest(c) {
   return Math.max(c.full?.mtimeMs ?? -Infinity, c.plain?.mtimeMs ?? -Infinity);
 }

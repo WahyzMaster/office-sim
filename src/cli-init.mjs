@@ -324,9 +324,11 @@ async function install(opts, io, { settingsPath, skill = null }) {
     try {
       installClaudeHooks({ settingsPath, port: opts.port }); // plans once more from the file, then writes
     } catch (err) {
-      fail(`failed: ${code(err)} while writing ${settingsPath}`);
-      // the backup is written before the settings file: a failure after it leaves the backup behind
-      if (hooksNow.backupNeeded && fs.existsSync(hooksNow.backupPath)) fail(`the backup ${hooksNow.backupPath} was written before the failure and stays: a later install keeps it as it is`);
+      // installClaudeHooks says which write failed (err.step) and whether it had written the backup before it
+      const atBackup = err?.step === 'backup';
+      fail(`failed: ${code(err)} while writing ${atBackup ? `the backup ${hooksNow.backupPath}` : settingsPath}`);
+      if (atBackup) fail(`the settings file was not changed. If ${hooksNow.backupPath} exists now it is not whole: remove it before the next install, which would keep it as it is`);
+      else if (err?.backupWritten) fail(`the backup ${hooksNow.backupPath} was written before the failure and stays: a later install keeps it as it is`);
       if (copied) fail(`the skill was already copied to ${copied} and stays there. When the cause is gone, run init again (or office-sim hooks install) for the hooks; to take the copy back, remove that folder yourself`);
       return 1;
     }

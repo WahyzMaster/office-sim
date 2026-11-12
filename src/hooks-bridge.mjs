@@ -3,8 +3,9 @@
 // permission_prompt) becomes one `tool_wait { toolUseId, waiting: true }` for an open tool of that session.
 // The hook body has no tool_use id, so the bridge keeps its own list of open tools from the events the Store pushes
 // (tool_start opens, tool_end closes, session_end clears) and picks the newest open, non-ask tool of the same name.
-// Nothing of a body is kept but ids and a tool name: of a wait that is still held (HOLD_MS) and, for the repeat rule,
-// of a permission event that sent or held a wait (DEDUP_MS).
+// Nothing of a body is kept but ids and a tool name: of a wait that is still held (HOLD_MS), for the repeat rule of a
+// permission event that sent or held a wait (DEDUP_MS), of a sent wait while its tool is in the open list, and of a
+// tool that a session only hooks report has open (legacyTools).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -286,7 +287,7 @@ export class HooksBridge {
   // so `waits` never holds more than `open` does.
   forget(charId) {
     this.open.delete(charId);
-    for (const k of [...this.waits.keys()]) if (k.startsWith(`${charId}|`)) this.waits.delete(k);
+    for (const [k, w] of [...this.waits]) if (w.ev.sessionId === charId) this.waits.delete(k); // by the id, not by a key prefix
   }
 
   toolStart(charId, ev) {

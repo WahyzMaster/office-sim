@@ -44,7 +44,7 @@ The first run now works from one command, the default page talks to your own mac
 - The context ring and the token rows are labelled as estimates, in Korean and English.
 - The Claude desktop-app log reader takes an MCP tool name only from a parsed `tools/call` request and never reads tool arguments. A name of an unexpected shape becomes a generic label.
 - A hook request about a session outside the Claude Code folder is ignored, so another agent that runs Claude hook files no longer appears as Claude Code.
-- Hook requests up to 1 MiB are accepted, and nothing of the tool input in them is kept. The old 4 KiB limit rejected hooks for large edits.
+- Hook requests up to 1 MiB are accepted, and for a session whose log is read nothing of the tool input in them is used or kept. The old 4 KiB limit rejected hooks for large edits.
 - The demo page (hosted, or opened with `#demo`) no longer calls the local server's API.
 - The hosted demo page is a complete HTML document with link-preview tags.
 - README statements that were not true: `--open` in the quick start, the "zero dependencies" wording, the privacy note about paths, the Sprint Recap description, the notification guards, and an Antigravity file (`implementation_plan.md`) that was never read.

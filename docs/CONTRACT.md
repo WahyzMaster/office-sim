@@ -168,7 +168,7 @@ else the server time. `sessionId` is the character id: the main session uuid, or
 
 | type | fields |
 |---|---|
-| `session` | `agent` (stable source id of the adapter, see below), `project` (stable floor key, see 4.4), `projectLabel` (basename), `title` (<= 80), `branch` (<= 60, `HEAD` -> `detached`), `worktree` (name <= 60, or null), `isSubagent`, `parentSessionId` (null for main), `agentType` (subagent only, <= 60), `surface` (optional: `cli` \| `ide` \| `app`, where the session runs, when the adapter knows it: 4.8 for Antigravity, 5.1 for the Claude desktop app) |
+| `session` | `agent` (stable source id of the adapter, see below), `project` (stable floor key, see 4.4), `projectLabel` (basename), `title` (<= 80), `branch` (<= 60, `HEAD` -> `detached`), `worktree` (name <= 60, or null), `isSubagent`, `parentSessionId` (null for main), `agentType` (subagent only, <= 60), `surface` (optional: `cli` \| `ide` \| `app`, where the session runs, when the adapter knows it: Claude Code from the record's `entrypoint` and for the desktop app of 5.1, Codex from its originator, Grok from its desktop reader, Antigravity from the app folder (4.8), Gemini CLI always `cli`; a subagent has its main session's) |
 | `session_end` | `reason`: `done` \| `idle` |
 | `prompt` | `text` (human prompt, <= 80 code points) |
 | `tool_start` | `toolUseId`, `tool` (raw name, except a connector-uuid mcp server segment, see 5), `summary`, `room` (optional hint, see 5), `question`, `options` (ask tools only), `background` (bool, optional), `awaitsApproval` (`true` only in replay mode, when the call waited for a human answer to a permission prompt, see 7) |
@@ -1862,13 +1862,15 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   open, its session id and tool name with the id of the `tool_start` it sent (at most 500 entries), to close that
   tool at `PostToolUse`. The events of such a session follow the rules of this section: the summary
   through `summarize` (3.1), every text through `cleanText`, `project`, `projectLabel` and `worktree` from `cwd` like
-  a transcript's, and nothing else of `tool_input`. Stricter than a transcript in four places: the error line of a
+  a transcript's, and nothing else of `tool_input`. Stricter than a transcript in three places: the error line of a
   failed tool is the fixed text `Tool failed` (the hook's `error` and `tool_output` fields are not read, because a
   line of them can carry a secret that `cleanText` does not know); the line of a `StopFailure` is the fixed text
-  `API error / rate limit` (`stop_reason` is not read, for the same reason); the `agent_type` of a `SubagentStart`
-  is the `Agent` tool's summary only when it matches `[A-Za-z0-9_.:-]{1,64}`, else the summary is `subagent`; and a
-  `tool_name` goes on the wire only when it matches `[A-Za-z0-9_.:-]{1,128}` (the charset of D20; a connector uuid
-  in an mcp name is masked as in 3.1), else the event is not sent. A body `tool_use_id` is used as the `toolUseId`
+  `API error / rate limit` (`stop_reason` is not read, for the same reason); and a `tool_name` goes on the wire only
+  when it matches `[A-Za-z0-9_.:-]{1,128}` (the charset of D20; a connector uuid in an mcp name is masked as in
+  3.1), else the event is not sent. Different from a transcript in one place: the `agent_type` of a `SubagentStart`
+  is the `Agent` tool's summary when it matches `[A-Za-z0-9_.:-]{1,64}` (any name of that shape, where a
+  transcript's `Agent` summary names only the built-in types of 3.1), else the summary is `subagent`. The session
+  title of a `SessionStart` is the last segment of `cwd` through `cleanText`, at most 80 characters. A body `tool_use_id` is used as the `toolUseId`
   only when it passes the id rule of a session id (`publicSessionId`), else a synthetic id is made. A `Notification`
   of such a session sends no text of its `message`.
 - Live log observation (6.2): the output file, every status object (GET / POST `/observe`) and every `observe` SSE
@@ -2565,7 +2567,10 @@ server start, and the server never writes a settings file.
   below, with `office-sim: nothing was written`. A settings write that fails (`office-sim: failed: <code> while
   writing <settings>`, exit 1) can leave the backup of step 2 behind, because the backup is written first; one more
   stderr line then says so (`the backup <path> was written before the failure and stays: a later install keeps it
-  as it is`). An empty or whitespace-only settings file holds no hooks for all three commands: `install` treats it
+  as it is`), and only when this run wrote that backup (`installClaudeHooks` marks its error with `step` and
+  `backupWritten`). When the backup itself cannot be written the line is `office-sim: failed: <code> while writing
+  the backup <path>`, followed by a line that says the settings file was not changed and that a backup file found
+  at that path now is not whole and has to be removed before the next install. An empty or whitespace-only settings file holds no hooks for all three commands: `install` treats it
   as `{}`, `status` counts none, `uninstall` answers `no office-sim hooks in <path>: nothing to remove`.
 - Refusals: exit 1, on stderr, before any prompt and with nothing written. A settings file that is not a JSON object,
   whose `hooks` is not an object, or whose `hooks.PermissionRequest` or `hooks.Notification` is there and is not an
@@ -2612,8 +2617,8 @@ server start, and the server never writes a settings file.
   2 usage error.
 - The plugin. The marketplace file is at the repository root and the plugin in its own folder, because Claude Code
   copies only the plugin folder into its cache:
-  - `.claude-plugin/marketplace.json`: `name` `office-sim`, `owner.name`, and one entry in `plugins`: `name`
-    `office-sim`, `source` `./plugin`, a `description`.
+  - `.claude-plugin/marketplace.json`: `name` `office-sim`, `owner.name`, `metadata.description`, and one entry in
+    `plugins`: `name` `office-sim`, `source` `./plugin`, a `description`.
   - `plugin/.claude-plugin/plugin.json`: `name` `office-sim`, `version`, `description`, `author.name`, `homepage`,
     `repository`, `license` `MIT`, `keywords`. `version` equals the `version` of `package.json`
     (`test/plugin-files.test.mjs` fails when they differ), so every version bump changes both files in the same
@@ -2788,7 +2793,9 @@ live Claude mode shows no approval wait.
      permission event like any other (it can only match a tool that hooks opened).
 - Matching. The hook body has no tool_use id, so the bridge keeps the open tools of every character from the events
   the Store pushes (`tool_start` opens, `tool_end` closes, `session_end` clears; at most 256 tools per character and
-  1000 characters, the oldest leaving first together with its sent wait). The character is the `session_id`, or, with an `agent_id` the Store holds as a Claude Code
+  1000 characters, the oldest leaving first together with its sent wait; a tool that leaves this way while it is
+  still open is forgotten, so a later prompt can mark it or another tool a second time: that needs 257 open tools on
+  one character or 1000 characters with open tools at once). The character is the `session_id`, or, with an `agent_id` the Store holds as a Claude Code
   character of that session (a subagent's character id is its `agentId` and its entry's `sid` is the session id,
   4.5), that subagent. A permission event picks the newest open tool of the character whose `tool` equals `tool_name`
   (compared as on the wire, a connector uuid masked), that is not an ask tool (a `tool_start` with `question` or
@@ -2830,7 +2837,7 @@ live Claude mode shows no approval wait.
   "awaiting approval" for its whole run, as in replay mode (above). A tool gets one `true` at most: a later
   permission event never marks a tool that already had its wait.
 - Snapshots (D25): the bridge keeps the sent `tool_wait` of a tool until that tool's `tool_end` (or the character's
-  `session_end`), and the HTTP layer puts a copy right after that tool's `tool_start` into `GET /state` and every
+  `session_end`, or until the tool or the character leaves the bounded list of open tools, Matching), and the HTTP layer puts a copy right after that tool's `tool_start` into `GET /state` and every
   `snapshot` message (`HooksBridge.decorate`), so a page that connects or reconnects shows the wait; without the copy
   the page would read the open tool as allowed (7.1 Reconnect). This is the `/state` rule of section 2: an open tool
   whose last `tool_wait` is `true` has its copy there. The waits live in the server process: after a server restart
@@ -2969,7 +2976,8 @@ format, the Store and the routes are unchanged.
   (`AskUserQuestion`, `ExitPlanMode`, and whatever else a `tool_start` sends to the room `desk`), a permission wait
   known in replay mode (`awaitsApproval`, section 7) and an open live `tool_wait` (7.1, 7.2). Limit: a Claude Code
   permission wait (7.2) has no end of its own, because no hook reports an allow, so after the prompt was allowed the
-  character stays counted until that tool ends; for a long-running tool the count overstates for that long. It is counted from
+  character stays counted until that tool ends (or until the page closes the ask at a new prompt, the turn end or
+  the session end, 7.2 End of a wait); for a long-running tool the count overstates for that long. It is counted from
   the moment the event arrives, not from the moment the character reaches the desk: walking needs frames, and a
   hidden tab runs none. A character is counted once, however many asks it has.
 - What is not counted: a character of the first-run demo (9.1). The module keeps the ids whose events carry `demo:

@@ -149,3 +149,105 @@ test('init follows a link above its skill folder: the copy lands where <home>/.c
   assert.deepEqual(fs.readFileSync(path.join(elsewhere, 'office', 'SKILL.md')), fs.readFileSync(path.join(REPO, 'skills', 'office', 'SKILL.md')));
   assert.equal(fs.lstatSync(path.join(elsewhere, 'office')).isDirectory(), true, 'the skill folder itself is a real folder');
 });
+
+// ---- second round: what the independent review of the fixes above found untested ----
+
+test('status and install agree with uninstall on an empty settings file: no hooks, and install treats it as {}', async () => {
+  for (const content of ['', '  \n']) {
+    const home = tmpDir();
+    fs.mkdirSync(path.dirname(settingsOf(home)), { recursive: true });
+    fs.writeFileSync(settingsOf(home), content);
+    const status = await cli(['hooks', 'status', '--port', '1'], { home });
+    assert.equal(status.code, 0, status.errText);
+    assert.match(status.text, /hooks installed: no/);
+    assert.equal(fs.readFileSync(settingsOf(home), 'utf8'), content, 'status writes nothing');
+    const install = await cli(['hooks', 'install', '--yes'], { home });
+    assert.equal(install.code, 0, install.errText);
+    const hooks = JSON.parse(fs.readFileSync(settingsOf(home), 'utf8')).hooks;
+    assert.deepEqual(Object.keys(hooks).sort(), ['Notification', 'PermissionRequest']);
+    assert.equal(fs.readFileSync(`${settingsOf(home)}.office-sim.bak`, 'utf8'), content, 'the backup is the empty file as it was');
+  }
+});
+
+test('the hook-only parser hands out no stop reason, and a SessionStart title is scrubbed and capped', () => {
+  assert.equal('stopReason' in hookOnly({ hook_event_name: 'StopFailure', stop_reason: BAIT }), false);
+  const title = (cwd) => hookOnly({ hook_event_name: 'SessionStart', cwd }).events[0].title;
+  assert.equal(title('/work/demo'), 'demo');
+  assert.ok(title(`/work/${'x'.repeat(300)}`).length <= 80, 'a long folder name is cut to the title cap');
+  assert.equal(title('/work/bob@example.com').includes('bob@example.com'), false, 'an address in a folder name is masked');
+});
+
+test('forget goes by the character id, not by a key prefix: an id that starts like another keeps its wait', () => {
+  const A = '0a1b2c3d-1111-4222-8333-444455556666';
+  const B = `${A}-b`;
+  const { bridge, store, clock } = setup({ chars: {} });
+  const ts = () => new Date(clock.ms).toISOString();
+  for (const sessionId of [A, B]) {
+    store.push({ type: 'tool_start', sessionId, ts: ts(), toolUseId: 'T|1', tool: 'Bash', summary: 'Bash' });
+    bridge.handle(permission({ session_id: sessionId, transcript_path: undefined }));
+  }
+  assert.equal(bridge.stats().openWaits, 2);
+  // an id that only looks like a key of A ("<A>|T") must not take A's wait with it
+  store.push({ type: 'session_end', sessionId: `${A}|T`, ts: ts(), reason: 'done' });
+  assert.equal(bridge.stats().openWaits, 2);
+  store.push({ type: 'session_end', sessionId: A, ts: ts(), reason: 'done' });
+  assert.equal(bridge.hasWait(A), false);
+  assert.equal(bridge.hasWait(B), true, 'the other character keeps its wait');
+});
+
+test('the backup line is printed only for a backup this run wrote', { skip: cannotRestrict && 'a read-only file stops no write here' }, async () => {
+  // the backup is already there: the settings write fails, and no line claims a backup
+  const home = tmpDir();
+  const settingsPath = settingsOf(home);
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(settingsPath, '{"theme":"dark"}\n');
+  fs.writeFileSync(`${settingsPath}.office-sim.bak`, 'older backup\n');
+  fs.chmodSync(settingsPath, 0o444);
+  try {
+    const r = await cli(['hooks', 'install', '--yes'], { home });
+    assert.equal(r.code, 1);
+    assert.ok(r.errText.includes(`office-sim: failed: EACCES while writing ${settingsPath}`), r.errText);
+    assert.doesNotMatch(r.errText, /was written before the failure/);
+    assert.equal(fs.readFileSync(`${settingsPath}.office-sim.bak`, 'utf8'), 'older backup\n');
+  } finally {
+    fs.chmodSync(settingsPath, 0o644);
+  }
+  // the backup cannot be made (a read-only folder): the failure names the backup, and the settings file is unchanged
+  const home2 = tmpDir();
+  const settings2 = settingsOf(home2);
+  fs.mkdirSync(path.dirname(settings2), { recursive: true });
+  fs.writeFileSync(settings2, '{"theme":"dark"}\n');
+  fs.chmodSync(path.dirname(settings2), 0o555);
+  try {
+    const r = await cli(['hooks', 'install', '--yes'], { home: home2 });
+    assert.equal(r.code, 1);
+    assert.ok(r.errText.includes(`office-sim: failed: EACCES while writing the backup ${settings2}.office-sim.bak`), r.errText);
+    assert.ok(r.errText.includes('the settings file was not changed'), r.errText);
+    assert.doesNotMatch(r.errText, /was written before the failure/);
+    assert.equal(fs.readFileSync(settings2, 'utf8'), '{"theme":"dark"}\n');
+    assert.equal(fs.existsSync(`${settings2}.office-sim.bak`), false);
+  } finally {
+    fs.chmodSync(path.dirname(settings2), 0o755);
+  }
+});
+
+test('install through a settings file that is a link: the target is written and the backup sits beside the link', { skip: process.platform === 'win32' && 'links need a privilege here' }, async () => {
+  const home = tmpDir();
+  const elsewhere = tmpDir();
+  const target = path.join(elsewhere, 'real-settings.json');
+  fs.writeFileSync(target, '{"theme":"dark"}\n');
+  fs.mkdirSync(path.dirname(settingsOf(home)), { recursive: true });
+  fs.symlinkSync(target, settingsOf(home));
+  const r = await cli(['hooks', 'install', '--yes'], { home });
+  assert.equal(r.code, 0, r.errText);
+  assert.ok(fs.lstatSync(settingsOf(home)).isSymbolicLink(), 'the link stays a link');
+  assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(target, 'utf8'))).sort(), ['hooks', 'theme']);
+  assert.equal(fs.readFileSync(`${settingsOf(home)}.office-sim.bak`, 'utf8'), '{"theme":"dark"}\n');
+  assert.equal(fs.lstatSync(`${settingsOf(home)}.office-sim.bak`).isFile(), true);
+});
+
+test('the marketplace file carries a description (claude plugin validate warns without one)', () => {
+  const marketplace = JSON.parse(fs.readFileSync(path.join(REPO, '.claude-plugin', 'marketplace.json'), 'utf8'));
+  assert.equal(typeof marketplace.metadata?.description, 'string');
+  assert.ok(marketplace.metadata.description.length > 20);
+});
