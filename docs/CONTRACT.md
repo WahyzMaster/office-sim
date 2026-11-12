@@ -1950,10 +1950,13 @@ counts only (events, unpaired tools, apply errors, privacy hits).
   the next pass takes that text into the value it belongs to. The marker survives the rules behind it: a path whose
   last segment became the marker is reduced to the marker, and the closing bracket of a marker at the end of a URL
   is not taken for sentence punctuation (the URL becomes its host as usual).
-  Cost: a text with none of the prefixes or fixed words pays for one search for the mark of removed characters and
-  one test of one regular expression (an alternation of fixed words); with a candidate, each rule walks forward
-  once per pass, rejects a candidate that is not at a
-  token start in constant time and continues behind what it masked. No sample of a shape is written into this
+  Cost: the mask looks twice per text (first and last in the scrub). A text with none of the prefixes or fixed words
+  pays each time for the view of the text (one test when nothing has to be taken out), one search for the mark of
+  removed characters and one test of one regular expression (an alternation of fixed words): measured, `cleanText`
+  takes about 1.14 times as long as before the mask over 50,000 ordinary strings. With a candidate, each rule walks
+  forward once per pass, rejects a candidate that is not at a token start in constant time and continues behind
+  what it masked; the header rule alone reads a word again for each header name inside one unbroken word, which
+  the 1,024-character cut bounds (under a millisecond for the worst text found). No sample of a shape is written into this
   repository: tests build theirs when they run (`test/fixtures/secret-samples.mjs`).
   Text is masked before it is shortened. `cleanText` itself drops the word its 1,024-character cut splits. Three
   places shortened a text to fewer than 1,024 characters in front of the scrub and now scrub first: the Grok Bot

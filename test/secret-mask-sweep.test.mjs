@@ -193,3 +193,13 @@ test('in a text with a listed shape, a deleted character behind a backslash does
     assert.equal(cleanText(`${shape} open ${BS}${BS}server${BS}share${BS}${zw}dir${BS}file.txt now`, 400), `${masked} open file.txt now`);
   }
 });
+
+test('in a text with a listed shape, a host without a scheme behind a deleted character is still cut to its host', () => {
+  const masked = ['DEPLOY_TOKEN', M].join('=');
+  const shape = ['DEPLOY_TOKEN', cred(71)].join('=');
+  for (const gap of ['\u001b[0m', '\u200b', '\u0007']) {
+    assert.equal(cleanText(`${shape} run${gap}localhost:3000/a/b?c=1 now`, 400), `${masked} runlocalhost:3000 now`);
+    assert.equal(cleanText(`${shape} run${gap}127.0.0.1:8080/x/y now`, 400), `${masked} run127.0.0.1:8080 now`);
+    assert.equal(cleanText(`${shape} run${gap}[::1]:4747/p/q now`, 400), `${masked} run[::1]:4747 now`);
+  }
+});
