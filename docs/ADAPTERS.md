@@ -468,6 +468,8 @@ flowchart LR
 - 도구 이름이 버전마다 바뀐다(예전 `view_file`/`write_to_file`, 1.4.x `read_file`/`write_file`). 이름 표는 둘 다 받는다.
   1.4.x 는 `edit_file`(`Path`, `Target`, `Replacement`)도 쓴다. 조사 파일에는 없고 통합 단계의 실제 데이터 개수 확인에서
   찾았다(호출 71번). 경로(`Path`)만 읽고 바꾸기 전후의 글(`Target`, `Replacement`)은 읽지 않는다.
+  2.x 도구(`search_marketplace`, `list_plugin_accounts`, `enter_plan_mode`, `exit_plan_mode`, `swarm`)도 이름표에 넣고,
+  `plan`/`reason`/`brief` 인자 본문은 읽지 않으며 `AntigravitySession` 의 `_rooms` 로 방 힌트를 붙인다.
   `toolAction`/`toolSummary` 인자는 모델이 쓴 짧은 설명인데 명령 원문이 들어갈 수 있어 쓰지 않는다.
 - 프롬프트: `USER_INPUT` 의 `content` 는 201/201 이 `<USER_REQUEST>...</USER_REQUEST><ADDITIONAL_METADATA>...` 꼴이다.
   안쪽 `USER_REQUEST` 만 쓰고 나머지 블록(환경 정보, 설정 변경, 계획)은 버린다. Claude 의 "`<` 로 시작하면 건너뜀" 규칙을
@@ -560,11 +562,11 @@ Antigravity 칸의 "세션 끝"에 적은 요약 proto 의 상태는 P5e 에서 
 | 자료실 | `view_image`, `ImageView` | `read_file`, `grep`, `list_dir` | `view_file`, `read_file`, `grep_search`, `find_by_name`, `list_dir` |
 | 개발실 | `apply_patch`, `FileChange` 항목 | `search_replace`, `write` | `write_to_file`, `write_file`, `edit_file`, `replace_file_content`, `multi_replace_file_content` |
 | 서버실 | `exec_command`, `shell`, `shell_command`, `CommandExecution` 항목 (프로그램 이름 규칙) | `run_terminal_command`, `monitor` (프로그램 이름 규칙), `get_command_or_subagent_output`, `kill_command_or_subagent` | `run_command` (프로그램 이름 규칙), `command_status`, `manage_task` |
-| 정보검색실 | `web.run`, `WebSearch` 항목, MCP | `web_fetch`, 서버 측 웹 검색, `use_tool` (MCP) | `search_web`, `read_url_content`, `call_mcp_tool` (MCP), `list_resources`, `read_resource` |
-| 회의실 | `update_plan` (`plan` 이벤트만, `tool_start` 없음) | `todo_write` (숨기고 `plan` 레코드로 보드 갱신), `enter_plan_mode` | (IDE `task.md` 는 `plan` 이벤트만) |
+| 정보검색실 | `web.run`, `WebSearch` 항목, MCP | `web_fetch`, 서버 측 웹 검색, `use_tool` (MCP) | `search_web`, `read_url_content`, `call_mcp_tool` (MCP), `list_resources`, `read_resource`, `search_marketplace`, `list_plugin_accounts` |
+| 회의실 | `update_plan` (`plan` 이벤트만, `tool_start` 없음) | `todo_write` (숨기고 `plan` 레코드로 보드 갱신), `enter_plan_mode` | `enter_plan_mode`, `exit_plan_mode` (IDE `task.md` 는 `plan` 이벤트만) |
 | 내 자리 | `request_user_input` | `ask_user_question`, `exit_plan_mode` | `ask_question` |
 | 제자리 | `spawn_agent`, `collaboration.*`, `wait_agent`, `close_agent`, `send_input` | `spawn_subagent` | `define_subagent`, `invoke_subagent`, `send_message`, `manage_subagents`, `browser_subagent`, `generate_image` |
-| 라운지 | `clock.sleep` | (해당 없음) | `schedule` |
+| 라운지 | `clock.sleep` | (해당 없음) | `schedule`, `swarm` |
 | 무시 (배관) | `write_stdin`, `wait` (돌고 있는 명령 들여다보기), `search_tool_bm25`, `list_mcp_resources`, `get_goal` | `search_tool` (도구 검색으로 보임, 미확인) | `list_permissions` |
 
 모르는 도구 이름은 지금처럼 `tool` 은 그대로, 방은 `here`(제자리)다. 이름이 버전마다 바뀌는 것(Antigravity
@@ -578,8 +580,8 @@ Codex 칸은 P5d 에서 이대로 구현했다(CONTRACT 4.7절). `clock.sleep` �
 `collaboration.*` 의 `send_message`, `followup_task`, `list_agents`, `interrupt_agent` 도 제자리이고, 배관에는
 `list_mcp_resource_templates` 를 더했다. 이름표에 없는 도구는 `other`(제자리)다.
 
-Antigravity CLI 칸은 P5e 에서 이대로 구현했다(CONTRACT 4.8절). `schedule` 은 Codex 의 `clock.sleep` 처럼
-`AntigravitySession` 이 그 `tool_start` 에 라운지 힌트를 직접 붙인다. `list_permissions` 는 배관이라 숨기지만, 위치 짝짓기에서는
+Antigravity CLI 칸은 P5e 에서 이대로 구현했다(CONTRACT 4.8절). `schedule`, `swarm`, `enter_plan_mode`, `exit_plan_mode` 는
+Codex 의 `clock.sleep` 처럼 `AntigravitySession` 이 `tool_start` 에 명시적 방 힌트(`lounge`, `meeting`)를 직접 붙인다. `list_permissions` 는 배관이라 숨기지만, 위치 짝짓기에서는
 자리를 차지하므로 그 결과 줄은 조용히 소비된다. `call_mcp_tool` 은 `ServerName`, `ToolName` 으로 `mcp__<server>__<tool>`
 이 되고 방 힌트 없이 화면이 MCP 규칙으로 고른다. 회의실 칸의 `task.md` 는 도구가 아니라 메타 파일이라 `plan` 이벤트만
 낸다(CLI 대화에는 조사 때 `task.md` 가 없었다). 개발실의 `edit_file` 은 1.4.x 이름으로, 조사가 아니라 통합 단계의 실제

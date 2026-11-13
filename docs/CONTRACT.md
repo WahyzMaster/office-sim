@@ -1714,7 +1714,7 @@ Tools (`tools.mjs`):
   8,874/8,993, that can carry command text), `CodeContent`, `Content`, `TargetContent`, `ReplacementContent`,
   `ReplacementChunks`, `Target`, `Replacement`, `Instruction`, `Description`, `ArtifactMetadata`, `Arguments`, `Prompt`, `TimerCondition`,
   `DurationSeconds`, `Task`, `TaskName`, `TaskSummary`, `RecordingName`, `MediaPaths`, `CommandId`, `TaskId`, `Action`,
-  `domain`, `is_multi_select` and every other argument; `Cwd` only for the cwd fallback above. Old and new names are
+  `domain`, `is_multi_select`, `plan`, `reason`, `brief`, `kind`, `limit` and every other argument; `Cwd` only for the cwd fallback above. Old and new names are
   both mapped (the 1.4.x CLI emits `read_file` / `write_file` where older versions emit `view_file` / `write_to_file`,
   and adds `edit_file` with `Path`, `Target` and `Replacement`: found by the integration's real-data count, not in the
   research file).
@@ -1732,13 +1732,16 @@ Tools (`tools.mjs`):
 | `run_command` | `kind: 'shell'`, `command: CommandLine` (a string; the summary is its program name via `programOf`, 3.1) | program rule of 3.1 (archive / research / server) |
 | `command_status`, `manage_task` | `kind: 'shell'` without a command (background command and task control; ids and actions are not read) | server |
 | `search_web` | `kind: 'web'`, `query` | research |
+| `search_marketplace` | `kind: 'web'`, `query` from the first non-empty entry of `queries` (`kind` and `limit` are not read) | research |
 | `read_url_content` | `kind: 'web'`, `url: Url` (host only) | research |
 | `call_mcp_tool` | `kind: 'web'`, `mcpServer: ServerName`, `mcpTool: ToolName`, so `tool` is `mcp__<server>__<tool>` (a uuid-looking server -> ZERO_UUID, section 5); `Arguments` is never read. Without both names: a plain web call | MCP names: none, the page classifies them (D4); without names: research |
-| `list_resources`, `read_resource` | `kind: 'web'`, no argument read | research |
+| `list_resources`, `read_resource`, `list_plugin_accounts` | `kind: 'web'`, no argument read | research |
+| `enter_plan_mode`, `exit_plan_mode` | `kind: 'other'`, no argument read (`reason` and `plan` are never read); `AntigravitySession` puts the `meeting` room hint on `tool_start` | meeting |
 | `ask_question` | `kind: 'ask'`, `questions` (at most 50; the `question` and at most 4 `options` each, an option being a string or a `label`) -> `question` / `options` (R33, `askFields`); its result line ends it | desk |
 | `define_subagent`, `invoke_subagent`, `send_message`, `manage_subagents`, `browser_subagent` | `kind: 'agent'`, no argument read | here |
 | `generate_image` | `kind: 'other'`, no argument read | here |
 | `schedule` | `kind: 'other'`, no argument read; `AntigravitySession` puts the `lounge` room hint on its `tool_start` (as Codex `clock.sleep`, 4.7; the core has no lounge kind) | lounge |
+| `swarm` | `kind: 'agent'`, no argument read (`brief`, `tasks` and `action` are never read); `AntigravitySession` puts the `lounge` room hint on `tool_start` | lounge |
 | `list_permissions` | hidden plumbing: no `tool_start` and no `tool_end`, but the call keeps its place in the pairing, so its result line is taken and gives nothing | - |
 | any other name (new tools) | `kind: 'other'`, no argument read, `tool` = the name | here |
 
@@ -2238,25 +2241,24 @@ path, a 300-character name).
   still counts as a session here, so the line can be missing while the page has nobody to show. The page half of D6
   (the demo and its banner) is section 9.1.
 - The default port is 4747 and there is no fallback port: the port is written into hook URLs and into the `/office`
-  skill, so the bin never binds another port by itself. A busy default port (`src/port-reuse.mjs`,
-  `onListenFailure`): when the listen fails with EADDRINUSE and the user did not pass `--port` (so the port is the
-  default one), the bin sends one `GET http://<host>:4747/healthz`, bounded to 1 s for the whole exchange and to
+  skill, so the bin never binds another port by itself. A busy port (`src/port-reuse.mjs`,
+  `onListenFailure`): when the listen fails with EADDRINUSE and the resolved port (`portArg ?? port`, when within
+  1..65535) can be probed, the bin sends one `GET http://<host>:<port>/healthz`, bounded to 1 s for the whole exchange and to
   64 KiB of body, and looks whether the answer is what the skill's probe accepts (status 200, JSON with `ok: true`
   and an `agents` array). What it does with an office-sim found there depends on this run's arguments (D18):
-  - Reuse, only when argv holds nothing but `--open`, `--no-open` and `--demo` (`reuseAllowed`; an empty argv
+  - Reuse, only when the user did not pass `--port` and argv holds nothing but `--open`, `--no-open` and `--demo` (`reuseAllowed`; an empty argv
     included): it prints `office-sim: already running at http://<host>:4747/` on stdout, opens that URL when opening
     is on (the decision above, made with this run's flags: `--open`, or the terminal default; with `--demo` the
     opened URL ends in `#demo`, and when nothing is opened the `office-sim: demo <url>#demo` line follows), and exits
     0; no second server is started. In the reuse case the process ends right after it starts the opener, so only a
     refused URL or a missing opener is logged, not the opener's exit code.
-  - With any other argument (`--replay`, `--auth`, `--agents`, a root, `--notify`, `--cdn`, `--host`, ...) the
-    running server is not reused, because those options would not reach it: the failed listen stays an error (one
-    stderr line, exit 1) whose hint names the running server and `--port`: `office-sim: <message> (port in use by the
-    office-sim running at http://<host>:4747/; only a run with no option other than --open, --no-open, --demo reuses
+  - With an explicit `--port <N>` or any other argument (`--replay`, `--auth`, `--agents`, a root, `--notify`, `--cdn`, `--host`, ...) the
+    running server is never silently reused (exit 1, one stderr line): when `/healthz` on `<port>` identifies an
+    office-sim, the error hint names the running URL and `--port`: `office-sim: <message> (port in use by the
+    office-sim running at http://<host>:<port>/; only a run with no option other than --open, --no-open, --demo reuses
     it: stop it, or try --port 0 or another port)`. Nothing is printed on stdout and nothing is opened.
-  Anything else (another program, an office-sim started with `--auth`, which answers 401, no answer in time) and any
-  explicit `--port`, even `--port 4747` (never probed), is the failed listen described below: one line with the
-  `(port in use: try --port 0 or another port)` hint, exit 1.
+  Anything else (another program, an office-sim started with `--auth`, which answers 401, no answer in time, or an
+  out-of-range port such as `--port 0`) produces one stderr line with the `(port in use: try --port 0 or another port)` hint, exit 1.
 - The `/office` skill (P4, `skills/office/SKILL.md`) depends on these server facts, so changing one means changing the
   skill and `test/skill-commands.test.mjs`: `GET /healthz` -> 200 JSON that starts `{"ok":true,` and has an `agents`
   array (the probe prints at most the first 2000 characters; the whole body is shorter, `test/skill-file.test.mjs`

@@ -85,7 +85,7 @@ export class AntigravitySession {
     this._orphans = 0; // 기다리는 호출이 없는데 온 결과 줄
     this._pending = []; // 지난 계획 줄의 호출 중 결과 줄을 기다리는 것, 호출 순서: { id, hidden }
     this._unreadable = false; // 지난 계획 줄의 tool_calls 를 읽지 못했다: 다음 closer 까지 결과 줄을 건너뛴다
-    this._lounge = new Set(); // 열린 schedule 호출 (라운지 방 힌트)
+    this._rooms = new Map(); // 열린 도구의 방 힌트 (id -> room)
     this._settled = false; // 붙일 때의 replay 가 끝났다 (첫 idle() 이나 라이브 apply)
     this._cwdFallback = null; // replay 중에 본 첫 run_command Cwd
     this._final = false; // 열린 턴의 마지막 일이 도구 없는 말이다 (요약 상태 idle 이 턴을 닫을 수 있다)
@@ -210,9 +210,10 @@ export class AntigravitySession {
     for (const it of items) for (const ev of this.core.apply(it, { replay })) out.push(this._patch(ev));
   }
 
-  // schedule: the core has no lounge kind, so its tool_start gets the lounge room hint here (ADAPTERS 6.2)
+  // explicit room hints when SessionCore kind does not match the target room (ADAPTERS 6.2)
   _patch(ev) {
-    return ev.type === 'tool_start' && this._lounge.has(ev.toolUseId) ? { ...ev, room: 'lounge' } : ev;
+    const room = ev.type === 'tool_start' ? this._rooms.get(ev.toolUseId) : undefined;
+    return room ? { ...ev, room } : ev;
   }
 
   // A turn that ends without a closing answer (interrupted, given up after an error): the delivered idle has stood for
@@ -279,7 +280,7 @@ export class AntigravitySession {
   _close(push) {
     for (const p of this._pending) {
       if (p.hidden) continue;
-      this._lounge.delete(p.id);
+      this._rooms.delete(p.id);
       push({ k: 'tool_end', id: p.id, status: 'abandoned' });
     }
     this._pending = [];
@@ -305,7 +306,7 @@ export class AntigravitySession {
       const c = callStartOf(call, this._format);
       this._pending.push({ id, hidden: Boolean(c.hidden) });
       if (c.hidden) continue; // list_permissions: 결과 줄 자리만 차지한다
-      if (c.room === 'lounge') this._lounge.add(id);
+      if (c.room) this._rooms.set(id, c.room);
       push({ k: 'tool_start', id, ...c.start });
     }
   }
@@ -335,7 +336,7 @@ export class AntigravitySession {
     }
     const p = this._pending.shift();
     if (p.hidden) return;
-    this._lounge.delete(p.id);
+    this._rooms.delete(p.id);
     push({ k: 'tool_end', id: p.id, ...resultEndOf(s) });
   }
 }

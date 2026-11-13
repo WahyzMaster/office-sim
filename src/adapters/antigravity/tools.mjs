@@ -10,8 +10,9 @@
 // 개인정보 (CONTRACT 5, ADAPTERS 7): 설명자에는 표에 적힌 인자만 들어간다. 경로 (core 가 basename 으로), run_command 의
 // CommandLine (core 가 programOf 로 프로그램 이름만), URL (host 만), 검색어, MCP 서버/도구 이름, 질문과 선택지 이름.
 // toolAction, toolSummary, Description, Instruction, CodeContent, Content, ReplacementContent, ReplacementChunks,
-// TargetContent, Target, Replacement, ArtifactMetadata, Cwd, Arguments, Prompt, Task, TaskName, TaskSummary 같은 나머지
-// 인자는 읽지 않는다. Cwd 는 설명자가 아니라 작업 폴더 대안으로만 쓴다 (cwdOfCall, 세션이 정한 때에만).
+// TargetContent, Target, Replacement, ArtifactMetadata, Cwd, Arguments, Prompt, Task, TaskName, TaskSummary, plan,
+// reason, brief, kind, limit 같은 나머지 인자는 읽지 않는다. Cwd 는 설명자가 아니라 작업 폴더 대안으로만 쓴다 (cwdOfCall,
+// 세션이 정한 때에만).
 import { isObj } from '../../core/session-items.mjs';
 
 const NAME_RE = /^[A-Za-z0-9_.:-]{1,128}$/;
@@ -79,6 +80,16 @@ const firstString = (args, keys, format) => {
   return undefined;
 };
 
+const firstListString = (args, keys) => {
+  for (const k of keys) {
+    const list = argList(args[k]);
+    if (!list) continue;
+    const v = list.find((x) => typeof x === 'string' && x.trim() !== '');
+    if (v !== undefined) return v.slice(0, MAX_TEXT);
+  }
+  return undefined;
+};
+
 // --------------------------------------------------------------------------------------------- name table
 
 const T = (kind, fields = {}) => Object.freeze({ kind, ...fields });
@@ -110,10 +121,15 @@ export const TOOLS = Object.freeze({
   manage_task: T('shell'), // 백그라운드 작업 제어 (할 일 목록이 아니다). Action, TaskId 는 읽지 않는다
   // 정보검색실
   search_web: T('web', { query: ['query'] }), // domain 은 읽지 않는다
+  search_marketplace: T('web', { queryList: ['queries'] }), // 2.x 마켓플레이스 검색 (kind, limit 은 읽지 않는다)
   read_url_content: T('web', { url: ['Url'] }),
   call_mcp_tool: T('web', { mcp: true }), // Arguments 는 읽지 않는다
   list_resources: T('web'), // 2.x MCP 리소스 목록 (ServerName 은 읽지 않는다)
   read_resource: T('web'), // 2.x MCP 리소스 읽기 (ServerName, Uri 는 읽지 않는다)
+  list_plugin_accounts: T('web'), // 2.x 플러그인 계정 상태 (인자 없음)
+  // 회의실 (SessionCore kind 'plan' 은 tool_start 를 숨기므로 _rooms 로 meeting 힌트를 붙인다)
+  enter_plan_mode: T('other', { room: 'meeting' }), // 2.x 계획 모드 진입 (reason 은 읽지 않는다)
+  exit_plan_mode: T('other', { room: 'meeting' }), // 2.x 계획 모드 종료 (plan 은 읽지 않는다)
   // 내 자리
   ask_question: T('ask', { questions: true }),
   // 제자리 (서브에이전트 연결은 없다: 부모 직원의 도구 호출로 보인다)
@@ -125,6 +141,7 @@ export const TOOLS = Object.freeze({
   generate_image: T('other'), // Prompt, ImageName 은 읽지 않는다
   // 라운지
   schedule: T('other', { room: 'lounge' }), // DurationSeconds, TimerCondition, Prompt 는 읽지 않는다
+  swarm: T('agent', { room: 'lounge' }), // 2.x 멀티에이전트 보드 제어 (action, brief, tasks 등은 읽지 않는다)
   // 배관
   list_permissions: T('other', { hidden: true }),
 });
@@ -172,6 +189,10 @@ export function callStartOf(call, format = null) {
   }
   if (spec.query) {
     const q = firstString(args, spec.query, format);
+    if (q !== undefined) desc.query = q;
+  }
+  if (spec.queryList) {
+    const q = firstListString(args, spec.queryList);
     if (q !== undefined) desc.query = q;
   }
   if (spec.command) {

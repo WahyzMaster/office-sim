@@ -143,6 +143,23 @@ test('wait snippet without a server: gives up after its poll budget and says so 
   assert.ok(Date.now() - t0 < 5000);
 });
 
+test('wait snippet skips the Node < 22 advisory line and keeps waiting for the real outcome line', unixOnly, async () => {
+  const dir = await tmp();
+  const out = path.join(dir, 'node-warn.out');
+  await fs.writeFile(
+    out,
+    'office-sim: note: Node 20.19.0 is older than the supported floor (>= 22); continuing anyway\n',
+  );
+  setTimeout(() => {
+    fs.appendFile(out, 'office-sim: http://127.0.0.1:4747/\noffice-sim: agents none\n').catch(() => {});
+  }, 150);
+  const code = block('--input-type=module');
+  const lines = (await shAsync(fill(code, { '<out>': out }))).split('\n');
+  assert.ok(lines[0].includes('older than the supported floor'), lines.join('\n'));
+  assert.equal(lines[1], 'office-sim: http://127.0.0.1:4747/');
+  assert.equal(lines[2], 'office-sim: agents none');
+});
+
 test('stop snippet: SIGTERMs only node <root>/bin/office-sim.mjs, not shells, other args or other roots', unixOnly, async () => {
   const dir = await tmp();
   const fakeBin = (root) => path.join(dir, root, 'bin', 'office-sim.mjs');

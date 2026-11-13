@@ -170,3 +170,17 @@ test('uninstall with nothing of ours: no write; missing or unparseable files are
   assert.throws(() => uninstallClaudeHooks({ settingsPath: broken }), /unparseable/);
   assert.equal(fs.readFileSync(broken, 'utf8'), '{ nope');
 });
+
+test('install refuses to overwrite or create through a symlinked .office-sim.bak target (ELOOP) and cleans temp files', { skip: process.platform === 'win32' }, () => {
+  const settingsPath = tmpSettings('{"theme":"dark"}\n');
+  const dir = path.dirname(settingsPath);
+  const decoy = path.join(dir, 'decoy.txt');
+  fs.symlinkSync(decoy, `${settingsPath}.office-sim.bak`);
+  assert.throws(
+    () => installClaudeHooks({ settingsPath }),
+    (err) => err?.code === 'ELOOP' && err?.step === 'backup' && err?.backupWritten === false,
+  );
+  assert.equal(fs.existsSync(decoy), false, 'dangling symlink target was not created');
+  assert.equal(JSON.parse(fs.readFileSync(settingsPath, 'utf8')).hooks, undefined, 'settings untouched after ELOOP');
+  assert.deepEqual(fs.readdirSync(dir).filter((n) => n.endsWith('.tmp')), [], 'no orphaned temp files');
+});

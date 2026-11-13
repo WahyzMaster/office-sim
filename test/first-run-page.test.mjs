@@ -436,3 +436,11 @@ test('main wiring: live mode keeps the LiveSource and drives the first-run contr
   const lines = main.split('\n').length;
   assert.ok(lines <= 500, `main.js is ${lines} lines`);
 });
+
+test('hud.js guards every e.target.closest call with closestEl so non-Element targets (Window/Document) never throw', () => {
+  const hudSrc = readFileSync(new URL('../public/js/hud.js', import.meta.url), 'utf8');
+  assert.equal(hudSrc.includes('e.target.closest('), false, 'raw e.target.closest(...) must be guarded via closestEl');
+  assert.match(hudSrc, /const closestEl = \(t, sel\) => \(typeof t\?\.closest === 'function' \? t\.closest\(sel\) : null\);/);
+  const matches = hudSrc.match(/closestEl\(e\.target,/g) ?? [];
+  assert.equal(matches.length, 5, 'all 5 delegated/window event handlers use closestEl');
+});

@@ -197,10 +197,12 @@ test('argList / argsOf / toolNameOf: native or encoded arrays, encoded args obje
 
 test('the name table covers both eras of ADAPTERS 6.2 (Antigravity column)', () => {
   assert.deepEqual(Object.keys(TOOLS).sort(), [
-    'ask_question', 'browser_subagent', 'call_mcp_tool', 'command_status', 'define_subagent', 'edit_file', 'find_by_name',
-    'generate_image', 'grep_search', 'invoke_subagent', 'list_dir', 'list_permissions', 'list_resources', 'manage_subagents',
-    'manage_task', 'multi_replace_file_content', 'read_file', 'read_resource', 'read_url_content', 'replace_file_content',
-    'run_command', 'schedule', 'search_web', 'send_message', 'view_file', 'write_file', 'write_to_file',
+    'ask_question', 'browser_subagent', 'call_mcp_tool', 'command_status', 'define_subagent', 'edit_file',
+    'enter_plan_mode', 'exit_plan_mode', 'find_by_name', 'generate_image', 'grep_search', 'invoke_subagent',
+    'list_dir', 'list_permissions', 'list_plugin_accounts', 'list_resources', 'manage_subagents', 'manage_task',
+    'multi_replace_file_content', 'read_file', 'read_resource', 'read_url_content', 'replace_file_content',
+    'run_command', 'schedule', 'search_marketplace', 'search_web', 'send_message', 'swarm',
+    'view_file', 'write_file', 'write_to_file',
   ]);
 });
 
@@ -309,6 +311,35 @@ test('full format: a native command that starts with a quote is still read throu
   const unknown = callStartOf(enc(call.runCommand('"/usr/local/bin/node" scripts/build.mjs'), 'full'), null);
   assert.equal(toolSummary(unknown.start.desc).summary, 'run_command', 'unknown format: an undecodable quoted value is dropped');
 });
+
+for (const format of ['full', 'truncated']) {
+  test(`2.x tools [${format}]: search_marketplace, list_plugin_accounts, enter_plan_mode, exit_plan_mode, swarm`, () => {
+    const mp = startOf({ name: 'search_marketplace', args: { queries: ['flutter calendar', 'second'], kind: 'plugin', limit: 5 } }, format);
+    assert.deepEqual([mp.fields.tool, mp.fields.summary, mp.fields.room], ['search_marketplace', 'flutter calendar', 'research']);
+    descOnly(mp.start);
+
+    const acc = startOf({ name: 'list_plugin_accounts', args: {} }, format);
+    assert.deepEqual([acc.fields.tool, acc.fields.summary, acc.fields.room], ['list_plugin_accounts', 'plugin accounts'.replace('plugin accounts', 'list_plugin_accounts'), 'research']);
+    descOnly(acc.start);
+
+    for (const [name, expRoom] of [['enter_plan_mode', 'meeting'], ['exit_plan_mode', 'meeting'], ['swarm', 'lounge']]) {
+      const c = enc({
+        name,
+        args: {
+          reason: 'secret BAIT reason',
+          plan: '# secret BAIT plan',
+          brief: 'secret BAIT brief',
+          action: 'add',
+          tasks: ['secret BAIT task'],
+        },
+      }, format);
+      const parsed = callStartOf(c, format);
+      assert.equal(parsed.room, expRoom, `${name} carries room hint ${expRoom}`);
+      descOnly(parsed.start);
+      noBait(parsed.start, `${name} never reads plan/reason/brief/tasks`);
+    }
+  });
+}
 
 // ---------------------------------------------------------------------------------------------- session: lines and formats
 

@@ -81,6 +81,8 @@ export class HooksBridge {
     this.held = []; // [{ sid, charId, tool, key, at }] oldest first: PermissionRequests whose tool_start was not pushed yet
     this.recent = new Map(); // repeat key -> ms: permission events that sent or held a wait, oldest first (DEDUP_MS)
     this.legacyTools = new Map(); // hook-only sessions: `${sessionId}:${tool}` -> the synthetic tool id (hooks-receiver)
+    this.legacyOpen = new Map(); // hook-only sessions: sessionId -> Set<toolUseId> of open synthetic tools
+    this._inLegacy = false;
     this.counts = { waits: 0, duplicates: 0, unmatched: 0, expired: 0, dropped: 0, ignored: 0, foreign: 0, legacy: 0 };
     this.warned = false;
   }
@@ -105,6 +107,7 @@ export class HooksBridge {
     if (typeof payload.transcript_path === 'string' && this.root && !this.inRoot(payload.transcript_path)) return this.foreign();
     const main = this.store.byChar?.get(sid) ?? null;
     if (main && main.agent !== CLAUDE_CODE_AGENT) return this.foreign(); // an id of another adapter's character
+    if (main) this.purgeLegacy(sid);
     const name = typeof payload.hook_event_name === 'string' ? payload.hook_event_name.trim() : '';
     if (name === 'PermissionRequest') this.permission(sid, payload, true);
     else if (name === 'Notification') this.notification(sid, payload, main !== null);
@@ -142,11 +145,36 @@ export class HooksBridge {
     const parsed = parseClaudeHookPayload(payload, { now: this.now, activeHookTools: this.legacyTools });
     while (this.legacyTools.size > MAX_LEGACY_TOOLS) this.legacyTools.delete(this.legacyTools.keys().next().value);
     const events = parsed?.events ?? [];
-    for (const ev of events) {
-      this.counts.legacy += 1;
-      this.store.push(ev);
+    this._inLegacy = true;
+    try {
+      for (const ev of events) {
+        this.counts.legacy += 1;
+        this.trackLegacyEvent(ev);
+        this.store.push(ev);
+      }
+    } finally {
+      this._inLegacy = false;
     }
     return events.length;
+  }
+
+  trackLegacyEvent(ev) {
+    if (typeof ev.sessionId !== 'string') return;
+    if (ev.type === 'tool_start' && typeof ev.toolUseId === 'string') {
+      let open = this.legacyOpen.get(ev.sessionId);
+      if (!open) {
+        if (this.legacyOpen.size >= MAX_CHARS) this.legacyOpen.delete(this.legacyOpen.keys().next().value);
+        this.legacyOpen.set(ev.sessionId, (open = new Set()));
+      }
+      open.add(ev.toolUseId);
+    } else if (ev.type === 'tool_end' && typeof ev.toolUseId === 'string') {
+      const open = this.legacyOpen.get(ev.sessionId);
+      if (open?.delete(ev.toolUseId) && open.size === 0) this.legacyOpen.delete(ev.sessionId);
+    } else if (ev.type === 'session_end') {
+      this.legacyOpen.delete(ev.sessionId);
+      const prefix = `${ev.sessionId}:`;
+      for (const key of this.legacyTools.keys()) if (key.startsWith(prefix)) this.legacyTools.delete(key);
+    }
   }
 
   count(key) { this.counts[key] += 1; }
@@ -272,7 +300,9 @@ export class HooksBridge {
     this.prune();
     if (!ev || typeof ev !== 'object' || typeof ev.sessionId !== 'string') return;
     const charId = ev.sessionId;
-    if (ev.type === 'tool_start' && typeof ev.toolUseId === 'string') this.toolStart(charId, ev);
+    if (!this._inLegacy && ev.type === 'session' && this.store.byChar?.get(charId)?.agent === CLAUDE_CODE_AGENT) {
+      this.purgeLegacy(charId);
+    } else if (ev.type === 'tool_start' && typeof ev.toolUseId === 'string') this.toolStart(charId, ev);
     else if (ev.type === 'tool_end') {
       const tools = this.open.get(charId);
       if (tools?.delete(ev.toolUseId) && tools.size === 0) this.open.delete(charId);
@@ -290,9 +320,23 @@ export class HooksBridge {
     for (const [k, w] of [...this.waits]) if (w.ev.sessionId === charId) this.waits.delete(k); // by the id, not by a key prefix
   }
 
+  // Closes open synthetic legacy-hook tools when the Store starts following a Claude session via its transcript.
+  purgeLegacy(sid) {
+    const prefix = `${sid}:`;
+    for (const key of this.legacyTools.keys()) if (key.startsWith(prefix)) this.legacyTools.delete(key);
+    const openIds = this.legacyOpen.get(sid);
+    if (!openIds) return;
+    this.legacyOpen.delete(sid);
+    const ts = iso(this.now());
+    for (const toolUseId of openIds) {
+      this.store.push({ type: 'tool_end', sessionId: sid, ts, toolUseId, ok: false, errorKind: 'abandoned', error: 'Superseded by transcript' });
+    }
+  }
+
   toolStart(charId, ev) {
     const entry = this.store.byChar?.get(charId) ?? null; // null: a session only hooks report
     if (entry && entry.agent !== CLAUDE_CODE_AGENT) return; // Grok, Codex, Antigravity: never the target of a Claude hook
+    if (!this._inLegacy && entry) this.purgeLegacy(charId);
     let tools = this.open.get(charId);
     if (!tools) {
       if (this.open.size >= MAX_CHARS) this.forget(this.open.keys().next().value);

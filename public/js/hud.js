@@ -19,6 +19,8 @@ export {
   CONTROL_PRESETS, DEFAULT_CONTROL_PRESET, controlPresetOf,
 };
 
+const closestEl = (t, sel) => (typeof t?.closest === 'function' ? t.closest(sel) : null);
+
 export class Hud {
   constructor() {
     const $ = (id) => document.getElementById(id);
@@ -81,7 +83,7 @@ export class Hud {
     };
     setSpeed(cfg.speed);
     el.speed.addEventListener('click', (e) => {
-      const b = e.target.closest('button');
+      const b = closestEl(e.target, 'button');
       if (b) { setSpeed(Number(b.dataset.speed)); prefs.speed = cfg.speed; save(); }
     });
 
@@ -177,7 +179,7 @@ export class Hud {
       prefs.soundOn = this.soundOn;
       save();
     });
-    el.llmFilter?.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { syncLlmFilter(b.dataset.llm); prefs.llmFilter = this.llmFilter; save(); } });
+    el.llmFilter?.addEventListener('click', (e) => { const b = closestEl(e.target, 'button'); if (b) { syncLlmFilter(b.dataset.llm); prefs.llmFilter = this.llmFilter; save(); } });
     el.colorBtn?.addEventListener('click', () => { this.applyColorScheme(COLOR_THEMES[(COLOR_THEMES.indexOf(this.colorTheme) + 1) % COLOR_THEMES.length]); prefs.colorTheme = this.colorTheme; save(); });
     el.resetCastBtn?.addEventListener('click', () => { this.llmCharMap = resetLlmCharMap(); prefs.llmCharMap = this.llmCharMap; refreshCast(); });
     el.soundBtn?.addEventListener('click', () => { this.soundOn = setSoundEnabled(!this.soundOn); syncSoundBtn(); prefs.soundOn = this.soundOn; save(); });
@@ -194,9 +196,9 @@ export class Hud {
     toggle(el.legendBtn, el.legend, 'legend', false);
     el.legend?.querySelector('#close-legend')?.addEventListener('click', () => el.legendBtn?.click());
 
-    el.floors.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) office.focus(b.dataset.i === 'all' ? 'all' : Number(b.dataset.i)); });
+    el.floors.addEventListener('click', (e) => { const b = closestEl(e.target, 'button'); if (b) office.focus(b.dataset.i === 'all' ? 'all' : Number(b.dataset.i)); });
     el.list.addEventListener('click', (e) => {
-      const li = e.target.closest('li');
+      const li = closestEl(e.target, 'li');
       const a = li && office.agents.get(li.dataset.sid);
       if (!a) return;
       if (a.floor.index !== office.focusIndex || office.overview) office.focus(a.floor.index);
@@ -216,7 +218,7 @@ export class Hud {
     const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
     const resetCamera = () => { office.follow = false; office.layout({ snapPan: true }); office.stage.resetView?.(); if (office.selected) this.inspect(office.selected, office); };
     window.addEventListener('keydown', (e) => {
-      if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+      if (closestEl(e.target, 'input, textarea, select, [contenteditable]')) return;
       if ((e.metaKey || e.ctrlKey) && ['+', '=', '-', '_'].includes(e.key)) { e.preventDefault(); office.stage.zoomBy?.(e.key === '-' || e.key === '_' ? 1 / 1.2 : 1.2); return; }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.code === 'Space') { e.preventDefault(); office.stage.setSpaceDown?.(true); return; }
