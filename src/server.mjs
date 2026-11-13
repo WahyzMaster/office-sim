@@ -355,7 +355,7 @@ export async function start(options = {}) {
   let port = opts.port;
   const parsedNotify = parseNotifyArg(opts.notify ? (opts.notifyCategories ?? opts.notify) : false);
   const candidateRoot = opts.publicDir ? path.resolve(opts.publicDir, '..') : null;
-  const repoRoot = candidateRoot && fs.existsSync(path.join(candidateRoot, 'package.json')) ? candidateRoot : null;
+  const repoRoot = opts.repoRoot ?? (candidateRoot && fs.existsSync(path.join(candidateRoot, 'scripts', 'verify-dom-invariants.mjs')) ? candidateRoot : null);
   const health = createHealth({ group, store, build: { version: packageVersion(), commit: opts.build?.commit ?? null }, startedAt });
   httpLayer = createHttp({
     store,
@@ -396,8 +396,8 @@ export async function start(options = {}) {
         }
         if (runbookId === 'prune_observe_files') {
           if (!observe) return 'ObserveControl disabled (no observeDir configured)';
-          await observe._prune?.();
-          return 'Pruned observe output retention files';
+          const res = await observe.prune();
+          return res?.skipped ? 'Skipped observe prune (observe directory not created yet)' : 'Pruned observe output retention files';
         }
         if (runbookId === 'probe_sse_and_runner_latency') {
           const started = Date.now();

@@ -315,10 +315,15 @@ export function planClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.1' 
 
   const nextRoot = { ...root, hooks };
   const backupPath = `${settingsPath}.office-sim.bak`;
+  let backupNeeded = false;
+  if (exists) {
+    const backupSt = fs.lstatSync(backupPath, { throwIfNoEntry: false });
+    backupNeeded = !backupSt || backupSt.isSymbolicLink();
+  }
   return {
     settingsPath, exists, raw, text: `${JSON.stringify(nextRoot, null, 2)}\n`,
     changed: JSON.stringify(nextRoot) !== JSON.stringify(root),
-    backupPath, backupNeeded: exists && !fs.existsSync(backupPath), replaced, entries,
+    backupPath, backupNeeded, replaced, entries,
   };
 }
 

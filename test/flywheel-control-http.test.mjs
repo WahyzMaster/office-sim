@@ -173,17 +173,17 @@ describe('FlywheelControl & /api/flywheel HTTP/SSE Integration', () => {
           {
             kind: 'tailer_integrity',
             capabilityId: 'observe-sidecar',
-            primaryKey: 'obs-prune-test',
-            title: 'Synthetic observe backlog',
-            summary: 'Triggers prune_observe_files',
+            primaryKey: 'obs-start-test',
+            title: 'Synthetic observe capture wait',
+            summary: 'Triggers start_diagnostic_observe',
             severity: 'fail',
           },
           {
             kind: 'permission_wait',
             capabilityId: 'observe-sidecar',
-            primaryKey: 'obs-start-test',
-            title: 'Synthetic observe capture wait',
-            summary: 'Triggers start_diagnostic_observe',
+            primaryKey: 'obs-prune-test',
+            title: 'Synthetic observe backlog',
+            summary: 'Triggers prune_observe_files',
             severity: 'fail',
           },
         ],
@@ -193,13 +193,15 @@ describe('FlywheelControl & /api/flywheel HTTP/SSE Integration', () => {
     const domScanBody = await domScanRes.json();
     const domSig = domScanBody.signals.find((s) => s.kind === 'dom_entropy');
     const sseSig = domScanBody.signals.find((s) => s.kind === 'sse_backpressure');
-    const pruneSig = domScanBody.signals.find((s) => s.kind === 'tailer_integrity');
-    const startSig = domScanBody.signals.find((s) => s.kind === 'permission_wait');
+    const startSig = domScanBody.signals.find((s) => s.kind === 'tailer_integrity');
+    const pruneSig = domScanBody.signals.find((s) => s.kind === 'permission_wait');
     assert.ok(domSig, 'expected live getDomAudit to surface dom_entropy on near-cap repo');
     assert.equal(domSig.recommendedAction.runbookId, 'run_dom_invariant_audit');
     assert.match(domSig.recommendedAction.executionResult ?? '', /DOM audit:/);
     assert.ok(sseSig && /Probed \d+ runner\(s\)/.test(sseSig.recommendedAction?.executionResult ?? ''));
-    assert.ok(pruneSig && /ObserveControl disabled/.test(pruneSig.recommendedAction?.executionResult ?? ''));
+    assert.equal(startSig?.recommendedAction?.runbookId, 'start_diagnostic_observe');
     assert.ok(startSig && /ObserveControl disabled/.test(startSig.recommendedAction?.executionResult ?? ''));
+    assert.equal(pruneSig?.recommendedAction?.runbookId, 'prune_observe_files');
+    assert.ok(pruneSig && /ObserveControl disabled/.test(pruneSig.recommendedAction?.executionResult ?? ''));
   });
 });

@@ -49,7 +49,8 @@ export async function pruneOutputs({ dir, current, keep, fsImpl, signal = null }
     }
   }
   found.sort(newestFirst);
-  for (const { name } of found.slice(Math.max(0, keep - 1))) {
+  const offset = current ? 1 : 0;
+  for (const { name } of found.slice(Math.max(0, keep - offset))) {
     if (signal?.aborted) return out;
     try {
       await fsImpl.unlink(path.join(dir, name)); // unlink 은 링크를 따라가지 않고, 폴더는 지우지 못한다

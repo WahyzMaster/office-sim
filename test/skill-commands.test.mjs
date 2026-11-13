@@ -234,7 +234,7 @@ test('probe snippet prints exactly one line even when the listener closes at onc
 test('wait snippet returns at once when the server fails to start (EADDRINUSE), without a healthz line (finding 4)', unixOnly, async () => {
   const home = await tmp();
   const out = path.join(home, 'office-sim.out');
-  const blocker = net.createServer();
+  const blocker = net.createServer((c) => c.destroy());
   await new Promise((r) => blocker.listen(0, '127.0.0.1', r));
   let child = null;
   const gone = () => child.exitCode !== null || child.signalCode !== null;
