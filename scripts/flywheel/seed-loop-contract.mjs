@@ -22,10 +22,11 @@ import {
 export const PROTECTED_VERIFICATION_FILES = Object.freeze([
   'scripts/verify-dom-invariants.mjs',
   'scripts/fake-root-guard.mjs',
-  'test/adapter-claude-conformance.test.mjs',
+  'test/adapter-conformance.test.mjs',
   'test/adapter-codex-conformance.test.mjs',
   'test/adapter-grok-conformance.test.mjs',
   'test/adapter-antigravity-conformance.test.mjs',
+  'test/adapter-gemini-cli-conformance.test.mjs',
   'test/flywheel-router.test.mjs',
 ]);
 
@@ -35,7 +36,7 @@ export const CAPABILITY_VERIFY_COMMANDS = Object.freeze({
     'node scripts/verify-dom-invariants.mjs',
   ],
   adapters: [
-    'node --test test/adapter-claude-conformance.test.mjs test/adapter-codex-conformance.test.mjs test/adapter-grok-conformance.test.mjs test/adapter-antigravity-conformance.test.mjs',
+    'node --test test/adapter-conformance.test.mjs test/adapter-codex-conformance.test.mjs test/adapter-grok-conformance.test.mjs test/adapter-antigravity-conformance.test.mjs test/adapter-gemini-cli-conformance.test.mjs',
     'node scripts/verify-dom-invariants.mjs',
   ],
   'tailer-store': [
@@ -43,7 +44,7 @@ export const CAPABILITY_VERIFY_COMMANDS = Object.freeze({
     'node scripts/verify-dom-invariants.mjs',
   ],
   'observe-sidecar': [
-    'node --test test/observe-control.test.mjs test/observe-writer.test.mjs',
+    'node --test test/observe-control.test.mjs test/observe-core.test.mjs test/observe-summary.test.mjs',
     'node scripts/verify-dom-invariants.mjs',
   ],
   'http-sse': [
@@ -51,7 +52,7 @@ export const CAPABILITY_VERIFY_COMMANDS = Object.freeze({
     'node scripts/verify-dom-invariants.mjs',
   ],
   'session-recap': [
-    'node --test test/session-recap.test.mjs',
+    'node --test test/session.test.mjs test/session-fixes.test.mjs test/session-review.test.mjs',
     'node scripts/verify-dom-invariants.mjs',
   ],
   'scene-3d': [

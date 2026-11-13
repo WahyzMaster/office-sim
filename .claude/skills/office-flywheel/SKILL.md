@@ -59,7 +59,7 @@ node scripts/flywheel/promote-lesson.mjs \
   --cue "Codex adapter misses tool_end when rollout item is truncated" \
   --lesson "Check src/adapters/codex/parse.mjs before adding new tool state transitions" \
   --evidence "Verified in test/adapter-codex-conformance.test.mjs" \
-  --anchor "src/adapters/codex/parse.mjs#parseCodexLine"
+  --anchor "src/adapters/codex/records.mjs#parseRecord"
 ```
 
 ### Step 4: Attach `refs/notes/evidence` Envelope

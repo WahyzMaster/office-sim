@@ -1,6 +1,7 @@
 // 로컬 서버 (contract 6): 파일 탐색/꼬리 읽기 루프 + HTTP/SSE.
 // 루프 셋 (poll / rescan / idle) 은 서로 겹치지 않는다: 이전 tick 이 돌고 있으면 이번 tick 은 건너뛴다.
 // 켜진 어댑터마다 Runner 하나, Store 와 HTTP 는 하나 (contract 4.0.1, RunnerGroup).
+import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,6 +11,7 @@ import { createHttp, validInterval, MIN_INTERVAL, MAX_INTERVAL } from './server-
 import { Runner } from './server-runner.mjs';
 import { COMMIT_RE, createHealth, packageVersion } from './server-health.mjs';
 import { newToken } from './server-guard.mjs';
+import { auditDomHealth } from './flywheel/dom-audit.mjs';
 import { ADAPTERS, KNOWN_AGENTS, checkAgents, probeRoot, probeWithin, selectAdapters } from './adapters/index.mjs';
 import { resolvePluginAdapters } from './adapters/plugins.mjs';
 import { publicSessionId } from './session-identity.mjs';
@@ -352,6 +354,9 @@ export async function start(options = {}) {
   const token = opts.auth ? newToken() : null; // 프로세스 안에서만 만든다 (argv/env 는 다른 사용자에게 보인다)
   let port = opts.port;
   const parsedNotify = parseNotifyArg(opts.notify ? (opts.notifyCategories ?? opts.notify) : false);
+  const candidateRoot = opts.publicDir ? path.resolve(opts.publicDir, '..') : null;
+  const repoRoot = candidateRoot && fs.existsSync(path.join(candidateRoot, 'package.json')) ? candidateRoot : null;
+  const health = createHealth({ group, store, build: { version: packageVersion(), commit: opts.build?.commit ?? null }, startedAt });
   httpLayer = createHttp({
     store,
     publicDir: opts.publicDir,
@@ -364,7 +369,7 @@ export async function start(options = {}) {
       return config();
     },
     // version 은 여기서 한 번 읽는다 (요청마다 fs 를 부르지 않는다)
-    health: createHealth({ group, store, build: { version: packageVersion(), commit: opts.build?.commit ?? null }, startedAt }),
+    health,
     authToken: token,
     cdn: opts.cdn,
     observe,
@@ -378,18 +383,32 @@ export async function start(options = {}) {
       ...(opts.notifyOpts ?? {}),
     },
     flywheelOpts: {
+      getDomAudit: () => (repoRoot ? auditDomHealth(repoRoot) : null),
       runTierAAction: async (runbookId) => {
         if (runbookId === 'rescan_adapter_roots') {
           await group.rescan();
           return `Rescanned ${group.ids.length} active adapter root(s)`;
         }
-        if (runbookId === 'start_diagnostic_observe' && observe) {
+        if (runbookId === 'start_diagnostic_observe') {
+          if (!observe) return 'ObserveControl disabled (no observeDir configured)';
           await observe.start();
           return 'Started bounded ObserveControl diagnostic capture';
         }
-        if (runbookId === 'prune_observe_files' && observe) {
+        if (runbookId === 'prune_observe_files') {
+          if (!observe) return 'ObserveControl disabled (no observeDir configured)';
           await observe._prune?.();
           return 'Pruned observe output retention files';
+        }
+        if (runbookId === 'probe_sse_and_runner_latency') {
+          const started = Date.now();
+          const snapHealth = health();
+          const runnerCount = Object.keys(snapHealth.runners ?? {}).length;
+          return `Probed ${runnerCount} runner(s) in ${Date.now() - started}ms`;
+        }
+        if (runbookId === 'run_dom_invariant_audit') {
+          if (!repoRoot) return 'Skipped DOM audit (no repository root configured)';
+          const audit = auditDomHealth(repoRoot);
+          return `DOM audit: ${audit.violationsCount} violation(s), ${audit.nearCapFilesCount} near-cap file(s), ${audit.staleAnchorsCount} stale anchor(s)`;
         }
         return `Executed Tier A probe (${runbookId})`;
       },

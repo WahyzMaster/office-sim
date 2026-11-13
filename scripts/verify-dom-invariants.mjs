@@ -4,62 +4,18 @@
 // 2. Source files in bin/, src/, public/js/, and scripts/ stay <= 500 lines. Third-party files vendored under
 //    public/vendor/ are not project source and are exempt (docs/CONTRACT.md section 0).
 // 3. Always-on DOM markdown files (CLAUDE.md, AGENTS.md, GEMINI.md) contain no emoticons.
-import fs from 'node:fs';
+// 4. code_anchors in docs/lessons/*.md exist and resolve to live symbols.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { auditDomHealth } from '../src/flywheel/dom-audit.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const MAX_LINES = 500;
-const CODE_DIRS = ['bin', 'src', 'public/js', 'scripts'];
-// Vendored third-party files (three.js, byte-pinned by test/vendor-assets.test.mjs): never line-counted, also if a
-// folder above them is added to CODE_DIRS later.
-const THIRD_PARTY_DIRS = ['public/vendor'];
-const MD_FILES = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md', 'CONTRIBUTING.md'];
-const EMOTICON_RE = /\p{Extended_Pictographic}/u;
+const audit = auditDomHealth(ROOT);
 
-const violations = [];
-
-// 1. Zero runtime dependencies check
-const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-const depKeys = Object.keys(pkg.dependencies ?? {});
-if (depKeys.length > 0) {
-  violations.push(`package.json must have zero runtime dependencies (found: ${depKeys.join(', ')})`);
-}
-
-// 2. <= 500 lines per code file & O_NOFOLLOW symlink guard in watchers
-function walkCode(dirRel) {
-  if (THIRD_PARTY_DIRS.some((d) => dirRel === d || dirRel.startsWith(`${d}/`))) return;
-  const absDir = path.join(ROOT, dirRel);
-  if (!fs.existsSync(absDir)) return;
-  for (const entry of fs.readdirSync(absDir, { withFileTypes: true })) {
-    const rel = path.posix.join(dirRel, entry.name);
-    if (entry.isDirectory()) {
-      walkCode(rel);
-    } else if (entry.isFile() && /\.(mjs|js)$/.test(entry.name)) {
-      const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
-      const lines = text.split('\n').length;
-      if (lines > MAX_LINES) {
-        violations.push(`${rel} has ${lines} lines (cap: ${MAX_LINES})`);
-      }
-      if (rel === 'src/desktop-claude.mjs' || rel.startsWith('src/adapters/') || rel.startsWith('src/observe/')) {
-        if (/fsp\.open\s*\([^)]*FS\.O_RDONLY\s*\|\s*\(FS\.O_NONBLOCK/.test(text)) {
-          violations.push(`${rel} calls fsp.open without O_NOFOLLOW (CONTRACT.md section 5 violation)`);
-        }
-      }
-    }
-  }
-}
-for (const dir of CODE_DIRS) walkCode(dir);
-
-// 3. No emoticons in DOM governance markdown files
-for (const mdRel of MD_FILES) {
-  const mdPath = path.join(ROOT, mdRel);
-  if (!fs.existsSync(mdPath)) continue;
-  const text = fs.readFileSync(mdPath, 'utf8');
-  if (EMOTICON_RE.test(text)) {
-    violations.push(`${mdRel} contains emoticons (disallowed by CONTRIBUTING.md and GEMINI.md)`);
-  }
-}
+const violations = [
+  ...audit.violations,
+  ...audit.staleAnchors.map((s) => `${s.lesson} has stale code_anchor "${s.anchor}" (${s.reason})`),
+];
 
 if (violations.length > 0) {
   console.error(`[office-sim DOM invariants: FAIL] (${violations.length} violation(s))`);
