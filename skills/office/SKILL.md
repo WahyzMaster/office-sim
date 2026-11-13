@@ -65,7 +65,7 @@ When running, also check the counters `badLines`, `skippedLines`, `applyErrors`,
    node --input-type=module -e '
    import fs from "node:fs";
    const lines = () => { try { const t = fs.readFileSync(process.argv[1], "utf8"); return t.slice(0, t.lastIndexOf("\n") + 1).split("\n").filter((l) => l.startsWith("office-sim: ")); } catch { return []; } };
-   for (let i = 0; i < 40 && !lines().some((l) => !l.startsWith("office-sim: http://")); i++) await new Promise((r) => setTimeout(r, 250));
+   for (let i = 0; i < 40 && !lines().some((l) => !l.startsWith("office-sim: http://") && !l.includes("older than the supported floor")); i++) await new Promise((r) => setTimeout(r, 250));
    const out = lines(); console.log(out.join("\n") || "office-sim: no output after 10 s");
    const url = out.map((l) => l.slice(12)).find((u) => u.startsWith("http://"));
    const keep = setTimeout(() => {}, 1500);

@@ -226,6 +226,18 @@ export class ObserveControl {
     if ((await this._settle(p.then(() => true))) !== true) ac.abort();
   }
 
+  /** Prune old observation files up to `limits.keep`, excluding any active run file. */
+  async prune() {
+    try {
+      await this.fs.lstat(this.dir);
+    } catch (err) {
+      if (err?.code === 'ENOENT') return { skipped: true };
+      throw err;
+    }
+    await this._prune(this.run?.file ?? null);
+    return { skipped: false, ...this.pruned };
+  }
+
   async _openOutput(startMs) {
     try {
       await this.fs.mkdir(this.dir, { recursive: true, mode: DIR_MODE });

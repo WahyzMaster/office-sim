@@ -13,6 +13,11 @@ const LOAD_FAILED = Object.freeze({
   ko: 'WebGPU 파일을 불러오지 못했어요. 로컬 페이지는 office-sim --cdn 이 필요해요',
 });
 
+export const TIMEOUT_FAILED = Object.freeze({
+  en: 'WebGPU initialization timed out (3000ms)',
+  ko: 'WebGPU 초기화 시간 초과 (3000ms)',
+});
+
 function clampInt(raw, fallback, min, max) {
   const n = Number.parseInt(String(raw ?? ''), 10);
   if (!Number.isFinite(n)) return fallback;
@@ -87,7 +92,11 @@ export function rendererBadgeLabel(info, lang = 'ko') {
   const active = info?.active === 'webgpu' ? 'WebGPU' : 'WebGL2';
   if (info?.requested !== 'webgpu') return active;
   if (info.active === 'webgpu') return lang === 'en' ? 'WebGPU active' : 'WebGPU 활성';
-  const reason = info.fallbackCode === 'load' ? LOAD_FAILED[lang === 'en' ? 'en' : 'ko'] : info.fallbackReason;
+  const reason = info.fallbackCode === 'load'
+    ? LOAD_FAILED[lang === 'en' ? 'en' : 'ko']
+    : info.fallbackCode === 'timeout'
+      ? TIMEOUT_FAILED[lang === 'en' ? 'en' : 'ko']
+      : info.fallbackReason;
   const why = reason ? ` (${reason})` : '';
   return lang === 'en' ? `WebGL2 fallback${why}` : `WebGL2 대체${why}`;
 }
@@ -153,13 +162,17 @@ export async function initOptionalWebGPU(stage, opts = {}) {
     const dpr = opts.pixelRatio ?? Math.min(globalThis.window?.devicePixelRatio || 1, 2);
     gpuRenderer.setPixelRatio?.(dpr);
     if (gpuRenderer.shadowMap) gpuRenderer.shadowMap.enabled = true;
-    if (typeof gpuRenderer.init === 'function') await withTimeout(gpuRenderer.init(), timeoutMs);
+    const initTimeoutMs = Number.isFinite(opts.timeoutMs) && opts.timeoutMs > 0 ? opts.timeoutMs : 3000;
+    if (typeof gpuRenderer.init === 'function') await withTimeout(gpuRenderer.init(), initTimeoutMs);
     if (!gpuRenderer.domElement) throw new Error('WebGPURenderer missing domElement');
     const info = { requested: 'webgpu', active: 'webgpu', fallbackReason: null };
     stage?.swapRenderer?.(gpuRenderer, info);
     return settle(info);
   } catch (err) {
     try { gpuRenderer?.dispose?.(); } catch { /* ignore */ }
+    if (err instanceof InitTimeout) {
+      return settle({ requested: 'webgpu', active: 'webgl2', fallbackReason: TIMEOUT_FAILED.en, fallbackCode: 'timeout' });
+    }
     const reason = String(err?.message || 'WebGPU initialization failed').slice(0, 120);
     return settle({ requested: 'webgpu', active: 'webgl2', fallbackReason: reason });
   }

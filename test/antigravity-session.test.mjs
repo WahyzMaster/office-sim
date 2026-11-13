@@ -459,3 +459,30 @@ test('long mixed scenario: replay-mode state equals live-mode state, in both tra
     assert.doesNotMatch(JSON.stringify([evs, lv.s.snapshotEvents(), lv.s.debugState()]), BAIT_RE, `${format}: privacy`);
   }
 });
+
+test('2.x tools room hints: AntigravitySession patches meeting/lounge/research rooms on live, snapshot, and clears on close', () => {
+  for (const format of ['full', 'truncated']) {
+    const { s, b } = mk({ format });
+    const calls = [
+      { name: 'search_marketplace', args: { queries: ['figma'], kind: 'plugin' } },
+      { name: 'list_plugin_accounts', args: {} },
+      { name: 'enter_plan_mode', args: { reason: `secret BAIT reason` } },
+      { name: 'exit_plan_mode', args: { plan: `secret BAIT plan` } },
+      { name: 'swarm', args: { action: 'add', brief: `secret BAIT brief` } },
+    ];
+    const openEvs = run(s, [b.userInput('Coordinate work'), b.planner({ calls })]);
+    const roomsByTool = Object.fromEntries(of(openEvs, 'tool_start').map((e) => [e.tool, e.room]));
+    assert.deepEqual(roomsByTool, {
+      search_marketplace: 'research',
+      list_plugin_accounts: 'research',
+      enter_plan_mode: 'meeting',
+      exit_plan_mode: 'meeting',
+      swarm: 'lounge',
+    });
+    const snapRooms = Object.fromEntries(of(s.snapshotEvents(), 'tool_start').map((e) => [e.tool, e.room]));
+    assert.deepEqual(snapRooms, roomsByTool);
+    assert.equal(s._rooms.size, 3, 'tracks meeting/lounge rooms only');
+    run(s, [b.result(), b.result(), b.result(), b.result(), b.result()]);
+    assert.equal(s._rooms.size, 0, 'clears finished room hints');
+  }
+});

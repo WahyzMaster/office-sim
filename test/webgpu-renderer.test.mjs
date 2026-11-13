@@ -157,3 +157,23 @@ test('parseBenchConfig and high-concurrency LOD: scales to 20+ floors and 100+ c
   assert.equal(crowdStride(132, false), 4);
   assert.deepEqual([0, 63, 64, 99, 100, 159, 160].map(lodTier), [0, 0, 1, 1, 2, 2, 3]);
 });
+
+test('initOptionalWebGPU: renderer.init() timeout sets fallbackCode timeout and disposes candidate renderer', async () => {
+  let disposed = false;
+  class HungInit {
+    constructor() { this.domElement = { tagName: 'CANVAS' }; }
+    init() { return new Promise(() => {}); }
+    dispose() { disposed = true; }
+  }
+  const res = await initOptionalWebGPU(null, {
+    search: '?renderer=webgpu',
+    nav: { gpu: { requestAdapter: async () => ({}) } },
+    timeoutMs: 20,
+    loadWebGPU: async () => ({ default: HungInit }),
+  });
+  assert.equal(disposed, true);
+  assert.equal(res.active, 'webgl2');
+  assert.equal(res.fallbackCode, 'timeout');
+  assert.match(rendererBadgeLabel(res, 'ko'), /시간 초과 \(3000ms\)/);
+  assert.match(rendererBadgeLabel(res, 'en'), /timed out \(3000ms\)/);
+});

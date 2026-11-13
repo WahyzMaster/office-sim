@@ -77,26 +77,30 @@ export function reuseAllowed(argv) {
 }
 
 /**
- * The office-sim that holds the default port. Only when the error is EADDRINUSE and the user did not pass --port
- * (`portArg` undefined, so `port` is the default port): one `GET /healthz`; its URL when the listener answers like an
- * office-sim, else null. Any other case sends nothing and is null.
+ * The office-sim holding the conflicted port. When `err` is EADDRINUSE and the resolved port (`portArg ?? port`) is a
+ * valid TCP port (1..65535), sends one `GET /healthz` to that port and returns its URL when the listener answers like
+ * an office-sim; otherwise sends nothing and returns null.
  */
 export async function findRunning(err, { portArg, host, port, timeoutMs } = {}) {
-  if (err?.code !== 'EADDRINUSE' || portArg !== undefined) return null;
-  const answer = await probeHealthz({ host, port, timeoutMs });
+  if (err?.code !== 'EADDRINUSE') return null;
+  const targetPort = portArg !== undefined ? portArg : port;
+  if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) return null;
+  const answer = await probeHealthz({ host, port: targetPort, timeoutMs });
   if (!answer || !isOfficeSimHealth(answer.status, answer.body)) return null;
-  return baseUrl(host, port);
+  return baseUrl(host, targetPort);
 }
 
 /**
  * A failed listen. When `findRunning` finds an office-sim on the default port: write `office-sim: already running at
- * <url>` and, with `open`, open that URL. Any other case writes nothing, and the caller reports the failure as before.
+ * <url>` and, with `open`, open that URL. Explicit `--port` never reuses. Any other case writes nothing, and the caller
+ * reports the failure as before.
  * @param {unknown} err the error start() rejected with
  * @param {{ portArg: number|undefined, host: string, port: number, open?: boolean, write: (line: string) => void,
  *   openUrl: (url: string) => void, timeoutMs?: number }} options
  * @returns {Promise<string|null>} the running server's URL when it is reused, else null
  */
 export async function reuseRunning(err, { portArg, host, port, open = false, write, openUrl, timeoutMs } = {}) {
+  if (err?.code !== 'EADDRINUSE' || portArg !== undefined) return null;
   const url = await findRunning(err, { portArg, host, port, timeoutMs });
   if (!url) return null;
   write(`office-sim: already running at ${url}\n`);
@@ -118,7 +122,7 @@ export function listenFailureHint(err, runningUrl = null) {
 /**
  * The whole decision for a failed listen (D2, D18). A run whose argv passes `reuseAllowed` reuses a running
  * office-sim on the default port (`reuseRunning`). Any other run never reuses: its failure stays a failure, and the
- * hint names the running office-sim when one holds the default port. An explicit --port is never probed.
+ * hint names the running office-sim when one holds the resolved port (`portArg ?? port`).
  * @param {unknown} err the error start() rejected with
  * @param {{ argv: string[], portArg: number|undefined, host: string, port: number, open?: boolean,
  *   write: (line: string) => void, openUrl: (url: string) => void, timeoutMs?: number }} options

@@ -2,6 +2,23 @@
 
 Notable changes to Office Sim, written for the people who use it. Releases before 0.12.0 are listed in the release ledger of [`docs/SOFTWARE_DEVELOPMENT_REPORT.md`](docs/SOFTWARE_DEVELOPMENT_REPORT.md) and described in [`docs/HISTORY.md`](docs/HISTORY.md).
 
+## Unreleased
+
+### Fixed
+
+- Guarded all delegated click and `window` `keydown` `e.target.closest(...)` calls in `public/js/hud.js` so synthetic or non-Element targets never throw (`GLO-1250`).
+- Closed open synthetic hook tools with `abandoned` in `src/hooks-bridge.mjs` when transcript tracking takes over a Claude Code session.
+- Hardened `installClaudeHooks` and `uninstallClaudeHooks` (`src/hooks-receiver.mjs`) with atomic `O_EXCL | O_NOFOLLOW` temporary writes and backup symlink protection (`ELOOP`).
+- Updated `findRunning` (`src/port-reuse.mjs`) and `docs/CONTRACT.md` so explicit `--port <N>` still fails on `EADDRINUSE` while probing `<N>` for a running `office-sim` URL hint (skipping invalid ports `< 1`).
+- Distinguished `WebGPURenderer.init()` 3000ms timeouts with `fallbackCode: 'timeout'` and localized `ko`/`en` diagnostics (`public/js/webgpu-stage.js`).
+- Skipped Node `< 22` advisory startup warning lines in `/office` skill wait snippets (`skills/office/SKILL.md` and `plugin/skills/office/SKILL.md`).
+- Removed leftover Korean parenthetical text from the English Grok row in `README.md`.
+
+### Added
+
+- Antigravity 2.x tool mappings (`search_marketplace`, `list_plugin_accounts`, `enter_plan_mode`, `exit_plan_mode`, `swarm`) and generalized `_rooms` patching in `src/adapters/antigravity/` (`docs/CONTRACT.md` §4.8, `docs/ADAPTERS.md` §5.3/§6.2).
+- Shared pure DOM invariant auditor (`src/flywheel/dom-audit.mjs`), wired live flywheel Tier A runbooks (`src/server.mjs`), anti-Goodhart RSI ratchet CLI (`scripts/flywheel/rsi-eval.mjs`), L2 lesson (`docs/lessons/L-rsi-dom-ratchet.md`), and five-module decomposition keeping modified modules well below the 500-line ceiling.
+
 ## 0.12.0
 
 The first run now works from one command, the default page talks to your own machine only, and the README says only what the program does. Several defaults change, so read "Changed" before you upgrade.

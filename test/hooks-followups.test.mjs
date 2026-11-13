@@ -195,6 +195,26 @@ test('forget goes by the character id, not by a key prefix: an id that starts li
   assert.equal(bridge.hasWait(B), true, 'the other character keeps its wait');
 });
 
+test('transition from hook-only to transcript-followed Claude session purges open synthetic legacy-hook tools', () => {
+  const { bridge, store, events, clock } = setup({ chars: {} });
+  const sid = 'hook-only-takeover-1';
+  bridge.handle({ session_id: sid, hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: {} });
+  const startEv = events.find((e) => e.type === 'tool_start');
+  assert.ok(startEv?.toolUseId?.startsWith('hook_'), 'pre-takeover hook created synthetic tool');
+  assert.equal(bridge.legacyOpen.get(sid)?.size, 1);
+
+  clock.ms += 500;
+  store.byChar.set(sid, { agent: 'claude-code', sid });
+  store.push({ type: 'session', sessionId: sid, ts: new Date(clock.ms).toISOString(), agent: 'claude-code', project: '/w/app' });
+
+  assert.equal(bridge.legacyOpen.has(sid), false, 'legacyOpen cleared on transcript takeover');
+  const endEv = events.find((e) => e.type === 'tool_end' && e.toolUseId === startEv.toolUseId);
+  assert.ok(endEv, 'abandoned tool_end emitted for synthetic legacy-hook tool');
+  assert.equal(endEv.ok, false);
+  assert.equal(endEv.errorKind, 'abandoned');
+  assert.equal(bridge.stats().openWaits, 0);
+});
+
 test('the backup line is printed only for a backup this run wrote', { skip: cannotRestrict && 'a read-only file stops no write here' }, async () => {
   // the backup is already there: the settings write fails, and no line claims a backup
   const home = tmpDir();

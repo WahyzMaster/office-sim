@@ -153,5 +153,55 @@ describe('FlywheelControl & /api/flywheel HTTP/SSE Integration', () => {
     const cfgBody = await cfgRes.json();
     assert.equal(cfgBody.config.intervalMinutes, 15);
     assert.equal(cfgBody.config.tierAMode, 'auto_execute');
+
+    // 5. Live getDomAudit surfaces P8 dom_entropy when near-cap files exist, and all 5 Tier A runbooks execute
+    const domScanRes = await fetch(`${baseUrl}/api/flywheel`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: baseUrl },
+      body: JSON.stringify({
+        action: 'scan',
+        triggerSource: 'on_demand',
+        extraCandidates: [
+          {
+            kind: 'sse_backpressure',
+            capabilityId: 'http-sse',
+            primaryKey: 'sse-test',
+            title: 'Synthetic SSE backpressure',
+            summary: 'Triggers probe_sse_and_runner_latency',
+            severity: 'fail',
+          },
+          {
+            kind: 'tailer_integrity',
+            capabilityId: 'observe-sidecar',
+            primaryKey: 'obs-start-test',
+            title: 'Synthetic observe capture wait',
+            summary: 'Triggers start_diagnostic_observe',
+            severity: 'fail',
+          },
+          {
+            kind: 'permission_wait',
+            capabilityId: 'observe-sidecar',
+            primaryKey: 'obs-prune-test',
+            title: 'Synthetic observe backlog',
+            summary: 'Triggers prune_observe_files',
+            severity: 'fail',
+          },
+        ],
+      }),
+    });
+    assert.equal(domScanRes.status, 200);
+    const domScanBody = await domScanRes.json();
+    const domSig = domScanBody.signals.find((s) => s.kind === 'dom_entropy');
+    const sseSig = domScanBody.signals.find((s) => s.kind === 'sse_backpressure');
+    const startSig = domScanBody.signals.find((s) => s.kind === 'tailer_integrity');
+    const pruneSig = domScanBody.signals.find((s) => s.kind === 'permission_wait');
+    assert.ok(domSig, 'expected live getDomAudit to surface dom_entropy on near-cap repo');
+    assert.equal(domSig.recommendedAction.runbookId, 'run_dom_invariant_audit');
+    assert.match(domSig.recommendedAction.executionResult ?? '', /DOM audit:/);
+    assert.ok(sseSig && /Probed \d+ runner\(s\)/.test(sseSig.recommendedAction?.executionResult ?? ''));
+    assert.equal(startSig?.recommendedAction?.runbookId, 'start_diagnostic_observe');
+    assert.ok(startSig && /ObserveControl disabled/.test(startSig.recommendedAction?.executionResult ?? ''));
+    assert.equal(pruneSig?.recommendedAction?.runbookId, 'prune_observe_files');
+    assert.ok(pruneSig && /ObserveControl disabled/.test(pruneSig.recommendedAction?.executionResult ?? ''));
   });
 });

@@ -1,12 +1,12 @@
 // 사무실 상태. 모든 입력(데모, SSE)은 onEvent(ev) 한 곳으로 들어온다.
 import * as THREE from 'three';
-import { Floor, FLOOR_GAP, EXPLODE_GAP } from './floor.js';
+import { Floor, EXPLODE_GAP } from './floor.js';
 import { Agent } from './agent.js';
-import { ROOMS, activeThemeOf, classify, toolLabel, tr } from './rooms.js';
-import { separateAgents } from './placement.js';
+import { ROOMS, classify, toolLabel, tr } from './rooms.js';
 import { Inbox } from './office-inbox.js';
-import { floorDetail, crowdStride, labelRootIndex, lodTier } from './detail.js';
-import { waitStart, waitEnd, reconcileWaits, snapshotWaits, liveAskStays, textKey, rememberText, forgetText, forgetTexts } from './approval.js';
+import { floorDetail, labelRootIndex, lodTier } from './detail.js';
+import { waitStart, waitEnd, liveAskStays, textKey, rememberText, forgetText, forgetTexts } from './approval.js';
+import { applyOfficeSnapshot, pruneEmptyFloors, refreshOfficeLabels, layoutFloors, hitOfficeAgent, stepOffice, rehomeOfficeAgent } from './office-view.js';
 
 export const GLOBAL_FLOOR_KEY = '_global';
 export const GLOBAL_FLOOR_LABEL = '전역 · 미지정';
@@ -206,47 +206,7 @@ export class Office {
 
   // 층(project)이나 서브에이전트 여부가 바뀐 직원: 새로 만들고 할 일, 열린 도구, 기록을 넘긴다.
   // 그 직원을 따라 같은 층에 있던 서브에이전트도 함께 옮긴다.
-  rehome(old, info, floor) {
-    const from = old.floor;
-    const has = (k) => k in info;
-    const merged = {
-      sessionId: old.id,
-      project: floor.key,
-      title: info.title || old.name,
-      branch: info.branch || old.branch,
-      worktree: has('worktree') ? info.worktree : old.worktree,
-      isSubagent: has('isSubagent') ? !!info.isSubagent : old.isSub,
-      parentSessionId: has('parentSessionId') ? info.parentSessionId : old.parentId,
-      agentType: info.agentType || old.agentType,
-      agent: info.agent || old.agent,
-      surface: info.surface || old.surface || '',
-      charOverride: old.charOverride || 'auto',
-      postureOverride: old.postureOverride || 'auto',
-      motionOverride: old.motionOverride || 'auto',
-    };
-    const carry = old.current && old.current.kind !== 'leave' ? [old.current] : [];
-    for (const it of carry) {
-      it.arrived = false;
-      it.t = 0;
-    }
-    const spawn = floor === from ? { x: old.group.position.x, z: old.group.position.z } : null;
-    old.dispose();
-    this.agents.delete(old.id);
-    const a = new Agent(this, merged, floor, spawn);
-    a.queue = [...carry, ...old.queue];
-    a.pending = old.pending;
-    a.history = old.history;
-    a.childSeq = old.childSeq; // 이미 있는 형제와 색이 겹치지 않게 순번을 이어 간다
-    const prevTier = lodTier(this.agents.size); this.agents.set(a.id, a);
-    if (lodTier(this.agents.size) !== prevTier) this.layout(); else this.dress(a);
-    if (this.selected === old) this.select(a, { silent: true });
-    if (floor !== from) {
-      for (const kid of [...this.agents.values()]) if (kid.parentId === a.id && kid.floor === from) this.rehome(kid, {}, floor);
-      this.pruneEmptyFloors();
-    }
-    this.hud.renderFloors(this);
-    return a;
-  }
+  rehome(old, info, floor) { return rehomeOfficeAgent(this, old, info, floor); }
 
   toolStart(a, ev) {
     const room = ev.room || classify(ev.tool);
@@ -292,37 +252,7 @@ export class Office {
   // - 스냅샷에 있는 직원: 스냅샷에 없는 열린 도구/질문은 끊긴 사이에 끝난 것이라 닫는다.
   // - 스냅샷에 없는 직원: 열린 것을 모두 닫고 퇴근. 단 서버가 아직 파일을 붙이는 중(partial)이면 그대로 둔다.
   // - 라이브 승인 대기: 도구는 열려 있는데 tool_wait 가 없으면 끊긴 사이에 허용된 것이라 도구 방으로 돌려보낸다.
-  applySnapshot(events, meta = {}) {
-    if (meta.reset) {
-      for (const a of [...this.agents.values()]) this.removeAgent(a);
-      for (const f of this.floors) f.board?.clear?.();
-      this.inbox.boxes?.clear?.(); this.toolTexts.clear();
-    }
-    const live = new Set();
-    const open = new Map();
-    for (const e of events) {
-      if (e.type === 'session') live.add(e.sessionId);
-      else if (e.type === 'tool_start') {
-        if (!open.has(e.sessionId)) open.set(e.sessionId, new Set());
-        open.get(e.sessionId).add(e.toolUseId);
-      }
-    }
-    const waits = snapshotWaits(events);
-    for (const ev of events) this.onEvent({ ...ev, replay: true });
-    for (const a of [...this.agents.values()]) {
-      if (live.has(a.id)) {
-        const ids = open.get(a.id) || new Set();
-        reconcileWaits(a, ids, waits.get(a.id) || new Set());
-        a.abandonPending(ids);
-        forgetTexts(this.toolTexts, a.id, ids);
-      } else if (!meta.partial) {
-        a.abandonPending();
-        forgetTexts(this.toolTexts, a.id);
-        a.leave();
-      }
-    }
-    if (meta.reset) this.catchUp();
-  }
+  applySnapshot(events, meta = {}) { applyOfficeSnapshot(this, events, meta); }
 
   // 탭이 다시 보이면: 숨어 있는 동안 쌓인 일을 건너뛰고 지금 상태로 따라잡는다.
   catchUp() {
@@ -341,45 +271,11 @@ export class Office {
     this.hud.renderFloors(this);
   }
 
-  pruneEmptyFloors(keep = 1) { // keep: 비어도 남길 층 수. 0 은 첫 실행의 데모를 치울 때만 쓴다 (empty-state.js)
-    if (this.floors.length <= keep) return;
-    let removed = false;
-    for (let i = this.floors.length - 1; i >= 0 && this.floors.length > keep; i--) {
-      const f = this.floors[i];
-      if (f.agents.size > 0) continue;
-      this.floors.splice(i, 1);
-      this.byKey.delete(f.key);
-      this.hud.clearPing(f);
-      f.dispose(this.stage);
-      if (this.focusIndex > i) this.focusIndex -= 1;
-      removed = true;
-    }
-    if (!removed) return;
-    this.floors.forEach((f, idx) => {
-      f.index = idx;
-      f.renameTag();
-    });
-    this.focusIndex = clamp(this.focusIndex, 0, Math.max(0, this.floors.length - 1));
-    this.layout();
-  }
+  pruneEmptyFloors(keep = 1) { pruneEmptyFloors(this, keep); } // keep: 비어도 남길 층 수. 0 은 첫 실행의 데모를 치울 때만 쓴다 (empty-state.js)
 
   // ---- 시점 ----
   refreshLabels(globalLabel = GLOBAL_FLOOR_LABEL, theme = null, postureChanged = false) {
-    const gf = this.byKey.get(GLOBAL_FLOOR_KEY);
-    if (gf) gf.label = globalLabel;
-    const themeChanged = theme && this.theme !== theme;
-    if (theme) this.theme = theme;
-    for (const f of this.floors) {
-      if (themeChanged) f.rebuildTheme?.(theme);
-      else f.refreshSigns?.();
-      f.board?.draw?.();
-    }
-    for (const a of this.agents.values()) {
-      if (a.activity === '출근' || a.activity === 'Arrived') a.activity = tr('출근', 'Arrived');
-      else if (a.activity === '대기 중' || a.activity === 'Idle') a.activity = tr('대기 중', 'Idle');
-      if (themeChanged || postureChanged) a.refreshTheme?.(this.theme);
-      else a.refreshTag?.();
-    }
+    refreshOfficeLabels(this, GLOBAL_FLOOR_KEY, globalLabel, theme, postureChanged);
   }
 
   refreshCharacters() {
@@ -422,26 +318,7 @@ export class Office {
     this.hud.renderFloors(this);
   }
 
-  layout(opts = {}) {
-    document.body.classList.toggle('overview', this.overview);
-    this.stage.setOverview?.(this.overview);
-    const load = { agentCount: this.agents.size, floorCount: this.floors.length };
-    for (const f of this.floors) {
-      f.goalY = f.index * (this.overview ? EXPLODE_GAP : FLOOR_GAP);
-      const d = floorDetail(f.index, this.focusIndex, this.overview, load);
-      f.group.visible = d.visible;
-      f.group.matrixWorldAutoUpdate = d.visible; // 숨은 층은 행렬 갱신도 건너뛴다
-      f.animate = d.animate;
-      if (f.shadows !== d.shadows) f.setShadows(d.shadows);
-      f.setLabelsVisible(d.labels);
-      for (const a of f.agents) a.setLabelsVisible(d.labels);
-    }
-    const n = this.floors.length;
-    const y = this.overview ? ((n - 1) * EXPLODE_GAP) / 2 : this.focusIndex * FLOOR_GAP;
-    this.stage.setGoal(new THREE.Vector3(0, y + 0.6, 0), opts);
-    this.stage.setLampY(this.overview ? -100 : this.focusIndex * FLOOR_GAP);
-    this.stage.resize();
-  }
+  layout(opts = {}) { layoutFloors(this, opts); }
 
   viewHalf(aspect) {
     const base = Math.max(9.8, 14.5 / aspect);
@@ -461,38 +338,11 @@ export class Office {
     this.hud.inspect(a, this);
   }
 
-  hitAgent(ndc) {
-    const meshes = [];
-    for (const a of this.agents.values()) if (a.floor.group.visible) meshes.push(...a.pickMeshes);
-    this.raycaster.setFromCamera(ndc, this.stage.camera);
-    const hit = this.raycaster.intersectObjects(meshes, false)[0];
-    return hit ? hit.object.userData.agent : null;
-  }
+  hitAgent(ndc) { return hitOfficeAgent(this, ndc); }
 
   pick(ndc) {
     this.select(this.hitAgent(ndc));
   }
 
-  update(dt, realDt) {
-    this.tickSeq = ((this.tickSeq || 0) + 1) | 0;
-    const total = this.agents.size;
-    const theme = activeThemeOf();
-    for (const f of [...this.floors]) {
-      f.busy = {};
-      for (const a of f.agents) if (a.mode === 'work' && !a.path.length) f.busy[a.room] = true;
-      const stride = crowdStride(total, !this.overview && f.index === this.focusIndex);
-      const prevAnim = f.animate;
-      if (prevAnim && stride > 1 && (this.tickSeq % stride) !== 0) f.animate = false;
-      f.update(dt, realDt);
-      for (const a of [...f.agents]) a.update(dt);
-      f.animate = prevAnim;
-      if (f.group.visible && f.agents.size > 1) separateAgents([...f.agents], dt, 0.56, theme);
-    }
-    if (this.follow && this.selected) {
-      this.selected.group.getWorldPosition(this.tmp);
-      this.tmp.y += 0.6;
-      this.stage.setGoal(this.tmp, { snapPan: true });
-    }
-    this.stage.update(realDt);
-  }
+  update(dt, realDt) { stepOffice(this, dt, realDt); }
 }

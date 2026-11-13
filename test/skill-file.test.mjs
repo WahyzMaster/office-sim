@@ -117,7 +117,7 @@ test('probe: a fallback timer guarantees one line, and no output at all counts a
 
 test('wait: complete lines only, ends on any non-URL line, and EADDRINUSE leads to one more probe (finding 4)', () => {
   assert.ok(SKILL.includes('t.slice(0, t.lastIndexOf("\\n") + 1)'));
-  assert.ok(SKILL.includes('!lines().some((l) => !l.startsWith("office-sim: http://"))'));
+  assert.ok(SKILL.includes('!lines().some((l) => !l.startsWith("office-sim: http://") && !l.includes("older than the supported floor"))'));
   assert.ok(SKILL.includes('contains `EADDRINUSE` (another start took 4747 first), probe once more and act as in step 1'));
 });
 

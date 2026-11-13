@@ -263,14 +263,25 @@ test('D18 onListenFailure: with any other option the conflict stays an error tha
   }
 });
 
-test('D18 onListenFailure: an explicit --port never probes and keeps the old hint; so does a listener that is no office-sim', async () => {
+test('D18 onListenFailure: an explicit --port stays a failure, probes that port for the URL hint, and skips invalid ports (< 1)', async () => {
   const like = await otherProgram(json(200, { ok: true, agents: [] })); // answers /healthz the way an office-sim does
   const fx = effects();
-  const base = { host: '127.0.0.1', port: like.port, open: true, write: fx.write, openUrl: fx.openUrl, timeoutMs: PATIENT };
+  const base = { host: '127.0.0.1', port: 4747, open: true, write: fx.write, openUrl: fx.openUrl, timeoutMs: PATIENT };
+  const expectedUrl = baseUrl('127.0.0.1', like.port);
   for (const argv of [['--port', String(like.port)], ['--port', String(like.port), '--demo'], ['--port', String(like.port), '--replay', 'x.jsonl']]) {
-    assert.deepEqual(await onListenFailure(inUse(), { ...base, argv, portArg: like.port }), { reused: null, hint: OLD_HINT }, argv.join(' '));
+    assert.deepEqual(
+      await onListenFailure(inUse(), { ...base, argv, portArg: like.port }),
+      { reused: null, hint: listenFailureHint(inUse(), expectedUrl) },
+      argv.join(' '),
+    );
   }
-  assert.equal(like.seen.requests, 0, 'no request was sent for an explicit --port');
+  assert.equal(like.seen.requests, 3, 'explicit --port probes portArg (never default 4747) for the running URL hint');
+  assert.deepEqual(
+    await onListenFailure(inUse(), { ...base, argv: ['--port', '0'], portArg: 0 }),
+    { reused: null, hint: OLD_HINT },
+    'invalid portArg (< 1) sends no probe and keeps OLD_HINT',
+  );
+  assert.equal(like.seen.requests, 3);
   assert.deepEqual([fx.written, fx.opened], [[], []]);
   const hello = await otherProgram((req, res) => res.end('hello'));
   for (const argv of [[], ['--demo'], ['--cdn'], ['--auth']]) {

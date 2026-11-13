@@ -94,7 +94,9 @@ test('ADAPTERS, README and the research note describe P5g as shipped, with the w
   assert.match(adapters.split('\n').find((l) => l.startsWith('| D7 |')), /결과\(P5g/);
   assert.match(adapters, /쓰는 시각 정정/);
   const readme = read('README.md');
-  assert.match(readme.split('\n').find((l) => l.startsWith('| Grok (xAI Grok Build) |')), /라이브 승인 대기/);
+  const grokRow = readme.split('\n').find((l) => l.startsWith('| Grok (xAI Grok Build) |'));
+  assert.match(grokRow, /live approval wait/);
+  assert.doesNotMatch(grokRow, /[가-힣]/, 'README English agent table stays English');
   assert.doesNotMatch(readme, /런타임 이벤트\(`events\.jsonl`\)/, 'README no longer says events.jsonl is never opened');
   const note = read('docs/research/grok-format.json');
   JSON.parse(note);

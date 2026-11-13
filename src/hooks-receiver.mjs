@@ -315,10 +315,15 @@ export function planClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.1' 
 
   const nextRoot = { ...root, hooks };
   const backupPath = `${settingsPath}.office-sim.bak`;
+  let backupNeeded = false;
+  if (exists) {
+    const backupSt = fs.lstatSync(backupPath, { throwIfNoEntry: false });
+    backupNeeded = !backupSt || backupSt.isSymbolicLink();
+  }
   return {
     settingsPath, exists, raw, text: `${JSON.stringify(nextRoot, null, 2)}\n`,
     changed: JSON.stringify(nextRoot) !== JSON.stringify(root),
-    backupPath, backupNeeded: exists && !fs.existsSync(backupPath), replaced, entries,
+    backupPath, backupNeeded, replaced, entries,
   };
 }
 
@@ -329,6 +334,32 @@ export function planClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.1' 
  * Writes { type: 'http', url, timeout: 2 } for each of HOOK_EVENTS (Notification with matcher "permission_prompt")
  * and removes every older office-sim hook, whatever its event. It writes what planClaudeHooks computes.
  */
+function writeAtomicText(targetPath, text, mode, { noFollowTarget = false } = {}) {
+  const st = fs.lstatSync(targetPath, { throwIfNoEntry: false });
+  if (noFollowTarget && st?.isSymbolicLink()) {
+    throw Object.assign(new Error(`Refusing to write through symlink: ${targetPath}`), { code: 'ELOOP' });
+  }
+  const destPath = !noFollowTarget && st ? fs.realpathSync(targetPath) : targetPath;
+  if (st) fs.accessSync(destPath, fs.constants.W_OK);
+  const tmpPath = path.join(path.dirname(destPath), `.office-sim.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
+  const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW ?? 0);
+  let fd = null;
+  try {
+    fd = fs.openSync(tmpPath, flags, mode);
+    const buf = Buffer.from(text, 'utf8');
+    let off = 0;
+    while (off < buf.length) off += fs.writeSync(fd, buf, off, buf.length - off);
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fd = null;
+    fs.renameSync(tmpPath, destPath);
+  } catch (err) {
+    if (fd !== null) try { fs.closeSync(fd); } catch {}
+    try { fs.unlinkSync(tmpPath); } catch {}
+    throw err;
+  }
+}
+
 export function installClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.1' } = {}) {
   const plan = planClaudeHooks({ settingsPath, port, host });
   // A failure says which write it was and whether this call had written the backup before it (for the caller's
@@ -337,13 +368,13 @@ export function installClaudeHooks({ settingsPath, port = 4747, host = '127.0.0.
   let backupWritten = false;
   try {
     if (plan.exists) {
-      if (plan.backupNeeded) fs.writeFileSync(plan.backupPath, plan.raw, { encoding: 'utf8', mode: 0o600 });
+      if (plan.backupNeeded) writeAtomicText(plan.backupPath, plan.raw, 0o600, { noFollowTarget: true });
       backupWritten = plan.backupNeeded;
     } else {
       fs.mkdirSync(path.dirname(settingsPath), { recursive: true, mode: 0o700 });
     }
     step = 'settings';
-    fs.writeFileSync(settingsPath, plan.text, { encoding: 'utf8', mode: 0o600 });
+    writeAtomicText(settingsPath, plan.text, 0o600, { noFollowTarget: false });
   } catch (err) {
     throw Object.assign(err, { step, backupWritten });
   }
@@ -380,7 +411,7 @@ export function planClaudeUnhook({ settingsPath } = {}) {
 export function uninstallClaudeHooks({ settingsPath } = {}) {
   const plan = planClaudeUnhook({ settingsPath });
   if (plan.text === null) return { removed: false, removedCount: 0, settingsPath };
-  fs.writeFileSync(settingsPath, plan.text, { encoding: 'utf8', mode: 0o600 });
+  writeAtomicText(settingsPath, plan.text, 0o600, { noFollowTarget: false });
   return { removed: true, removedCount: plan.removedCount, settingsPath };
 }
 

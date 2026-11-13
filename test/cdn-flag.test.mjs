@@ -192,3 +192,30 @@ test('other WebGPU outcomes keep their own reason and never name --cdn', async (
   assert.doesNotMatch(rendererBadgeLabel(noGpu, 'ko'), /--cdn/);
   assert.deepEqual(await initOptionalWebGPU(makeStage(), { search: '', hash: '', nav: null }), { requested: 'webgl2', active: 'webgl2', fallbackReason: null });
 });
+
+test('a renderer.init() timeout carries fallbackCode timeout, localizes ko/en, and never mentions --cdn', async () => {
+  let disposed = false;
+  class HungInitRenderer {
+    constructor() { this.domElement = { tagName: 'CANVAS' }; }
+    init() { return new Promise(() => {}); }
+    dispose() { disposed = true; }
+  }
+  const stage = makeStage();
+  const info = await initOptionalWebGPU(stage, {
+    search: '?renderer=webgpu',
+    nav: gpuNav,
+    timeoutMs: 25,
+    loadWebGPU: async () => ({ default: HungInitRenderer }),
+  });
+  assert.equal(disposed, true);
+  assert.deepEqual(info, {
+    requested: 'webgpu',
+    active: 'webgl2',
+    fallbackReason: 'WebGPU initialization timed out (3000ms)',
+    fallbackCode: 'timeout',
+  });
+  assert.equal(rendererBadgeLabel(info, 'en'), 'WebGL2 fallback (WebGPU initialization timed out (3000ms))');
+  assert.equal(rendererBadgeLabel(info, 'ko'), 'WebGL2 대체 (WebGPU 초기화 시간 초과 (3000ms))');
+  assert.doesNotMatch(rendererBadgeLabel(info, 'en'), /--cdn/);
+  assert.doesNotMatch(rendererBadgeLabel(info, 'ko'), /--cdn/);
+});

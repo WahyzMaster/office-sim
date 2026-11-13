@@ -1,4 +1,4 @@
-# Software Development Report — Office Sim (`v0.11.0`)
+# Software Development Report — Office Sim (`v0.12.0`)
 
 ## 1. Document Control, Identification & Executive Summary
 
@@ -10,7 +10,7 @@
 |---|---|
 | **Document ID** | `SDR-OFFICE-SIM-2026-01` |
 | **Product Name** | `office-sim` (Real-Time 3D Multi-Agent Office Visualizer) |
-| **Baseline Version** | `v0.11.0` (Git tag `v0.11.0`, published to npm as `office-sim@0.11.0`) |
+| **Baseline Version** | `v0.12.0` (release line `v0.12.0`, published to npm as `office-sim@0.12.0`) |
 | **Repository** | `https://github.com/WahyzMaster/office-sim` |
 | **License** | MIT (`LICENSE`) |
 | **Runtime Environment** | Server: `Node.js >= 22` (`node:*` built-in ESM only); Client: Browser ES Modules + WebGL2 / progressive WebGPU (`Three.js` through the `importmap`; since `v0.12.0` it resolves to the copy vendored under `public/vendor/`, and only the opt-in WebGPU renderer still loads from a CDN, with `--cdn`) |
@@ -23,11 +23,11 @@
 
 Built under a strict **Zero-Dependency** and **Privacy-by-Default** engineering charter, the server uses exclusively Node.js built-in modules (`node:http`, `node:fs`, `node:path`, `node:crypto`, `node:child_process`) bound to loopback (`127.0.0.1`), opens transcript files with `O_RDONLY | O_NOFOLLOW | O_NONBLOCK`, and reduces what crosses the Server-Sent Events (`/events`) wire boundary to tool names, file basenames, URL hostnames, and short scrubbed text: excerpts of prompts, replies and errors, and short pieces of a tool call such as a search pattern, a query or the agent's one-line description (`docs/CONTRACT.md` sections 3.1, 4 and 5).
 
-### 1.3 Quantitative Engineering Baseline (`v0.11.0`)
+### 1.3 Quantitative Engineering Baseline (`v0.12.0`)
 
 | Metric Category | Metric | Verified Value | Primary Evidence |
 |---|---|---|---|
-| **Release Velocity** | Semantic Releases & Commits | `20` releases (`v0.2.0` -> `v0.11.0`), `135+` commits | Git tags, `.github/workflows/publish.yml` |
+| **Release Velocity** | Semantic Releases & Commits | `v0.2.0` -> `v0.12.0` (`21+` releases) | Git tags, `CHANGELOG.md`, `.github/workflows/publish.yml` |
 | **Dependency Footprint** | Production `npm` Dependencies | `0` runtime dependencies | `package.json`, `scripts/verify-dom-invariants.mjs` |
 | **Modularity** | Source File Line Cap | `<= 500 lines` per file across `bin/`, `src/`, `public/js/`, `scripts/` | `scripts/verify-dom-invariants.mjs` |
 | **Codebase Volume** | Production & Test Source | `~26.8K` lines production (`src/`, `bin/`, `public/`, `scripts/`) + `28.8K` lines tests (`test/`) | `278+` repository `.mjs`/`.js`/`.html` files |
@@ -144,9 +144,9 @@ sequenceDiagram
 | **Discovery & Tailing** | `src/discover.mjs`, `src/tailer.mjs`, `src/core/sidecar.mjs`, `src/desktop-claude.mjs` | Allowlist-only directory scanning, inode/truncation-aware byte-offset tailing, desktop cloud-chat detection, and mtime/size-guarded sidecar metadata watching (`<= 1 MB`). |
 | **Canonical Core & Store** | `src/session.mjs`, `src/core/session-core.mjs`, `src/core/tool-summary.mjs`, `src/store.mjs`, `src/store-claude.mjs`, `src/store-link.mjs` | Stateful turn/tool pairing (`R6..R36`), `cleanText` privacy scrubbing, subagent parent linking, git worktree floor coalescing, and snapshot synthesis. |
 | **Multi-Agent Adapters** | `src/adapters/index.mjs`, `src/adapters/claude-code.mjs`, `src/adapters/codex/index.mjs`, `src/adapters/grok/index.mjs`, `src/adapters/antigravity/index.mjs` | Translates provider-specific transcript records into canonical `docs/CONTRACT.md` §2 events without leaking raw payloads. |
-| **HTTP, Replay & OS Bridge** | `src/server-http.mjs`, `src/server-guard.mjs`, `src/server-health.mjs`, `src/replay.mjs`, `src/system-notify.mjs`, `src/terminal-focus.mjs`, `src/hooks-receiver.mjs`, `src/hooks-bridge.mjs` | Serves static assets, `/events` SSE, `/state`, `/healthz`, `/api/notify`, `/api/focus`, `/api/hooks/claude`, and deterministic `--replay` playback. |
-| **Observation & Flywheel** | `src/observe/observer.mjs`, `src/observe/control.mjs`, `src/flywheel/collectors.mjs`, `src/flywheel/router.mjs`, `scripts/flywheel/seed-loop-contract.mjs` | Captures categorical telemetry (`P1..P8`), deduplicates anomalies via 24-hex SHA-256 keys, and seeds `Harness²` `L3 -> L1 -> L2` improvement contracts. |
-| **3D Scene & Simulation HUD** | `public/js/main.js`, `public/js/office.js`, `public/js/floor.js`, `public/js/agent.js`, `public/js/board.js`, `public/js/board-detail.js`, `public/js/sim-cute-anim.js`, `public/js/sim-overlays.js`, `public/js/sim-motives.js`, `public/js/sim-advisor.js` | Renders multi-floor Three.js scenes, 29 character rigs, 3D handheld micro-props, clickable Plan Board Detail Drawer (`#board-detail`), SimCity RCI lenses, and Sims motives. |
+| **HTTP, Replay & OS Bridge** | `src/server-http.mjs`, `src/server-routes.mjs`, `src/server-guard.mjs`, `src/server-health.mjs`, `src/replay.mjs`, `src/system-notify.mjs`, `src/terminal-focus.mjs`, `src/hooks-receiver.mjs`, `src/hooks-bridge.mjs` | Serves static assets, `/events` SSE, `/state`, `/healthz`, `/api/notify`, `/api/focus`, `/api/hooks/claude`, and deterministic `--replay` playback with atomic `O_NOFOLLOW` hook persistence. |
+| **Observation & Flywheel** | `src/observe/observer.mjs`, `src/observe/control.mjs`, `src/flywheel/collectors.mjs`, `src/flywheel/router.mjs`, `src/flywheel/control.mjs`, `src/flywheel/persistence.mjs`, `src/flywheel/dom-audit.mjs`, `scripts/flywheel/seed-loop-contract.mjs`, `scripts/flywheel/rsi-eval.mjs` | Captures categorical telemetry (`P1..P8`), deduplicates anomalies via 24-hex SHA-256 keys, shares pure `auditDomHealth` gates across CLI and server runbooks, enforces anti-Goodhart RSI ratchets, and seeds `Harness²` `L3 -> L1 -> L2` improvement contracts (`docs/lessons/L-rsi-dom-ratchet.md`). |
+| **3D Scene & Simulation HUD** | `public/js/main.js`, `public/js/office.js`, `public/js/office-view.js`, `public/js/floor.js`, `public/js/agent.js`, `public/js/placement.js`, `public/js/maneuvers.js`, `public/js/hud.js`, `public/js/hud-prefs.js`, `public/js/board.js`, `public/js/board-detail.js`, `public/js/sim-cute-anim.js`, `public/js/sim-overlays.js`, `public/js/sim-motives.js`, `public/js/sim-advisor.js` | Renders multi-floor Three.js scenes, 29 character rigs, modular camera/view, placement/maneuver steering, HUD preference storage, Plan Board Detail Drawer (`#board-detail`), SimCity RCI lenses, and Sims motives. |
 
 ---
 
@@ -216,7 +216,7 @@ sequenceDiagram
 
 > **Standard Alignment**: **IEEE 1061** (Software Quality Metrics Methodology) and **Harness² (`INV` / `DOM`)** Autonomous Agentic Engineering Governance.
 
-### 6.1 Chronological Release Ledger (`v0.2.0` -> `v0.11.0`)
+### 6.1 Chronological Release Ledger (`v0.2.0` -> `v0.12.0`)
 
 | Version | Date | Milestone Summary |
 |---|---|---|
@@ -230,6 +230,7 @@ sequenceDiagram
 | `v0.10.0` | `2026-10-30` | Clickable 3D Plan Board raycast, Plan Board Detail Drawer (`#board-detail`), and interactive `.bubble`, `.floortag`, and `.sign` targets (`public/js/board-detail.js`, `GLO-1163`). |
 | `v0.10.1` - `v0.10.2` | `2026-10-31..11-01` | 3-Loop Plan Board & HUD polish (`GLO-1164`), industry-standard Software Development Report (`GLO-1165`), and `P5` post-merge deployment governance (`docs/workflows/README.md`). |
 | `v0.11.0` | `2026-11-11` | Post-`v0.10.1` roadmap delivery (`GLO-1243`): progressive WebGPU renderer (`?renderer=webgpu` / `#webgpu`, `public/js/webgpu-stage.js`) + `100+`-agent LOD stride (`public/js/detail.js`), interactive `--replay` timeline scrubber (`GET/POST /api/replay`, `src/replay-control.mjs`, `public/js/replay-scrubber.js`), and optional plug-in registry (`src/adapters/plugins.mjs`) with `gemini-cli` (`src/adapters/gemini-cli/`). |
+| `v0.12.0` | `2026-11-13` | Local-first vendored Three.js, port `4747`, first-run demo, mini-window PiP, Claude HTTP hooks, secret masking, and RSI Flywheel decompression + DOM ratchet (`GLO-1250`). |
 
 ### 6.2 SDLC Governance (`Harness²` & 6-Phase Standard Workflow)
 
@@ -238,7 +239,7 @@ Development is governed by the `Harness²` cost hierarchy (`skill -> script -> s
 - **P2 Architecture Fit & P3 4-Pillar Build**: Simultaneous delivery of production code + unit/conformance tests, usage documentation, visual cues, and invariant gates.
 - **P4 Independent Multi-Agent Verification & P5 Ship & Land**: Read-only subagent code review verifying zero `HIGH`/`MEDIUM` findings prior to PR squash-merge. npm/GitHub release publishing is post-merge and manually dispatched: `.github/workflows/publish.yml` runs on `workflow_dispatch` only since `v0.12.0` (through `v0.11.0` it ran on every merge to `master`), and a real release (`dry_run` false) runs only when it is started on `master`; a dry run may be started on any ref.
 
-### 6.3 Future Engineering Roadmap (Post-`v0.11.0`)
+### 6.3 Future Engineering Roadmap (Post-`v0.12.0`)
 
 1. **Cross-Adapter Multi-Format `--replay`**: Extend `src/replay.mjs` and `src/replay-timeline.mjs` beyond Claude Code JSONL so recorded Codex, Grok, Antigravity, and `gemini-cli` transcripts can be scrubbed side-by-side in `--replay` mode.
 2. **TSL / Instanced Crowd Shaders on WebGPU**: Layer optional `InstancedMesh` limb batching onto `public/js/webgpu-stage.js` when `?renderer=webgpu` is active for `500+` synthetic swarm agents.
