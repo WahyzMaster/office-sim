@@ -21,9 +21,9 @@ function checkZeroDependencies(repoRoot, violations) {
   }
 }
 
-function scanCodeTree(repoRoot, state) {
+function scanCodeTree(repoRoot, state, thirdPartyDirs = THIRD_PARTY_DIRS) {
   function walk(dirRel) {
-    if (THIRD_PARTY_DIRS.some((d) => dirRel === d || dirRel.startsWith(`${d}/`))) return;
+    if (thirdPartyDirs.some((d) => dirRel === d || dirRel.startsWith(`${d}/`))) return;
     const absDir = path.join(repoRoot, dirRel);
     if (!fs.existsSync(absDir)) return;
     for (const entry of fs.readdirSync(absDir, { withFileTypes: true })) {
@@ -136,7 +136,7 @@ function checkLessonAnchors(repoRoot, staleAnchors) {
   }
 }
 
-export function auditDomHealth(repoRoot) {
+export function auditDomHealth(repoRoot, { thirdPartyDirs = THIRD_PARTY_DIRS } = {}) {
   const state = {
     violations: [],
     nearCapFiles: [],
@@ -146,7 +146,7 @@ export function auditDomHealth(repoRoot) {
     maxLinesFile: null,
   };
   checkZeroDependencies(repoRoot, state.violations);
-  scanCodeTree(repoRoot, state);
+  scanCodeTree(repoRoot, state, thirdPartyDirs);
   checkMarkdownEmoticons(repoRoot, state.violations);
   checkLessonAnchors(repoRoot, state.staleAnchors);
 

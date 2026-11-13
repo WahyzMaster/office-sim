@@ -3,13 +3,9 @@
 // safe dry-run approval inbox, and optional O_NOFOLLOW state persistence.
 
 import * as fsp from 'node:fs/promises';
-import { constants as FS } from 'node:fs';
-import { join } from 'node:path';
 import {
-  DEFAULT_FLYWHEEL_CONFIG,
   FINGERPRINT_RE,
   FLYWHEEL_SIGNAL_KINDS,
-  VALID_INTERVAL_MINUTES,
 } from './types.mjs';
 import {
   buildSeedContractCommand,
@@ -21,13 +17,16 @@ import {
   buildInitialFlywheelState,
   collectRuntimeSignals,
 } from './collectors.mjs';
+import {
+  applyFlywheelConfigPatch,
+  buildFlywheelStatus,
+  loadFlywheelState,
+  saveFlywheelState,
+} from './persistence.mjs';
 
 const MAX_HISTORY_TICKS = 24;
 const MAX_CYCLE_HISTORY = 20;
 const MAX_SIGNALS_LEDGER = 120;
-const WRITE_FLAGS =
-  FS.O_WRONLY | FS.O_CREAT | FS.O_TRUNC | (FS.O_NOFOLLOW ?? 0);
-const READ_FLAGS = FS.O_RDONLY | (FS.O_NOFOLLOW ?? 0);
 
 export class FlywheelControl {
   constructor({
@@ -90,112 +89,18 @@ export class FlywheelControl {
   }
 
   async loadPersistedState() {
-    if (!this.dir) return false;
-    try {
-      const st = await this.fs.lstat(this.dir);
-      if (!st.isDirectory()) return false;
-      const fh = await this.fs.open(join(this.dir, 'flywheel-state.json'), READ_FLAGS);
-      try {
-        const raw = await fh.readFile({ encoding: 'utf8' });
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object' && parsed.config && parsed.components) {
-          this._state = {
-            ...this._state,
-            ...parsed,
-            config: {
-              ...DEFAULT_FLYWHEEL_CONFIG,
-              ...parsed.config,
-              enabledSources: {
-                ...DEFAULT_FLYWHEEL_CONFIG.enabledSources,
-                ...(parsed.config.enabledSources ?? {}),
-              },
-            },
-          };
-          return true;
-        }
-      } finally {
-        await fh.close().catch(() => {});
-      }
-    } catch {
-      // Missing or unreadable state file is non-fatal.
-    }
-    return false;
+    const next = await loadFlywheelState(this.dir, this.fs, this._state);
+    if (!next) return false;
+    this._state = next;
+    return true;
   }
 
   async _persistState() {
-    if (!this.dir) return false;
-    try {
-      const st = await this.fs.lstat(this.dir);
-      if (!st.isDirectory()) return false;
-      const fh = await this.fs.open(
-        join(this.dir, 'flywheel-state.json'),
-        WRITE_FLAGS,
-        0o600,
-      );
-      try {
-        await fh.writeFile(`${JSON.stringify(this._state, null, 2)}\n`);
-        return true;
-      } finally {
-        await fh.close().catch(() => {});
-      }
-    } catch {
-      return false;
-    }
+    return saveFlywheelState(this.dir, this.fs, this._state);
   }
 
   status() {
-    const signalsList = Object.values(this._state.signals).sort((a, b) => {
-      const activeA = a.status !== 'resolved' ? 0 : 1;
-      const activeB = b.status !== 'resolved' ? 0 : 1;
-      if (activeA !== activeB) return activeA - activeB;
-      if (a.priorityRank !== b.priorityRank) return a.priorityRank - b.priorityRank;
-      return String(b.lastSeenAt ?? '').localeCompare(String(a.lastSeenAt ?? ''));
-    });
-
-    let activeCount = 0;
-    let failCount = 0;
-    let warnCount = 0;
-    let debouncingCount = 0;
-    let dryRunPendingCount = 0;
-    let linkedLinearCount = 0;
-    let regressionCount = 0;
-
-    for (const s of signalsList) {
-      if (s.status !== 'resolved') {
-        activeCount += 1;
-        if (s.severity === 'fail') failCount += 1;
-        else warnCount += 1;
-        if (s.status === 'debouncing') debouncingCount += 1;
-        if (s.recommendedAction?.status === 'pending_approval') dryRunPendingCount += 1;
-        if (s.regression) regressionCount += 1;
-      }
-      if (s.linearIssueIdentifier) linkedLinearCount += 1;
-    }
-
-    let overallStatus = 'pass';
-    if (failCount > 0) overallStatus = 'fail';
-    else if (warnCount > 0) overallStatus = 'warn';
-
-    return {
-      schemaVersion: this._state.schemaVersion,
-      overallStatus,
-      config: structuredClone(this._state.config),
-      components: structuredClone(this._state.components),
-      signals: structuredClone(signalsList),
-      cycleHistory: structuredClone(this._state.cycleHistory),
-      summaryCounts: {
-        activeCount,
-        failCount,
-        warnCount,
-        debouncingCount,
-        dryRunPendingCount,
-        linkedLinearCount,
-        regressionCount,
-      },
-      lastScanAt: this._state.lastScanAt,
-      nextScheduledAt: this._state.nextScheduledAt,
-      updatedAt: this._state.updatedAt,
-    };
+    return buildFlywheelStatus(this._state);
   }
 
   async scan({ triggerSource = 'on_demand', extraCandidates = [] } = {}) {
@@ -341,68 +246,11 @@ export class FlywheelControl {
   }
 
   async updateConfig(patch = {}) {
-    if (!patch || typeof patch !== 'object') {
-      return { ok: false, error: 'INVALID_PATCH', status: this.status() };
-    }
-    const next = { ...this._state.config };
-    let timerChanged = false;
-
-    if (typeof patch.enabled === 'boolean') {
-      if (next.enabled !== patch.enabled) timerChanged = true;
-      next.enabled = patch.enabled;
-    }
-    if (patch.intervalMinutes !== undefined) {
-      const mins = Number(patch.intervalMinutes);
-      if (!VALID_INTERVAL_MINUTES.includes(mins)) {
-        return { ok: false, error: 'INVALID_INTERVAL', status: this.status() };
-      }
-      if (next.intervalMinutes !== mins) timerChanged = true;
-      next.intervalMinutes = mins;
-    }
-    if (patch.tierAMode !== undefined) {
-      if (patch.tierAMode !== 'dry_run' && patch.tierAMode !== 'auto_execute') {
-        return { ok: false, error: 'INVALID_TIER_A_MODE', status: this.status() };
-      }
-      next.tierAMode = patch.tierAMode;
-    }
-    if (typeof patch.autoCreateLinearTicket === 'boolean') {
-      next.autoCreateLinearTicket = patch.autoCreateLinearTicket;
-    }
-    if (patch.regressionWindowHours !== undefined) {
-      const hrs = Number(patch.regressionWindowHours);
-      if (!Number.isFinite(hrs) || hrs < 1 || hrs > 720) {
-        return { ok: false, error: 'INVALID_REGRESSION_WINDOW', status: this.status() };
-      }
-      next.regressionWindowHours = Math.floor(hrs);
-    }
-    if (patch.enabledSources && typeof patch.enabledSources === 'object') {
-      const nextSources = { ...next.enabledSources };
-      for (const kind of FLYWHEEL_SIGNAL_KINDS) {
-        if (typeof patch.enabledSources[kind] === 'boolean') {
-          nextSources[kind] = patch.enabledSources[kind];
-        }
-      }
-      next.enabledSources = nextSources;
-    }
-
-    const nowIso = this._nowIso();
-    next.updatedAt = nowIso;
-    this._state.config = next;
-    this._state.updatedAt = nowIso;
-    this._state.nextScheduledAt = new Date(
-      this.now() + next.intervalMinutes * 60_000,
-    ).toISOString();
-
-    for (const kind of FLYWHEEL_SIGNAL_KINDS) {
-      if (this._state.components[kind]) {
-        this._state.components[kind].enabled = Boolean(next.enabledSources[kind]);
-      }
-    }
-
-    if (timerChanged && this._timer !== null) {
+    const res = applyFlywheelConfigPatch(this._state, patch, this.now());
+    if (!res.ok) return { ok: false, error: res.error, status: this.status() };
+    if (res.timerChanged && this._timer !== null) {
       this.startTimer();
     }
-
     await this._persistState();
     const snap = this.status();
     this.onChange?.(snap);

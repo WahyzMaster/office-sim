@@ -10,7 +10,9 @@ import { fileURLToPath } from 'node:url';
 import { auditDomHealth } from '../src/flywheel/dom-audit.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const audit = auditDomHealth(ROOT);
+// Vendored third-party files (three.js, byte-pinned by test/vendor-assets.test.mjs): never line-counted.
+const THIRD_PARTY_DIRS = ['public/vendor'];
+const audit = auditDomHealth(ROOT, { thirdPartyDirs: THIRD_PARTY_DIRS });
 
 const violations = [
   ...audit.violations,
