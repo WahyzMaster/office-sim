@@ -68,3 +68,7 @@ npm-debug.log*
 *.swo
 *~
 
+# Agent worktree, CodeGraph & conductor state
+.workflow-state.json
+LOOP_CONTRACT.md
+.archify/
