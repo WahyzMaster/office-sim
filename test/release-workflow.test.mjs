@@ -52,7 +52,8 @@ test('publish.yml publishes, pushes and releases only when dry_run is false', ()
   assert.match(jobs, /\n {6}- run: npm test\n/);
   assert.match(jobs, /\n {6}- run: npm pack --dry-run\n/);
   const version = named('Determine version bump from git changes');
-  assert.match(version, /if \[ "\$\{\{ inputs\.dry_run \}\}" = "true" \]; then/);
+  assert.match(version, /DRY_RUN: \$\{\{ inputs\.dry_run \}\}/);
+  assert.match(version, /if \[ "\$DRY_RUN" = "true" \]; then/);
   assert.match(version, /npm version "\$BUMP" --no-git-tag-version/);
   assert.match(version, /npm version "\$BUMP" -m "chore\(release\): v%s \[skip ci\]"/);
   assert.match(version, /BUMP="manual"/);
@@ -98,7 +99,8 @@ test('publish.yml: the auto-bump release commit carries the plugin manifest, and
     assert.equal(hits.length, 1, `${what}: exactly once in the version step`);
     return hits[0];
   };
-  const dryIf = once('if [ "${{ inputs.dry_run }}" = "true" ]; then');
+  const dryEnv = once('DRY_RUN: ${{ inputs.dry_run }}');
+  const dryIf = once('if [ "$DRY_RUN" = "true" ]; then');
   const dryBump = once('NEW_VER=$(npm version "$BUMP" --no-git-tag-version)');
   const realElse = lines.indexOf('else', dryIf);
   const realBump = once('NEW_VER=$(npm version "$BUMP" -m "chore(release): v%s [skip ci]")');
@@ -106,7 +108,7 @@ test('publish.yml: the auto-bump release commit carries the plugin manifest, and
   const add = once('git add plugin/.claude-plugin/plugin.json');
   const amend = once('git commit --amend --no-edit');
   const tag = once('git tag -f -a "$NEW_VER" -m "chore(release): $NEW_VER [skip ci]"');
-  assert.ok(dryIf < dryBump && dryBump < realElse && realElse < realBump, 'the dry-run branch, then the real one');
+  assert.ok(dryEnv < dryIf && dryIf < dryBump && dryBump < realElse && realElse < realBump, 'the dry-run branch, then the real one');
   assert.deepEqual([manifest, add, amend, tag], [realBump + 1, realBump + 2, realBump + 3, realBump + 4], 'directly after the bump, in this order');
   assert.equal(lines[tag + 1], 'fi', 'they end the real-release branch');
   // the manifest line names both files and takes the version from package.json, not from a shell or workflow value
@@ -127,10 +129,10 @@ test('publish.yml: the auto-bump release commit carries the plugin manifest, and
 test('pages.yml builds the demo site with scripts/build-demo.mjs on Node 24', () => {
   const wf = code(read('.github/workflows/pages.yml'));
   assert.match(wf, /run: node scripts\/build-demo\.mjs --out _site\n/);
-  assert.match(wf, /uses: actions\/setup-node@v\d+\n\s+with:\n\s+node-version: 24\n/);
+  assert.match(wf, /uses: actions\/setup-node@[0-9a-f]{40}(?: # v\d[^\n]*)?\n\s+with:\n\s+node-version: 24\n/);
   assert.ok(wf.indexOf('actions/checkout@') < wf.indexOf('actions/setup-node@'), 'checkout first');
-  assert.ok(wf.indexOf('actions/setup-node@') < wf.indexOf('scripts/build-demo.mjs'), 'Node before the build');
-  assert.ok(wf.indexOf('scripts/build-demo.mjs') < wf.indexOf('actions/upload-pages-artifact@'), 'build before upload');
-  assert.match(wf, /uses: actions\/upload-pages-artifact@v\d+\n\s+with:\n\s+path: _site\n/);
+  assert.ok(wf.indexOf('actions/setup-node@') < wf.indexOf('node scripts/build-demo.mjs'), 'Node before the build');
+  assert.ok(wf.indexOf('node scripts/build-demo.mjs') < wf.indexOf('actions/upload-pages-artifact@'), 'build before upload');
+  assert.match(wf, /uses: actions\/upload-pages-artifact@[0-9a-f]{40}(?: # v\d[^\n]*)?\n\s+with:\n\s+path: _site\n/);
   assert.doesNotMatch(wf, /cp -R public|cp _site\/office\.html/, 'the bare fragment is no longer copied as index.html');
 });
